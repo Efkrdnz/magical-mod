@@ -113,6 +113,9 @@ public final class MagicalClientEvents {
         event.register(
                 net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "chronos_end"),
                 new ChronosSkyEffects());
+        event.register(
+                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "tower_liminal"),
+                new LiminalSkyEffects());
     }
 
     @SubscribeEvent
