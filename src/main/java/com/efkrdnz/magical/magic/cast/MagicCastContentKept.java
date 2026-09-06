@@ -64,6 +64,12 @@ public final class MagicCastContentKept {
                         "screen.magical.tuning.firing_cadence", "screen.magical.tuning.domain_radius", null);
             }
         });
+        SkillCastRegistry.register(MagicContent.FLARE_RING, new SkillCastHandler() {
+            @Override
+            public CastResult cast(CastContext ctx) {
+                return MagicCastingService.legacyFlareRing(ctx.player(), ctx.stats());
+            }
+        });
         SkillCastRegistry.register(MagicContent.DIVINE_DIVIDER, new SkillCastHandler() {
             @Override
             public CastResult cast(CastContext ctx) {

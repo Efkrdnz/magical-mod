@@ -2,6 +2,7 @@ package com.efkrdnz.magical.client;
 
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.client.renderer.DivineDividerWaveRenderer;
+import com.efkrdnz.magical.client.renderer.FlareTriangleRenderer;
 import com.efkrdnz.magical.client.renderer.MagicBarrageBeamRenderer;
 import com.efkrdnz.magical.client.renderer.MagicBarrageFieldRenderer;
 import com.efkrdnz.magical.client.renderer.MagicBarrageShotRenderer;
@@ -141,6 +142,7 @@ public final class MagicalClientEvents {
         event.registerEntityRenderer(MagicalEntities.MAGIC_OPPONENT.get(), MagicOpponentRenderer::new);
         event.registerEntityRenderer(MagicalEntities.BLACK_FLAME_PROJECTILE.get(), BlackFlameProjectileRenderer::new);
         event.registerEntityRenderer(MagicalEntities.DIVINE_DIVIDER_WAVE.get(), DivineDividerWaveRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.FLARE_TRIANGLE.get(), FlareTriangleRenderer::new);
         event.registerEntityRenderer(MagicalEntities.MAGIC_BARRAGE_FIELD.get(), MagicBarrageFieldRenderer::new);
         event.registerEntityRenderer(MagicalEntities.MAGIC_BARRAGE_SHOT.get(), MagicBarrageShotRenderer::new);
         event.registerEntityRenderer(MagicalEntities.MAGIC_BARRAGE_BEAM.get(), MagicBarrageBeamRenderer::new);

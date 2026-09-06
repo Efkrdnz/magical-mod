@@ -923,5 +923,8 @@
   "skill.magical.divine_divider.desc": "A sword-only divine cut that releases a massive long-range white shockwave. The slash travels forward like severing wind and hits each target once.",
   "message.magical.circle_arsenal_hold": "Hold the direct slot key to expand Circle Arsenal.",
   "message.magical.circle_arsenal_sealed": "Circle Arsenal rejects teleportation.",
-  "message.magical.divine_divider_requires_sword": "Divine Divider requires a sword in your main hand."
+  "message.magical.divine_divider_requires_sword": "Divine Divider requires a sword in your main hand.",
+  "skill.magical.flare_ring": "Flare Ring",
+  "skill.magical.flare_ring.desc": "Mark up to three ground points with fire eruptions. Two points form a burning wall; three complete a searing triangle that traps and cooks enemies inside.",
+  "message.magical.flare_ring_no_ground": "Flare Ring needs a solid ground point in sight."
 }

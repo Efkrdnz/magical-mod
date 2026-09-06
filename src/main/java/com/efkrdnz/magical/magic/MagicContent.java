@@ -61,6 +61,7 @@ public final class MagicContent {
     public static final MagicSkillDefinition MAGMA_VENT = register("magma_vent", MagicSchool.FIRE, MagicSkillType.BURST, 2, 3, 12.0F, 1.15F, 1.6F, 34, 140, 80, 0.4F, 0, 0xFF5A1C);
     public static final MagicSkillDefinition ASH_EFFIGY = register("ash_effigy", MagicSchool.FIRE, MagicSkillType.PROJECTILE, 3, 5, 19.0F, 1.1F, 2.2F, 48, 240, 100, 0.6F, 0, 0x9A8A80);
     public static final MagicSkillDefinition CRUCIBLE = register("crucible", MagicSchool.FIRE, MagicSkillType.BURST, 4, 5, 30.0F, 0.0F, 6.0F, 96, 1200, 200, 1.2F, 0, 0xFF3C10);
+    public static final MagicSkillDefinition FLARE_RING = register("flare_ring", MagicSchool.FIRE, MagicSkillType.BURST, 1, 1, 7.8F, 0.0F, 2.0F, 24, 36, 12, 0.5F, 0, 0xFFB15A);
     // --- WATER ---
     public static final MagicSkillDefinition RIP_CURRENT = register("rip_current", MagicSchool.WATER, MagicSkillType.BURST, 0, 0, 1.5F, 0.28F, 1.8F, 14, 24, 60, 0.0F, 0, 0x3FB8E8);
     public static final MagicSkillDefinition RIME_SNAP = register("rime_snap", MagicSchool.WATER, MagicSkillType.BURST, 0, 0, 5.0F, 0.0F, 2.4F, 14, 30, 25, 0.0F, 0, 0xCFF4FF);

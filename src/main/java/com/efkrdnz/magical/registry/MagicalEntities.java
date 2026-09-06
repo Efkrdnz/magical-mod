@@ -2,6 +2,7 @@ package com.efkrdnz.magical.registry;
 
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.entity.DivineDividerWaveEntity;
+import com.efkrdnz.magical.entity.FlareTriangleEntity;
 import com.efkrdnz.magical.entity.MagicBarrageBeamEntity;
 import com.efkrdnz.magical.entity.MagicBarrageFieldEntity;
 import com.efkrdnz.magical.entity.MagicBarrageShotEntity;
@@ -313,6 +314,15 @@ public final class MagicalEntities {
                     .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
                     .updateInterval(1)
                     .build(key("magic_barrage_beam")));
+
+
+    public static final DeferredHolder<EntityType<?>, EntityType<FlareTriangleEntity>> FLARE_TRIANGLE = ENTITY_TYPES.register(
+            "flare_triangle",
+            () -> EntityType.Builder.<FlareTriangleEntity>of(FlareTriangleEntity::new, MobCategory.MISC)
+                    .sized(34.0F, 8.0F)
+                    .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
+                    .updateInterval(1)
+                    .build(key("flare_triangle")));
 
     public static void register(IEventBus modEventBus) {
         ENTITY_TYPES.register(modEventBus);

@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.magic;
 
 import com.efkrdnz.magical.entity.DivineDividerWaveEntity;
+import com.efkrdnz.magical.entity.FlareTriangleEntity;
 import com.efkrdnz.magical.entity.AbyssalDischargeEntity;
 import com.efkrdnz.magical.entity.BlackFlameProjectileEntity;
 import com.efkrdnz.magical.entity.DimensionalGuillotineEntity;
@@ -403,6 +404,51 @@ public final class MagicCastingService {
     }
 
     /** Kept-skill bridge: Abyssal Discharge's original cast, callable from its registry handler. */
+    /**
+     * Flare Ring places up to three ground points; two make a burning wall, three close the triangle.
+     * Placing a point spends mana but starts no cooldown, which {@link CastResult} already expresses,
+     * so the old three-state result record is gone.
+     */
+    public static com.efkrdnz.magical.magic.cast.CastResult legacyFlareRing(ServerPlayer player, MagicSkillResolvedStats stats) {
+        ServerLevel level = player.serverLevel();
+        Vec3 eye = player.getEyePosition();
+        Vec3 end = eye.add(player.getLookAngle().normalize().scale(32.0D + stats.size() * 2.5D));
+        BlockHitResult hit = level.clip(new ClipContext(eye, end, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
+        if (hit.getType() == HitResult.Type.MISS) {
+            player.displayClientMessage(Component.translatable("message.magical.flare_ring_no_ground"), true);
+            return com.efkrdnz.magical.magic.cast.CastResult.FAILED;
+        }
+
+        Vec3 point = hit.getLocation().add(0.0D, 0.06D, 0.0D);
+        FlareTriangleEntity active = activeFlareTriangle(level, player);
+        boolean completed;
+        if (active == null) {
+            active = FlareTriangleEntity.create(level, player, stats, point);
+            level.addFreshEntity(active);
+            completed = false;
+        } else {
+            completed = active.addPoint(point);
+        }
+
+        spawnCastingCircle(level, player, stats, 1.85F + stats.size() * 0.45F, 18, true);
+        if (completed) {
+            level.playSound(null, player.blockPosition(), SoundEvents.RESPAWN_ANCHOR_CHARGE, SoundSource.PLAYERS, 0.85F, 0.58F);
+            level.playSound(null, player.blockPosition(), SoundEvents.BLAZE_SHOOT, SoundSource.PLAYERS, 0.92F, 0.44F);
+            MagicalNetwork.playFirstPersonImpact(player, 0xFF641F, 12, 0.25F, 5, 0.28F, 0, 1.5F);
+        }
+        return completed
+                ? com.efkrdnz.magical.magic.cast.CastResult.SUCCESS
+                : com.efkrdnz.magical.magic.cast.CastResult.CONSUMED_NO_COOLDOWN;
+    }
+
+    private static FlareTriangleEntity activeFlareTriangle(ServerLevel level, ServerPlayer player) {
+        AABB search = player.getBoundingBox().inflate(48.0D);
+        for (FlareTriangleEntity triangle : level.getEntitiesOfClass(FlareTriangleEntity.class, search, entity -> player.getUUID().equals(entity.ownerUuid()) && entity.pointCount() < 3)) {
+            return triangle;
+        }
+        return null;
+    }
+
     /** Sword-gated divine cut. Kept as a legacy body so the registry handler stays a thin wrapper. */
     public static boolean legacyDivineDivider(ServerPlayer player, MagicSkillResolvedStats stats) {
         if (!(player.getMainHandItem().getItem() instanceof SwordItem)) {
