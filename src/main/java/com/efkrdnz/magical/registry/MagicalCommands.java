@@ -445,7 +445,7 @@ public final class MagicalCommands {
                                                         data.sync(player);
                                                         player.displayClientMessage(Component.translatable("message.magical.class_xp_added", amount, Component.translatable(definition.nameKey())), false);
                                                         return 1;
-                                                    }))))
+                                                    })))))
                             .then(Commands.literal("maxxp")
                                     .executes(context -> withPlayer(context.getSource(), player -> grantTestClassXp(player, TEST_CLASS_XP)))
                                     .then(Commands.argument("amount", IntegerArgumentType.integer(1))
@@ -479,7 +479,7 @@ public final class MagicalCommands {
                                         data.sync(player);
                                         player.displayClientMessage(Component.literal("Unlocked " + taken + " classes with every reward skill and passive."), false);
                                         return taken;
-                                    })))));
+                                    }))));
 
             LiteralArgumentBuilder<CommandSourceStack> debugRoot = Commands.literal("magical-debug")
                     .requires(source -> source.hasPermission(2))

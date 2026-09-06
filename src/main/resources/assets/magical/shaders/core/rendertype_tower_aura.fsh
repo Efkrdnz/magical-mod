@@ -61,14 +61,14 @@ void main() {
     vec2 cellUv = vec2(uv.x * 9.0 + hash(vec2(row, 7.1)) * 4.0, uv.y * 22.0);
     vec2 cell = floor(cellUv);
     float gate = hash(cell + floor(time * 0.35));
-    float active = step(0.94, gate);
+    float gateOpen = step(0.94, gate);
     vec2 local = fract(cellUv) - 0.5;
     float tear = fbm(uv * vec2(21.0, 34.0) + gate * 37.0 + time * 0.09);
     float dist = max(0.0, length(local) + (tear - 0.5) * 0.6);
     float life = fract(time * 0.35 + gate * 5.0);
     float shockwave = exp(-abs(dist - life * 0.8) * 9.0) * (1.0 - life) * (1.0 - life);
     float core = exp(-dist * 7.0) * max(0.0, 1.0 - life * 1.6);
-    float surge = active * clamp(shockwave + core, 0.0, 1.4);
+    float surge = gateOpen * clamp(shockwave + core, 0.0, 1.4);
 
     vec3 abyss = vec3(0.05, 0.012, 0.10);
     vec3 violet = vec3(0.30, 0.11, 0.58);
@@ -80,8 +80,8 @@ void main() {
     color += violet * (0.30 + haze * 0.62);
     color += arcane * vein * (0.85 + surge * 1.6);
     color += arcane * ring * 0.75;
-    color += emberRed * active * shockwave * 1.1;
-    color += whiteHot * active * core * 0.95;
+    color += emberRed * gateOpen * shockwave * 1.1;
+    color += whiteHot * gateOpen * core * 0.95;
     color += violet * smoothstep(0.62, 0.95, hazeB) * 0.30;
 
     // Aura, not a wall: low base opacity that spikes where the energy does.

@@ -117,11 +117,9 @@ float bellEnvelope(float phase, float inEnd, float outStart) {
     return smoothstep(0.0, inEnd, phase) * (1.0 - smoothstep(outStart, 1.0, phase));
 }
 
-// Anti-aliased stroke: 1 inside |d| < w, soft over one pixel.
-float strokeAA(float d, float w) {
-    float aa = fwidth(d) * 1.2;
-    return 1.0 - smoothstep(w - aa, w + aa, abs(d));
-}
+// strokeAA lives in magic_frag.glsl: it calls fwidth, which the GLSL spec allows only in fragment
+// shaders. Both stages import this file, so a derivative call here fails to compile every vertex
+// shader on a strict driver (Intel, AMD) even though NVIDIA lets it through.
 
 float glowOf(float d, float k) {
     return exp(-max(d, 0.0) * k);

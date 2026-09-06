@@ -1,6 +1,7 @@
 #version 150
 
 #moj_import <magical:magic_common.glsl>
+#moj_import <magical:magic_frag.glsl>
 
 uniform sampler2D Sampler0;
 uniform vec4 ColorModulator;
