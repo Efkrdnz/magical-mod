@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.magic;
 
+import com.efkrdnz.magical.entity.DivineDividerWaveEntity;
 import com.efkrdnz.magical.entity.AbyssalDischargeEntity;
 import com.efkrdnz.magical.entity.BlackFlameProjectileEntity;
 import com.efkrdnz.magical.entity.DimensionalGuillotineEntity;
@@ -402,6 +403,23 @@ public final class MagicCastingService {
     }
 
     /** Kept-skill bridge: Abyssal Discharge's original cast, callable from its registry handler. */
+    /** Sword-gated divine cut. Kept as a legacy body so the registry handler stays a thin wrapper. */
+    public static boolean legacyDivineDivider(ServerPlayer player, MagicSkillResolvedStats stats) {
+        if (!(player.getMainHandItem().getItem() instanceof SwordItem)) {
+            player.displayClientMessage(Component.translatable("message.magical.divine_divider_requires_sword"), true);
+            return false;
+        }
+        ServerLevel level = player.serverLevel();
+        DivineDividerWaveEntity wave = new DivineDividerWaveEntity(level, player, stats);
+        level.addFreshEntity(wave);
+        level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.0F, 0.45F);
+        level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.PLAYERS, 0.82F, 0.62F);
+        level.playSound(null, player.blockPosition(), SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 0.72F, 1.82F);
+        level.playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.88F, 1.35F);
+        MagicalNetwork.playFirstPersonImpact(player, 0xF8FCFF, 14, 0.28F, 8, 0.34F, 1, 3.0F);
+        return true;
+    }
+
     public static boolean legacyAbyssalDischarge(ServerPlayer player, MagicSkillResolvedStats stats) {
         return castAbyssalDischarge(player, stats);
     }

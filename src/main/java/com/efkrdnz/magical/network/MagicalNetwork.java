@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.network;
 
 import com.efkrdnz.magical.arcane.ArcanePlayerData;
+import com.efkrdnz.magical.magic.MagicBarrageService;
 import com.efkrdnz.magical.magic.MagicCounterService;
 import com.efkrdnz.magical.magic.MagicCastingService;
 import com.efkrdnz.magical.magic.MagicCodexService;
@@ -36,6 +37,12 @@ public final class MagicalNetwork {
                         context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToClient(StatusSyncPayload.TYPE, StatusSyncPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> handleClientPayload(payload)))
+                .playToServer(MagicBarrageHoldPayload.TYPE, MagicBarrageHoldPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> {
+                            if (context.player() instanceof ServerPlayer player) {
+                                MagicBarrageService.handleHold(player, payload.slot(), payload.release(), payload.chargeTicks());
+                            }
+                        }))
                 .playToServer(CastHoldPayload.TYPE, CastHoldPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> {
                             if (context.player() instanceof ServerPlayer player) {
@@ -275,4 +282,9 @@ public final class MagicalNetwork {
     public static void sendClassEvolveRequest(ResourceLocation classId) {
         PacketDistributor.sendToServer(new ClassActionPayload(classId, ClassActionPayload.EVOLVE));
     }
+
+    public static void sendMagicBarrageHold(int slot, boolean release, int chargeTicks) {
+        PacketDistributor.sendToServer(new MagicBarrageHoldPayload(slot, release, chargeTicks));
+    }
+
 }

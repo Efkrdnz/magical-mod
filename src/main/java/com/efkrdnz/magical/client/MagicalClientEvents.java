@@ -1,6 +1,10 @@
 package com.efkrdnz.magical.client;
 
 import com.efkrdnz.magical.MagicalMod;
+import com.efkrdnz.magical.client.renderer.DivineDividerWaveRenderer;
+import com.efkrdnz.magical.client.renderer.MagicBarrageBeamRenderer;
+import com.efkrdnz.magical.client.renderer.MagicBarrageFieldRenderer;
+import com.efkrdnz.magical.client.renderer.MagicBarrageShotRenderer;
 import com.efkrdnz.magical.client.renderer.AbyssalDischargeRenderer;
 import com.efkrdnz.magical.client.renderer.AstralGateRenderer;
 import com.efkrdnz.magical.client.renderer.AstralGateSpecialRenderer;
@@ -136,6 +140,10 @@ public final class MagicalClientEvents {
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(MagicalEntities.MAGIC_OPPONENT.get(), MagicOpponentRenderer::new);
         event.registerEntityRenderer(MagicalEntities.BLACK_FLAME_PROJECTILE.get(), BlackFlameProjectileRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.DIVINE_DIVIDER_WAVE.get(), DivineDividerWaveRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.MAGIC_BARRAGE_FIELD.get(), MagicBarrageFieldRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.MAGIC_BARRAGE_SHOT.get(), MagicBarrageShotRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.MAGIC_BARRAGE_BEAM.get(), MagicBarrageBeamRenderer::new);
         event.registerEntityRenderer(MagicalEntities.BLACK_FLAME_FIELD.get(), BlackFlameFieldRenderer::new);
         event.registerEntityRenderer(MagicalEntities.BLACK_FLAME_ARC.get(), BlackFlameArcRenderer::new);
         event.registerEntityRenderer(MagicalEntities.BLACK_FLAME_BRAND.get(), BlackFlameBrandRenderer::new);
@@ -195,6 +203,12 @@ public final class MagicalClientEvents {
             ClientStatusState.tick(minecraft);
             GenericHoldInput.tick(minecraft);
             for (int i = 0; i < MagicalKeyMappings.CAST_SLOTS.length; i++) {
+                if (MagicBarrageInput.tickSlot(minecraft, i)) {
+                    while (MagicalKeyMappings.CAST_SLOTS[i].consumeClick()) {
+                        // Circle Arsenal uses hold/release instead of press-to-cast.
+                    }
+                    continue;
+                }
                 if (SpaceAuthorityInput.tickSlot(minecraft, i)) {
                     while (MagicalKeyMappings.CAST_SLOTS[i].consumeClick()) {
                         // Authority skills use hold/release instead of press-to-cast.
@@ -296,6 +310,7 @@ public final class MagicalClientEvents {
             if (minecraft.options.hideGui) {
                 return;
             }
+            MagicBarrageInput.renderPreview(event, minecraft);
             PlayerMagicState data = ClientMagicState.get();
             float partialTick = event.getPartialTick().getGameTimeDeltaPartialTick(false);
             boolean activeFlight = data.isPassiveEnabled(MagicPassiveContent.MANA_FLIGHT.id()) && minecraft.player.getAbilities().flying;

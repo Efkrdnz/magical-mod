@@ -53,6 +53,7 @@ public final class MagicContent {
     public static final MagicSkillDefinition ARCANE_EXILE = register("arcane_exile", MagicSchool.ARCANE, MagicSkillType.BURST, 2, 3, 12.0F, 1.0F, 1.0F, 30, 90, 60, 0.3F, 0, 0xA9B3FF);
     public static final MagicSkillDefinition PUPPET_SIGIL = register("puppet_sigil", MagicSchool.ARCANE, MagicSkillType.BURST, 3, 5, 12.0F, 1.35F, 1.0F, 48, 220, 60, 0.3F, 0, 0x9C8CFF);
     public static final MagicSkillDefinition ECHOES_OF_PASSAGE = register("echoes_of_passage", MagicSchool.ARCANE, MagicSkillType.BURST, 4, 5, 20.0F, 0.0F, 1.4F, 96, 1300, 140, 0.7F, 0, 0xC9A6FF);
+    public static final MagicSkillDefinition CIRCLE_ARSENAL = register("circle_arsenal", MagicSchool.ARCANE, MagicSkillType.BURST, 4, 5, 8.0F, 1.35F, 1.0F, 28, 900, 20, 0.15F, 0, 0x8E7BFF, MagicAttribute.ARCANE);
     // --- FIRE ---
     public static final MagicSkillDefinition SMOKESTACK = register("smokestack", MagicSchool.FIRE, MagicSkillType.BURST, 0, 0, 1.0F, 0.0F, 3.0F, 12, 140, 100, 0.0F, 0, 0x4A2E24);
     public static final MagicSkillDefinition SLAG_ROLLER = register("slag_roller", MagicSchool.FIRE, MagicSkillType.PROJECTILE, 0, 0, 5.0F, 0.55F, 1.2F, 14, 70, 80, 0.6F, 0, 0xD8471A);
@@ -74,6 +75,7 @@ public final class MagicContent {
     public static final MagicSkillDefinition CLEANSING_RAY = register("cleansing_ray", MagicSchool.LIGHT, MagicSkillType.BURST, 2, 3, 7.0F, 0.0F, 2.0F, 28, 80, 100, 0.2F, 0, 0xFFF1B8, MagicAttribute.DIVINE);
     public static final MagicSkillDefinition PRISM_CASCADE = register("prism_cascade", MagicSchool.LIGHT, MagicSkillType.BURST, 3, 5, 22.0F, 0.0F, 1.1F, 48, 120, 30, 0.4F, 0, 0xFFD873, MagicAttribute.DIVINE);
     public static final MagicSkillDefinition HEAVENS_GAZE = register("heavens_gaze", MagicSchool.LIGHT, MagicSkillType.BURST, 4, 5, 6.0F, 0.35F, 2.6F, 96, 1200, 120, 0.3F, 0, 0xFFE04A, MagicAttribute.DIVINE);
+    public static final MagicSkillDefinition DIVINE_DIVIDER = register("divine_divider", MagicSchool.LIGHT, MagicSkillType.BURST, 3, 4, 36.0F, 1.35F, 3.1F, 78, 1200, 52, 1.0F, 0, 0xF8FCFF);
     // --- VOID ---
     public static final MagicSkillDefinition HOLLOW_MAW = register("hollow_maw", MagicSchool.VOID, MagicSkillType.BURST, 0, 0, 5.0F, 0.0F, 1.0F, 14, 40, 12, 0.25F, 0, 0x5A1C6E, MagicAttribute.DARK);
     public static final MagicSkillDefinition HUSHWING = register("hushwing", MagicSchool.VOID, MagicSkillType.PROJECTILE, 0, 0, 0.45F, 0.32F, 1.0F, 16, 90, 120, 0.0F, 0, 0x7B6AA8, MagicAttribute.DARK);

@@ -45,6 +45,7 @@ public final class PlayerMagicState {
     private int anchorSigilTicks;
     private int mirrorDecoyEntityId = -1;
     private int nullThreadEntityId = -1;
+    private int activeMagicBarrageEntityId = -1;
     private int blackFlamesImbueTicks;
     private float blackFlamesImbueDamage;
     private float blackFlamesImbueKnockback;
@@ -198,6 +199,14 @@ public final class PlayerMagicState {
 
     public int nullThreadEntityId() {
         return nullThreadEntityId;
+    }
+
+    public int activeMagicBarrageEntityId() {
+        return activeMagicBarrageEntityId;
+    }
+
+    public void setActiveMagicBarrageEntityId(int entityId) {
+        activeMagicBarrageEntityId = entityId;
     }
 
     public int blackFlamesImbueTicks() {
@@ -1354,6 +1363,7 @@ public final class PlayerMagicState {
         copy.anchorSigilTicks = anchorSigilTicks;
         copy.mirrorDecoyEntityId = mirrorDecoyEntityId;
         copy.nullThreadEntityId = nullThreadEntityId;
+        copy.activeMagicBarrageEntityId = activeMagicBarrageEntityId;
         copy.blackFlamesImbueTicks = blackFlamesImbueTicks;
         copy.blackFlamesImbueDamage = blackFlamesImbueDamage;
         copy.blackFlamesImbueKnockback = blackFlamesImbueKnockback;
@@ -1419,6 +1429,7 @@ public final class PlayerMagicState {
         tag.putInt("anchorSigilTicks", anchorSigilTicks);
         tag.putInt("mirrorDecoyEntityId", mirrorDecoyEntityId);
         tag.putInt("nullThreadEntityId", nullThreadEntityId);
+        tag.putInt("activeMagicBarrageEntityId", activeMagicBarrageEntityId);
         tag.putInt("blackFlamesImbueTicks", blackFlamesImbueTicks);
         tag.putFloat("blackFlamesImbueDamage", blackFlamesImbueDamage);
         tag.putFloat("blackFlamesImbueKnockback", blackFlamesImbueKnockback);
@@ -1547,6 +1558,7 @@ public final class PlayerMagicState {
         state.anchorSigilTicks = Math.max(0, tag.getInt("anchorSigilTicks"));
         state.mirrorDecoyEntityId = tag.contains("mirrorDecoyEntityId") ? tag.getInt("mirrorDecoyEntityId") : -1;
         state.nullThreadEntityId = tag.contains("nullThreadEntityId") ? tag.getInt("nullThreadEntityId") : -1;
+        state.activeMagicBarrageEntityId = tag.contains("activeMagicBarrageEntityId") ? tag.getInt("activeMagicBarrageEntityId") : -1;
         state.blackFlamesImbueTicks = Math.max(0, tag.getInt("blackFlamesImbueTicks"));
         state.blackFlamesImbueDamage = Math.max(0.0F, tag.getFloat("blackFlamesImbueDamage"));
         state.blackFlamesImbueKnockback = Math.max(0.0F, tag.getFloat("blackFlamesImbueKnockback"));

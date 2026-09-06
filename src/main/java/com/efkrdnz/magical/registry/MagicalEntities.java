@@ -1,6 +1,10 @@
 package com.efkrdnz.magical.registry;
 
 import com.efkrdnz.magical.MagicalMod;
+import com.efkrdnz.magical.entity.DivineDividerWaveEntity;
+import com.efkrdnz.magical.entity.MagicBarrageBeamEntity;
+import com.efkrdnz.magical.entity.MagicBarrageFieldEntity;
+import com.efkrdnz.magical.entity.MagicBarrageShotEntity;
 import com.efkrdnz.magical.entity.AbyssalDischargeEntity;
 import com.efkrdnz.magical.entity.BlackFlameArcEntity;
 import com.efkrdnz.magical.entity.BlackFlameBrandEntity;
@@ -276,6 +280,39 @@ public final class MagicalEntities {
                     .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
                     .updateInterval(4)
                     .build(key("wrenched_item")));
+
+
+    public static final DeferredHolder<EntityType<?>, EntityType<DivineDividerWaveEntity>> DIVINE_DIVIDER_WAVE = ENTITY_TYPES.register(
+            "divine_divider_wave",
+            () -> EntityType.Builder.<DivineDividerWaveEntity>of(DivineDividerWaveEntity::new, MobCategory.MISC)
+                    .sized(18.0F, 100.5F)
+                    .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
+                    .updateInterval(1)
+                    .build(key("divine_divider_wave")));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<MagicBarrageFieldEntity>> MAGIC_BARRAGE_FIELD = ENTITY_TYPES.register(
+            "magic_barrage_field",
+            () -> EntityType.Builder.<MagicBarrageFieldEntity>of(MagicBarrageFieldEntity::new, MobCategory.MISC)
+                    .sized(48.0F, 48.0F)
+                    .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
+                    .updateInterval(1)
+                    .build(key("magic_barrage_field")));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<MagicBarrageShotEntity>> MAGIC_BARRAGE_SHOT = ENTITY_TYPES.register(
+            "magic_barrage_shot",
+            () -> EntityType.Builder.<MagicBarrageShotEntity>of(MagicBarrageShotEntity::new, MobCategory.MISC)
+                    .sized(0.5F, 0.5F)
+                    .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
+                    .updateInterval(1)
+                    .build(key("magic_barrage_shot")));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<MagicBarrageBeamEntity>> MAGIC_BARRAGE_BEAM = ENTITY_TYPES.register(
+            "magic_barrage_beam",
+            () -> EntityType.Builder.<MagicBarrageBeamEntity>of(MagicBarrageBeamEntity::new, MobCategory.MISC)
+                    .sized(4.5F, 4.5F)
+                    .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
+                    .updateInterval(1)
+                    .build(key("magic_barrage_beam")));
 
     public static void register(IEventBus modEventBus) {
         ENTITY_TYPES.register(modEventBus);

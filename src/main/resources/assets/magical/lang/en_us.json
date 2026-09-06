@@ -916,5 +916,12 @@
   "space.magical.preset_hint": "1-9 load a preset  -  Shift + 1-9 saves the current rule",
   "space.magical.preset_saved": "Saved preset %s: %s",
   "space.magical.preset_loaded": "Loaded preset %s: %s",
-  "space.magical.preset_empty": "Preset %s is empty"
+  "space.magical.preset_empty": "Preset %s is empty",
+  "skill.magical.circle_arsenal": "Circle Arsenal",
+  "skill.magical.circle_arsenal.desc": "A Tier 5 sustained arcane arsenal. Hold to preview and expand a spherical domain, release to deploy inward-facing circles, and press again to dismiss. The field drains mana and fires reduced-power copies of owned offensive skills at targets inside.",
+  "skill.magical.divine_divider": "Divine Divider",
+  "skill.magical.divine_divider.desc": "A sword-only divine cut that releases a massive long-range white shockwave. The slash travels forward like severing wind and hits each target once.",
+  "message.magical.circle_arsenal_hold": "Hold the direct slot key to expand Circle Arsenal.",
+  "message.magical.circle_arsenal_sealed": "Circle Arsenal rejects teleportation.",
+  "message.magical.divine_divider_requires_sword": "Divine Divider requires a sword in your main hand."
 }

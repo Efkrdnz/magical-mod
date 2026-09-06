@@ -40,6 +40,47 @@ public final class MagicCastContentKept {
         SkillCastRegistry.register(MagicContent.BLACK_FLAMES, SkillCastRegistry.holdHint("message.magical.black_flames_hold"));
         SkillCastRegistry.register(MagicContent.SPATIAL_ARSENAL, SkillCastRegistry.holdHint("message.magical.spatial_arsenal_hold"));
         SkillCastRegistry.register(MagicContent.SOUL_VOW, SkillCastRegistry.holdHint("message.magical.soul_vow_hold"));
+        // Circle Arsenal is hold/release like Gabriel and Black Flames: the press only hints.
+        SkillCastRegistry.register(MagicContent.CIRCLE_ARSENAL, new SkillCastHandler() {
+            @Override
+            public CastResult cast(CastContext ctx) {
+                ctx.player().displayClientMessage(Component.translatable("message.magical.circle_arsenal_hold"), true);
+                return CastResult.HANDLED;
+            }
+
+            @Override
+            public boolean holdGated() {
+                return true;
+            }
+
+            @Override
+            public String holdHintKey() {
+                return "message.magical.circle_arsenal_hold";
+            }
+
+            @Override
+            public TuningView tuning() {
+                return TuningView.DEFAULT.labels("screen.magical.tuning.volley_force",
+                        "screen.magical.tuning.firing_cadence", "screen.magical.tuning.domain_radius", null);
+            }
+        });
+        SkillCastRegistry.register(MagicContent.DIVINE_DIVIDER, new SkillCastHandler() {
+            @Override
+            public CastResult cast(CastContext ctx) {
+                return MagicCastingService.legacyDivineDivider(ctx.player(), ctx.stats()) ? CastResult.SUCCESS : CastResult.FAILED;
+            }
+
+            @Override
+            public MobCastProfile mob() {
+                return MobCastProfile.attack(0.0F, 5.0F);
+            }
+
+            @Override
+            public TuningView tuning() {
+                return TuningView.DEFAULT.labels("screen.magical.tuning.cut_force",
+                        "screen.magical.tuning.wind_drive", "screen.magical.tuning.blade_width", null);
+            }
+        });
         SkillCastRegistry.register(MagicContent.ABYSSAL_DISCHARGE, new SkillCastHandler() {
             @Override
             public CastResult cast(CastContext ctx) {
