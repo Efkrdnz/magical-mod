@@ -1,0 +1,9 @@
+{
+  "model": {
+    "type": "minecraft:special",
+    "base": "magical:item/sacrificial_core",
+    "model": {
+      "type": "magical:sacrificial_core"
+    }
+  }
+}

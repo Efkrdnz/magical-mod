@@ -1,0 +1,44 @@
+package com.efkrdnz.magical.client;
+
+import com.efkrdnz.magical.network.ArcanePlayerDataPayload;
+import com.efkrdnz.magical.network.ChronosEnvironmentPayload;
+import com.efkrdnz.magical.network.CounterClearPayload;
+import com.efkrdnz.magical.network.CounterPromptPayload;
+import com.efkrdnz.magical.network.FirstPersonEffectPayload;
+import com.efkrdnz.magical.network.PlayerMagicStatePayload;
+
+public final class ClientPayloadHandlers {
+    private ClientPayloadHandlers() {}
+
+    public static void handle(ArcanePlayerDataPayload payload) {
+        ClientArcaneState.set(payload.data());
+    }
+
+    public static void handle(PlayerMagicStatePayload payload) {
+        ClientMagicState.set(payload.data());
+    }
+
+    public static void handle(FirstPersonEffectPayload payload) {
+        FirstPersonEffects.apply(payload);
+    }
+
+    public static void handle(CounterPromptPayload payload) {
+        ClientCounterPrompt.receive(payload);
+    }
+
+    public static void handle(CounterClearPayload payload) {
+        ClientCounterPrompt.clear(payload);
+    }
+
+    public static void handle(ChronosEnvironmentPayload payload) {
+        ChronosClientEnvironment.handle(payload);
+    }
+
+    public static void handle(com.efkrdnz.magical.network.VisualCuePayload payload) {
+        com.efkrdnz.magical.client.fx.TransientVisuals.handle(payload);
+    }
+
+    public static void handle(com.efkrdnz.magical.network.StatusSyncPayload payload) {
+        ClientStatusState.handle(payload);
+    }
+}

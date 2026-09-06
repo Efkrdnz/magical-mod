@@ -1,0 +1,9 @@
+{
+  "model": {
+    "type": "minecraft:special",
+    "base": "magical:item/astral_gate",
+    "model": {
+      "type": "magical:astral_gate"
+    }
+  }
+}

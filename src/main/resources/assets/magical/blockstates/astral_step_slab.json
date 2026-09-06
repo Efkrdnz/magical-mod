@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "type=bottom,waterlogged=false": { "model": "magical:block/astral_step_slab" },
+    "type=bottom,waterlogged=true": { "model": "magical:block/astral_step_slab" },
+    "type=top,waterlogged=false": { "model": "magical:block/astral_step_slab_top" },
+    "type=top,waterlogged=true": { "model": "magical:block/astral_step_slab_top" },
+    "type=double,waterlogged=false": { "model": "magical:block/astral_step_block" },
+    "type=double,waterlogged=true": { "model": "magical:block/astral_step_block" }
+  }
+}
