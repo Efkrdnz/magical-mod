@@ -899,5 +899,22 @@
   "skill.magical.vial_break.desc": "A flask thrown on a real arc that breaks where it lands and leaves a pool eating whatever stands in it, stacking affliction on everything inside.",
   "screen.magical.class_passive_source": "From %s",
   "screen.magical.passive_group_general": "General",
-  "screen.magical.passive_group_sins": "Sins"
+  "screen.magical.passive_group_sins": "Sins",
+  "space.magical.category.boundary": "Boundary",
+  "space.magical.category.collision": "Collision",
+  "space.magical.operation.control_gravity": "Control Gravity",
+  "space.magical.operation.seal_boundary": "Seal Boundary",
+  "space.magical.operation.repel_boundary": "Repel at Boundary",
+  "space.magical.operation.attract_boundary": "Attract to Boundary",
+  "space.magical.operation.wrap_boundary": "Wrap at Boundary",
+  "space.magical.operation.clear_boundary": "Clear Boundary",
+  "space.magical.operation.disable_collision": "Disable Collision",
+  "space.magical.operation.intensify_collision": "Intensify Collision",
+  "space.magical.operation.selective_collision": "Selective Collision",
+  "space.magical.operation.ricochet_collision": "Ricochet Collision",
+  "space.magical.operation.clear_collision": "Clear Collision",
+  "space.magical.preset_hint": "1-9 load a preset  -  Shift + 1-9 saves the current rule",
+  "space.magical.preset_saved": "Saved preset %s: %s",
+  "space.magical.preset_loaded": "Loaded preset %s: %s",
+  "space.magical.preset_empty": "Preset %s is empty"
 }

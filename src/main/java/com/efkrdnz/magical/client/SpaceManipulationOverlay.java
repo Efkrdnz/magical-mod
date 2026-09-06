@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.client;
 
 import com.efkrdnz.magical.magic.SpaceRuleCategory;
+import com.efkrdnz.magical.magic.SpaceRuleCodec;
 import com.efkrdnz.magical.magic.SpaceRuleOperation;
 import com.efkrdnz.magical.magic.SpaceTargetGroup;
 import com.efkrdnz.magical.network.MagicalNetwork;
@@ -26,6 +27,8 @@ public final class SpaceManipulationOverlay {
     private static int selectedCategory;
     private static int selectedOperation;
     private static int selectedTarget;
+    private static Component presetStatus;
+    private static int presetStatusUntil;
 
     private SpaceManipulationOverlay() {}
 
@@ -49,6 +52,68 @@ public final class SpaceManipulationOverlay {
 
     public static boolean active() {
         return active;
+    }
+
+    /**
+     * Saves the current three-wheel selection into a numbered slot, or loads it back.
+     *
+     * <p>Bound to the number row while the wheel is open: tap to load, sneak-tap to save. Slots
+     * are client-side and shared across worlds, because a rule you like is a preference rather
+     * than progress.
+     *
+     * @return true if the key was consumed
+     */
+    public static boolean handlePresetSlot(int slot, boolean save) {
+        if (!active || slot < 0 || slot >= SpaceManipulationPresets.slotCount()) {
+            return false;
+        }
+        if (save) {
+            int encoded = encodeCurrentRule();
+            SpaceManipulationPresets.set(slot, encoded);
+            showPresetStatus(Component.translatable("space.magical.preset_saved", slot + 1, ruleLabel(encoded)));
+            return true;
+        }
+        if (!SpaceManipulationPresets.has(slot)) {
+            showPresetStatus(Component.translatable("space.magical.preset_empty", slot + 1));
+            return true;
+        }
+        applyEncodedRule(SpaceManipulationPresets.get(slot));
+        showPresetStatus(Component.translatable("space.magical.preset_loaded", slot + 1, ruleLabel(encodeCurrentRule())));
+        return true;
+    }
+
+    private static int encodeCurrentRule() {
+        List<SpaceRuleOperation> available = operations();
+        SpaceRuleCategory category = SpaceRuleCategory.values()[selectedCategory];
+        SpaceRuleOperation operation = available.get(Mth.clamp(selectedOperation, 0, available.size() - 1));
+        SpaceTargetGroup target = SpaceTargetGroup.values()[selectedTarget];
+        return SpaceRuleCodec.encode(category, operation, target);
+    }
+
+    /**
+     * Restores a packed rule into the wheels. The operation list depends on the category, so the
+     * category is applied first and the operation is looked up inside the resulting list rather
+     * than by raw ordinal.
+     */
+    private static void applyEncodedRule(int encoded) {
+        selectedCategory = SpaceRuleCodec.category(encoded).ordinal();
+        int index = operations().indexOf(SpaceRuleCodec.operation(encoded));
+        selectedOperation = Math.max(0, index);
+        selectedTarget = SpaceRuleCodec.target(encoded).ordinal();
+    }
+
+    private static Component ruleLabel(int encoded) {
+        return Component.translatable(SpaceRuleCodec.category(encoded).translationKey())
+                .append(" / ")
+                .append(Component.translatable(SpaceRuleCodec.operation(encoded).translationKey()))
+                .append(" / ")
+                .append(Component.translatable(SpaceRuleCodec.target(encoded).translationKey()));
+    }
+
+    private static void showPresetStatus(Component message) {
+        presetStatus = message;
+        Minecraft minecraft = Minecraft.getInstance();
+        presetStatusUntil = minecraft.player == null ? 0 : minecraft.player.tickCount + 45;
     }
 
     public static boolean handleScroll(double scrollDeltaY) {
@@ -93,6 +158,10 @@ public final class SpaceManipulationOverlay {
         drawWheel(guiGraphics, minecraft, centers[1], centerY, 1, operationLabels(), selectedOperation, 0xB5F4FF, Component.translatable("space.magical.wheel.operation"));
         drawWheel(guiGraphics, minecraft, centers[2], centerY, 2, targetLabels(), selectedTarget, 0x63C7FF, Component.translatable("space.magical.wheel.target"));
         guiGraphics.drawCenteredString(minecraft.font, Component.translatable("space.magical.release_hint"), guiGraphics.guiWidth() / 2, centerY + 138, 0xD8F6FF);
+        guiGraphics.drawCenteredString(minecraft.font, Component.translatable("space.magical.preset_hint"), guiGraphics.guiWidth() / 2, centerY + 150, 0x8FB4C6);
+        if (presetStatus != null && minecraft.player != null && minecraft.player.tickCount <= presetStatusUntil) {
+            guiGraphics.drawCenteredString(minecraft.font, presetStatus, guiGraphics.guiWidth() / 2, centerY + 166, 0xF4FDFF);
+        }
     }
 
     private static int[] wheelCenters(int width) {

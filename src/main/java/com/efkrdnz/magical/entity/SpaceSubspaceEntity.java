@@ -25,10 +25,15 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
 public final class SpaceSubspaceEntity extends Entity {
     private static final int NO_RULE = -1;
+    /** How close to the shell an entity must be for a boundary rule to act on it. */
+    private static final double BOUNDARY_THICKNESS = 1.45D;
+    /** How far past the shell we still look, so a boundary can catch something on its way in. */
+    private static final double BOUNDARY_OUTER_REACH = 1.35D;
     private static final int LIFE_TICKS = 20 * 60 * 10;
     private static final EntityDataAccessor<Float> RADIUS = SynchedEntityData.defineId(SpaceSubspaceEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Boolean> FOLLOW_OWNER = SynchedEntityData.defineId(SpaceSubspaceEntity.class, EntityDataSerializers.BOOLEAN);
@@ -53,7 +58,14 @@ public final class SpaceSubspaceEntity extends Entity {
     private static final EntityDataAccessor<Integer> ENTROPY_TARGET = SynchedEntityData.defineId(SpaceSubspaceEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> FRICTION_OPERATION = SynchedEntityData.defineId(SpaceSubspaceEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> FRICTION_TARGET = SynchedEntityData.defineId(SpaceSubspaceEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> BOUNDARY_OPERATION = SynchedEntityData.defineId(SpaceSubspaceEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> BOUNDARY_TARGET = SynchedEntityData.defineId(SpaceSubspaceEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> COLLISION_OPERATION = SynchedEntityData.defineId(SpaceSubspaceEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> COLLISION_TARGET = SynchedEntityData.defineId(SpaceSubspaceEntity.class, EntityDataSerializers.INT);
     private final Set<Integer> reversedAccelerationEntityIds = new HashSet<>();
+    /** Players this subspace granted flight to, so it only ever revokes what it gave. */
+    private final Set<UUID> grantedFlightPlayers = new HashSet<>();
+    private final Set<UUID> touchedFlightPlayers = new HashSet<>();
     private UUID ownerUuid;
 
     public SpaceSubspaceEntity(EntityType<? extends SpaceSubspaceEntity> entityType, Level level) {
@@ -96,6 +108,10 @@ public final class SpaceSubspaceEntity extends Entity {
         builder.define(ENTROPY_TARGET, SpaceTargetGroup.EVERYTHING_EXCEPT_USER.ordinal());
         builder.define(FRICTION_OPERATION, NO_RULE);
         builder.define(FRICTION_TARGET, SpaceTargetGroup.EVERYTHING_EXCEPT_USER.ordinal());
+        builder.define(BOUNDARY_OPERATION, NO_RULE);
+        builder.define(BOUNDARY_TARGET, SpaceTargetGroup.EVERYTHING_EXCEPT_USER.ordinal());
+        builder.define(COLLISION_OPERATION, NO_RULE);
+        builder.define(COLLISION_TARGET, SpaceTargetGroup.EVERYTHING_EXCEPT_USER.ordinal());
     }
 
     @Override
@@ -170,13 +186,31 @@ public final class SpaceSubspaceEntity extends Entity {
                 entityData.set(FRICTION_OPERATION, op);
                 entityData.set(FRICTION_TARGET, target);
             }
+            case BOUNDARY -> {
+                entityData.set(BOUNDARY_OPERATION, op);
+                entityData.set(BOUNDARY_TARGET, target);
+            }
+            case COLLISION -> {
+                entityData.set(COLLISION_OPERATION, op);
+                entityData.set(COLLISION_TARGET, target);
+            }
         }
     }
 
     private void applyRules(LivingEntity owner) {
-        AABB area = new AABB(getX() - radius(), getY() - radius(), getZ() - radius(), getX() + radius(), getY() + radius(), getZ() + radius());
+        touchedFlightPlayers.clear();
+        double radius = radius();
+        double radiusSqr = radius * radius;
+        // A boundary rule has to act on things approaching from outside, so it searches wider.
+        double searchRadius = radius + (hasBoundaryRule() ? BOUNDARY_OUTER_REACH : 0.0D);
+        double searchRadiusSqr = searchRadius * searchRadius;
+        AABB area = new AABB(getX() - searchRadius, getY() - searchRadius, getZ() - searchRadius, getX() + searchRadius, getY() + searchRadius, getZ() + searchRadius);
         for (Entity entity : level().getEntities(this, area, target -> target.isAlive() && target != this && !(target instanceof SpaceSubspaceEntity))) {
-            if (entity.position().distanceToSqr(position()) > radius() * radius()) {
+            double distanceSqr = entityBoundaryPoint(entity).distanceToSqr(position());
+            if (distanceSqr > radiusSqr) {
+                if (hasBoundaryRule() && distanceSqr <= searchRadiusSqr) {
+                    applyBoundary(owner, entity);
+                }
                 continue;
             }
             applyGravity(owner, entity);
@@ -189,7 +223,10 @@ public final class SpaceSubspaceEntity extends Entity {
             applyVectorField(owner, entity);
             applyEntropy(owner, entity);
             applyFriction(owner, entity);
+            applyBoundary(owner, entity);
+            applyCollision(owner, entity);
         }
+        revokeUntouchedGrantedFlight();
     }
 
     private void applyGravity(LivingEntity owner, Entity entity) {
@@ -203,10 +240,15 @@ public final class SpaceSubspaceEntity extends Entity {
             case DECREASE_GRAVITY -> motion.y + 0.035D;
             case INCREASE_GRAVITY -> motion.y - 0.075D;
             case REVERSE_GRAVITY -> motion.y + 0.13D;
+            case CONTROL_GRAVITY -> controlFlight(entity, motion);
             default -> motion.y;
         };
-        entity.setDeltaMovement(motion.x, Mth.clamp(y, -1.2D, 1.2D), motion.z);
+        double limit = gravityVerticalLimit(entity, operation);
+        entity.setDeltaMovement(motion.x, Mth.clamp(y, -limit, limit), motion.z);
         entity.hasImpulse = true;
+        if (operation == SpaceRuleOperation.REMOVE_GRAVITY) {
+            entity.fallDistance = 0.0F;
+        }
     }
 
     private void applyVelocity(LivingEntity owner, Entity entity) {
@@ -565,6 +607,12 @@ public final class SpaceSubspaceEntity extends Entity {
         entityData.set(ENTROPY_TARGET, tag.contains("EntropyTarget") ? tag.getInt("EntropyTarget") : SpaceTargetGroup.EVERYTHING_EXCEPT_USER.ordinal());
         entityData.set(FRICTION_OPERATION, tag.getInt("FrictionOperation"));
         entityData.set(FRICTION_TARGET, tag.getInt("FrictionTarget"));
+        // Guarded: a world saved before boundary and collision existed has no such keys, and
+        // an unguarded getInt would read 0 there, which is a real operation rather than "none".
+        entityData.set(BOUNDARY_OPERATION, tag.contains("BoundaryOperation") ? tag.getInt("BoundaryOperation") : NO_RULE);
+        entityData.set(BOUNDARY_TARGET, tag.contains("BoundaryTarget") ? tag.getInt("BoundaryTarget") : SpaceTargetGroup.EVERYTHING_EXCEPT_USER.ordinal());
+        entityData.set(COLLISION_OPERATION, tag.contains("CollisionOperation") ? tag.getInt("CollisionOperation") : NO_RULE);
+        entityData.set(COLLISION_TARGET, tag.contains("CollisionTarget") ? tag.getInt("CollisionTarget") : SpaceTargetGroup.EVERYTHING_EXCEPT_USER.ordinal());
     }
 
     @Override
@@ -594,6 +642,10 @@ public final class SpaceSubspaceEntity extends Entity {
         tag.putInt("EntropyTarget", entityData.get(ENTROPY_TARGET));
         tag.putInt("FrictionOperation", entityData.get(FRICTION_OPERATION));
         tag.putInt("FrictionTarget", entityData.get(FRICTION_TARGET));
+        tag.putInt("BoundaryOperation", entityData.get(BOUNDARY_OPERATION));
+        tag.putInt("BoundaryTarget", entityData.get(BOUNDARY_TARGET));
+        tag.putInt("CollisionOperation", entityData.get(COLLISION_OPERATION));
+        tag.putInt("CollisionTarget", entityData.get(COLLISION_TARGET));
     }
 
     @Override
@@ -621,5 +673,299 @@ public final class SpaceSubspaceEntity extends Entity {
 
     public UUID ownerUuid() {
         return ownerUuid;
+    }
+
+    // ---------------------------------------------------------------- boundary
+
+    /** Centre of an entity's body, which is what the boundary maths measures against. */
+    private Vec3 entityBoundaryPoint(Entity entity) {
+        return entity.position().add(0.0D, entity.getBbHeight() * 0.5D, 0.0D);
+    }
+
+    /** Largest radius a subspace can have, so callers can bound their search for one. */
+    public static final float MAX_RADIUS = 16.0F;
+
+    /** True when this subspace is set to bounce projectiles rather than let them land. */
+    public boolean hasProjectileBlockRicochet() {
+        return operation(entityData.get(COLLISION_OPERATION)) == SpaceRuleOperation.RICOCHET_COLLISION
+                && target(entityData.get(COLLISION_TARGET)) == SpaceTargetGroup.PROJECTILES;
+    }
+
+    public boolean containsEntity(Entity entity) {
+        return entity.isAlive() && entityBoundaryPoint(entity).distanceToSqr(position()) <= radius() * radius();
+    }
+
+    /**
+     * Reflects a projectile off the block face it was about to hit. Called from the projectile
+     * impact event rather than the rule loop, because a block strike ends the projectile before
+     * the next tick would ever reach it.
+     */
+    public void ricochetProjectileFromBlock(Projectile projectile, BlockHitResult hitResult) {
+        if (!containsEntity(projectile)) {
+            return;
+        }
+        Vec3 motion = projectile.getDeltaMovement();
+        if (motion.lengthSqr() < 1.0E-5D) {
+            return;
+        }
+        Vec3 normal = new Vec3(hitResult.getDirection().getStepX(), hitResult.getDirection().getStepY(), hitResult.getDirection().getStepZ());
+        double intoSurface = motion.dot(normal);
+        Vec3 reflected = intoSurface < 0.0D ? motion.subtract(normal.scale(intoSurface * 2.0D)) : motion.add(normal.scale(0.18D));
+        projectile.setDeltaMovement(capMotion(reflected.scale(1.04D), 3.4D));
+        projectile.teleportTo(hitResult.getLocation().x + normal.x * 0.08D,
+                hitResult.getLocation().y + normal.y * 0.08D,
+                hitResult.getLocation().z + normal.z * 0.08D);
+        projectile.hasImpulse = true;
+        projectile.fallDistance = 0.0F;
+    }
+
+    private boolean hasBoundaryRule() {
+        return entityData.get(BOUNDARY_OPERATION) != NO_RULE;
+    }
+
+    /**
+     * Acts on entities near the shell. Attraction reaches the whole volume; the other boundary
+     * rules only bite within {@link #BOUNDARY_THICKNESS} of the surface, so the middle of a
+     * subspace stays free to move through.
+     */
+    private void applyBoundary(LivingEntity owner, Entity entity) {
+        SpaceRuleOperation operation = operation(entityData.get(BOUNDARY_OPERATION));
+        if (operation == null || !matchesTarget(owner, entity, target(entityData.get(BOUNDARY_TARGET)))) {
+            return;
+        }
+        Vec3 fromCentre = entityBoundaryPoint(entity).subtract(position());
+        double distance = fromCentre.length();
+        if (distance < 1.0E-5D) {
+            return;
+        }
+        double signedDistance = distance - radius();
+        Vec3 radial = fromCentre.normalize();
+        if (operation == SpaceRuleOperation.ATTRACT_BOUNDARY) {
+            attractToBoundary(entity, radial, signedDistance);
+            return;
+        }
+        if (Math.abs(signedDistance) > BOUNDARY_THICKNESS) {
+            return;
+        }
+        switch (operation) {
+            case SEAL_BOUNDARY -> sealBoundary(entity, radial, signedDistance);
+            case REPEL_BOUNDARY -> repelBoundary(entity, radial, signedDistance);
+            case WRAP_BOUNDARY -> wrapBoundary(entity, radial, signedDistance);
+            default -> {
+            }
+        }
+    }
+
+    /** Pins the entity to the shell and kills any motion trying to cross it. */
+    private void sealBoundary(Entity entity, Vec3 radial, double signedDistance) {
+        boolean inside = signedDistance <= 0.0D;
+        double targetDistance = radius() + (inside ? -0.72D : 0.72D);
+        moveByCorrection(entity, position().add(radial.scale(targetDistance)).subtract(entityBoundaryPoint(entity)));
+        Vec3 motion = entity.getDeltaMovement();
+        double outwardSpeed = motion.dot(radial);
+        if ((inside && outwardSpeed > 0.0D) || (!inside && outwardSpeed < 0.0D)) {
+            motion = motion.subtract(radial.scale(outwardSpeed * 1.35D));
+        }
+        entity.setDeltaMovement(capMotion(motion.add(radial.scale(inside ? -0.12D : 0.12D)), 2.35D));
+        entity.hasImpulse = true;
+        entity.fallDistance = 0.0F;
+    }
+
+    /** Pushes away from the shell, hardest right at the surface. */
+    private void repelBoundary(Entity entity, Vec3 radial, double signedDistance) {
+        boolean inside = signedDistance <= 0.0D;
+        double strength = 0.08D + (1.0D - Math.min(1.0D, Math.abs(signedDistance) / BOUNDARY_THICKNESS)) * 0.22D;
+        Vec3 direction = inside ? radial.scale(-1.0D) : radial;
+        entity.setDeltaMovement(capMotion(entity.getDeltaMovement().add(direction.scale(strength)), 2.65D));
+        entity.hasImpulse = true;
+    }
+
+    /** Draws everything toward the shell, so the volume hollows out. */
+    private void attractToBoundary(Entity entity, Vec3 radial, double signedDistance) {
+        double strength = Mth.clamp(Math.abs(signedDistance) / Math.max(1.0D, radius()), 0.08D, 0.26D);
+        Vec3 direction = signedDistance <= 0.0D ? radial : radial.scale(-1.0D);
+        entity.setDeltaMovement(capMotion(entity.getDeltaMovement().add(direction.scale(strength)), 2.55D));
+        entity.hasImpulse = true;
+    }
+
+    /** Teleports across the sphere, so leaving one side re-enters from the other. */
+    private void wrapBoundary(Entity entity, Vec3 radial, double signedDistance) {
+        boolean inside = signedDistance <= 0.0D;
+        double targetDistance = inside ? radius() - 1.05D : radius() + 0.15D;
+        moveByCorrection(entity, position().subtract(radial.scale(targetDistance)).subtract(entityBoundaryPoint(entity)));
+        Vec3 motion = entity.getDeltaMovement();
+        entity.setDeltaMovement(capMotion(motion.subtract(radial.scale(motion.dot(radial) * 1.8D)), 2.65D));
+        entity.hasImpulse = true;
+        entity.fallDistance = 0.0F;
+    }
+
+    private void moveByCorrection(Entity entity, Vec3 correction) {
+        entity.teleportTo(entity.getX() + correction.x, entity.getY() + correction.y, entity.getZ() + correction.z);
+    }
+
+    // ---------------------------------------------------------------- collision
+
+    /**
+     * Rewrites how entities inside the subspace bump into each other. Contacts are found per
+     * entity against its immediate neighbours, so cost scales with crowding rather than volume.
+     */
+    private void applyCollision(LivingEntity owner, Entity entity) {
+        SpaceRuleOperation operation = operation(entityData.get(COLLISION_OPERATION));
+        SpaceTargetGroup targetGroup = target(entityData.get(COLLISION_TARGET));
+        if (operation == null || !matchesTarget(owner, entity, targetGroup)) {
+            return;
+        }
+        if (operation == SpaceRuleOperation.RICOCHET_COLLISION && targetGroup == SpaceTargetGroup.PROJECTILES && entity instanceof Projectile) {
+            return;
+        }
+        AABB contactArea = entity.getBoundingBox().inflate(0.42D);
+        for (Entity other : level().getEntities(entity, contactArea,
+                candidate -> candidate.isAlive() && candidate != this && candidate != entity && !(candidate instanceof SpaceSubspaceEntity))) {
+            if (entityBoundaryPoint(other).distanceToSqr(position()) > radius() * radius()) {
+                continue;
+            }
+            Vec3 normal = collisionNormal(entity, other);
+            if (normal.lengthSqr() < 1.0E-5D) {
+                continue;
+            }
+            switch (operation) {
+                case DISABLE_COLLISION -> softenCollision(entity, normal, 0.055D);
+                case INTENSIFY_COLLISION -> intensifyCollision(entity, other, normal);
+                case SELECTIVE_COLLISION -> {
+                    if (!matchesTarget(owner, other, targetGroup)) {
+                        softenCollision(entity, normal, 0.09D);
+                    }
+                }
+                case RICOCHET_COLLISION -> ricochetCollision(entity, normal);
+                default -> {
+                }
+            }
+        }
+    }
+
+    /** Direction from the other entity to this one; falls back to a spin when they overlap exactly. */
+    private Vec3 collisionNormal(Entity entity, Entity other) {
+        Vec3 fromOther = entityBoundaryPoint(entity).subtract(entityBoundaryPoint(other));
+        if (fromOther.lengthSqr() > 1.0E-5D) {
+            return fromOther.normalize();
+        }
+        double seed = tickCount * 0.47D + entity.getId() * 1.31D + other.getId() * 0.73D;
+        return new Vec3(Math.sin(seed), 0.0D, Math.cos(seed)).normalize();
+    }
+
+    private void softenCollision(Entity entity, Vec3 normal, double slipStrength) {
+        Vec3 motion = entity.getDeltaMovement();
+        double intoSurface = motion.dot(normal);
+        if (intoSurface < 0.0D) {
+            motion = motion.subtract(normal.scale(intoSurface));
+        }
+        Vec3 slip = motion.lengthSqr() > 1.0E-5D ? motion.normalize().scale(slipStrength) : normal.scale(slipStrength * 0.35D);
+        entity.setDeltaMovement(capMotion(motion.add(slip), 2.45D));
+        entity.hasImpulse = true;
+    }
+
+    private void intensifyCollision(Entity entity, Entity other, Vec3 normal) {
+        Vec3 motion = entity.getDeltaMovement();
+        double relativeImpact = Math.max(0.05D, -motion.dot(normal) + other.getDeltaMovement().dot(normal));
+        double strength = Mth.clamp(0.11D + relativeImpact * 0.24D, 0.11D, 0.42D);
+        entity.setDeltaMovement(capMotion(motion.add(normal.scale(strength)), 2.8D));
+        entity.hasImpulse = true;
+        // Staggered by entity id so a crowd does not all take damage on the same tick.
+        if (entity instanceof LivingEntity living && tickCount % 10 == Math.floorMod(entity.getId(), 10)) {
+            living.hurt(damageSources().magic(), Mth.clamp((float) (1.0D + relativeImpact * 2.2D), 1.0F, 4.0F));
+        }
+    }
+
+    private void ricochetCollision(Entity entity, Vec3 normal) {
+        Vec3 motion = entity.getDeltaMovement();
+        double intoSurface = motion.dot(normal);
+        Vec3 reflected = intoSurface < 0.0D
+                ? motion.subtract(normal.scale(intoSurface * 2.0D)).scale(1.08D)
+                : motion.add(normal.scale(0.18D));
+        entity.setDeltaMovement(capMotion(reflected.add(normal.scale(0.08D)), 3.1D));
+        entity.hasImpulse = true;
+        entity.fallDistance = 0.0F;
+    }
+
+    // ---------------------------------------------------------------- controlled gravity
+
+    private double gravityVerticalLimit(Entity entity, SpaceRuleOperation operation) {
+        if (operation != SpaceRuleOperation.REMOVE_GRAVITY) {
+            return 1.2D;
+        }
+        return entity instanceof Projectile ? 3.4D : 2.4D;
+    }
+
+    /** Hands a player the controls: they fly under their own input rather than being pushed. */
+    private double controlFlight(Entity entity, Vec3 motion) {
+        if (entity instanceof net.minecraft.server.level.ServerPlayer player) {
+            grantCreativeFlight(player);
+            return player.getAbilities().flying ? motion.y : Math.max(0.0D, motion.y);
+        }
+        return motion.y;
+    }
+
+    /**
+     * Grants flight, but never to someone who could already fly. That guard is what keeps this
+     * from fighting Mana Flight or creative mode: if the ability was not ours to give, it is not
+     * ours to take away, and the player is never recorded in {@code grantedFlightPlayers}.
+     */
+    private void grantCreativeFlight(net.minecraft.server.level.ServerPlayer player) {
+        if (player.isCreative() || player.isSpectator()) {
+            return;
+        }
+        UUID uuid = player.getUUID();
+        if (grantedFlightPlayers.contains(uuid)) {
+            touchedFlightPlayers.add(uuid);
+            player.fallDistance = 0.0F;
+            return;
+        }
+        if (player.getAbilities().mayfly) {
+            return;
+        }
+        touchedFlightPlayers.add(uuid);
+        player.getAbilities().mayfly = true;
+        player.onUpdateAbilities();
+        grantedFlightPlayers.add(uuid);
+        player.fallDistance = 0.0F;
+    }
+
+    /** Takes flight back from anyone who left the subspace this tick. */
+    private void revokeUntouchedGrantedFlight() {
+        grantedFlightPlayers.removeIf(uuid -> {
+            if (touchedFlightPlayers.contains(uuid)) {
+                return false;
+            }
+            revokeGrantedFlight(uuid);
+            return true;
+        });
+    }
+
+    private void revokeAllGrantedFlight() {
+        for (UUID uuid : Set.copyOf(grantedFlightPlayers)) {
+            revokeGrantedFlight(uuid);
+        }
+        grantedFlightPlayers.clear();
+        touchedFlightPlayers.clear();
+    }
+
+    private void revokeGrantedFlight(UUID uuid) {
+        if (!(level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        net.minecraft.server.level.ServerPlayer player = serverLevel.getServer().getPlayerList().getPlayer(uuid);
+        if (player == null || player.isCreative() || player.isSpectator()) {
+            return;
+        }
+        player.getAbilities().mayfly = false;
+        player.getAbilities().flying = false;
+        player.onUpdateAbilities();
+    }
+
+    @Override
+    public void remove(RemovalReason reason) {
+        // Flight is on loan for as long as the subspace exists; it must not outlive it.
+        revokeAllGrantedFlight();
+        super.remove(reason);
     }
 }

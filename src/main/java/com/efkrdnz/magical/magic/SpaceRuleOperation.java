@@ -8,6 +8,7 @@ public enum SpaceRuleOperation {
     DECREASE_GRAVITY(SpaceRuleCategory.GRAVITY),
     INCREASE_GRAVITY(SpaceRuleCategory.GRAVITY),
     REVERSE_GRAVITY(SpaceRuleCategory.GRAVITY),
+    CONTROL_GRAVITY(SpaceRuleCategory.GRAVITY),
     CLEAR_GRAVITY(SpaceRuleCategory.GRAVITY),
     UNIFORM_MOTION(SpaceRuleCategory.VELOCITY),
     STOP(SpaceRuleCategory.VELOCITY),
@@ -49,7 +50,17 @@ public enum SpaceRuleOperation {
     SLIPPERY(SpaceRuleCategory.FRICTION),
     STICKY(SpaceRuleCategory.FRICTION),
     NORMALIZE_FRICTION(SpaceRuleCategory.FRICTION),
-    CLEAR_FRICTION(SpaceRuleCategory.FRICTION);
+    CLEAR_FRICTION(SpaceRuleCategory.FRICTION),
+    SEAL_BOUNDARY(SpaceRuleCategory.BOUNDARY),
+    REPEL_BOUNDARY(SpaceRuleCategory.BOUNDARY),
+    ATTRACT_BOUNDARY(SpaceRuleCategory.BOUNDARY),
+    WRAP_BOUNDARY(SpaceRuleCategory.BOUNDARY),
+    CLEAR_BOUNDARY(SpaceRuleCategory.BOUNDARY),
+    DISABLE_COLLISION(SpaceRuleCategory.COLLISION),
+    INTENSIFY_COLLISION(SpaceRuleCategory.COLLISION),
+    SELECTIVE_COLLISION(SpaceRuleCategory.COLLISION),
+    RICOCHET_COLLISION(SpaceRuleCategory.COLLISION),
+    CLEAR_COLLISION(SpaceRuleCategory.COLLISION);
 
     private final SpaceRuleCategory category;
 
@@ -71,7 +82,9 @@ public enum SpaceRuleOperation {
                 || this == CLEAR_TIME_FLOW
                 || this == CLEAR_VECTOR_FIELD
                 || this == CLEAR_ENTROPY
-                || this == CLEAR_FRICTION;
+                || this == CLEAR_FRICTION
+                || this == CLEAR_BOUNDARY
+                || this == CLEAR_COLLISION;
     }
 
     public String translationKey() {

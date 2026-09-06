@@ -10,7 +10,9 @@ public enum SpaceRuleCategory {
     TIME_FLOW,
     VECTOR_FIELD,
     ENTROPY,
-    FRICTION;
+    FRICTION,
+    BOUNDARY,
+    COLLISION;
 
     public String translationKey() {
         return "space.magical.category." + name().toLowerCase(java.util.Locale.ROOT);

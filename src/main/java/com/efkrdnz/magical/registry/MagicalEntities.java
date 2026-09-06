@@ -18,6 +18,8 @@ import com.efkrdnz.magical.entity.SoulBondEntity;
 import com.efkrdnz.magical.entity.SovereignAegisEntity;
 import com.efkrdnz.magical.entity.SpacePocketPortalEntity;
 import com.efkrdnz.magical.entity.SpacePocketRoomEffectEntity;
+import com.efkrdnz.magical.entity.SpacePortalEntity;
+import com.efkrdnz.magical.entity.SpaceSummonEntity;
 import com.efkrdnz.magical.entity.SpaceSubspaceEntity;
 import com.efkrdnz.magical.entity.SpellEntityVisibility;
 import com.efkrdnz.magical.entity.TowerAuraEntity;
@@ -114,6 +116,24 @@ public final class MagicalEntities {
                     .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
                     .updateInterval(1)
                     .build(key("abyssal_discharge")));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<SpaceSummonEntity>> SPACE_SUMMON = ENTITY_TYPES.register(
+            "space_summon",
+            () -> EntityType.Builder.<SpaceSummonEntity>of(SpaceSummonEntity::new, MobCategory.MISC)
+                    .sized(3.0F, 3.0F)
+                    .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
+                    .updateInterval(1)
+                    .noSummon()
+                    .build(key("space_summon")));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<SpacePortalEntity>> SPACE_PORTAL = ENTITY_TYPES.register(
+            "space_portal",
+            () -> EntityType.Builder.<SpacePortalEntity>of(SpacePortalEntity::new, MobCategory.MISC)
+                    .sized(1.8F, 2.8F)
+                    .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
+                    .updateInterval(1)
+                    .noSummon()
+                    .build(key("space_portal")));
 
     public static final DeferredHolder<EntityType<?>, EntityType<SpaceSubspaceEntity>> SPACE_SUBSPACE = ENTITY_TYPES.register(
             "space_subspace",

@@ -15,6 +15,18 @@ public final class MagicalRenderTypes {
             ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "core/rendertype_singularity_lens"),
             DefaultVertexFormat.POSITION_TEX_COLOR,
             ShaderDefines.EMPTY);
+    private static final ShaderProgram EVENT_HORIZON_FIELD_PROGRAM = new ShaderProgram(
+            ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "core/rendertype_event_horizon_field"),
+            DefaultVertexFormat.POSITION_TEX_COLOR,
+            ShaderDefines.EMPTY);
+    private static final ShaderProgram STELLAR_GLOW_PROGRAM = new ShaderProgram(
+            ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "core/rendertype_stellar_glow"),
+            DefaultVertexFormat.POSITION_TEX_COLOR,
+            ShaderDefines.EMPTY);
+    private static final ShaderProgram WHITE_HOLE_WAVE_PROGRAM = new ShaderProgram(
+            ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "core/rendertype_white_hole_wave"),
+            DefaultVertexFormat.POSITION_TEX_COLOR,
+            ShaderDefines.EMPTY);
     private static final ShaderProgram SPATIAL_RIFT_PROGRAM = new ShaderProgram(
             ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "core/rendertype_spatial_rift"),
             DefaultVertexFormat.POSITION_TEX_COLOR,
@@ -60,6 +72,9 @@ public final class MagicalRenderTypes {
             DefaultVertexFormat.POSITION_TEX_COLOR,
             ShaderDefines.EMPTY);
     private static RenderType singularityLens;
+    private static RenderType eventHorizonField;
+    private static RenderType stellarGlow;
+    private static RenderType whiteHoleWave;
     private static RenderType spatialRift;
     private static RenderType magicCircle;
     private static RenderType astralStep;
@@ -78,6 +93,9 @@ public final class MagicalRenderTypes {
     public static void registerShaders(RegisterShadersEvent event) {
         event.registerShader(SINGULARITY_LENS_PROGRAM);
         event.registerShader(SPATIAL_RIFT_PROGRAM);
+        event.registerShader(EVENT_HORIZON_FIELD_PROGRAM);
+        event.registerShader(STELLAR_GLOW_PROGRAM);
+        event.registerShader(WHITE_HOLE_WAVE_PROGRAM);
         event.registerShader(ASTRAL_STEP_PROGRAM);
         event.registerShader(ASTRAL_GATE_PROGRAM);
         event.registerShader(SACRIFICIAL_CORE_PROGRAM);
@@ -377,5 +395,71 @@ public final class MagicalRenderTypes {
                     state);
         }
         return chronoClock;
+    }
+
+    public static RenderType eventHorizonField() {
+        if (eventHorizonField == null) {
+            RenderType.CompositeState state = RenderType.CompositeState.builder()
+                    .setShaderState(new RenderStateShard.ShaderStateShard(EVENT_HORIZON_FIELD_PROGRAM))
+                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
+                    .setCullState(RenderStateShard.NO_CULL)
+                    .setLightmapState(RenderStateShard.NO_LIGHTMAP)
+                    .setOverlayState(RenderStateShard.NO_OVERLAY)
+                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
+                    .createCompositeState(false);
+            eventHorizonField = RenderType.create(
+                    "magical_event_horizon_field",
+                    DefaultVertexFormat.POSITION_TEX_COLOR,
+                    VertexFormat.Mode.QUADS,
+                    1536,
+                    false,
+                    true,
+                    state);
+        }
+        return eventHorizonField;
+    }
+
+    public static RenderType stellarGlow() {
+        if (stellarGlow == null) {
+            RenderType.CompositeState state = RenderType.CompositeState.builder()
+                    .setShaderState(new RenderStateShard.ShaderStateShard(STELLAR_GLOW_PROGRAM))
+                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
+                    .setCullState(RenderStateShard.NO_CULL)
+                    .setLightmapState(RenderStateShard.NO_LIGHTMAP)
+                    .setOverlayState(RenderStateShard.NO_OVERLAY)
+                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
+                    .createCompositeState(false);
+            stellarGlow = RenderType.create(
+                    "magical_stellar_glow",
+                    DefaultVertexFormat.POSITION_TEX_COLOR,
+                    VertexFormat.Mode.QUADS,
+                    1536,
+                    false,
+                    true,
+                    state);
+        }
+        return stellarGlow;
+    }
+
+    public static RenderType whiteHoleWave() {
+        if (whiteHoleWave == null) {
+            RenderType.CompositeState state = RenderType.CompositeState.builder()
+                    .setShaderState(new RenderStateShard.ShaderStateShard(WHITE_HOLE_WAVE_PROGRAM))
+                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
+                    .setCullState(RenderStateShard.NO_CULL)
+                    .setLightmapState(RenderStateShard.NO_LIGHTMAP)
+                    .setOverlayState(RenderStateShard.NO_OVERLAY)
+                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
+                    .createCompositeState(false);
+            whiteHoleWave = RenderType.create(
+                    "magical_white_hole_wave",
+                    DefaultVertexFormat.POSITION_TEX_COLOR,
+                    VertexFormat.Mode.QUADS,
+                    1536,
+                    false,
+                    true,
+                    state);
+        }
+        return whiteHoleWave;
     }
 }

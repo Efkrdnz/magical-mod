@@ -22,6 +22,7 @@ import com.efkrdnz.magical.client.renderer.SacrificialCoreSpecialRenderer;
 import com.efkrdnz.magical.client.screen.MagicPyramidScreen;
 import com.efkrdnz.magical.client.screen.ArcaneWorkbenchScreen;
 import com.efkrdnz.magical.client.screen.GreedVaultScreen;
+import com.efkrdnz.magical.client.screen.SpaceArsenalStorageScreen;
 import com.efkrdnz.magical.client.screen.SpaceWalkerScreen;
 import com.efkrdnz.magical.client.renderer.SkillClashEffectRenderer;
 import com.efkrdnz.magical.client.renderer.SingularityRenderer;
@@ -30,6 +31,8 @@ import com.efkrdnz.magical.client.renderer.SovereignAegisRenderer;
 import com.efkrdnz.magical.client.renderer.SpacePocketPortalRenderer;
 import com.efkrdnz.magical.client.renderer.SpacePocketRoomEffectRenderer;
 import com.efkrdnz.magical.client.renderer.SpaceSubspaceRenderer;
+import com.efkrdnz.magical.client.renderer.SpaceSummonRenderer;
+import com.efkrdnz.magical.client.renderer.SpacePortalRenderer;
 import com.efkrdnz.magical.client.renderer.TowerAuraRenderer;
 import com.efkrdnz.magical.entity.GabrielHolyFieldEntity;
 import com.efkrdnz.magical.magic.MagicContent;
@@ -78,6 +81,7 @@ public final class MagicalClientEvents {
         event.register(MagicalMenus.SPACE_WALKER.get(), SpaceWalkerScreen::new);
         event.register(MagicalMenus.CLASS_SELECT.get(), com.efkrdnz.magical.client.screen.ClassSelectScreen::new);
         event.register(MagicalMenus.CLASS_TREE.get(), com.efkrdnz.magical.client.screen.ClassTreeScreen::new);
+        event.register(MagicalMenus.SPACE_ARSENAL_STORAGE.get(), SpaceArsenalStorageScreen::new);
     }
 
     @SubscribeEvent
@@ -141,6 +145,8 @@ public final class MagicalClientEvents {
         event.registerEntityRenderer(MagicalEntities.SKILL_CLASH_EFFECT.get(), SkillClashEffectRenderer::new);
         event.registerEntityRenderer(MagicalEntities.ABYSSAL_DISCHARGE.get(), AbyssalDischargeRenderer::new);
         event.registerEntityRenderer(MagicalEntities.SPACE_SUBSPACE.get(), SpaceSubspaceRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.SPACE_SUMMON.get(), SpaceSummonRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.SPACE_PORTAL.get(), SpacePortalRenderer::new);
         event.registerEntityRenderer(MagicalEntities.SPACE_POCKET_PORTAL.get(), SpacePocketPortalRenderer::new);
         event.registerEntityRenderer(MagicalEntities.SPACE_POCKET_ROOM_EFFECT.get(), SpacePocketRoomEffectRenderer::new);
         event.registerEntityRenderer(MagicalEntities.SINGULARITY.get(), SingularityRenderer::new);
@@ -358,6 +364,24 @@ public final class MagicalClientEvents {
             if (SpaceManipulationOverlay.handleMouseButton(event.getButton(), event.getAction())) {
                 event.setCanceled(true);
             }
+        }
+
+
+        /**
+         * Number row drives space-rule presets while the manipulation wheel is open.
+         * Tap to load a slot, shift-tap to save the current selection into it.
+         */
+        @SubscribeEvent
+        public static void onKeyPressed(InputEvent.Key event) {
+            if (event.getAction() != org.lwjgl.glfw.GLFW.GLFW_PRESS || !SpaceManipulationOverlay.active()) {
+                return;
+            }
+            int slot = event.getKey() - org.lwjgl.glfw.GLFW.GLFW_KEY_1;
+            if (slot < 0 || slot > 8) {
+                return;
+            }
+            boolean save = (event.getModifiers() & org.lwjgl.glfw.GLFW.GLFW_MOD_SHIFT) != 0;
+            SpaceManipulationOverlay.handlePresetSlot(slot, save);
         }
 
         @SubscribeEvent

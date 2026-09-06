@@ -6,6 +6,7 @@ import com.efkrdnz.magical.magic.menu.ClassSelectMenu;
 import com.efkrdnz.magical.magic.menu.ClassTreeMenu;
 import com.efkrdnz.magical.magic.menu.GreedVaultMenu;
 import com.efkrdnz.magical.magic.menu.MagicPyramidMenu;
+import com.efkrdnz.magical.magic.menu.SpaceArsenalStorageMenu;
 import com.efkrdnz.magical.magic.menu.SpaceWalkerMenu;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.inventory.MenuType;
@@ -30,6 +31,9 @@ public final class MagicalMenus {
 
     public static final DeferredHolder<MenuType<?>, MenuType<ClassTreeMenu>> CLASS_TREE =
             MENUS.register("class_tree", () -> new MenuType<>(ClassTreeMenu::new, net.minecraft.world.flag.FeatureFlags.DEFAULT_FLAGS));
+
+    public static final DeferredHolder<MenuType<?>, MenuType<SpaceArsenalStorageMenu>> SPACE_ARSENAL_STORAGE =
+            MENUS.register("space_arsenal_storage", () -> new MenuType<>(SpaceArsenalStorageMenu::new, net.minecraft.world.flag.FeatureFlags.DEFAULT_FLAGS));
 
     private MagicalMenus() {}
 
