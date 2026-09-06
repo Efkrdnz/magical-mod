@@ -83,7 +83,7 @@ public final class MagicCastingService {
 
     private static void castSovereignAegisMode(ServerPlayer player, PlayerMagicState state, ResourceLocation parentId, int mode, boolean fromWheel) {
         boolean gabriel = MagicContent.GABRIEL.id().equals(parentId);
-        if (!gabriel || (fromWheel && !state.hasWheelSkill(parentId))) {
+        if ((!MagicContent.SOVEREIGN_AEGIS.id().equals(parentId) && !gabriel) || (fromWheel && !state.hasWheelSkill(parentId))) {
             return;
         }
         if (!state.hasUnlocked(parentId) || SovereignAegisEntity.isSealed(player)) {
@@ -280,15 +280,20 @@ public final class MagicCastingService {
                 default -> null;
             };
         }
-        return null;
+        return switch (mode) {
+            case SovereignAegisEntity.MODE_ULTIMATE_PROTECTION -> MagicContent.AEGIS_ULTIMATE_PROTECTION;
+            case SovereignAegisEntity.MODE_SANCTUARY -> MagicContent.AEGIS_SANCTUARY;
+            case SovereignAegisEntity.MODE_PERFECT_SEAL -> MagicContent.AEGIS_PERFECT_SEAL;
+            default -> null;
+        };
     }
 
     private static boolean isUltimateProtectionSubSkill(MagicSkillDefinition skill) {
-        return MagicContent.GABRIEL_ULTIMATE_PROTECTION.id().equals(skill.id());
+        return MagicContent.AEGIS_ULTIMATE_PROTECTION.id().equals(skill.id()) || MagicContent.GABRIEL_ULTIMATE_PROTECTION.id().equals(skill.id());
     }
 
     private static boolean isPerfectSealSubSkill(MagicSkillDefinition skill) {
-        return MagicContent.GABRIEL_PERFECT_SEAL.id().equals(skill.id());
+        return MagicContent.AEGIS_PERFECT_SEAL.id().equals(skill.id()) || MagicContent.GABRIEL_PERFECT_SEAL.id().equals(skill.id());
     }
 
     private static boolean isOffensive(MagicSkillDefinition definition) {
@@ -613,6 +618,11 @@ public final class MagicCastingService {
 
 
 
+
+    /** Standalone Judgement. The Gabriel sub-skill shares this body. */
+    public static boolean legacyJudgement(ServerPlayer player, MagicSkillResolvedStats stats) {
+        return castJudgement(player, stats);
+    }
 
     private static boolean castJudgement(ServerPlayer player, MagicSkillResolvedStats stats) {
         LivingEntity target = findJudgementTarget(player, 40.0D);

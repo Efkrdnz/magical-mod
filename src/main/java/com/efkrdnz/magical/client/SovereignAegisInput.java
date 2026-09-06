@@ -10,6 +10,11 @@ import net.minecraft.util.Mth;
 
 public final class SovereignAegisInput {
     private static final int WHEEL_SLOT = -2;
+    private static final ResourceLocation[] MODES = {
+            MagicContent.AEGIS_ULTIMATE_PROTECTION.id(),
+            MagicContent.AEGIS_SANCTUARY.id(),
+            MagicContent.AEGIS_PERFECT_SEAL.id()
+    };
     private static final ResourceLocation[] GABRIEL_MODES = {
             MagicContent.GABRIEL_ULTIMATE_PROTECTION.id(),
             MagicContent.GABRIEL_JUDGEMENT.id(),
@@ -225,11 +230,11 @@ public final class SovereignAegisInput {
     }
 
     private static boolean isSupportedParent(ResourceLocation skillId) {
-        return MagicContent.GABRIEL.id().equals(skillId);
+        return MagicContent.SOVEREIGN_AEGIS.id().equals(skillId) || MagicContent.GABRIEL.id().equals(skillId);
     }
 
     private static ResourceLocation[] modesFor(ResourceLocation skillId) {
-        return GABRIEL_MODES;
+        return MagicContent.GABRIEL.id().equals(skillId) ? GABRIEL_MODES : MODES;
     }
 
     private static ResourceLocation activeParentId() {

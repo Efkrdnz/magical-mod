@@ -228,14 +228,15 @@ public final class MagicWheelOverlay {
     }
 
     private static boolean isSubWheelParent(ResourceLocation skillId) {
-        return MagicContent.GABRIEL.id().equals(skillId)
+        return MagicContent.SOVEREIGN_AEGIS.id().equals(skillId)
+                || MagicContent.GABRIEL.id().equals(skillId)
                 || MagicContent.BLACK_FLAMES.id().equals(skillId)
                 || MagicContent.SPATIAL_ARSENAL.id().equals(skillId)
                 || MagicContent.SOUL_VOW.id().equals(skillId);
     }
 
     private static void beginSubWheelParent(ResourceLocation parentId) {
-        if (MagicContent.GABRIEL.id().equals(parentId)) {
+        if (MagicContent.SOVEREIGN_AEGIS.id().equals(parentId) || MagicContent.GABRIEL.id().equals(parentId)) {
             SovereignAegisInput.beginWheelCast(parentId);
         } else if (MagicContent.BLACK_FLAMES.id().equals(parentId)) {
             BlackFlamesInput.beginWheelCast();

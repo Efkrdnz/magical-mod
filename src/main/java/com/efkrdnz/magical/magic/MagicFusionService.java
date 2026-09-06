@@ -27,7 +27,7 @@ public final class MagicFusionService {
                     MagicContent.SLAG_ROLLER, MagicContent.PUPPET_SIGIL),
             // --- Magic Originator: ultimates, both inputs consumed ---
             consuming("gabriel", MagicContent.GABRIEL, MagicalClasses.MAGIC_ORIGINATOR,
-                    MagicContent.HEAVENS_GAZE, MagicContent.PRISM_CASCADE),
+                    MagicContent.SOVEREIGN_AEGIS, MagicContent.JUDGEMENT),
             consuming("fallen_sun", MagicContent.FALLEN_SUN, MagicalClasses.MAGIC_ORIGINATOR,
                     MagicContent.CRUCIBLE, MagicContent.CLEANSING_RAY),
             consuming("total_eclipse", MagicContent.TOTAL_ECLIPSE, MagicalClasses.MAGIC_ORIGINATOR,

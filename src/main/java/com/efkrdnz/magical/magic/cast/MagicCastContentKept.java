@@ -36,7 +36,20 @@ public final class MagicCastContentKept {
                 SpaceWalkerService.blink(ctx.player());
             }
         }));
+        SkillCastRegistry.register(MagicContent.SOVEREIGN_AEGIS, SkillCastRegistry.holdHint("message.magical.sovereign_aegis_hold"));
         SkillCastRegistry.register(MagicContent.GABRIEL, SkillCastRegistry.holdHint("message.magical.sovereign_aegis_hold"));
+        SkillCastRegistry.register(MagicContent.JUDGEMENT, new SkillCastHandler() {
+            @Override
+            public CastResult cast(CastContext ctx) {
+                return MagicCastingService.legacyJudgement(ctx.player(), ctx.stats()) ? CastResult.SUCCESS : CastResult.FAILED;
+            }
+
+            @Override
+            public TuningView tuning() {
+                return TuningView.NO_SPEED.labels("screen.magical.tuning.judgement_force", null,
+                        "screen.magical.tuning.beam_radius", null);
+            }
+        });
         SkillCastRegistry.register(MagicContent.BLACK_FLAMES, SkillCastRegistry.holdHint("message.magical.black_flames_hold"));
         SkillCastRegistry.register(MagicContent.SPATIAL_ARSENAL, SkillCastRegistry.holdHint("message.magical.spatial_arsenal_hold"));
         SkillCastRegistry.register(MagicContent.SOUL_VOW, SkillCastRegistry.holdHint("message.magical.soul_vow_hold"));

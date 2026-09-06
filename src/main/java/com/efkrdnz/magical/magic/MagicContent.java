@@ -77,6 +77,11 @@ public final class MagicContent {
     public static final MagicSkillDefinition PRISM_CASCADE = register("prism_cascade", MagicSchool.LIGHT, MagicSkillType.BURST, 3, 5, 22.0F, 0.0F, 1.1F, 48, 120, 30, 0.4F, 0, 0xFFD873, MagicAttribute.DIVINE);
     public static final MagicSkillDefinition HEAVENS_GAZE = register("heavens_gaze", MagicSchool.LIGHT, MagicSkillType.BURST, 4, 5, 6.0F, 0.35F, 2.6F, 96, 1200, 120, 0.3F, 0, 0xFFE04A, MagicAttribute.DIVINE);
     public static final MagicSkillDefinition DIVINE_DIVIDER = register("divine_divider", MagicSchool.LIGHT, MagicSkillType.BURST, 3, 4, 36.0F, 1.35F, 3.1F, 78, 1200, 52, 1.0F, 0, 0xF8FCFF);
+    public static final MagicSkillDefinition SOVEREIGN_AEGIS = register("sovereign_aegis", MagicSchool.LIGHT, MagicSkillType.BARRIER, 4, 5, 0.0F, 0.0F, 1.0F, 32, 220, 60, 0.0F, 0, 0xFFF4B2, MagicAttribute.DIVINE);
+    public static final MagicSkillDefinition AEGIS_ULTIMATE_PROTECTION = register("aegis_ultimate_protection", MagicSchool.LIGHT, MagicSkillType.BARRIER, 4, 5, 0.0F, 0.0F, 1.0F, 44, 260, 20, 0.0F, 0, 0xFFF8D6, MagicAttribute.DIVINE);
+    public static final MagicSkillDefinition AEGIS_SANCTUARY = register("aegis_sanctuary", MagicSchool.LIGHT, MagicSkillType.BARRIER, 4, 5, 0.0F, 0.0F, 3.0F, 58, 460, 180, 0.0F, 0, 0xAEEBFF, MagicAttribute.DIVINE);
+    public static final MagicSkillDefinition AEGIS_PERFECT_SEAL = register("aegis_perfect_seal", MagicSchool.LIGHT, MagicSkillType.BARRIER, 4, 5, 0.0F, 0.0F, 2.8F, 86, 1200, 20, 0.0F, 0, 0xFFE27A, MagicAttribute.DIVINE);
+    public static final MagicSkillDefinition JUDGEMENT = register("judgement", MagicSchool.LIGHT, MagicSkillType.BURST, 4, 5, 500.0F, 0.0F, 3.0F, 90, 3600, 80, 0.0F, 0, 0xFFDC38);
     // --- VOID ---
     public static final MagicSkillDefinition HOLLOW_MAW = register("hollow_maw", MagicSchool.VOID, MagicSkillType.BURST, 0, 0, 5.0F, 0.0F, 1.0F, 14, 40, 12, 0.25F, 0, 0x5A1C6E, MagicAttribute.DARK);
     public static final MagicSkillDefinition HUSHWING = register("hushwing", MagicSchool.VOID, MagicSkillType.PROJECTILE, 0, 0, 0.45F, 0.32F, 1.0F, 16, 90, 120, 0.0F, 0, 0x7B6AA8, MagicAttribute.DARK);
@@ -154,6 +159,9 @@ public final class MagicContent {
             MANA_BLOOM.id(),
             VIAL_BREAK.id());
     public static final Set<ResourceLocation> SUB_SKILLS = Set.of(
+            AEGIS_ULTIMATE_PROTECTION.id(),
+            AEGIS_SANCTUARY.id(),
+            AEGIS_PERFECT_SEAL.id(),
             GABRIEL_ULTIMATE_PROTECTION.id(),
             GABRIEL_JUDGEMENT.id(),
             GABRIEL_PERFECT_SEAL.id(),

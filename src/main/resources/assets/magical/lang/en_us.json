@@ -171,8 +171,8 @@
   "screen.magical.fusion.total_eclipse.loss": "Consumes both inputs: Fallen Firmament and Glint are destroyed.",
   "screen.magical.fusion.tectonic_verdict.requirement": "Requires Magic Originator, Magma Vent, and Crease.",
   "screen.magical.fusion.tectonic_verdict.loss": "Consumes both inputs: Magma Vent and Crease are destroyed.",
-  "screen.magical.fusion.gabriel.requirement": "Requires Magic Originator, Heaven's Gaze, and Prism Cascade.",
-  "screen.magical.fusion.gabriel.loss": "Consumes both inputs: Heaven's Gaze and Prism Cascade are destroyed.",
+  "screen.magical.fusion.gabriel.requirement": "Requires Magic Originator, Sovereign Aegis, and Judgement.",
+  "screen.magical.fusion.gabriel.loss": "Consumes both inputs: Sovereign Aegis and Judgement are destroyed.",
   "screen.magical.black_flames_forms": "Black Flame Forms",
   "screen.magical.spatial_arsenal_commands": "Spatial Commands",
   "screen.magical.soul_vow_commands": "Soul Vows",
@@ -926,5 +926,16 @@
   "message.magical.divine_divider_requires_sword": "Divine Divider requires a sword in your main hand.",
   "skill.magical.flare_ring": "Flare Ring",
   "skill.magical.flare_ring.desc": "Mark up to three ground points with fire eruptions. Two points form a burning wall; three complete a searing triangle that traps and cooks enemies inside.",
-  "message.magical.flare_ring_no_ground": "Flare Ring needs a solid ground point in sight."
+  "message.magical.flare_ring_no_ground": "Flare Ring needs a solid ground point in sight.",
+  "message.magical.sovereign_aegis_parent": "Equip Sovereign Aegis and choose this law from its wheel.",
+  "skill.magical.sovereign_aegis": "Sovereign Aegis",
+  "skill.magical.sovereign_aegis.desc": "A Tier 5 divine law skill. Hold to choose Ultimate Protection, Sanctuary, or Perfect Seal. Each law is tuned separately in the Codex.",
+  "skill.magical.aegis_ultimate_protection": "Ultimate Protection",
+  "skill.magical.aegis_ultimate_protection.desc": "A toggle law that nullifies incoming damage while active. Hits periodically consume mana, but protection does not drop between mana payments unless mana runs out.",
+  "skill.magical.aegis_sanctuary": "Sanctuary",
+  "skill.magical.aegis_sanctuary.desc": "Deploys a spherical law barrier that blocks outside attacks, but forbids offensive casting from inside so it cannot be used as a free attack bunker.",
+  "skill.magical.aegis_perfect_seal": "Perfect Seal",
+  "skill.magical.aegis_perfect_seal.desc": "Seals one living target inside a divine dome. The sealed target is pulled back if displaced, cannot use magic, and cannot be damaged until the caster seals another target.",
+  "skill.magical.judgement": "Judgement",
+  "skill.magical.judgement.desc": "A Tier 5 ultimate that locks a target, gathers red and gold circles above it, then drops a devastating beam."
 }
