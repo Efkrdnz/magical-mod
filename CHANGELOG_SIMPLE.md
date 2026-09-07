@@ -44,8 +44,10 @@
 
 ## Blacksmithing
 
-- Reworked blacksmithing into a drawing-based forge system.
-- Blacksmithing uses three drawing pads: attribute, binding, and grade.
+- Reworked blacksmithing into a single-canvas rune chain: you draw a grade sigil, an element core, one or more form glyphs, and optionally a temper mark and modifier runes, all in one chain.
+- Six weapon grades from Crude to Divine set how many form and modifier slots a chain gets, how much mana it costs, how neat the drawing has to be, and the material the weapon has to be made of.
+- A forged sword or axe fights on the left click: each press steps through the chain's forms as a combo, and holding the button charges a heavier version of the next one.
+- Every element and form pair has a named Art with its own effect, listed in the forge preview, the glyph codex and the weapon tooltip.
 - Divine is now a weapon grade, not an effect.
 - Removed item requirements from forging.
 - Added a real weapon slot in the forge GUI.

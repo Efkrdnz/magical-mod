@@ -14,6 +14,7 @@ import com.efkrdnz.magical.magic.MagicSkillTuningView;
 import com.efkrdnz.magical.magic.MagicTuningStat;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.menu.MagicPyramidMenu;
+import com.efkrdnz.magical.network.MagicalNetwork;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
@@ -56,12 +57,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     private static final int CLASS_ROW_STEP = 30;
     private static final int WHEEL_ROW_H = 20;
     private static final int WHEEL_LIST_ROWS = 11;
-    private static final int FORGE_PAD_SIZE = 72;
-    private static final int FORGE_SLOT_X = 244;
-    private static final int FORGE_SLOT_Y = 186;
-    private static final int PLAYER_INV_X = 40;
-    private static final int PLAYER_INV_Y = 242;
-    private static final int HOTBAR_Y = 300;
     private static final int DEFAULT_BELOW_TIER_COUNT = 3;
     private static final int PYRAMID_ROW_STEP = 29;
     private static final int PYRAMID_MAX_WIDTH = 110;
@@ -74,7 +69,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     private int curseListScroll;
     private boolean wheelEditorOpen;
     private boolean classViewOpen;
-    private boolean blacksmithForgeOpen;
     private boolean spellCreatorOpen;
     private ResourceLocation fusionFirstInput;
     private ResourceLocation fusionSecondInput;
@@ -82,16 +76,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     private int fusionInputScroll;
     private boolean passivesOpen;
     private boolean belowPyramidOpen;
-    private final List<ForgePoint> forgeAttributeStroke = new ArrayList<>();
-    private final List<ForgePoint> forgeBindingStroke = new ArrayList<>();
-    private final List<ForgePoint> forgeGradeStroke = new ArrayList<>();
-    private final List<ForgePoint> forgeTemperStroke = new ArrayList<>();
-    private int activeForgePad = -1;
-    private ForgeAttribute forgeAttribute = ForgeAttribute.NONE;
-    private int forgeBindingTier;
-    private ForgeGrade forgeGrade = ForgeGrade.NONE;
-    private ForgeTemper forgeTemper = ForgeTemper.NONE;
-    private int forgeQuality;
 
     public MagicPyramidScreen(MagicPyramidMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -108,10 +92,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         belowPyramidOpen = menu.selectedTier() < 0;
         // Paths of Power can ask the codex to open straight into a class-specific workshop.
         switch (menu.pendingView()) {
-            case 1 -> {
-                blacksmithForgeOpen = true;
-                classViewOpen = false;
-            }
             case 2 -> {
                 spellCreatorOpen = true;
                 classViewOpen = false;
@@ -122,15 +102,11 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
 
     @Override
     protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
-        if (blacksmithForgeOpen || spellCreatorOpen) {
+        if (spellCreatorOpen) {
             int left = leftPos;
             int top = topPos;
             MagicalGuiStyle.screenBackground(guiGraphics, left, top, left + imageWidth, top + imageHeight);
-            if (blacksmithForgeOpen) {
-                drawBlacksmithForge(guiGraphics);
-            } else {
-                drawSpellCreator(guiGraphics);
-            }
+            drawSpellCreator(guiGraphics);
             return;
         }
         if (wheelEditorOpen || classViewOpen || passivesOpen) {
@@ -156,7 +132,7 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(guiGraphics, mouseX, mouseY, partialTick);
-        if (blacksmithForgeOpen || spellCreatorOpen) {
+        if (spellCreatorOpen) {
             super.render(guiGraphics, mouseX, mouseY, partialTick);
             renderTooltip(guiGraphics, mouseX, mouseY);
             return;
@@ -191,7 +167,7 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
 
     @Override
     protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        if (wheelEditorOpen || classViewOpen || blacksmithForgeOpen || spellCreatorOpen || passivesOpen) {
+        if (wheelEditorOpen || classViewOpen || spellCreatorOpen || passivesOpen) {
             return;
         }
 
@@ -206,9 +182,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (blacksmithForgeOpen) {
-            return handleBlacksmithForgeClick(mouseX, mouseY) || super.mouseClicked(mouseX, mouseY, button);
-        }
         if (spellCreatorOpen) {
             return handleSpellCreatorClick(mouseX, mouseY);
         }
@@ -225,26 +198,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
             return true;
         }
         return true;
-    }
-
-    @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (blacksmithForgeOpen && activeForgePad >= 0) {
-            addForgePoint(activeForgePad, mouseX, mouseY);
-            return true;
-        }
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
-    }
-
-    @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (blacksmithForgeOpen && activeForgePad >= 0) {
-            addForgePoint(activeForgePad, mouseX, mouseY);
-            activeForgePad = -1;
-            classifyForgeRunes();
-            return true;
-        }
-        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     @Override
@@ -889,56 +842,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         }
     }
 
-    private void drawBlacksmithForge(GuiGraphics guiGraphics) {
-        int left = leftPos + WHEEL_EDITOR_X;
-        int top = topPos + WHEEL_EDITOR_Y;
-        PlayerMagicState state = ClientMagicState.get();
-        MagicalGuiStyle.panel(guiGraphics, left, top, left + WHEEL_EDITOR_W, top + WHEEL_EDITOR_H, MagicalGuiStyle.ACCENT_BLOOD);
-        MagicalGuiStyle.sectionLabel(guiGraphics, font, left + 10, top + 8, Component.translatable("screen.magical.blacksmith_forge"), 0xF4F8FF);
-        button(guiGraphics, left + WHEEL_EDITOR_W - 54, top + 6, 44, 16, 0xFF27354A, Component.translatable("screen.magical.back"));
-
-        drawForgePad(guiGraphics, 0, Component.translatable("screen.magical.forge_attribute"), forgeAttributeStroke, attributeLabel(), attributeColor(), 0xFF26354A);
-        drawForgePad(guiGraphics, 1, Component.translatable("screen.magical.forge_binding"), forgeBindingStroke, bindingLabel(), forgeBindingTier > 0 ? 0xA6E3A1 : 0x8292AB, 0xFF243A32);
-        drawForgePad(guiGraphics, 2, Component.translatable("screen.magical.forge_grade"), forgeGradeStroke, gradeLabel(), gradeColor(), 0xFF3D3444);
-        drawForgePad(guiGraphics, 3, Component.translatable("screen.magical.forge_temper"), forgeTemperStroke, temperLabel(), temperColor(), 0xFF2A3A44);
-
-        int infoX = left + 18;
-        int infoY = top + 142;
-        MagicalGuiStyle.inset(guiGraphics, infoX, infoY, infoX + 246, infoY + 62);
-        guiGraphics.drawString(font, Component.translatable("screen.magical.forge_weapon_slot"), infoX + 8, infoY + 8, 0xBFD7FF, false);
-        Component costText = forgeGrade == ForgeGrade.NONE
-                ? Component.translatable("screen.magical.forge_result_incomplete")
-                : Component.translatable("screen.magical.forge_mana_cost", manaCostFor(forgeGrade));
-        guiGraphics.drawString(font, font.plainSubstrByWidth(costText.getString(), 190), infoX + 8, infoY + 21, 0xF7D774, false);
-        guiGraphics.drawString(font, font.plainSubstrByWidth(Component.translatable("screen.magical.forge_legend_glyphs").getString(), 190), infoX + 8, infoY + 34, 0x8292AB, false);
-        guiGraphics.drawString(font, font.plainSubstrByWidth(Component.translatable("screen.magical.forge_legend_craft").getString(), 190), infoX + 8, infoY + 47, 0x8292AB, false);
-        drawSlotFrame(guiGraphics, leftPos + FORGE_SLOT_X, topPos + FORGE_SLOT_Y, 0xFF2D5A74);
-
-        int resultX = left + 282;
-        int resultY = top + 142;
-        MagicalGuiStyle.inset(guiGraphics, resultX, resultY, resultX + 92, resultY + 62);
-        guiGraphics.drawString(font, Component.translatable("screen.magical.forge_result"), resultX + 8, resultY + 6, 0xBFD7FF, false);
-        guiGraphics.drawString(font, font.plainSubstrByWidth(forgeResultText().getString(), 78), resultX + 8, resultY + 17, forgeResultReady() ? gradeColor() : 0x8292AB, false);
-        if (forgeResultReady()) {
-            guiGraphics.drawString(font, font.plainSubstrByWidth("B" + roman(forgeBindingTier) + " · " + forgeQuality + "%", 78), resultX + 8, resultY + 28, qualityColor(), false);
-        }
-        int color = forgeResultReady() ? forgeResultButtonColor(state) : 0xFF27354A;
-        button(guiGraphics, resultX + 8, resultY + 40, 76, 16, color, Component.translatable("screen.magical.forge_apply"));
-
-        int inventoryX = leftPos + PLAYER_INV_X;
-        int inventoryY = topPos + PLAYER_INV_Y;
-        MagicalGuiStyle.panel(guiGraphics, inventoryX - 10, inventoryY - 18, inventoryX + 172, topPos + HOTBAR_Y + 28, MagicalGuiStyle.ACCENT_GOLD);
-        guiGraphics.drawString(font, Component.translatable("container.inventory"), inventoryX, inventoryY - 12, 0xBFD7FF, false);
-        for (int row = 0; row < 3; row++) {
-            for (int column = 0; column < 9; column++) {
-                drawSlotFrame(guiGraphics, inventoryX + column * 18, inventoryY + row * 18, 0xFF27354A);
-            }
-        }
-        for (int column = 0; column < 9; column++) {
-            drawSlotFrame(guiGraphics, inventoryX + column * 18, topPos + HOTBAR_Y, 0xFF27354A);
-        }
-    }
-
     private void drawSpellCreator(GuiGraphics guiGraphics) {
         int left = leftPos + WHEEL_EDITOR_X;
         int top = topPos + WHEEL_EDITOR_Y;
@@ -1032,10 +935,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         drawScrollbar(guiGraphics, listX + listW - 8, listY, listH, inputs.size(), visibleFusionInputRows(), fusionInputScroll);
     }
 
-    private void drawSlotFrame(GuiGraphics guiGraphics, int x, int y, int borderColor) {
-        MagicalGuiStyle.slot(guiGraphics, x, y, borderColor);
-    }
-
     private boolean handlePyramidClick(double mouseX, double mouseY) {
         int left = leftPos + 18;
         int top = topPos + 40;
@@ -1111,7 +1010,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         }
         if (inside(mouseX, mouseY, left + 198, top - 32, 62, 20)) {
             classViewOpen = true;
-            blacksmithForgeOpen = false;
             return true;
         }
         return false;
@@ -1273,8 +1171,8 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         PlayerMagicState clientState = ClientMagicState.get();
         int toolsY = top + WHEEL_EDITOR_H - 26;
         if (clientState.hasClass(MagicalClasses.BLACKSMITH) && inside(mouseX, mouseY, left + 14, toolsY, 92, 18)) {
-            classViewOpen = false;
-            blacksmithForgeOpen = true;
+            // The server opens the Runeforge menu, which replaces this screen.
+            MagicalNetwork.sendOpenForgeRequest();
             return true;
         }
         if (clientState.hasClass(MagicalClasses.SPELL_CREATOR) && inside(mouseX, mouseY, left + 112, toolsY, 116, 18)) {
@@ -1297,33 +1195,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         }
         // Rows are a read-only summary now; evolving lives in Paths of Power.
         return true;
-    }
-
-    private boolean handleBlacksmithForgeClick(double mouseX, double mouseY) {
-        int left = leftPos + WHEEL_EDITOR_X;
-        int top = topPos + WHEEL_EDITOR_Y;
-        if (inside(mouseX, mouseY, left + WHEEL_EDITOR_W - 54, top + 6, 44, 16)) {
-            blacksmithForgeOpen = false;
-            classViewOpen = true;
-            return true;
-        }
-
-        for (int pad = 0; pad < 4; pad++) {
-            if (inside(mouseX, mouseY, forgePadX(pad), forgePadY(), FORGE_PAD_SIZE, FORGE_PAD_SIZE)) {
-                clearForgePad(pad);
-                activeForgePad = pad;
-                addForgePoint(pad, mouseX, mouseY);
-                return true;
-            }
-        }
-
-        int resultX = left + 282;
-        int resultY = top + 142;
-        if (inside(mouseX, mouseY, resultX + 8, resultY + 40, 76, 16)) {
-            pressForgeResult();
-            return true;
-        }
-        return false;
     }
 
     private boolean handleSpellCreatorClick(double mouseX, double mouseY) {
@@ -1391,364 +1262,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
             }
         }
         return true;
-    }
-
-    private void drawForgePad(GuiGraphics guiGraphics, int pad, Component label, List<ForgePoint> stroke, Component status, int statusColor, int color) {
-        int x = forgePadX(pad);
-        int y = forgePadY();
-        MagicalGuiStyle.panel(guiGraphics, x - 4, y - 18, x + FORGE_PAD_SIZE + 4, y + FORGE_PAD_SIZE + 18, color);
-        guiGraphics.drawCenteredString(font, label, x + FORGE_PAD_SIZE / 2, y - 14, 0xBFD7FF);
-        guiGraphics.fill(x, y, x + FORGE_PAD_SIZE, y + FORGE_PAD_SIZE, MagicalGuiStyle.brighten(color, 1.3F));
-        guiGraphics.fillGradient(x + 3, y + 3, x + FORGE_PAD_SIZE - 3, y + FORGE_PAD_SIZE - 3, 0xFF090E19, 0xFF0D1526);
-        for (ForgePoint point : stroke) {
-            guiGraphics.fill(point.x() - 2, point.y() - 2, point.x() + 3, point.y() + 3, 0x44F7D774);
-            guiGraphics.fill(point.x() - 1, point.y() - 1, point.x() + 2, point.y() + 2, 0xFFF7D774);
-        }
-        guiGraphics.drawCenteredString(font, status, x + FORGE_PAD_SIZE / 2, y + FORGE_PAD_SIZE + 6, statusColor);
-    }
-
-    private void addForgePoint(int pad, double mouseX, double mouseY) {
-        int x = Mth.clamp((int) mouseX, forgePadX(pad) + 2, forgePadX(pad) + FORGE_PAD_SIZE - 3);
-        int y = Mth.clamp((int) mouseY, forgePadY() + 2, forgePadY() + FORGE_PAD_SIZE - 3);
-        List<ForgePoint> stroke = strokeForPad(pad);
-        // Drop samples closer than ~3px to the previous one. Raw mouse-move captures cluster points
-        // almost on top of each other, and that jitter otherwise reads as dozens of false corners.
-        if (!stroke.isEmpty()) {
-            ForgePoint last = stroke.getLast();
-            int dx = x - last.x();
-            int dy = y - last.y();
-            if (dx * dx + dy * dy < 9) {
-                return;
-            }
-        }
-        stroke.add(new ForgePoint(x, y));
-    }
-
-    private void clearForgePad(int pad) {
-        strokeForPad(pad).clear();
-        switch (pad) {
-            case 0 -> forgeAttribute = ForgeAttribute.NONE;
-            case 1 -> forgeBindingTier = 0;
-            case 2 -> forgeGrade = ForgeGrade.NONE;
-            default -> forgeTemper = ForgeTemper.NONE;
-        }
-    }
-
-    private List<ForgePoint> strokeForPad(int pad) {
-        return switch (pad) {
-            case 0 -> forgeAttributeStroke;
-            case 1 -> forgeBindingStroke;
-            case 2 -> forgeGradeStroke;
-            default -> forgeTemperStroke;
-        };
-    }
-
-    private void classifyForgeRunes() {
-        forgeAttribute = classifyAttributeGlyph(forgeAttributeStroke);
-        forgeBindingTier = classifyBindingKnot(forgeBindingStroke);
-        forgeGrade = classifyGradeSigil(forgeGradeStroke);
-        forgeTemper = classifyTemper(forgeTemperStroke);
-        forgeQuality = Math.round((strokeQuality(forgeAttributeStroke) + strokeQuality(forgeBindingStroke)
-                + strokeQuality(forgeGradeStroke) + strokeQuality(forgeTemperStroke)) / 4.0F * 100.0F);
-    }
-
-    private ForgeAttribute classifyAttributeGlyph(List<ForgePoint> stroke) {
-        if (stroke.size() < 4) {
-            return ForgeAttribute.NONE;
-        }
-        // Six glyphs, distinguished by closure, corner count, and turn direction:
-        //   closed loop -> Void; 5+ sharp corners (star) -> Radiant; 3-4 corners (zigzag) -> Storm;
-        //   two opposite bends (S/wave) -> Venom; one bend -> Fire; a clean straight line -> Frost.
-        if (isClosed(stroke)) {
-            return ForgeAttribute.VOID;
-        }
-        int corners = cornerCount(stroke);
-        if (corners >= 5) {
-            return ForgeAttribute.RADIANT;
-        }
-        if (corners >= 3) {
-            return ForgeAttribute.STORM;
-        }
-        if (corners == 2 && isWave(stroke)) {
-            return ForgeAttribute.VENOM;
-        }
-        if (corners >= 1) {
-            return ForgeAttribute.FIRE;
-        }
-        double length = pathLength(stroke);
-        double straightness = length / Math.max(1.0D, distance(stroke.getFirst(), stroke.getLast()));
-        return straightness < 1.4D && length > 20.0D ? ForgeAttribute.FROST : ForgeAttribute.NONE;
-    }
-
-    /** A temperament stroke: a long straight edge is Keen, a closed/bulky mark is Heavy, else Swift. */
-    private ForgeTemper classifyTemper(List<ForgePoint> stroke) {
-        if (stroke.size() < 4 || pathLength(stroke) < 16.0D) {
-            return ForgeTemper.NONE;
-        }
-        if (isClosed(stroke) || cornerCount(stroke) >= 2) {
-            return ForgeTemper.HEAVY;
-        }
-        double length = pathLength(stroke);
-        double straightness = length / Math.max(1.0D, distance(stroke.getFirst(), stroke.getLast()));
-        return straightness < 1.3D && length > 26.0D ? ForgeTemper.KEEN : ForgeTemper.SWIFT;
-    }
-
-    /**
-     * True when the stroke's two turns bend in opposite directions - an S / wave - as opposed to
-     * a Z / zigzag whose turns bend the same way. Used to tell Venom apart from a 2-corner Storm.
-     */
-    private static boolean isWave(List<ForgePoint> stroke) {
-        double firstSign = 0.0D;
-        for (int i = 4; i < stroke.size() - 4; i++) {
-            ForgePoint a = stroke.get(i - 4);
-            ForgePoint b = stroke.get(i);
-            ForgePoint c = stroke.get(i + 4);
-            double cross = (double) (b.x() - a.x()) * (c.y() - b.y()) - (double) (b.y() - a.y()) * (c.x() - b.x());
-            if (Math.abs(cross) < 40.0D) {
-                continue;
-            }
-            if (firstSign == 0.0D) {
-                firstSign = Math.signum(cross);
-            } else if (Math.signum(cross) != firstSign) {
-                return true; // a reversal in turn direction = a wave
-            }
-        }
-        return false;
-    }
-
-    private int classifyBindingKnot(List<ForgePoint> stroke) {
-        if (stroke.size() < 4 || pathLength(stroke) < 18.0D) {
-            return 0;
-        }
-        if (isClosed(stroke)) {
-            return 3;
-        }
-        return cornerCount(stroke) >= 2 || pathLength(stroke) > 70.0D ? 2 : 1;
-    }
-
-    private ForgeGrade classifyGradeSigil(List<ForgePoint> stroke) {
-        if (stroke.size() < 4) {
-            return ForgeGrade.NONE;
-        }
-        boolean closed = isClosed(stroke);
-        int corners = cornerCount(stroke);
-        if (closed && corners >= 2) {
-            return ForgeGrade.DIVINE;
-        }
-        if (closed || corners >= 2) {
-            return ForgeGrade.HIGH;
-        }
-        return pathLength(stroke) > 40.0D ? ForgeGrade.FINE : ForgeGrade.CRUDE;
-    }
-
-    /** Draftsmanship 0..1: pad coverage, line steadiness, and stroke effort. */
-    private float strokeQuality(List<ForgePoint> stroke) {
-        if (stroke.size() < 4) {
-            return 0.0F;
-        }
-        int minX = Integer.MAX_VALUE;
-        int maxX = Integer.MIN_VALUE;
-        int minY = Integer.MAX_VALUE;
-        int maxY = Integer.MIN_VALUE;
-        for (ForgePoint point : stroke) {
-            minX = Math.min(minX, point.x());
-            maxX = Math.max(maxX, point.x());
-            minY = Math.min(minY, point.y());
-            maxY = Math.max(maxY, point.y());
-        }
-        float coverage = Math.min(1.0F, ((maxX - minX) * (maxY - minY)) / (0.45F * FORGE_PAD_SIZE * FORGE_PAD_SIZE));
-        int steady = 0;
-        int steps = 0;
-        for (int i = 2; i < stroke.size(); i++) {
-            ForgePoint a = stroke.get(i - 2);
-            ForgePoint b = stroke.get(i - 1);
-            ForgePoint c = stroke.get(i);
-            double firstAngle = Math.atan2(b.y() - a.y(), b.x() - a.x());
-            double secondAngle = Math.atan2(c.y() - b.y(), c.x() - b.x());
-            double delta = Math.abs(Math.atan2(Math.sin(secondAngle - firstAngle), Math.cos(secondAngle - firstAngle)));
-            steps++;
-            if (delta < 1.0D) {
-                steady++;
-            }
-        }
-        float smoothness = steps == 0 ? 0.0F : steady / (float) steps;
-        float effort = Math.min(1.0F, stroke.size() / 45.0F);
-        return 0.35F * coverage + 0.35F * smoothness + 0.30F * effort;
-    }
-
-    private boolean forgeResultReady() {
-        return forgeAttribute != ForgeAttribute.NONE && forgeBindingTier >= 1 && forgeGrade != ForgeGrade.NONE && forgeTemper != ForgeTemper.NONE;
-    }
-
-    private Component forgeResultText() {
-        if (!forgeResultReady()) {
-            return Component.translatable("screen.magical.forge_result_incomplete");
-        }
-        return Component.translatable("screen.magical.forge_result_summary", gradeLabel(), attributeLabel());
-    }
-
-    private int forgeResultButtonColor(PlayerMagicState state) {
-        if (forgeGrade == ForgeGrade.DIVINE) {
-            return state.hasClass(MagicalClasses.DIVINESMITH) ? 0xFFB28A2E : 0xFF3A3320;
-        }
-        if (!state.hasClass(MagicalClasses.BLACKSMITH)) {
-            return 0xFF27354A;
-        }
-        return switch (forgeAttribute) {
-            case FIRE -> 0xFF4A2730;
-            case VOID -> 0xFF3A2E5A;
-            case STORM -> 0xFF1F4A5C;
-            case FROST -> 0xFF2A4A5E;
-            case RADIANT -> 0xFF5A5230;
-            case VENOM -> 0xFF2E4A2A;
-            case NONE -> 0xFF27354A;
-        };
-    }
-
-    private void pressForgeResult() {
-        if (!forgeResultReady()) {
-            return;
-        }
-        int attributeIndex = forgeAttribute.ordinal() - 1;
-        int gradeIndex = forgeGrade.ordinal() - 1;
-        int temperIndex = forgeTemper.ordinal() - 1;
-        int id = MagicPyramidMenu.BUTTON_FORGE_RUNE_BASE
-                + ((((attributeIndex * 4 + gradeIndex) * 3 + (forgeBindingTier - 1)) * 3 + temperIndex) * 101)
-                + Mth.clamp(forgeQuality, 0, 100);
-        press(id);
-    }
-
-    private Component attributeLabel() {
-        return Component.translatable("screen.magical.forge_rune." + (forgeAttribute == ForgeAttribute.NONE ? "none" : forgeAttribute.name().toLowerCase(java.util.Locale.ROOT)));
-    }
-
-    private int attributeColor() {
-        return switch (forgeAttribute) {
-            case FIRE -> 0xFF9A6A;
-            case VOID -> 0xB68DFF;
-            case STORM -> 0x9BE9FF;
-            case FROST -> 0xCDF4FF;
-            case RADIANT -> 0xFFE9A0;
-            case VENOM -> 0x8FE04B;
-            case NONE -> 0x8292AB;
-        };
-    }
-
-    private Component bindingLabel() {
-        return forgeBindingTier <= 0
-                ? Component.translatable("screen.magical.forge_rune.none")
-                : Component.translatable("screen.magical.forge_binding_tier", roman(forgeBindingTier));
-    }
-
-    private Component temperLabel() {
-        return Component.translatable("screen.magical.forge_rune." + (forgeTemper == ForgeTemper.NONE ? "none" : forgeTemper.name().toLowerCase(java.util.Locale.ROOT)));
-    }
-
-    private int temperColor() {
-        return switch (forgeTemper) {
-            case KEEN -> 0xB9E4FF;
-            case HEAVY -> 0xFFC98A;
-            case SWIFT -> 0xC7FFB0;
-            case NONE -> 0x8292AB;
-        };
-    }
-
-    private Component gradeLabel() {
-        return Component.translatable("screen.magical.forge_rune." + (forgeGrade == ForgeGrade.NONE ? "none" : forgeGrade.name().toLowerCase(java.util.Locale.ROOT)));
-    }
-
-    private int gradeColor() {
-        return switch (forgeGrade) {
-            case CRUDE -> 0xA8B4C4;
-            case FINE -> 0xBFD7FF;
-            case HIGH -> 0x8FD0FF;
-            case DIVINE -> 0xF7D774;
-            case NONE -> 0x8292AB;
-        };
-    }
-
-    private int qualityColor() {
-        if (forgeQuality >= 75) {
-            return 0xA6E3A1;
-        }
-        if (forgeQuality >= 45) {
-            return 0xF7D774;
-        }
-        return forgeQuality >= 25 ? 0xE8C9A0 : 0xF38BA8;
-    }
-
-    private int manaCostFor(ForgeGrade grade) {
-        return switch (grade) {
-            case CRUDE -> 20;
-            case FINE -> 45;
-            case HIGH -> 90;
-            case DIVINE -> 200;
-            case NONE -> 0;
-        };
-    }
-
-    private static String roman(int tier) {
-        return switch (Math.max(1, Math.min(3, tier))) {
-            case 1 -> "I";
-            case 2 -> "II";
-            default -> "III";
-        };
-    }
-
-    private int forgePadX(int pad) {
-        return leftPos + WHEEL_EDITOR_X + 18 + pad * 96;
-    }
-
-    private int forgePadY() {
-        return topPos + WHEEL_EDITOR_Y + 52;
-    }
-
-    private static boolean isClosed(List<ForgePoint> stroke) {
-        ForgePoint first = stroke.getFirst();
-        ForgePoint last = stroke.getLast();
-        return distance(first, last) <= 18.0D && pathLength(stroke) >= 48.0D;
-    }
-
-    /**
-     * Counts genuine sharp turns in a stroke. Directions are measured over a small index window
-     * (not immediate neighbours) so gentle curves and sampling noise don't register, and each
-     * corner is committed once via a cooldown so a single bend can't be counted many times.
-     */
-    private static int cornerCount(List<ForgePoint> stroke) {
-        int n = stroke.size();
-        int window = 2;
-        if (n < window * 2 + 1) {
-            return 0;
-        }
-        int corners = 0;
-        int lastCorner = -100;
-        for (int i = window; i < n - window; i++) {
-            ForgePoint a = stroke.get(i - window);
-            ForgePoint b = stroke.get(i);
-            ForgePoint c = stroke.get(i + window);
-            double firstAngle = Math.atan2(b.y() - a.y(), b.x() - a.x());
-            double secondAngle = Math.atan2(c.y() - b.y(), c.x() - b.x());
-            double delta = Math.abs(Math.atan2(Math.sin(secondAngle - firstAngle), Math.cos(secondAngle - firstAngle)));
-            if (delta > 1.0D && i - lastCorner > window) {
-                corners++;
-                lastCorner = i;
-            }
-        }
-        return corners;
-    }
-
-    private static double pathLength(List<ForgePoint> stroke) {
-        double length = 0.0D;
-        for (int i = 1; i < stroke.size(); i++) {
-            length += distance(stroke.get(i - 1), stroke.get(i));
-        }
-        return length;
-    }
-
-    private static double distance(ForgePoint first, ForgePoint second) {
-        int dx = first.x() - second.x();
-        int dy = first.y() - second.y();
-        return Math.sqrt(dx * dx + dy * dy);
     }
 
     private void button(GuiGraphics guiGraphics, int x, int y, int width, int height, int color, Component label) {
@@ -2093,32 +1606,5 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
 
     private int drawWrappedPreviewHeight(Component text, int width, int lineHeight) {
         return font.split(text, width).size() * lineHeight;
-    }
-
-    private record ForgePoint(int x, int y) {}
-
-    private enum ForgeAttribute {
-        NONE,
-        FIRE,
-        VOID,
-        STORM,
-        FROST,
-        RADIANT,
-        VENOM
-    }
-
-    private enum ForgeGrade {
-        NONE,
-        CRUDE,
-        FINE,
-        HIGH,
-        DIVINE
-    }
-
-    private enum ForgeTemper {
-        NONE,
-        KEEN,
-        HEAVY,
-        SWIFT
     }
 }

@@ -2,7 +2,6 @@ package com.efkrdnz.magical.magic.menu;
 
 import com.efkrdnz.magical.classes.MagicalClassDefinition;
 import com.efkrdnz.magical.classes.MagicalClasses;
-import com.efkrdnz.magical.classes.BlacksmithInfusion;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicFusionService;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
@@ -13,25 +12,18 @@ import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import com.efkrdnz.magical.registry.MagicalMenus;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.Container;
-import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.SwordItem;
 
 public final class MagicPyramidMenu extends AbstractContainerMenu {
-    private static final int FORGE_SLOT_X = 244;
-    private static final int FORGE_SLOT_Y = 186;
     private static final int PLAYER_INV_X = 40;
     private static final int PLAYER_INV_Y = 242;
     private static final int HOTBAR_Y = 300;
-    private static final int FORGE_SLOT_INDEX = 0;
-    private static final int PLAYER_INVENTORY_START = 1;
+    private static final int PLAYER_INVENTORY_START = 0;
     private static final int PLAYER_INVENTORY_END = PLAYER_INVENTORY_START + 36;
 
     public static final int BUTTON_TIER_BASE = 100;
@@ -47,10 +39,6 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
     public static final int BUTTON_WHEEL_SELECT_BASE = 500;
     public static final int BUTTON_CLASS_SELECT_BASE = 700;
     public static final int BUTTON_EVOLVE_SELECTED_CLASS = 800;
-    // Runeforge presses encode (attribute, grade, binding, temper, quality) into one id:
-    // id = BASE + ((((attribute * 4 + grade) * 3 + (binding - 1)) * 3 + temper) * 101) + quality.
-    public static final int BUTTON_FORGE_RUNE_BASE = 20000;
-    public static final int FORGE_RUNE_SPAN = 6 * 4 * 3 * 3 * 101;
     public static final int BUTTON_EVOLVE_CLASS_BASE = 900;
     public static final int BUTTON_TUNE_BASE = 1000;
     public static final int BUTTON_PASSIVE_TOGGLE_BASE = 1300;
@@ -72,7 +60,6 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
     /** Sub-view the codex was opened into, synced so the client screen can jump straight there. */
     private int pendingView;
     private final ContainerData data;
-    private final SimpleContainer forgeContainer = new SimpleContainer(1);
 
     public MagicPyramidMenu(int containerId, Inventory inventory) {
         super(MagicalMenus.MAGIC_PYRAMID.get(), containerId);
@@ -118,7 +105,6 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
             }
         };
         addDataSlots(data);
-        addSlot(new ForgeWeaponSlot(forgeContainer, 0, FORGE_SLOT_X, FORGE_SLOT_Y));
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 9; column++) {
                 addSlot(new Slot(inventory, column + row * 9 + 9, PLAYER_INV_X + column * 18, PLAYER_INV_Y + row * 18));
@@ -129,53 +115,10 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
         }
     }
 
+    /** The codex holds no slots of its own, so there is nowhere to shift-click an item to. */
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
-        ItemStack result = ItemStack.EMPTY;
-        Slot slot = slots.get(index);
-        if (slot == null || !slot.hasItem()) {
-            return result;
-        }
-
-        ItemStack stack = slot.getItem();
-        result = stack.copy();
-        if (index == FORGE_SLOT_INDEX) {
-            if (!moveItemStackTo(stack, PLAYER_INVENTORY_START, PLAYER_INVENTORY_END, true)) {
-                return ItemStack.EMPTY;
-            }
-        } else if (isWeapon(stack)) {
-            if (!moveItemStackTo(stack, FORGE_SLOT_INDEX, FORGE_SLOT_INDEX + 1, false)) {
-                return ItemStack.EMPTY;
-            }
-        } else {
-            return ItemStack.EMPTY;
-        }
-
-        if (stack.isEmpty()) {
-            slot.setByPlayer(ItemStack.EMPTY);
-        } else {
-            slot.setChanged();
-        }
-        slot.onTake(player, stack);
-        return result;
-    }
-
-    @Override
-    public void removed(Player player) {
-        super.removed(player);
-        clearContainer(player, forgeContainer);
-    }
-
-    public Slot forgeWeaponSlot() {
-        return getSlot(FORGE_SLOT_INDEX);
-    }
-
-    public boolean forgeHasWeapon() {
-        return forgeWeaponSlot().hasItem();
-    }
-
-    public ItemStack forgeWeapon() {
-        return forgeWeaponSlot().getItem();
+        return ItemStack.EMPTY;
     }
 
     public int playerInventoryStart() {
@@ -186,25 +129,6 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
         return PLAYER_INVENTORY_END;
     }
 
-    private static boolean isWeapon(ItemStack stack) {
-        return stack.getItem() instanceof SwordItem || stack.getItem() instanceof AxeItem;
-    }
-
-    private static final class ForgeWeaponSlot extends Slot {
-        private ForgeWeaponSlot(Container container, int slot, int x, int y) {
-            super(container, slot, x, y);
-        }
-
-        @Override
-        public boolean mayPlace(ItemStack stack) {
-            return isWeapon(stack);
-        }
-
-        @Override
-        public int getMaxStackSize() {
-            return 1;
-        }
-    }
 
     @Override
     public boolean stillValid(Player player) {
@@ -340,25 +264,6 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
                 ResourceLocation firstInput = MagicContent.skillIdByIndex(encoded / fusionSkillCount);
                 ResourceLocation secondInput = MagicContent.skillIdByIndex(encoded % fusionSkillCount);
                 MagicFusionService.create(serverPlayer, state, firstInput, secondInput);
-            }
-            return true;
-        }
-        if (id >= BUTTON_FORGE_RUNE_BASE && id < BUTTON_FORGE_RUNE_BASE + FORGE_RUNE_SPAN) {
-            if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
-                int encoded = id - BUTTON_FORGE_RUNE_BASE;
-                int quality = encoded % 101;
-                int combo = encoded / 101;
-                int temperIndex = combo % 3;
-                int bindingTier = (combo / 3) % 3 + 1;
-                int gradeIndex = (combo / 9) % 4;
-                int attributeIndex = (combo / 36) % 6;
-                BlacksmithInfusion.forge(serverPlayer, forgeWeapon(),
-                        BlacksmithInfusion.RuneAttribute.values()[attributeIndex],
-                        BlacksmithInfusion.RuneGrade.values()[gradeIndex],
-                        bindingTier, quality,
-                        BlacksmithInfusion.RuneTemper.values()[temperIndex]);
-                forgeWeaponSlot().setChanged();
-                broadcastChanges();
             }
             return true;
         }

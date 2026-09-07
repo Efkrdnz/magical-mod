@@ -56,7 +56,7 @@ public final class ClassTreeMenu extends AbstractContainerMenu {
         }
         if (id == BUTTON_OPEN_FORGE) {
             if (state.hasClass(MagicalClasses.BLACKSMITH)) {
-                MagicCodexService.openAt(serverPlayer, MagicCodexService.View.BLACKSMITH_FORGE);
+                com.efkrdnz.magical.forge.BlacksmithForgeService.open(serverPlayer);
             }
             return true;
         }
