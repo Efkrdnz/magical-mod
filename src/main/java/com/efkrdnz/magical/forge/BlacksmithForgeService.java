@@ -407,6 +407,7 @@ public final class BlacksmithForgeService {
                 recipe.temper().map(ForgeIds::id),
                 recipe.forms().stream().map(ForgeIds::id).toList(),
                 recipe.modifiers().stream().map(ForgeIds::id).toList(),
+                recipe.program().stream().map(ForgeIds::id).toList(),
                 quality,
                 now);
         ForgedWeapons.write(weapon, forged);

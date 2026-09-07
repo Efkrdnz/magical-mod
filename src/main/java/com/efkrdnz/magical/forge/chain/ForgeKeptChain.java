@@ -19,6 +19,7 @@ import java.util.Optional;
  * @param temper    optional bare temper path
  * @param forms     bare form paths, with repeats, in the order the weapon stores them
  * @param modifiers bare modifier paths, in the order the weapon stores them
+ * @param program   forms and modifiers together in drawn order; empty for a pre-program weapon
  * @param quality   0..100 quality the weapon was forged at
  */
 public record ForgeKeptChain(
@@ -27,11 +28,13 @@ public record ForgeKeptChain(
         Optional<String> temper,
         List<String> forms,
         List<String> modifiers,
+        List<String> program,
         int quality) {
 
     public ForgeKeptChain {
         forms = List.copyOf(forms);
         modifiers = List.copyOf(modifiers);
+        program = List.copyOf(program);
     }
 
     /** Every id this inscription offers in {@code category}, with repeats, in stored order. */
@@ -47,20 +50,40 @@ public record ForgeKeptChain(
 
     /**
      * The whole inscription as kept glyphs, in the order the chain strip lays them out: grade,
-     * element, the forms as stored, temper, then modifiers. This is what the client preloads into
-     * an empty strip when a forged weapon enters the slot.
+     * element, temper, then the run exactly as the weapon stores it.
+     *
+     * <p>The run goes back in its own order, not bucketed into forms-then-modifiers. Once a chain
+     * is read as a program, that order is the weapon - preloading a reforge as "every form, then
+     * every modifier" would hand the player back a different weapon than the one they put in the
+     * slot, and they would only find out after inscribing it.
      */
     public List<ForgeKeptGlyphs.Kept> preloadOrder() {
         List<ForgeKeptGlyphs.Kept> out = new ArrayList<>();
         out.add(new ForgeKeptGlyphs.Kept(grade, GlyphCategory.GRADE));
         out.add(new ForgeKeptGlyphs.Kept(element, GlyphCategory.ELEMENT));
-        for (String form : forms) {
-            out.add(new ForgeKeptGlyphs.Kept(form, GlyphCategory.FORM));
-        }
         temper.ifPresent(id -> out.add(new ForgeKeptGlyphs.Kept(id, GlyphCategory.TEMPER)));
-        for (String modifier : modifiers) {
-            out.add(new ForgeKeptGlyphs.Kept(modifier, GlyphCategory.MODIFIER));
+        for (String id : runOrder()) {
+            out.add(new ForgeKeptGlyphs.Kept(id, categoryOf(id)));
         }
         return List.copyOf(out);
+    }
+
+    /**
+     * The run in drawn order, falling back to forms-then-modifiers for a weapon forged before
+     * programs existed. That weapon has no order left to recover, and forms-then-modifiers is the
+     * order it always behaved as.
+     */
+    private List<String> runOrder() {
+        if (!program.isEmpty()) {
+            return program;
+        }
+        List<String> out = new ArrayList<>(forms.size() + modifiers.size());
+        out.addAll(forms);
+        out.addAll(modifiers);
+        return out;
+    }
+
+    private GlyphCategory categoryOf(String id) {
+        return forms.contains(id) ? GlyphCategory.FORM : GlyphCategory.MODIFIER;
     }
 }

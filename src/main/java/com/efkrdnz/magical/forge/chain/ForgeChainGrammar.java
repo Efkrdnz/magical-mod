@@ -64,7 +64,8 @@ public final class ForgeChainGrammar {
         if (modifiers.contains(SEEKING_MODIFIER) && forms.stream().noneMatch(PROJECTILE_FORMS::contains)) {
             return invalid(ForgeError.SEEKING_NEEDS_PROJECTILE, 0);
         }
-        return valid(glyphs, grade, glyphs.get(elements.get(0)).id(), forms, modifiers, tempers);
+        return valid(glyphs, grade, glyphs.get(elements.get(0)).id(), forms, modifiers,
+                programOf(glyphs), tempers);
     }
 
     private static ForgeValidation valid(
@@ -73,12 +74,13 @@ public final class ForgeChainGrammar {
             String element,
             List<String> forms,
             List<String> modifiers,
+            List<String> program,
             List<Integer> tempers) {
         Optional<String> temper = tempers.isEmpty()
                 ? Optional.empty()
                 : Optional.of(glyphs.get(tempers.get(0)).id());
         return new ForgeValidation.Valid(
-                new ForgeRecipe(element, grade, temper, forms, modifiers, meanQuality(glyphs)));
+                new ForgeRecipe(element, grade, temper, forms, modifiers, program, meanQuality(glyphs)));
     }
 
     /** Integer mean of every glyph quality in the chain, rounded half up. */
@@ -119,6 +121,22 @@ public final class ForgeChainGrammar {
         for (int i = 0; i < glyphs.size(); i++) {
             if (glyphs.get(i).category() == category) {
                 out.add(i);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * The forms and modifiers in the order they were drawn.
+     *
+     * <p>Grade, element and temper are properties of the whole weapon and are lifted out; what is
+     * left is the run the weapon actually executes, and its order is the part that carries meaning.
+     */
+    private static List<String> programOf(List<RecognizedGlyph> glyphs) {
+        List<String> out = new ArrayList<>();
+        for (RecognizedGlyph glyph : glyphs) {
+            if (glyph.category() == GlyphCategory.FORM || glyph.category() == GlyphCategory.MODIFIER) {
+                out.add(glyph.id());
             }
         }
         return out;

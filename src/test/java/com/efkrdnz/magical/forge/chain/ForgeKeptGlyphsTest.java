@@ -17,9 +17,14 @@ import org.junit.jupiter.api.Test;
  */
 class ForgeKeptGlyphsTest {
 
-    /** A High-grade fire sword with two forms, a temper and a modifier, forged at 30% quality. */
+    /**
+     * A High-grade fire sword with two forms, a temper and a modifier, forged at 30% quality. Its
+     * run was drawn slash, pierce, cleave - so the modifier sits between the two forms, which is
+     * the order a reforge has to hand back.
+     */
     private static final ForgeKeptChain WEAPON = new ForgeKeptChain(
-            "high", "fire", Optional.of("keen"), List.of("slash", "cleave"), List.of("pierce"), 30);
+            "high", "fire", Optional.of("keen"), List.of("slash", "cleave"), List.of("pierce"),
+            List.of("slash", "pierce", "cleave"), 30);
 
     private static final int DRAWN_QUALITY = 90;
 
@@ -170,17 +175,31 @@ class ForgeKeptGlyphsTest {
     // --- preload order --------------------------------------------------------------------------
 
     @Test
-    void preloadOrderIsGradeElementFormsTemperThenModifiers() {
+    void preloadOrderIsGradeElementTemperThenTheRunAsDrawn() {
         List<String> ids = WEAPON.preloadOrder().stream().map(ForgeKeptGlyphs.Kept::id).toList();
 
-        assertEquals(List.of("high", "fire", "slash", "cleave", "keen", "pierce"), ids);
-        assertEquals(GlyphCategory.FORM, WEAPON.preloadOrder().get(2).category());
+        assertEquals(List.of("high", "fire", "keen", "slash", "pierce", "cleave"), ids);
+        assertEquals(GlyphCategory.TEMPER, WEAPON.preloadOrder().get(2).category());
+        assertEquals(GlyphCategory.MODIFIER, WEAPON.preloadOrder().get(4).category(),
+                "the modifier keeps its place between the two forms");
+    }
+
+    @Test
+    void preloadOrderFallsBackToFormsThenModifiersForAPreProgramWeapon() {
+        // No stored program: there is no drawn order left to recover, and forms-then-modifiers is
+        // the order that weapon always behaved as.
+        ForgeKeptChain legacy = new ForgeKeptChain(
+                "high", "fire", Optional.of("keen"), List.of("slash", "cleave"), List.of("pierce"),
+                List.of(), 30);
+
+        assertEquals(List.of("high", "fire", "keen", "slash", "cleave", "pierce"),
+                legacy.preloadOrder().stream().map(ForgeKeptGlyphs.Kept::id).toList());
     }
 
     @Test
     void preloadOrderSkipsATemperTheWeaponDoesNotHave() {
         ForgeKeptChain plain = new ForgeKeptChain(
-                "crude", "frost", Optional.empty(), List.of("thrust"), List.of(), 55);
+                "crude", "frost", Optional.empty(), List.of("thrust"), List.of(), List.of("thrust"), 55);
 
         assertEquals(List.of("crude", "frost", "thrust"),
                 plain.preloadOrder().stream().map(ForgeKeptGlyphs.Kept::id).toList());

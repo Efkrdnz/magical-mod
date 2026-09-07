@@ -212,12 +212,16 @@ class ForgeChainGrammarTest {
     void recipeListsAreDefensiveCopies() {
         List<String> forms = new ArrayList<>(List.of("slash"));
         List<String> modifiers = new ArrayList<>(List.of("pierce"));
-        ForgeRecipe recipe = new ForgeRecipe("fire", ForgeGrade.HIGH, Optional.empty(), forms, modifiers, 70);
+        List<String> program = new ArrayList<>(List.of("pierce", "slash"));
+        ForgeRecipe recipe = new ForgeRecipe(
+                "fire", ForgeGrade.HIGH, Optional.empty(), forms, modifiers, program, 70);
 
         forms.add("cleave");
         modifiers.clear();
+        program.clear();
 
         assertEquals(List.of("slash"), recipe.forms());
         assertEquals(List.of("pierce"), recipe.modifiers());
+        assertEquals(List.of("pierce", "slash"), recipe.program());
     }
 }

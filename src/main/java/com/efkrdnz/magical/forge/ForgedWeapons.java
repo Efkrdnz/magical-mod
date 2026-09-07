@@ -89,6 +89,7 @@ public final class ForgedWeapons {
                 forged.temper().flatMap(ForgedWeapons::localPath),
                 localPaths(forged.forms()),
                 localPaths(forged.modifiers()),
+                localPaths(forged.program()),
                 forged.quality()));
     }
 
@@ -127,7 +128,9 @@ public final class ForgedWeapons {
         int quality = LegacyRuneNames.quality(hasQuality, hasQuality ? infusion.getInt(LEGACY_QUALITY) : 0);
         List<ResourceLocation> modifiers = LegacyRuneNames.modifiers(binding).stream().map(ForgeIds::id).toList();
         return Optional.of(new ForgedWeapon(ForgeIds.id(elementPath.get()), grade.get(), Optional.of(ForgeIds.id(temperPath)),
-                List.of(ForgeIds.id("slash")), modifiers, quality, 0L));
+                // A legacy weapon has no draw order to recover, so it stores no program and keeps
+                // the old whole-weapon modifier behaviour through ForgeChainCompiler.fromLegacy.
+                List.of(ForgeIds.id("slash")), modifiers, List.of(), quality, 0L));
     }
 
     private static void stripLegacyTag(ItemStack stack) {

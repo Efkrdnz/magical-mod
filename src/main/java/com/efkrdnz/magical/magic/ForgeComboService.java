@@ -21,7 +21,10 @@ import com.efkrdnz.magical.forge.ForgeForms;
 import com.efkrdnz.magical.forge.ForgeMaterials;
 import com.efkrdnz.magical.forge.ForgeModifierKind;
 import com.efkrdnz.magical.forge.ForgeTempers;
+import com.efkrdnz.magical.forge.ForgeIds;
 import com.efkrdnz.magical.forge.ForgeWeaponFlags;
+import com.efkrdnz.magical.forge.chain.ForgeProgram;
+import com.efkrdnz.magical.forge.chain.ForgeStep;
 import com.efkrdnz.magical.forge.ForgedWeapon;
 import com.efkrdnz.magical.forge.ForgedWeapons;
 import com.efkrdnz.magical.forge.FormDefinition;
@@ -188,7 +191,7 @@ public final class ForgeComboService {
         ComboState state = STATES.get(player.getUUID());
         if (state == null) {
             state = ForgedWeapons.get(player.getMainHandItem())
-                    .map(weapon -> ComboState.idle(weapon.hashCode(), Math.max(1, weapon.forms().size())))
+                    .map(weapon -> ComboState.idle(weapon.hashCode(), Math.max(1, weapon.compiled().length())))
                     .orElse(null);
         }
         if (state != null) {
@@ -257,7 +260,8 @@ public final class ForgeComboService {
         // Data from another build - an unknown element, an unknown form, or no forms at all - falls
         // back to plain vanilla rather than substituting a default the player never forged.
         Optional<ElementDefinition> element = ForgeElements.get(weapon.element());
-        if (element.isEmpty() || weapon.forms().isEmpty()) {
+        ForgeProgram program = weapon.compiled();
+        if (element.isEmpty() || program.isEmpty()) {
             return;
         }
         long now = level.getGameTime();
@@ -268,13 +272,15 @@ public final class ForgeComboService {
             STATES.put(player.getUUID(), state.withPrimaryTarget(NO_TARGET));
             return;
         }
-        int index = Math.min(state.index(), weapon.forms().size() - 1);
-        Optional<FormDefinition> resolved = ForgeForms.get(weapon.forms().get(index));
+        int index = Math.min(state.index(), program.length() - 1);
+        ForgeStep step = program.stepAt(index);
+        Optional<FormDefinition> resolved = ForgeForms.get(ForgeIds.id(step.leadForm()));
         if (resolved.isEmpty()) {
             return;
         }
         FormDefinition form = resolved.get();
-        StrikeSpec spec = resolve(player, weapon, element.get(), form, stack, state, index, heavy, chargeFraction);
+        StrikeSpec spec = resolve(player, weapon, element.get(), form, step, stack, state, index, heavy,
+                chargeFraction);
         // Stored before the vanilla hit so notePrimaryHit has a state to write the target into.
         STATES.put(player.getUUID(), state);
         if (whiff) {
@@ -410,7 +416,7 @@ public final class ForgeComboService {
 
     private static ComboState currentState(ServerPlayer player, ForgedWeapon weapon, long now) {
         int hash = weapon.hashCode();
-        int chainLength = Math.max(1, weapon.forms().size());
+        int chainLength = Math.max(1, weapon.compiled().length());
         ComboState state = STATES.get(player.getUUID());
         if (state == null) {
             return ComboState.idle(hash, chainLength);
@@ -429,10 +435,10 @@ public final class ForgeComboService {
      * settled here, before the strike is ever in the air.
      */
     private static StrikeSpec resolve(ServerPlayer player, ForgedWeapon weapon, ElementDefinition element,
-            FormDefinition form, ItemStack stack, ComboState state, int index, boolean heavy,
+            FormDefinition form, ForgeStep step, ItemStack stack, ComboState state, int index, boolean heavy,
             float chargeFraction) {
         WeaponClass weaponClass = ForgeMaterials.weaponClass(stack).orElse(WeaponClass.SWORD);
-        return ForgeStrikeMath.resolve(form.stats(), temperOf(weapon), weaponClass, ForgeWeaponFlags.of(weapon),
+        return ForgeStrikeMath.resolve(form.stats(), temperOf(weapon), weaponClass, step.mods(),
                 weapon.grade(), weapon.quality(), (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE),
                 heavy, chargeFraction, state.finisherAt(index), index, element.kind());
     }
