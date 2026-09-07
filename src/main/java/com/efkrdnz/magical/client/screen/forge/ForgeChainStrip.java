@@ -137,7 +137,9 @@ public final class ForgeChainStrip {
 
     private static int budget(GlyphCategory category, ForgeGrade grade) {
         return switch (category) {
-            case GRADE, ELEMENT, TEMPER -> 1;
+            case GRADE, TEMPER -> 1;
+            // Two at Mythic and above, so a fused pair does not read as a mistake.
+            case ELEMENT -> grade.elementSlots();
             case FORM -> grade.formSlots();
             case MODIFIER -> grade.modifierSlots();
             case OPERATOR -> grade.operatorSlots();
