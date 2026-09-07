@@ -955,6 +955,8 @@
   "forge.magical.error.duplicate_grade": "Only one grade sigil (glyph %s).",
   "forge.magical.error.duplicate_element": "Only one element core (glyph %s).",
   "forge.magical.error.too_many_forms": "This grade holds %s form(s).",
+  "screen.magical.forge_fusion_with": "With %s: %s",
+  "screen.magical.forge_fusion_needs": "  needs %s",
   "forge.magical.error.fusion_unknown_pair": "Those two cores do not fuse.",
   "forge.magical.error.fusion_locked_class": "Only a Divinesmith can fuse this core.",
   "forge.magical.error.fusion_locked_skill": "You have not learned %s.",

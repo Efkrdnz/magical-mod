@@ -2,6 +2,7 @@ package com.efkrdnz.magical.client.screen.forge;
 
 import com.efkrdnz.magical.client.screen.MagicalGuiStyle;
 import com.efkrdnz.magical.forge.art.ForgeArt;
+import com.efkrdnz.magical.forge.fusion.ForgeFusion;
 import com.efkrdnz.magical.forge.chain.ForgeGrade;
 import com.efkrdnz.magical.forge.glyph.ForgeGlyphLibrary;
 import com.efkrdnz.magical.forge.glyph.GlyphCategory;
@@ -118,7 +119,37 @@ public final class ForgeGlyphCodexPanel {
         if (!extra.isEmpty()) {
             lines.add(Component.literal(extra));
         }
+        lines.addAll(fusionLines(template));
         lines.addAll(artLines(template));
+        return lines;
+    }
+
+    /**
+     * What this element core fuses with, listed on the core itself.
+     *
+     * <p>Shown whether or not the smith could forge it. A player hovering the fire rune should be
+     * able to find out that void exists to be fused with it, and what learning that would take -
+     * the codex is a reference, not a reward, and hiding the locked half would make fusion
+     * undiscoverable.
+     */
+    private static List<Component> fusionLines(GlyphTemplate template) {
+        if (template.category() != GlyphCategory.ELEMENT) {
+            return List.of();
+        }
+        List<Component> lines = new ArrayList<>();
+        for (ForgeFusion fusion : ForgeFusion.values()) {
+            List<String> components = fusion.components();
+            if (!components.contains(template.id())) {
+                continue;
+            }
+            String other = components.get(0).equals(template.id()) ? components.get(1) : components.get(0);
+            lines.add(Component.translatable("screen.magical.forge_fusion_with",
+                    glyphName(other), Component.translatable(fusion.nameKey())));
+            if (fusion.isGated()) {
+                lines.add(Component.translatable("screen.magical.forge_fusion_needs",
+                        Component.translatable(fusion.requirementKey())));
+            }
+        }
         return lines;
     }
 
