@@ -4,6 +4,7 @@ import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.classes.MagicalClassDefinition;
 import com.efkrdnz.magical.classes.MagicalClasses;
 import com.efkrdnz.magical.entity.MagicOpponentEntity;
+import com.efkrdnz.magical.entity.ascendant.AscendantTier;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.MagicPassiveDefinition;
@@ -323,10 +324,26 @@ public final class DungeonTowerService {
         };
     }
 
+    /**
+     * Floors 2-10 are untouched: clones at difficulty 1-5, as they have always been. Past floor 10
+     * the tower stops copying the player and starts sending Ascendants, one tier per two floors.
+     */
+    static int tierForFloor(int floor) {
+        if (floor <= 10) {
+            return Math.max(1, floor / 2);
+        }
+        return Math.min(AscendantTier.MAX_TIER, AscendantTier.MIN_TIER - 1 + (floor - 10 + 1) / 2);
+    }
+
     private static void spawnFloorOpponents(ServerLevel level, ServerPlayer template, FloorSession session) {
-        int count = Math.min(7, 1 + session.floor / 2);
+        int tier = tierForFloor(session.floor);
+        // Seven tier-10 Ascendants is 3,920 health and a wall of telegraphs, which is not a fight.
+        // An Ascendant floor sends one.
+        int count = AscendantTier.isAscendant(tier) ? 1 : Math.min(7, 1 + session.floor / 2);
         for (int i = 0; i < count; i++) {
-            MagicOpponentEntity opponent = MagicOpponentEntity.cloneFrom(template, Math.min(5, Math.max(1, session.floor / 2)));
+            MagicOpponentEntity opponent = AscendantTier.isAscendant(tier)
+                    ? MagicOpponentEntity.ascendant(level, tier)
+                    : MagicOpponentEntity.cloneFrom(template, tier);
             double angle = Math.PI * 2.0D * i / count;
             Vec3 pos = center(session.floor).add(Math.cos(angle) * 9.0D, 0.0D, Math.sin(angle) * 9.0D);
             opponent.moveTo(pos.x, ARENA_Y + 1.0D, pos.z, (float) Math.toDegrees(angle), 0.0F);

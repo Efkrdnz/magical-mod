@@ -175,6 +175,19 @@ public final class MagicOpponentEntity extends Monster {
             magicState.unlock(MagicContent.FALLEN_SUN.id());
             magicState.unlock(MagicContent.TOTAL_ECLIPSE.id());
             magicState.unlock(MagicContent.TECTONIC_VERDICT.id());
+            // Something to blink with, or the reactive dodge has nothing to reach for.
+            magicState.unlock(MagicContent.SHORTREACH.id());
+        }
+        if (tier.tier() >= 9) {
+            magicState.unlock(MagicContent.GULLET_OF_THE_DEEP.id());
+            magicState.unlock(MagicContent.BLACK_ORRERY.id());
+            magicState.unlock(MagicContent.PUPPET_SIGIL.id());
+        }
+        if (tier.tier() >= 10) {
+            magicState.unlock(MagicContent.CREASE_FOLD.id());
+            magicState.unlock(MagicContent.PRISM_CASCADE.id());
+            magicState.unlock(MagicContent.CINDER_CHARIOT.id());
+            magicState.unlock(MagicContent.TRANSPOSITION.id());
         }
     }
 
