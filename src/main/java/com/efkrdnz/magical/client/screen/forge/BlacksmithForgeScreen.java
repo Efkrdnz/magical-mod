@@ -74,6 +74,7 @@ public final class BlacksmithForgeScreen extends AbstractContainerScreen<Blacksm
     private final ForgePreviewPanel preview = new ForgePreviewPanel(new ForgeStatPreview());
     private final ForgeGlyphCodexPanel codex = new ForgeGlyphCodexPanel();
     private final ForgeResultFlash flash = new ForgeResultFlash();
+    private final ForgeSlotPreload slotPreload = new ForgeSlotPreload();
 
     private boolean codexOpen;
     private boolean drawing;
@@ -106,6 +107,7 @@ public final class BlacksmithForgeScreen extends AbstractContainerScreen<Blacksm
         }
         flash.tick();
         pollForgeResult();
+        slotPreload.sync(builder, menu.weaponStack());
     }
 
     /**
@@ -252,9 +254,13 @@ public final class BlacksmithForgeScreen extends AbstractContainerScreen<Blacksm
         if (index < 0) {
             return List.of();
         }
-        List<Component> lines = new ArrayList<>(2);
-        lines.add(Component.translatable("forge.magical.glyph." + committed.get(index).id()));
-        lines.add(Component.translatable("screen.magical.forge_quality", committed.get(index).quality()));
+        CommittedGlyph glyph = committed.get(index);
+        List<Component> lines = new ArrayList<>(3);
+        lines.add(Component.translatable("forge.magical.glyph." + glyph.id()));
+        lines.add(Component.translatable("screen.magical.forge_quality", glyph.quality()));
+        if (glyph.kept()) {
+            lines.add(Component.translatable("screen.magical.forge_kept"));
+        }
         return lines;
     }
 
@@ -399,7 +405,7 @@ public final class BlacksmithForgeScreen extends AbstractContainerScreen<Blacksm
             return;
         }
         MagicalNetwork.sendForgeSubmit(
-                ForgeSubmitPayload.fromCanvas(menu.containerId, builder.toPayloadGlyphs()));
+                ForgeSubmitPayload.fromCanvas(menu.containerId, builder.committed()));
     }
 
     private boolean canSubmit(Optional<ForgePreviewPanel.PredictedError> gate) {

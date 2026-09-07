@@ -46,6 +46,15 @@ public final class ForgeChainStrip {
     private static final int EMPTY_FRAME = 0xFF27354A;
     private static final int DIM_FRAME = 0xFF1A2333;
 
+    /** Frame of a cell holding a glyph carried over from the weapon, rather than one just drawn. */
+    private static final int KEPT_FRAME = 0xFF5A4A22;
+
+    /** How far a kept glyph's icon is faded, so this session's drawn work reads as the brighter. */
+    private static final int KEPT_ICON_ALPHA = 0xA0;
+
+    /** Side of the gold pip marking a kept cell in its top-left corner. */
+    private static final int KEPT_PIP = 3;
+
     /** Draws the strip; {@code x}/{@code y} is the top-left of the first cell. */
     public void render(GuiGraphics graphics, int x, int y, List<CommittedGlyph> committed) {
         int[] cells = assign(committed);
@@ -53,14 +62,16 @@ public final class ForgeChainStrip {
         for (int cell = 0; cell < CELLS; cell++) {
             int cellX = x + cell * (CELL + GAP);
             boolean dimmed = isDimmed(cell, grade);
-            drawFrame(graphics, cellX, y, cell, dimmed);
+            boolean kept = cells[cell] >= 0 && committed.get(cells[cell]).kept();
+            drawFrame(graphics, cellX, y, cell, dimmed, kept);
             if (cells[cell] < 0) {
                 continue;
             }
             CommittedGlyph glyph = committed.get(cells[cell]);
             int color = qualityColor(glyph.quality(), dimmed);
+            int iconColor = kept ? MagicalGuiStyle.withAlpha(color, KEPT_ICON_ALPHA) : color;
             ForgeGlyphLibrary.byId(glyph.id()).ifPresent(template ->
-                    ForgeGlyphIcons.draw(graphics, template, cellX + 1, y + 1, CELL - 2, color));
+                    ForgeGlyphIcons.draw(graphics, template, cellX + 1, y + 1, CELL - 2, iconColor));
         }
     }
 
@@ -146,12 +157,21 @@ public final class ForgeChainStrip {
         return false;
     }
 
-    private static void drawFrame(GuiGraphics graphics, int x, int y, int cell, boolean dimmed) {
-        int frame = cell >= OVERFLOW_FIRST ? OVERFLOW_FRAME : dimmed ? DIM_FRAME : EMPTY_FRAME;
+    /**
+     * A kept cell gets a warmer frame and a gold corner pip on top of the ordinary cell art, so the
+     * player can tell at a glance what came off the weapon from what they drew. The overflow frame
+     * still wins: a glyph that does not fit its group is the more urgent thing to say.
+     */
+    private static void drawFrame(GuiGraphics graphics, int x, int y, int cell, boolean dimmed, boolean kept) {
+        int frame = cell >= OVERFLOW_FIRST ? OVERFLOW_FRAME : dimmed ? DIM_FRAME : kept ? KEPT_FRAME : EMPTY_FRAME;
         graphics.fill(x - 1, y - 1, x + CELL + 1, y + CELL + 1, frame);
         graphics.fillGradient(x, y, x + CELL, y + CELL, 0xFF0A101D, 0xFF0E1526);
         if (dimmed) {
             graphics.fill(x, y, x + CELL, y + CELL, 0x66050810);
+        }
+        if (kept) {
+            graphics.fill(x, y, x + KEPT_PIP, y + KEPT_PIP,
+                    MagicalGuiStyle.withAlpha(MagicalGuiStyle.ACCENT_GOLD, 0xCC));
         }
     }
 
