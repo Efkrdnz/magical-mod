@@ -23,11 +23,9 @@ import net.minecraft.world.entity.player.Inventory;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * The Runeforge: a drawing canvas on the left, the committed rune chain beneath it, and the
- * predicted-weapon preview on the right - which keeps that column at all times. Drawing owns the
- * mouse while a stroke is open, so the container's slot dragging never fires mid-stroke; everything
- * the screen predicts is re-checked by the server. The glyph codex is a modal overlay
- * ({@link ForgeCodexOverlay}) laid over the whole screen, and changes no forging state.
+ * The Runeforge: a drawing canvas on the left, the committed rune chain beneath it, and a preview
+ * or the glyph codex on the right. Drawing owns the mouse while a stroke is open, so the container's
+ * slot dragging never fires mid-stroke; everything the screen predicts is re-checked by the server.
  */
 public final class BlacksmithForgeScreen extends AbstractContainerScreen<BlacksmithForgeMenu> {
 
@@ -40,17 +38,44 @@ public final class BlacksmithForgeScreen extends AbstractContainerScreen<Blacksm
     private static final int RIGHT_RIGHT = 430;
     private static final int RIGHT_TOP = 26;
     private static final int PREVIEW_BOTTOM = 168;
+    private static final int CODEX_BOTTOM = 228;
+    private static final int CODEX_LIST_BOTTOM = 202;
+    private static final int APPLY_X = 14;
+    private static final int APPLY_Y = 224;
+    private static final int APPLY_W = 64;
+    private static final int APPLY_H = 16;
+    private static final int BUTTON_Y = 208;
+    private static final int BUTTON_H = 18;
+    private static final int INSCRIBE_X = 240;
+    private static final int INSCRIBE_W = 70;
+    private static final int UNDO_X = 314;
+    private static final int UNDO_W = 44;
+    private static final int CLEAR_X = 362;
+    private static final int CLEAR_W = 44;
+    private static final int CODEX_BUTTON_X = 410;
+    private static final int CODEX_BUTTON_W = 20;
+    private static final int BACK_X = 14;
+    private static final int BACK_Y = 6;
+    private static final int BACK_W = 44;
+    private static final int BACK_H = 16;
+    private static final int GATE_Y = 228;
     private static final int FLASH_Y = 176;
-    /** A result already sitting in the holder on the first poll is from a prior session. */
+    private static final int READY_BUTTON = 0xFF8A6E1E;
+    private static final int ACTIVE_BUTTON = 0xFF3F5C1A;
+    private static final int DISABLED_BUTTON = 0xFF27354A;
+    private static final int NEUTRAL_BUTTON = 0xFF2D3F5C;
+    private static final int FAILURE_TEXT = 0xF38BA8;
+    /** A result already sitting in the holder on the screen's first poll is from a prior session. */
     private static final long STALE_RESULT_MILLIS = 1000L;
 
     private final ForgeChainBuilder builder = new ForgeChainBuilder(ForgeGlyphLibrary.recognizer());
     private final ForgeCanvasRenderer canvas = new ForgeCanvasRenderer();
     private final ForgeChainStrip strip = new ForgeChainStrip();
     private final ForgePreviewPanel preview = new ForgePreviewPanel(new ForgeStatPreview());
-    private final ForgeCodexOverlay codex = new ForgeCodexOverlay();
+    private final ForgeGlyphCodexPanel codex = new ForgeGlyphCodexPanel();
     private final ForgeResultFlash flash = new ForgeResultFlash();
 
+    private boolean codexOpen;
     private boolean drawing;
     private int ticks;
     private boolean firstPoll = true;
@@ -72,16 +97,11 @@ public final class BlacksmithForgeScreen extends AbstractContainerScreen<Blacksm
 
     // --- tick --------------------------------------------------------------------------------
 
-    /**
-     * Nothing commits on its own; a drawing becomes a sigil only when the player presses Apply or
-     * Enter. The idle counter still runs for the canvas hint, and is held while the codex overlay
-     * is open so browsing the reference does not age the drawing underneath it.
-     */
     @Override
     protected void containerTick() {
         super.containerTick();
         ticks++;
-        if (!drawing && !codex.isOpen()) {
+        if (!drawing) {
             builder.tick();
         }
         flash.tick();
@@ -129,15 +149,16 @@ public final class BlacksmithForgeScreen extends AbstractContainerScreen<Blacksm
     @Override
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         MagicalGuiStyle.screenBackground(graphics, leftPos, topPos, leftPos + imageWidth, topPos + imageHeight);
-        ForgeChrome.header(graphics, font, leftPos, topPos);
+        MagicalGuiStyle.button(graphics, font, leftPos + BACK_X, topPos + BACK_Y, BACK_W, BACK_H,
+                NEUTRAL_BUTTON, Component.translatable("screen.magical.forge_back"));
+        MagicalGuiStyle.sectionLabel(graphics, font, leftPos + BACK_X + BACK_W + 8, topPos + BACK_Y + 3,
+                Component.translatable("screen.magical.runeforge"), MagicalGuiStyle.ACCENT_GOLD);
         canvas.render(graphics, font, leftPos + CANVAS_X, topPos + CANVAS_Y, CANVAS_SIZE, builder,
                 animationOrNull(), ticks);
         strip.render(graphics, leftPos + STRIP_X, topPos + STRIP_Y, builder.committed());
-        ForgeChrome.apply(graphics, font, leftPos, topPos,
-                builder.current().status() == RecognitionResult.Status.ACCEPTED);
-        ForgeChrome.weaponSlot(graphics, font, leftPos, topPos);
-        drawRightColumn(graphics);
-        ForgeChrome.inventory(graphics, font, leftPos, topPos);
+        drawWeaponSlot(graphics);
+        drawRightColumn(graphics, mouseX, mouseY);
+        drawInventory(graphics);
     }
 
     /** Drops the animation once it has played out, so it never replays on a later frame. */
@@ -148,36 +169,83 @@ public final class BlacksmithForgeScreen extends AbstractContainerScreen<Blacksm
         return animation;
     }
 
-    /** The preview owns this column outright; the codex never displaces it. */
-    private void drawRightColumn(GuiGraphics graphics) {
-        preview.render(graphics, font, leftPos + RIGHT_X, topPos + RIGHT_TOP, leftPos + RIGHT_RIGHT,
-                topPos + PREVIEW_BOTTOM, builder.recognizedChain(), ClientMagicState.get().maxMana());
-        flash.render(graphics, font, leftPos + RIGHT_X, topPos + FLASH_Y, RIGHT_RIGHT - RIGHT_X);
-        Optional<ForgePreviewPanel.PredictedError> gate = gate();
-        ForgeChrome.buttons(graphics, font, leftPos, topPos, canSubmit(gate), codex.isOpen(),
-                gate.map(ForgePreviewPanel.PredictedError::message));
+    private void drawWeaponSlot(GuiGraphics graphics) {
+        int x = leftPos + BlacksmithForgeMenu.WEAPON_SLOT_X;
+        int y = topPos + BlacksmithForgeMenu.WEAPON_SLOT_Y;
+        graphics.drawString(font, Component.translatable("screen.magical.forge_weapon_slot"), x - 8, y - 12,
+                MagicalGuiStyle.TEXT_MUTED, false);
+        MagicalGuiStyle.slot(graphics, x, y, MagicalGuiStyle.withAlpha(MagicalGuiStyle.ACCENT_GOLD, 0xAA));
     }
 
-    /** The overlay draws after the slots and their items, so nothing shows through its backdrop. */
+    private void drawRightColumn(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (codexOpen) {
+            codex.render(graphics, font, leftPos + RIGHT_X, topPos + RIGHT_TOP, leftPos + RIGHT_RIGHT,
+                    topPos + CODEX_BOTTOM, topPos + CODEX_LIST_BOTTOM, mouseX, mouseY);
+        } else {
+            preview.render(graphics, font, leftPos + RIGHT_X, topPos + RIGHT_TOP, leftPos + RIGHT_RIGHT,
+                    topPos + PREVIEW_BOTTOM, builder.recognizedChain(), ClientMagicState.get().maxMana());
+        }
+        // The flash must stay visible whether or not the codex panel is open; both panels clear y 176.
+        flash.render(graphics, font, leftPos + RIGHT_X, topPos + FLASH_Y, RIGHT_RIGHT - RIGHT_X);
+        drawButtons(graphics);
+    }
+
+    private void drawButtons(GuiGraphics graphics) {
+        Optional<ForgePreviewPanel.PredictedError> gate = gate();
+        boolean ready = canSubmit(gate);
+        MagicalGuiStyle.button(graphics, font, leftPos + APPLY_X, topPos + APPLY_Y, APPLY_W, APPLY_H,
+                builder.current().status() == RecognitionResult.Status.ACCEPTED
+                        ? READY_BUTTON : DISABLED_BUTTON,
+                Component.translatable("screen.magical.forge_apply"));
+        MagicalGuiStyle.button(graphics, font, leftPos + INSCRIBE_X, topPos + BUTTON_Y, INSCRIBE_W, BUTTON_H,
+                ready ? READY_BUTTON : DISABLED_BUTTON, Component.translatable("screen.magical.forge_inscribe"));
+        MagicalGuiStyle.button(graphics, font, leftPos + UNDO_X, topPos + BUTTON_Y, UNDO_W, BUTTON_H,
+                NEUTRAL_BUTTON, Component.translatable("screen.magical.forge_undo"));
+        MagicalGuiStyle.button(graphics, font, leftPos + CLEAR_X, topPos + BUTTON_Y, CLEAR_W, BUTTON_H,
+                NEUTRAL_BUTTON, Component.translatable("screen.magical.forge_clear"));
+        MagicalGuiStyle.button(graphics, font, leftPos + CODEX_BUTTON_X, topPos + BUTTON_Y, CODEX_BUTTON_W, BUTTON_H,
+                codexOpen ? ACTIVE_BUTTON : NEUTRAL_BUTTON, Component.literal("?"));
+        gate.ifPresent(error -> graphics.drawString(font,
+                font.plainSubstrByWidth(error.message().getString(), RIGHT_RIGHT - RIGHT_X),
+                leftPos + INSCRIBE_X, topPos + GATE_Y, FAILURE_TEXT, false));
+    }
+
+    private void drawInventory(GuiGraphics graphics) {
+        int x = leftPos + BlacksmithForgeMenu.PLAYER_INV_X;
+        int y = topPos + BlacksmithForgeMenu.PLAYER_INV_Y;
+        MagicalGuiStyle.panel(graphics, x - 10, y - 18, x + 172, topPos + BlacksmithForgeMenu.HOTBAR_Y + 28,
+                MagicalGuiStyle.ACCENT_GOLD);
+        graphics.drawString(font, Component.translatable("container.inventory"), x, y - 12,
+                MagicalGuiStyle.TEXT_MUTED, false);
+        for (int row = 0; row < 3; row++) {
+            for (int column = 0; column < 9; column++) {
+                MagicalGuiStyle.slot(graphics, x + column * 18, y + row * 18, DISABLED_BUTTON);
+            }
+        }
+        for (int column = 0; column < 9; column++) {
+            MagicalGuiStyle.slot(graphics, x + column * 18, topPos + BlacksmithForgeMenu.HOTBAR_Y, DISABLED_BUTTON);
+        }
+    }
+
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(graphics, mouseX, mouseY, partialTick);
         super.render(graphics, mouseX, mouseY, partialTick);
-        codex.render(graphics, font, guiRect(), width, height, mouseX, mouseY);
         List<Component> tooltip = hoverTooltip(mouseX, mouseY);
-        if (!tooltip.isEmpty()) {
-            graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
-        } else if (!codex.isOpen()) {
+        if (tooltip.isEmpty()) {
             renderTooltip(graphics, mouseX, mouseY);
+        } else {
+            graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
         }
     }
 
     private List<Component> hoverTooltip(int mouseX, int mouseY) {
-        if (codex.isOpen()) {
-            return codex.tooltipAt(mouseX, mouseY, guiRect());
-        }
-        if (ForgeChrome.hit(mouseX, mouseY, leftPos, topPos) == ForgeChrome.Hit.CODEX) {
+        if (inside(mouseX, mouseY, CODEX_BUTTON_X, BUTTON_Y, CODEX_BUTTON_W, BUTTON_H)) {
             return List.of(Component.translatable("screen.magical.forge_codex"));
+        }
+        if (codexOpen) {
+            return codex.tooltipAt(mouseX, mouseY, leftPos + RIGHT_X, topPos + RIGHT_TOP,
+                    leftPos + RIGHT_RIGHT, topPos + CODEX_LIST_BOTTOM);
         }
         List<CommittedGlyph> committed = builder.committed();
         int index = strip.cellAt(mouseX, mouseY, leftPos + STRIP_X, topPos + STRIP_Y, committed);
@@ -194,11 +262,12 @@ public final class BlacksmithForgeScreen extends AbstractContainerScreen<Blacksm
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (codex.mouseClicked(mouseX, mouseY, guiRect())) {
-            return true;
-        }
         if (insideCanvas(mouseX, mouseY)) {
             return canvasClicked(mouseX, mouseY, button);
+        }
+        if (codexOpen && codex.mouseClicked(mouseX, mouseY, leftPos + RIGHT_X, topPos + RIGHT_TOP,
+                leftPos + RIGHT_RIGHT, topPos + CODEX_LIST_BOTTOM)) {
+            return true;
         }
         int cell = strip.cellAt(mouseX, mouseY, leftPos + STRIP_X, topPos + STRIP_Y, builder.committed());
         if (button == 0 && cell >= 0) {
@@ -223,39 +292,35 @@ public final class BlacksmithForgeScreen extends AbstractContainerScreen<Blacksm
     }
 
     private boolean handleButtons(double mouseX, double mouseY) {
-        switch (ForgeChrome.hit(mouseX, mouseY, leftPos, topPos)) {
-            case BACK -> MagicalNetwork.sendOpenCodexRequest();
-            case APPLY -> commitCurrent();
-            case INSCRIBE -> submit();
-            case UNDO -> builder.undoStroke();
-            case CLEAR -> builder.clearCurrent();
-            case CODEX -> openCodex();
-            case NONE -> {
-                return false;
-            }
+        if (inside(mouseX, mouseY, BACK_X, BACK_Y, BACK_W, BACK_H)) {
+            MagicalNetwork.sendOpenCodexRequest();
+            return true;
         }
-        return true;
-    }
-
-    /**
-     * A stroke can only still be open here if the player hit the codex button with the other mouse
-     * button held down on the canvas. Close it exactly the way releasing would have: the points
-     * already drawn are kept and re-recognized, so nothing is committed, nothing is cancelled, and
-     * no half-drawn stroke is left to resume when the overlay closes.
-     */
-    private void openCodex() {
-        if (drawing) {
-            builder.endStroke();
-            drawing = false;
+        if (inside(mouseX, mouseY, APPLY_X, APPLY_Y, APPLY_W, APPLY_H)) {
+            commitCurrent();
+            return true;
         }
-        codex.toggle();
+        if (inside(mouseX, mouseY, INSCRIBE_X, BUTTON_Y, INSCRIBE_W, BUTTON_H)) {
+            submit();
+            return true;
+        }
+        if (inside(mouseX, mouseY, UNDO_X, BUTTON_Y, UNDO_W, BUTTON_H)) {
+            builder.undoStroke();
+            return true;
+        }
+        if (inside(mouseX, mouseY, CLEAR_X, BUTTON_Y, CLEAR_W, BUTTON_H)) {
+            builder.clearCurrent();
+            return true;
+        }
+        if (inside(mouseX, mouseY, CODEX_BUTTON_X, BUTTON_Y, CODEX_BUTTON_W, BUTTON_H)) {
+            codexOpen = !codexOpen;
+            return true;
+        }
+        return false;
     }
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (codex.isOpen()) {
-            return true;
-        }
         if (drawing) {
             builder.extendStroke(canvasX(mouseX), canvasY(mouseY));
             return true;
@@ -276,7 +341,8 @@ public final class BlacksmithForgeScreen extends AbstractContainerScreen<Blacksm
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (codex.mouseScrolled(mouseX, mouseY, scrollY, guiRect())) {
+        if (codexOpen && codex.mouseScrolled(mouseX, mouseY, scrollY, leftPos + RIGHT_X, topPos + RIGHT_TOP,
+                leftPos + RIGHT_RIGHT, topPos + CODEX_BOTTOM, topPos + CODEX_LIST_BOTTOM)) {
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
@@ -284,9 +350,6 @@ public final class BlacksmithForgeScreen extends AbstractContainerScreen<Blacksm
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (codex.keyPressed(keyCode)) {
-            return true;
-        }
         switch (keyCode) {
             case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
                 commitCurrent();
@@ -356,10 +419,6 @@ public final class BlacksmithForgeScreen extends AbstractContainerScreen<Blacksm
     }
 
     // --- geometry ----------------------------------------------------------------------------
-
-    private ForgeCodexOverlay.Rect guiRect() {
-        return new ForgeCodexOverlay.Rect(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight);
-    }
 
     private boolean insideCanvas(double mouseX, double mouseY) {
         return inside(mouseX, mouseY, CANVAS_X, CANVAS_Y, CANVAS_SIZE, CANVAS_SIZE);
