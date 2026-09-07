@@ -17,7 +17,9 @@ import com.efkrdnz.magical.client.renderer.BlackFlameFieldRenderer;
 import com.efkrdnz.magical.client.renderer.BlackFlameProjectileRenderer;
 import com.efkrdnz.magical.client.renderer.DimensionalGuillotineRenderer;
 import com.efkrdnz.magical.client.renderer.GabrielHolyFieldRenderer;
-import com.efkrdnz.magical.client.renderer.MeleeArcRenderer;
+import com.efkrdnz.magical.client.renderer.ForgeEffectRenderer;
+import com.efkrdnz.magical.client.renderer.ForgeStrikeRenderer;
+import com.efkrdnz.magical.client.renderer.forge.ForgeZoneRenderer;
 import com.efkrdnz.magical.client.renderer.JudgementBeamRenderer;
 import com.efkrdnz.magical.client.renderer.MagicCircleRenderer;
 import com.efkrdnz.magical.client.renderer.MagicOpponentRenderer;
@@ -26,6 +28,7 @@ import com.efkrdnz.magical.client.renderer.SacrificialCoreRenderer;
 import com.efkrdnz.magical.client.renderer.SacrificialCoreSpecialRenderer;
 import com.efkrdnz.magical.client.screen.MagicPyramidScreen;
 import com.efkrdnz.magical.client.screen.ArcaneWorkbenchScreen;
+import com.efkrdnz.magical.client.screen.forge.BlacksmithForgeScreen;
 import com.efkrdnz.magical.client.screen.GreedVaultScreen;
 import com.efkrdnz.magical.client.screen.SpaceArsenalStorageScreen;
 import com.efkrdnz.magical.client.screen.SpaceWalkerScreen;
@@ -40,6 +43,7 @@ import com.efkrdnz.magical.client.renderer.SpaceSummonRenderer;
 import com.efkrdnz.magical.client.renderer.SpacePortalRenderer;
 import com.efkrdnz.magical.client.renderer.TowerAuraRenderer;
 import com.efkrdnz.magical.entity.GabrielHolyFieldEntity;
+import com.efkrdnz.magical.forge.ForgeMaterials;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
@@ -55,7 +59,6 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.phys.Vec3;
@@ -87,6 +90,7 @@ public final class MagicalClientEvents {
         event.register(MagicalMenus.CLASS_SELECT.get(), com.efkrdnz.magical.client.screen.ClassSelectScreen::new);
         event.register(MagicalMenus.CLASS_TREE.get(), com.efkrdnz.magical.client.screen.ClassTreeScreen::new);
         event.register(MagicalMenus.SPACE_ARSENAL_STORAGE.get(), SpaceArsenalStorageScreen::new);
+        event.register(MagicalMenus.BLACKSMITH_FORGE.get(), BlacksmithForgeScreen::new);
     }
 
     @SubscribeEvent
@@ -164,7 +168,9 @@ public final class MagicalClientEvents {
         event.registerEntityRenderer(MagicalEntities.SOUL_BOND.get(), SoulBondRenderer::new);
         event.registerEntityRenderer(MagicalEntities.SOVEREIGN_AEGIS.get(), SovereignAegisRenderer::new);
         event.registerEntityRenderer(MagicalEntities.TOWER_AURA.get(), TowerAuraRenderer::new);
-        event.registerEntityRenderer(MagicalEntities.MELEE_ARC.get(), MeleeArcRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.FORGE_STRIKE.get(), ForgeStrikeRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.FORGE_EFFECT.get(), ForgeEffectRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.FORGE_ZONE.get(), ForgeZoneRenderer::new);
         event.registerEntityRenderer(MagicalEntities.SPELL_EFFECT.get(), com.efkrdnz.magical.client.renderer.fx.ProfileRendererShell::new);
         event.registerEntityRenderer(MagicalEntities.SOLID_CONSTRUCT.get(), com.efkrdnz.magical.client.renderer.fx.ProfileRendererShell::new);
         event.registerEntityRenderer(MagicalEntities.THROWN_SPELL.get(), com.efkrdnz.magical.client.renderer.fx.ProfileRendererShell::new);
@@ -197,6 +203,9 @@ public final class MagicalClientEvents {
                 FirstPersonEffects.tick(minecraft);
                 com.efkrdnz.magical.client.fx.TransientVisuals.tick();
                 com.efkrdnz.magical.client.fx.SpellParticles.tick();
+                // Still ticked with a screen open: it drops any pending press or running charge
+                // rather than firing it the moment the screen closes.
+                ForgeComboInput.tick(minecraft);
                 return;
             }
             FirstPersonEffects.tick(minecraft);
@@ -204,6 +213,7 @@ public final class MagicalClientEvents {
             com.efkrdnz.magical.client.fx.SpellParticles.tick();
             ClientStatusState.tick(minecraft);
             GenericHoldInput.tick(minecraft);
+            ForgeComboInput.tick(minecraft);
             for (int i = 0; i < MagicalKeyMappings.CAST_SLOTS.length; i++) {
                 if (MagicBarrageInput.tickSlot(minecraft, i)) {
                     while (MagicalKeyMappings.CAST_SLOTS[i].consumeClick()) {
@@ -276,6 +286,7 @@ public final class MagicalClientEvents {
             }
 
             MagicalHudOverlay.render(guiGraphics, minecraft, ClientMagicState.get());
+            ForgeComboHud.render(guiGraphics, minecraft);
             ClientCounterPrompt.render(guiGraphics, minecraft);
             SpaceManipulationOverlay.render(guiGraphics, minecraft);
             MagicWheelOverlay.render(guiGraphics, minecraft);
@@ -408,18 +419,16 @@ public final class MagicalClientEvents {
                 return;
             }
             ItemStack held = minecraft.player.getMainHandItem();
-            if (!(held.getItem() instanceof SwordItem) && !(held.getItem() instanceof AxeItem)) {
+            if (!ForgeMaterials.isForgeable(held)) {
                 return;
             }
             if (ClientMagicState.get().hasBlackFlamesImbue() && held.getItem() instanceof SwordItem) {
                 MagicalNetwork.sendBlackFlamesSwing();
             }
-            // Every full-strength swing throws a flying slash forward. The whiff flag (no entity under
-            // the crosshair) tells the server to also snap a real vanilla hit onto a nearby enemy, so
-            // a direct hit still routes through vanilla exactly once while a miss stays forgiving.
-            if (minecraft.player.getAttackStrengthScale(0.5F) > 0.9F) {
-                MagicalNetwork.sendMeleeSwing(minecraft.crosshairPickEntity == null);
-            }
+            // A forged weapon turns this press into the next step of its combo. Nothing is cancelled:
+            // the click still swings, mines or misses exactly as vanilla decides, and an unforged
+            // weapon never gets past the check inside ForgeComboInput.
+            ForgeComboInput.onAttackKeyTriggered(minecraft);
         }
     }
 }

@@ -16,7 +16,9 @@ import com.efkrdnz.magical.entity.GabrielHolyFieldEntity;
 import com.efkrdnz.magical.entity.JudgementBeamEntity;
 import com.efkrdnz.magical.entity.MagicCircleEffectEntity;
 import com.efkrdnz.magical.entity.MagicOpponentEntity;
-import com.efkrdnz.magical.entity.MeleeArcEntity;
+import com.efkrdnz.magical.entity.ForgeEffectEntity;
+import com.efkrdnz.magical.entity.ForgeStrikeEntity;
+import com.efkrdnz.magical.entity.ForgeZoneEntity;
 import com.efkrdnz.magical.entity.SkillClashEffectEntity;
 import com.efkrdnz.magical.entity.SingularityEntity;
 import com.efkrdnz.magical.entity.SoulBondEntity;
@@ -207,13 +209,29 @@ public final class MagicalEntities {
                     .updateInterval(20)
                     .build(key("tower_aura")));
 
-    public static final DeferredHolder<EntityType<?>, EntityType<MeleeArcEntity>> MELEE_ARC = ENTITY_TYPES.register(
-            "melee_arc",
-            () -> EntityType.Builder.<MeleeArcEntity>of(MeleeArcEntity::new, MobCategory.MISC)
+    public static final DeferredHolder<EntityType<?>, EntityType<ForgeStrikeEntity>> FORGE_STRIKE = ENTITY_TYPES.register(
+            "forge_strike",
+            () -> EntityType.Builder.<ForgeStrikeEntity>of(ForgeStrikeEntity::new, MobCategory.MISC)
                     .sized(0.5F, 0.5F)
                     .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
                     .updateInterval(1)
-                    .build(key("melee_arc")));
+                    .build(key("forge_strike")));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<ForgeEffectEntity>> FORGE_EFFECT = ENTITY_TYPES.register(
+            "forge_effect",
+            () -> EntityType.Builder.<ForgeEffectEntity>of(ForgeEffectEntity::new, MobCategory.MISC)
+                    .sized(0.5F, 0.5F)
+                    .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
+                    .updateInterval(10)
+                    .build(key("forge_effect")));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<ForgeZoneEntity>> FORGE_ZONE = ENTITY_TYPES.register(
+            "forge_zone",
+            () -> EntityType.Builder.<ForgeZoneEntity>of(ForgeZoneEntity::new, MobCategory.MISC)
+                    .sized(1.0F, 1.0F)
+                    .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
+                    .updateInterval(10)
+                    .build(key("forge_zone")));
 
     private MagicalEntities() {}
 

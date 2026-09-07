@@ -8,23 +8,23 @@ import org.joml.Matrix4f;
  * Small shared quad/ring/tube builders for the fusion spell renderers. All emit into a
  * POSITION_TEX_COLOR quad buffer; the fusion_orb / fusion_beam shaders turn the UVs into glow.
  */
-final class FusionGeometry {
+public final class FusionGeometry {
     private FusionGeometry() {}
 
-    static int red(int color) {
+    public static int red(int color) {
         return color >> 16 & 255;
     }
 
-    static int green(int color) {
+    public static int green(int color) {
         return color >> 8 & 255;
     }
 
-    static int blue(int color) {
+    public static int blue(int color) {
         return color & 255;
     }
 
     /** A flat quad in local space with explicit UVs. */
-    static void quad(VertexConsumer consumer, Matrix4f matrix,
+    public static void quad(VertexConsumer consumer, Matrix4f matrix,
             float x1, float y1, float z1, float u1, float v1,
             float x2, float y2, float z2, float u2, float v2,
             float x3, float y3, float z3, float u3, float v3,
@@ -40,7 +40,7 @@ final class FusionGeometry {
     }
 
     /** A camera-facing square centred on the origin; the orb shader masks it to a glowing disc. */
-    static void orb(VertexConsumer consumer, Matrix4f matrix, float radius, int r, int g, int b, int a) {
+    public static void orb(VertexConsumer consumer, Matrix4f matrix, float radius, int r, int g, int b, int a) {
         quad(consumer, matrix,
                 -radius, -radius, 0.0F, 0.0F, 0.0F,
                 radius, -radius, 0.0F, 1.0F, 0.0F,
@@ -50,7 +50,7 @@ final class FusionGeometry {
     }
 
     /** A flat ring in the local XY plane (UV x runs around the loop, y across the band). */
-    static void ring(VertexConsumer consumer, Matrix4f matrix, float radius, float thickness, int segments, int r, int g, int b, int a) {
+    public static void ring(VertexConsumer consumer, Matrix4f matrix, float radius, float thickness, int segments, int r, int g, int b, int a) {
         for (int i = 0; i < segments; i++) {
             float t0 = i / (float) segments;
             float t1 = (i + 1) / (float) segments;

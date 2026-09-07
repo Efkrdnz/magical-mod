@@ -11,19 +11,19 @@ import net.minecraft.util.Mth;
  * All helpers draw strictly inside the rectangles they are given so existing layout
  * and hit-testing stay untouched.
  */
-final class MagicalGuiStyle {
-    static final int ACCENT_ARCANE = 0xFF5FD4FF;
-    static final int ACCENT_GOLD = 0xFFF7D774;
-    static final int ACCENT_VIOLET = 0xFFB48AFF;
-    static final int ACCENT_BLOOD = 0xFFE06470;
+public final class MagicalGuiStyle {
+    public static final int ACCENT_ARCANE = 0xFF5FD4FF;
+    public static final int ACCENT_GOLD = 0xFFF7D774;
+    public static final int ACCENT_VIOLET = 0xFFB48AFF;
+    public static final int ACCENT_BLOOD = 0xFFE06470;
     static final int ACCENT_NATURE = 0xFF8FEA9C;
-    static final int TEXT_PRIMARY = 0xF4F9FF;
-    static final int TEXT_MUTED = 0x8292AB;
+    public static final int TEXT_PRIMARY = 0xF4F9FF;
+    public static final int TEXT_MUTED = 0x8292AB;
 
     private MagicalGuiStyle() {}
 
     /** Full-screen backdrop: vertical night gradient with a lit top edge. */
-    static void screenBackground(GuiGraphics g, int x0, int y0, int x1, int y1) {
+    public static void screenBackground(GuiGraphics g, int x0, int y0, int x1, int y1) {
         g.fill(x0 - 1, y0 - 1, x1 + 1, y1 + 1, 0xFF03060C);
         g.fillGradient(x0, y0, x1, y1, 0xF80C1322, 0xF804070F);
         g.fill(x0, y0, x1, y0 + 1, 0xFF31435F);
@@ -34,7 +34,7 @@ final class MagicalGuiStyle {
     }
 
     /** Raised content panel with an accent-tinted top edge and corner ticks. */
-    static void panel(GuiGraphics g, int x0, int y0, int x1, int y1, int accent) {
+    public static void panel(GuiGraphics g, int x0, int y0, int x1, int y1, int accent) {
         g.fill(x0 - 1, y0 - 1, x1 + 1, y1 + 1, 0xFF040810);
         g.fillGradient(x0, y0, x1, y1, 0xFF1C2539, 0xFF121828);
         g.fill(x0, y0, x1, y0 + 1, withAlpha(accent, 0x77));
@@ -51,7 +51,7 @@ final class MagicalGuiStyle {
     }
 
     /** Sunken area for lists and drawing pads. */
-    static void inset(GuiGraphics g, int x0, int y0, int x1, int y1) {
+    public static void inset(GuiGraphics g, int x0, int y0, int x1, int y1) {
         g.fill(x0 - 1, y0 - 1, x1 + 1, y1 + 1, 0xFF060B16);
         g.fillGradient(x0, y0, x1, y1, 0xFF0A101D, 0xFF0E1526);
         g.fill(x0, y0, x1, y0 + 1, 0x66000000);
@@ -67,7 +67,7 @@ final class MagicalGuiStyle {
     }
 
     /** Beveled gradient button; geometry matches a plain fill of the same rectangle. */
-    static void button(GuiGraphics g, Font font, int x, int y, int w, int h, int base, Component label) {
+    public static void button(GuiGraphics g, Font font, int x, int y, int w, int h, int base, Component label) {
         g.fill(x - 1, y - 1, x + w + 1, y + h + 1, 0xFF060A12);
         g.fillGradient(x, y, x + w, y + h, brighten(base, 1.38F), brighten(base, 0.68F));
         g.fill(x, y, x + w, y + 1, 0x48FFFFFF);
@@ -77,7 +77,7 @@ final class MagicalGuiStyle {
     }
 
     /** List row with a left accent bar; selection gets a bright border and lifted body. */
-    static void listRow(GuiGraphics g, int x, int y, int w, int h, boolean selected, int accent) {
+    public static void listRow(GuiGraphics g, int x, int y, int w, int h, boolean selected, int accent) {
         if (selected) {
             g.fill(x - 1, y - 1, x + w + 1, y + h + 1, withAlpha(accent, 0xDD));
             g.fillGradient(x, y, x + w, y + h, 0xFF2A4A63, 0xFF1D3549);
@@ -98,7 +98,7 @@ final class MagicalGuiStyle {
     }
 
     /** Section label with an accent underline that fades out to the right. */
-    static void sectionLabel(GuiGraphics g, Font font, int x, int y, Component label, int color) {
+    public static void sectionLabel(GuiGraphics g, Font font, int x, int y, Component label, int color) {
         g.drawString(font, label, x, y, color, false);
         int width = Math.max(28, font.width(label));
         g.fill(x, y + 10, x + width, y + 11, withAlpha(color, 0xAA));
@@ -106,7 +106,7 @@ final class MagicalGuiStyle {
     }
 
     /** Scrollbar with a sunken track and gradient thumb. */
-    static void scrollbar(GuiGraphics g, int x, int y, int height, int totalUnits, int visibleUnits, int scrollUnits) {
+    public static void scrollbar(GuiGraphics g, int x, int y, int height, int totalUnits, int visibleUnits, int scrollUnits) {
         if (totalUnits <= visibleUnits) {
             return;
         }
@@ -129,18 +129,18 @@ final class MagicalGuiStyle {
     }
 
     /** Item slot: dark well with a beveled border. */
-    static void slot(GuiGraphics g, int x, int y, int borderColor) {
+    public static void slot(GuiGraphics g, int x, int y, int borderColor) {
         g.fill(x - 1, y - 1, x + 17, y + 17, borderColor);
         g.fillGradient(x, y, x + 16, y + 16, 0xFF0A0F1B, 0xFF111A2C);
         g.fill(x, y, x + 16, y + 1, 0x77000000);
         g.fill(x, y + 15, x + 16, y + 16, 0x22FFFFFF);
     }
 
-    static int withAlpha(int color, int alpha) {
+    public static int withAlpha(int color, int alpha) {
         return (Mth.clamp(alpha, 0, 255) << 24) | (color & 0xFFFFFF);
     }
 
-    static int brighten(int color, float factor) {
+    public static int brighten(int color, float factor) {
         int red = Mth.clamp(Math.round(((color >> 16) & 0xFF) * factor), 0, 255);
         int green = Mth.clamp(Math.round(((color >> 8) & 0xFF) * factor), 0, 255);
         int blue = Mth.clamp(Math.round((color & 0xFF) * factor), 0, 255);

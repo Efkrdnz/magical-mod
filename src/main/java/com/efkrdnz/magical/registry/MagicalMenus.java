@@ -2,6 +2,7 @@ package com.efkrdnz.magical.registry;
 
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.arcane.menu.ArcaneWorkbenchMenu;
+import com.efkrdnz.magical.forge.menu.BlacksmithForgeMenu;
 import com.efkrdnz.magical.magic.menu.ClassSelectMenu;
 import com.efkrdnz.magical.magic.menu.ClassTreeMenu;
 import com.efkrdnz.magical.magic.menu.GreedVaultMenu;
@@ -34,6 +35,9 @@ public final class MagicalMenus {
 
     public static final DeferredHolder<MenuType<?>, MenuType<SpaceArsenalStorageMenu>> SPACE_ARSENAL_STORAGE =
             MENUS.register("space_arsenal_storage", () -> new MenuType<>(SpaceArsenalStorageMenu::new, net.minecraft.world.flag.FeatureFlags.DEFAULT_FLAGS));
+
+    public static final DeferredHolder<MenuType<?>, MenuType<BlacksmithForgeMenu>> BLACKSMITH_FORGE =
+            MENUS.register("blacksmith_forge", () -> new MenuType<>(BlacksmithForgeMenu::new, net.minecraft.world.flag.FeatureFlags.DEFAULT_FLAGS));
 
     private MagicalMenus() {}
 

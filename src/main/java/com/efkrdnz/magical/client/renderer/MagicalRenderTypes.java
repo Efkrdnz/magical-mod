@@ -71,6 +71,14 @@ public final class MagicalRenderTypes {
             ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "core/rendertype_fusion_beam"),
             DefaultVertexFormat.POSITION_TEX_COLOR,
             ShaderDefines.EMPTY);
+    private static final ShaderProgram FORGE_EDGE_PROGRAM = new ShaderProgram(
+            ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "core/rendertype_forge_edge"),
+            DefaultVertexFormat.POSITION_TEX_COLOR,
+            ShaderDefines.EMPTY);
+    private static final ShaderProgram FORGE_IMPACT_PROGRAM = new ShaderProgram(
+            ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "core/rendertype_forge_impact"),
+            DefaultVertexFormat.POSITION_TEX_COLOR,
+            ShaderDefines.EMPTY);
     private static RenderType singularityLens;
     private static RenderType eventHorizonField;
     private static RenderType stellarGlow;
@@ -87,6 +95,8 @@ public final class MagicalRenderTypes {
     private static RenderType chronoClock;
     private static RenderType fusionOrb;
     private static RenderType fusionBeam;
+    private static RenderType forgeEdge;
+    private static RenderType forgeImpact;
 
     private MagicalRenderTypes() {}
 
@@ -106,6 +116,8 @@ public final class MagicalRenderTypes {
         event.registerShader(CHRONO_CLOCK_PROGRAM);
         event.registerShader(FUSION_ORB_PROGRAM);
         event.registerShader(FUSION_BEAM_PROGRAM);
+        event.registerShader(FORGE_EDGE_PROGRAM);
+        event.registerShader(FORGE_IMPACT_PROGRAM);
     }
 
     public static RenderType singularityLens() {
@@ -373,6 +385,52 @@ public final class MagicalRenderTypes {
                     state);
         }
         return fusionBeam;
+    }
+
+    /** Additive blade ribbon: the cutting edge of every forged strike. */
+    public static RenderType forgeEdge() {
+        if (forgeEdge == null) {
+            RenderType.CompositeState state = RenderType.CompositeState.builder()
+                    .setShaderState(new RenderStateShard.ShaderStateShard(FORGE_EDGE_PROGRAM))
+                    .setTransparencyState(RenderStateShard.ADDITIVE_TRANSPARENCY)
+                    .setCullState(RenderStateShard.NO_CULL)
+                    .setLightmapState(RenderStateShard.NO_LIGHTMAP)
+                    .setOverlayState(RenderStateShard.NO_OVERLAY)
+                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
+                    .createCompositeState(false);
+            forgeEdge = RenderType.create(
+                    "magical_forge_edge",
+                    DefaultVertexFormat.POSITION_TEX_COLOR,
+                    VertexFormat.Mode.QUADS,
+                    16384,
+                    false,
+                    true,
+                    state);
+        }
+        return forgeEdge;
+    }
+
+    /** Additive impact disc: cracked rim, hot core and turning spokes on a unit-disc quad. */
+    public static RenderType forgeImpact() {
+        if (forgeImpact == null) {
+            RenderType.CompositeState state = RenderType.CompositeState.builder()
+                    .setShaderState(new RenderStateShard.ShaderStateShard(FORGE_IMPACT_PROGRAM))
+                    .setTransparencyState(RenderStateShard.ADDITIVE_TRANSPARENCY)
+                    .setCullState(RenderStateShard.NO_CULL)
+                    .setLightmapState(RenderStateShard.NO_LIGHTMAP)
+                    .setOverlayState(RenderStateShard.NO_OVERLAY)
+                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
+                    .createCompositeState(false);
+            forgeImpact = RenderType.create(
+                    "magical_forge_impact",
+                    DefaultVertexFormat.POSITION_TEX_COLOR,
+                    VertexFormat.Mode.QUADS,
+                    16384,
+                    false,
+                    true,
+                    state);
+        }
+        return forgeImpact;
     }
 
     public static RenderType chronoClock() {

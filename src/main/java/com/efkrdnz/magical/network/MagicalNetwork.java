@@ -1,6 +1,8 @@
 package com.efkrdnz.magical.network;
 
 import com.efkrdnz.magical.arcane.ArcanePlayerData;
+import com.efkrdnz.magical.forge.BlacksmithForgeService;
+import com.efkrdnz.magical.magic.ForgeComboService;
 import com.efkrdnz.magical.magic.MagicBarrageService;
 import com.efkrdnz.magical.magic.MagicCounterService;
 import com.efkrdnz.magical.magic.MagicCastingService;
@@ -47,6 +49,22 @@ public final class MagicalNetwork {
                         context.enqueueWork(() -> {
                             if (context.player() instanceof ServerPlayer player) {
                                 com.efkrdnz.magical.magic.cast.HoldService.setHeld(player, payload.slot(), payload.held());
+                            }
+                        }))
+                .playToClient(ForgeResultPayload.TYPE, ForgeResultPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> handleClientPayload(payload)))
+                .playToClient(ForgeComboSyncPayload.TYPE, ForgeComboSyncPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> handleClientPayload(payload)))
+                .playToServer(OpenForgePayload.TYPE, OpenForgePayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> {
+                            if (context.player() instanceof ServerPlayer player) {
+                                BlacksmithForgeService.open(player);
+                            }
+                        }))
+                .playToServer(ForgeSubmitPayload.TYPE, ForgeSubmitPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> {
+                            if (context.player() instanceof ServerPlayer player) {
+                                BlacksmithForgeService.submit(player, payload);
                             }
                         }))
                 .playToServer(CastLoadoutSlotPayload.TYPE, CastLoadoutSlotPayload.STREAM_CODEC, (payload, context) ->
@@ -133,10 +151,10 @@ public final class MagicalNetwork {
                                 com.efkrdnz.magical.magic.BlackFlamesService.onImbuedSwordSwing(player);
                             }
                         }))
-                .playToServer(MeleeSwingPayload.TYPE, MeleeSwingPayload.STREAM_CODEC, (payload, context) ->
+                .playToServer(ForgeStrikePayload.TYPE, ForgeStrikePayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> {
                             if (context.player() instanceof ServerPlayer player) {
-                                com.efkrdnz.magical.magic.MeleeCombatService.onSwing(player, payload.whiff());
+                                ForgeComboService.onStrike(player, payload);
                             }
                         }))
                 .playToServer(ApplySpaceRulePayload.TYPE, ApplySpaceRulePayload.STREAM_CODEC, (payload, context) ->
@@ -263,8 +281,12 @@ public final class MagicalNetwork {
         PacketDistributor.sendToServer(new BlackFlamesSwingPayload());
     }
 
-    public static void sendMeleeSwing(boolean whiff) {
-        PacketDistributor.sendToServer(new MeleeSwingPayload(whiff));
+    public static void sendForgeStrike(int kind, boolean whiff, int chargeTicks) {
+        PacketDistributor.sendToServer(new ForgeStrikePayload(kind, whiff, chargeTicks));
+    }
+
+    public static void sendForgeCombo(ServerPlayer player, ForgeComboSyncPayload payload) {
+        PacketDistributor.sendToPlayer(player, payload);
     }
 
     public static void sendSpaceRule(int category, int operation, int targetGroup) {
@@ -285,6 +307,18 @@ public final class MagicalNetwork {
 
     public static void sendMagicBarrageHold(int slot, boolean release, int chargeTicks) {
         PacketDistributor.sendToServer(new MagicBarrageHoldPayload(slot, release, chargeTicks));
+    }
+
+    public static void sendOpenForgeRequest() {
+        PacketDistributor.sendToServer(new OpenForgePayload());
+    }
+
+    public static void sendForgeSubmit(ForgeSubmitPayload payload) {
+        PacketDistributor.sendToServer(payload);
+    }
+
+    public static void sendForgeResult(ServerPlayer player, ForgeResultPayload payload) {
+        PacketDistributor.sendToPlayer(player, payload);
     }
 
 }

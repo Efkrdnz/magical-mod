@@ -5,6 +5,8 @@ import com.efkrdnz.magical.network.ChronosEnvironmentPayload;
 import com.efkrdnz.magical.network.CounterClearPayload;
 import com.efkrdnz.magical.network.CounterPromptPayload;
 import com.efkrdnz.magical.network.FirstPersonEffectPayload;
+import com.efkrdnz.magical.network.ForgeComboSyncPayload;
+import com.efkrdnz.magical.network.ForgeResultPayload;
 import com.efkrdnz.magical.network.PlayerMagicStatePayload;
 
 public final class ClientPayloadHandlers {
@@ -40,5 +42,13 @@ public final class ClientPayloadHandlers {
 
     public static void handle(com.efkrdnz.magical.network.StatusSyncPayload payload) {
         ClientStatusState.handle(payload);
+    }
+
+    public static void handle(ForgeResultPayload payload) {
+        ClientForgeResults.accept(payload);
+    }
+
+    public static void handle(ForgeComboSyncPayload payload) {
+        ClientForgeCombo.accept(payload);
     }
 }

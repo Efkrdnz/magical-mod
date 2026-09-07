@@ -1,8 +1,9 @@
 package com.efkrdnz.magical.magic;
 
 import com.efkrdnz.magical.MagicalMod;
-import com.efkrdnz.magical.classes.BlacksmithInfusion;
 import com.efkrdnz.magical.entity.SovereignAegisEntity;
+import com.efkrdnz.magical.forge.BlacksmithForgeService;
+import com.efkrdnz.magical.forge.ForgedWeapons;
 import com.efkrdnz.magical.magic.passive.ClassPassiveEffects;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import com.efkrdnz.magical.tower.DungeonTowerService;
@@ -96,6 +97,7 @@ public final class MagicGameplayEvents {
         }
         DungeonTowerService.tick(event.getServer());
         ChronosSequenceService.tick();
+        ForgeComboService.tick(event.getServer());
     }
 
     private static void tickManaFlight(ServerPlayer player, PlayerMagicState state) {
@@ -174,6 +176,8 @@ public final class MagicGameplayEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
             SpaceAuthorityService.closeAllDomains(player, state, false);
+            ForgeComboService.reset(player);
+            BlacksmithForgeService.forget(player);
         }
     }
 
@@ -182,6 +186,7 @@ public final class MagicGameplayEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
             SpaceAuthorityService.closeAllDomains(player, state, false);
+            ForgeComboService.reset(player);
             state.sync(player);
         }
     }
@@ -191,6 +196,7 @@ public final class MagicGameplayEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
             SpaceAuthorityService.closeAllDomains(player, state, false);
+            ForgeComboService.reset(player);
             state.sync(player);
         }
     }
@@ -223,6 +229,8 @@ public final class MagicGameplayEvents {
         if (event.getSource().is(DamageTypes.MAGIC) || event.getSource().is(DamageTypes.INDIRECT_MAGIC)) {
             damage *= 1.0F - state.passiveReduction(MagicPassiveContent.MAGIC_RESISTANCE.id());
         }
+        // A GUARD-forged weapon soaks part of anything that lands while its window is open.
+        damage *= 1.0F - ForgeComboService.guardReduction(player, player.serverLevel().getGameTime());
         damage = absorbWithManaSkin(state, damage);
         damage = MagicSinService.beforeBarrierDamage(player, state, event.getSource(), damage);
         damage = ClassPassiveEffects.incomingDamage(player, state, event.getSource(), damage);
@@ -282,17 +290,14 @@ public final class MagicGameplayEvents {
             return;
         }
         SoulAuthorityService.onSoulDamage(target, player);
-        BlacksmithInfusion.applyWeaponEffects(player, target, player.getMainHandItem());
+        ForgeComboService.notePrimaryHit(player, target);
         BlackFlamesService.onMeleeAttack(player, target);
         ClassPassiveEffects.onMeleeHit(player, player.getData(MagicalAttachments.MAGIC_STATE), target);
     }
 
     @SubscribeEvent
     public static void onItemTooltip(ItemTooltipEvent event) {
-        var tooltip = BlacksmithInfusion.tooltip(event.getItemStack());
-        if (tooltip != null) {
-            event.getToolTip().add(tooltip);
-        }
+        event.getToolTip().addAll(ForgedWeapons.tooltip(event.getItemStack()));
     }
 
     @SubscribeEvent
