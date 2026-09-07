@@ -25,6 +25,7 @@ import com.efkrdnz.magical.forge.ForgeIds;
 import com.efkrdnz.magical.forge.StrikeLoadout;
 import com.efkrdnz.magical.forge.ForgeWeaponFlags;
 import com.efkrdnz.magical.forge.chain.ForgeProgram;
+import com.efkrdnz.magical.forge.chain.Payload;
 import com.efkrdnz.magical.forge.chain.ForgeStep;
 import com.efkrdnz.magical.forge.ForgedWeapon;
 import com.efkrdnz.magical.forge.ForgedWeapons;
@@ -296,7 +297,7 @@ public final class ForgeComboService {
         if (whiff) {
             snapVanillaHit(player, specs.get(0).reach());
         }
-        launch(level, player, weapon, element.get(), forms, specs,
+        launch(level, player, weapon, element.get(), forms, specs, step.payload(),
                 STATES.getOrDefault(player.getUUID(), state), now);
     }
 
@@ -317,7 +318,8 @@ public final class ForgeComboService {
     }
 
     private static void launch(ServerLevel level, ServerPlayer player, ForgedWeapon weapon, ElementDefinition element,
-            List<FormDefinition> forms, List<StrikeSpec> specs, ComboState state, long now) {
+            List<FormDefinition> forms, List<StrikeSpec> specs, Optional<Payload> payload, ComboState state,
+            long now) {
         Vec3 look = lookOf(player);
         StrikeSpec spec = specs.get(0);
         int primary = primaryTargetId(player);
@@ -326,7 +328,7 @@ public final class ForgeComboService {
             Vec3 origin = originFor(player, member.family(), look, member.reach());
             // Only the lead strike claims the single vanilla hit this press came with.
             ForgeStrikeEntity.spawn(level, player, member, weapon, element, forms.get(i), origin, look, false,
-                    i == 0 ? primary : StrikeLoadout.NO_PRIMARY_TARGET);
+                    i == 0 ? primary : StrikeLoadout.NO_PRIMARY_TARGET, payload);
         }
         Vec3 origin = originFor(player, spec.family(), look, spec.reach());
         ForgeSounds.play(level, player, spec.family());

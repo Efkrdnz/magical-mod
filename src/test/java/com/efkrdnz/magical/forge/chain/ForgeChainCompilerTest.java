@@ -176,6 +176,75 @@ class ForgeChainCompilerTest {
         assertEquals(List.of("slash"), compiled.stepAt(0).forms());
     }
 
+    // --- triggers -----------------------------------------------------------------------------
+
+    @Test
+    void aTriggerNestsTheFormAfterTheCarrierInsideIt() {
+        ForgeProgram compiled = ForgeChainCompiler.compile(List.of("trigger", "wave", "slam", "spin"));
+
+        assertEquals(2, compiled.length(), "the slam is the payload, not a press of its own");
+        ForgeStep carrier = compiled.stepAt(0);
+        assertEquals("wave", carrier.leadForm());
+        assertTrue(carrier.payload().isPresent());
+        assertEquals(TriggerKind.IMPACT, carrier.payload().get().kind());
+        assertEquals("slam", carrier.payload().get().step().leadForm());
+        assertEquals("spin", compiled.stepAt(1).leadForm());
+    }
+
+    @Test
+    void wakeFiresThePayloadWhenTheCarrierExpiresRatherThanOnImpact() {
+        ForgeProgram compiled = ForgeChainCompiler.compile(List.of("wake", "wave", "slam"));
+
+        assertEquals(TriggerKind.EXPIRY, compiled.stepAt(0).payload().get().kind());
+    }
+
+    @Test
+    void fuseFiresThePayloadOnAClock() {
+        ForgeProgram compiled = ForgeChainCompiler.compile(List.of("fuse", "wave", "slam"));
+        Payload payload = compiled.stepAt(0).payload().get();
+
+        assertEquals(TriggerKind.TIMER, payload.kind());
+        assertEquals(Payload.BASE_TIMER_TICKS, payload.delayTicks());
+    }
+
+    @Test
+    void aStackedFuseBurnsFaster() {
+        ForgeProgram compiled = ForgeChainCompiler.compile(List.of("fuse", "fuse", "wave", "slam"));
+
+        assertTrue(compiled.stepAt(0).payload().get().delayTicks() < Payload.BASE_TIMER_TICKS);
+    }
+
+    @Test
+    void aPayloadCarriesTheModifiersDrawnBeforeIt() {
+        ForgeProgram compiled = ForgeChainCompiler.compile(
+                List.of("trigger", "wave", "pierce", "slam"));
+
+        ForgeStep payload = compiled.stepAt(0).payload().get().step();
+        assertTrue(payload.mods().has(ForgeModifierKind.PIERCE));
+        assertTrue(compiled.stepAt(0).mods().isEmpty(), "the carrier was drawn bare");
+    }
+
+    @Test
+    void aTriggerCanCarryAForkedGroup() {
+        ForgeProgram compiled = ForgeChainCompiler.compile(
+                List.of("fork", "trigger", "wave", "cleave", "slam"));
+
+        ForgeStep carrier = compiled.stepAt(0);
+        assertEquals(List.of("wave", "cleave"), carrier.forms());
+        assertEquals("slam", carrier.payload().get().step().leadForm());
+    }
+
+    @Test
+    void aTriggerWithNoPayloadFormLeavesTheCarrierAlone() {
+        // The grammar refuses a trailing operator, but a chain from another build may still arrive
+        // this way and must not lose the carrier.
+        ForgeProgram compiled = ForgeChainCompiler.compile(List.of("trigger", "wave"));
+
+        assertEquals(1, compiled.length());
+        assertEquals("wave", compiled.stepAt(0).leadForm());
+        assertTrue(compiled.stepAt(0).payload().isEmpty());
+    }
+
     /**
      * The compiler maps a modifier glyph id onto its kind by name, because it has to stay free of
      * the Minecraft-side registry that holds the full definition. That is only safe while the two

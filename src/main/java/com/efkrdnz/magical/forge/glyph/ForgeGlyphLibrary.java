@@ -166,6 +166,25 @@ public final class ForgeGlyphLibrary {
                 line(.10f, .50f, .50f, .50f),
                 line(.50f, .50f, .90f, .18f),
                 line(.50f, .50f, .90f, .82f)));
+
+        // The three triggers. Each says when the payload goes off, and each is a different gross
+        // shape rather than the same shape pointed a different way - the recognizer does not
+        // normalize rotation, but a point cloud still reads near-mirrors as near-identical.
+
+        // Impact: a pennant, planted where the carrier strikes.
+        put(map, template("trigger", GlyphCategory.OPERATOR,
+                line(.28f, .04f, .28f, .96f),
+                poly(.28f, .10f, .84f, .30f, .28f, .50f)));
+        // Timer: two brackets holding a span of time between them.
+        put(map, template("fuse", GlyphCategory.OPERATOR,
+                poly(.38f, .08f, .12f, .08f, .12f, .92f, .38f, .92f),
+                poly(.62f, .08f, .88f, .08f, .88f, .92f, .62f, .92f)));
+        // Expiry: a fan bursting upward off the ground where the carrier ended.
+        put(map, template("wake", GlyphCategory.OPERATOR,
+                line(.10f, .92f, .90f, .92f),
+                line(.50f, .92f, .50f, .26f),
+                line(.32f, .88f, .14f, .40f),
+                line(.68f, .88f, .86f, .40f)));
     }
 
     private static void put(Map<String, GlyphTemplate> map, GlyphTemplate template) {

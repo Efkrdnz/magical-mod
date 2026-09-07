@@ -21,6 +21,15 @@ public final class ForgeChainCompiler {
     /** Glyph id of the fork operator. */
     public static final String FORK = "fork";
 
+    /** Glyph id of the on-impact trigger. */
+    public static final String TRIGGER = "trigger";
+
+    /** Glyph id of the timer trigger. */
+    public static final String FUSE = "fuse";
+
+    /** Glyph id of the late trigger, which fires when the carrier expires. */
+    public static final String WAKE = "wake";
+
     /** Most forms one press may fire at once. */
     public static final int MAX_FORK_WIDTH = 4;
 
@@ -49,6 +58,12 @@ public final class ForgeChainCompiler {
         List<String> pending = new ArrayList<>();
         List<String> group = new ArrayList<>();
         int forkWidth = 1;
+        TriggerKind trigger = null;
+        int fuseStacks = 0;
+        // Index of the step still waiting for the form that will become its payload.
+        int carrier = -1;
+        TriggerKind carrierTrigger = TriggerKind.IMPACT;
+        int carrierDelay = Payload.BASE_TIMER_TICKS;
         for (String id : program) {
             Optional<GlyphCategory> category = categoryOf(id);
             if (category.isEmpty()) {
@@ -57,15 +72,37 @@ public final class ForgeChainCompiler {
             switch (category.get()) {
                 case FORM -> {
                     group.add(id);
-                    if (group.size() >= forkWidth) {
-                        steps.add(new ForgeStep(List.copyOf(group), stackOf(pending), Optional.empty()));
-                        group.clear();
-                        pending.clear();
-                        forkWidth = 1;
+                    if (group.size() < forkWidth) {
+                        break;
+                    }
+                    ForgeStep built = new ForgeStep(List.copyOf(group), stackOf(pending), Optional.empty());
+                    group.clear();
+                    pending.clear();
+                    forkWidth = 1;
+                    if (carrier >= 0) {
+                        // This form is the payload of the step before it, not a press of its own.
+                        steps.set(carrier, steps.get(carrier)
+                                .withPayload(new Payload(carrierTrigger, carrierDelay, built)));
+                        carrier = -1;
+                    } else {
+                        steps.add(built);
+                        if (trigger != null) {
+                            carrier = steps.size() - 1;
+                            carrierTrigger = trigger;
+                            carrierDelay = timerTicks(fuseStacks);
+                            trigger = null;
+                            fuseStacks = 0;
+                        }
                     }
                 }
                 case MODIFIER -> pending.add(id);
-                case OPERATOR -> forkWidth = widenFork(id, forkWidth);
+                case OPERATOR -> {
+                    forkWidth = widenFork(id, forkWidth);
+                    trigger = triggerOf(id).orElse(trigger);
+                    if (FUSE.equals(id)) {
+                        fuseStacks++;
+                    }
+                }
                 default -> {
                     // grade, element and temper are lifted out before the run reaches here
                 }
@@ -77,6 +114,25 @@ public final class ForgeChainCompiler {
             pending.clear();
         }
         return new ForgeProgram(wrapTrailing(steps, pending));
+    }
+
+    /** The trigger an operator glyph names, or empty for one that is not a trigger. */
+    private static Optional<TriggerKind> triggerOf(String operatorId) {
+        return switch (operatorId) {
+            case TRIGGER -> Optional.of(TriggerKind.IMPACT);
+            case FUSE -> Optional.of(TriggerKind.TIMER);
+            case WAKE -> Optional.of(TriggerKind.EXPIRY);
+            default -> Optional.empty();
+        };
+    }
+
+    /** A stacked fuse burns twice as fast per extra copy, down to a single tick. */
+    private static int timerTicks(int fuseStacks) {
+        int ticks = Payload.BASE_TIMER_TICKS;
+        for (int i = 1; i < fuseStacks; i++) {
+            ticks = Math.max(1, ticks / 2);
+        }
+        return ticks;
     }
 
     /**

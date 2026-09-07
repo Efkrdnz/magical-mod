@@ -37,4 +37,9 @@ public record ForgeStep(List<String> forms, ModifierStack mods, Optional<Payload
     public boolean isForked() {
         return forms.size() > 1;
     }
+
+    /** This step carrying {@code nested}, replacing any payload it already had. */
+    public ForgeStep withPayload(Payload nested) {
+        return new ForgeStep(forms, mods, Optional.of(nested));
+    }
 }

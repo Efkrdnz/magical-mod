@@ -1,5 +1,8 @@
 package com.efkrdnz.magical.forge;
 
+import java.util.Optional;
+
+import com.efkrdnz.magical.forge.chain.Payload;
 import com.efkrdnz.magical.forge.strike.StrikeSpec;
 
 /**
@@ -9,16 +12,23 @@ import com.efkrdnz.magical.forge.strike.StrikeSpec;
  */
 public record StrikeLoadout(ForgedWeapon weapon, ElementDefinition element, FormDefinition form, float damage,
         float knockback, float speed, float critChance, float weaponAttack, ModifierStack mods, boolean heavy,
-        boolean finisher, boolean echo, int comboIndex, int primaryTargetId) {
+        boolean finisher, boolean echo, int comboIndex, int primaryTargetId, Optional<Payload> payload) {
 
     /** No primary target: either an echo, or a press that landed no vanilla hit at all. */
     public static final int NO_PRIMARY_TARGET = -1;
 
     public static StrikeLoadout of(StrikeSpec spec, ForgedWeapon weapon, ElementDefinition element,
             FormDefinition form, float weaponAttack, boolean echo, int primaryTargetId) {
+        return of(spec, weapon, element, form, weaponAttack, echo, primaryTargetId, Optional.empty());
+    }
+
+    /** As above, carrying a payload this strike will fire when its trigger comes due. */
+    public static StrikeLoadout of(StrikeSpec spec, ForgedWeapon weapon, ElementDefinition element,
+            FormDefinition form, float weaponAttack, boolean echo, int primaryTargetId,
+            Optional<Payload> payload) {
         return new StrikeLoadout(weapon, element, form, spec.damage(), spec.knockback(), spec.speed(),
                 spec.critChance(), weaponAttack, spec.mods(), spec.heavy(), spec.finisher(), echo,
-                spec.comboIndex(), echo ? NO_PRIMARY_TARGET : primaryTargetId);
+                spec.comboIndex(), echo ? NO_PRIMARY_TARGET : primaryTargetId, payload);
     }
 
     public boolean has(ForgeModifierKind kind) {

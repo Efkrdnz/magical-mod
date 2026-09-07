@@ -15,7 +15,12 @@ import com.efkrdnz.magical.forge.ForgedWeapon;
 import com.efkrdnz.magical.forge.FormDefinition;
 import com.efkrdnz.magical.forge.FormFamily;
 import com.efkrdnz.magical.forge.StrikeImpact;
+import java.util.Optional;
+
 import com.efkrdnz.magical.forge.StrikeLoadout;
+import com.efkrdnz.magical.forge.ForgePayloadService;
+import com.efkrdnz.magical.forge.chain.Payload;
+import com.efkrdnz.magical.forge.chain.TriggerKind;
 import com.efkrdnz.magical.forge.strike.ForgeStrikeMath;
 import com.efkrdnz.magical.forge.strike.ShapeMath;
 import com.efkrdnz.magical.forge.strike.StrikeSpec;
@@ -78,6 +83,9 @@ public final class ForgeStrikeEntity extends Entity {
     private final Map<UUID, Long> hitTicks = new HashMap<>();
     private final StrikeTally tally = new StrikeTally();
     private StrikeLoadout loadout;
+
+    /** A payload fires once, whichever of its triggers comes due first. */
+    private boolean payloadFired;
     private UUID ownerUuid;
     private int pulseIndex;
     private int waveHits;
@@ -104,6 +112,14 @@ public final class ForgeStrikeEntity extends Entity {
     public static ForgeStrikeEntity spawn(ServerLevel level, ServerPlayer owner, StrikeSpec spec, ForgedWeapon weapon,
             ElementDefinition element, FormDefinition form, Vec3 origin, Vec3 direction, boolean echo,
             int primaryTargetId) {
+        return spawn(level, owner, spec, weapon, element, form, origin, direction, echo, primaryTargetId,
+                Optional.empty());
+    }
+
+    /** As above, carrying a nested step to fire when its trigger comes due. */
+    public static ForgeStrikeEntity spawn(ServerLevel level, ServerPlayer owner, StrikeSpec spec, ForgedWeapon weapon,
+            ElementDefinition element, FormDefinition form, Vec3 origin, Vec3 direction, boolean echo,
+            int primaryTargetId, Optional<Payload> payload) {
         ForgeStrikeEntity strike = new ForgeStrikeEntity(MagicalEntities.FORGE_STRIKE.get(), level);
         Vec3 dir = direction.lengthSqr() < 1.0E-6 ? new Vec3(0.0, 0.0, 1.0) : direction.normalize();
         strike.setPos(origin.x, origin.y, origin.z);
@@ -111,7 +127,7 @@ public final class ForgeStrikeEntity extends Entity {
         // The primary target is snapshotted now: the combo state advances the moment this press
         // resolves, which clears it, and an anchored strike does not collect until the next tick.
         strike.loadout = StrikeLoadout.of(spec, weapon, element, form,
-                (float) owner.getAttributeValue(Attributes.ATTACK_DAMAGE), echo, primaryTargetId);
+                (float) owner.getAttributeValue(Attributes.ATTACK_DAMAGE), echo, primaryTargetId, payload);
         strike.entityData.set(FORM_ORDINAL, spec.family().ordinal());
         strike.entityData.set(PRIMARY, element.primaryColor());
         strike.entityData.set(SECONDARY, element.secondaryColor());
@@ -167,14 +183,48 @@ public final class ForgeStrikeEntity extends Entity {
     public void tick() {
         super.tick();
         if (tickCount > life()) {
+            // The late trigger. A carrier that expires having touched nothing still delivers, which
+            // is what turns a thrown crescent into a way to put a strike somewhere downrange.
+            firePayload(TriggerKind.EXPIRY);
             discard();
             return;
         }
+        firePayloadOnTimer();
         switch (family()) {
             case WAVE -> tickWave();
             case SLAM -> tickSlam();
             default -> tickAnchored();
         }
+    }
+
+    /**
+     * Fires the nested step if it is waiting on {@code kind}, and only once.
+     *
+     * <p>The flag matters: a wave that is blocked and then ticks past its life would otherwise
+     * deliver its payload twice.
+     */
+    public void firePayload(TriggerKind kind) {
+        if (payloadFired || loadout == null || !(level() instanceof ServerLevel server)) {
+            return;
+        }
+        Optional<Payload> payload = loadout.payload();
+        if (payload.isEmpty() || payload.get().kind() != kind) {
+            return;
+        }
+        if (!(ownerEntity() instanceof ServerPlayer owner)) {
+            return;
+        }
+        payloadFired = true;
+        ForgePayloadService.fire(server, owner, loadout, position(), direction());
+    }
+
+    private void firePayloadOnTimer() {
+        if (payloadFired || loadout == null) {
+            return;
+        }
+        loadout.payload()
+                .filter(payload -> payload.kind() == TriggerKind.TIMER && tickCount >= payload.delayTicks())
+                .ifPresent(payload -> firePayload(TriggerKind.TIMER));
     }
 
     /** Anchored families ride the wielder; on the client that is the whole of their behaviour. */
@@ -231,6 +281,7 @@ public final class ForgeStrikeEntity extends Entity {
         }
         setPos(step.to().x, step.to().y, step.to().z);
         if (step.blocked() || waveHits >= waveBudget()) {
+            firePayload(TriggerKind.EXPIRY);
             discard();
         }
     }
@@ -290,6 +341,10 @@ public final class ForgeStrikeEntity extends Entity {
             }
             hitTicks.put(target.getUUID(), now);
             StrikeImpact.apply(server, this, owner, target, loadout, dir, damageScale, now, random, tally);
+            // The on-impact trigger, at the first body this strike opens up and no other.
+            if (tally.impacts() == 1) {
+                firePayload(TriggerKind.IMPACT);
+            }
             hits++;
         }
         return hits;
