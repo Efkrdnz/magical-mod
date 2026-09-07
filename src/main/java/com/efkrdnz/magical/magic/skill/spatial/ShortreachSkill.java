@@ -76,7 +76,7 @@ public final class ShortreachSkill implements SkillModule {
 
             @Override
             public MobCastProfile mob() {
-                return MobCastProfile.control(0.0F, 12.0F);
+                return MobCastProfile.mobility(0.0F, 12.0F);
             }
 
             @Override

@@ -71,6 +71,28 @@ public final class MagicMobCastingService {
         return hasUsable(caster, state, difficulty, skill -> profile(skill).minRange() <= 2.0F && role(skill) == MobCastProfile.Role.ATTACK);
     }
 
+    /**
+     * Casts the best escape it has, if it has one.
+     *
+     * <p>Shares the shape of {@link #castBestDefense} but filters on MOBILITY: a boss that eats a
+     * heavy hit should blink out of the follow-up rather than stand in it.
+     */
+    public static boolean castBestEscape(LivingEntity caster, PlayerMagicState state, LivingEntity target, int difficulty) {
+        List<MagicSkillDefinition> escapes = state.unlockedSkills().stream()
+                .map(MagicContent::get)
+                .filter(skill -> canMobUse(caster, state, skill, difficulty))
+                .filter(skill -> role(skill) == MobCastProfile.Role.MOBILITY)
+                .toList();
+        if (escapes.isEmpty()) {
+            return false;
+        }
+        float healthRatio = caster.getHealth() / Math.max(1.0F, caster.getMaxHealth());
+        float manaRatio = state.mana() / (float) Math.max(1, state.maxMana());
+        MagicSkillDefinition best = bestByScore(escapes, skill -> true,
+                target == null ? 0.0D : caster.distanceTo(target), healthRatio, manaRatio, difficulty);
+        return cast(caster, state, best, target == null ? caster : target, difficulty);
+    }
+
     public static boolean castBestDefense(LivingEntity caster, PlayerMagicState state, LivingEntity target, int difficulty) {
         List<MagicSkillDefinition> defenses = state.unlockedSkills().stream()
                 .map(MagicContent::get)
@@ -128,6 +150,12 @@ public final class MagicMobCastingService {
             }
             case CONTROL -> score += difficulty >= 2 ? 6.0D : 1.0D;
             case SUMMON -> score += difficulty >= 3 ? 8.0D : 3.0D;
+            case MOBILITY -> {
+                // Worth casting for reasons that have nothing to do with the target. Scored by how
+                // much trouble it is in, so a healthy boss does not blink around aimlessly.
+                score += (1.0F - healthRatio) * (difficulty >= 4 ? 30.0D : 12.0D);
+                score -= healthRatio * 14.0D;
+            }
             case UTILITY -> score -= 6.0D;
             default -> { }
         }

@@ -125,7 +125,7 @@ public final class TranspositionSkill implements SkillModule {
 
             @Override
             public MobCastProfile mob() {
-                return MobCastProfile.control(4.0F, 18.0F);
+                return MobCastProfile.mobility(4.0F, 18.0F);
             }
 
             @Override

@@ -1,6 +1,9 @@
 package com.efkrdnz.magical.entity;
 
 import com.efkrdnz.magical.entity.ascendant.AscendantLoadout;
+import com.efkrdnz.magical.entity.ascendant.AscendantStance;
+import com.efkrdnz.magical.entity.ascendant.OpponentFlight;
+import com.efkrdnz.magical.magic.MagicGameplayEvents;
 import com.efkrdnz.magical.entity.ascendant.AscendantTier;
 import com.efkrdnz.magical.forge.ForgeMobStrike;
 import com.efkrdnz.magical.entity.ascendant.OpponentKind;
@@ -45,6 +48,19 @@ public final class MagicOpponentEntity extends Monster {
     /** Damage multiplier against one whose verdict was answered, and how long it lasts. */
     private static final float STAGGER_VULNERABILITY = 1.5F;
     private static final int STAGGER_TICKS = 60;
+
+    /** How long a melee hit counts as a reason to get off the ground. */
+    private static final int MELEE_PRESSURE_TICKS = 40;
+
+    /** Caps on how hard flight may push, so it hovers rather than rockets. */
+    private static final double FLIGHT_CLIMB_PER_TICK = 0.32D;
+    private static final double FLIGHT_DRIFT_PER_TICK = 0.24D;
+
+    /** Horizontal distance an airborne opponent holds when it is not closing to swing. */
+    private static final double FLIGHT_STANDOFF = 8.0D;
+
+    /** And when it is. */
+    private static final double FLIGHT_MELEE_RANGE = 2.2D;
     private PlayerMagicState magicState = new PlayerMagicState();
     private UUID copiedPlayerUuid;
     private String copiedPlayerName = "Mage Clone";
@@ -54,6 +70,8 @@ public final class MagicOpponentEntity extends Monster {
     private int burstRemaining;
     private int recoveryLeft;
     private boolean staggered;
+    private boolean flying;
+    private int meleePressureTicks;
 
     public MagicOpponentEntity(EntityType<? extends MagicOpponentEntity> entityType, Level level) {
         super(entityType, level);
@@ -120,6 +138,9 @@ public final class MagicOpponentEntity extends Monster {
      * phase and a change to the gate rather than to this list.
      */
     private void grantRoster(AscendantTier tier) {
+        // Flight, so the fight does not end the moment the player goes up. Enabled by default:
+        // unlockPassive only makes it available, and the flight check reads isPassiveEnabled.
+        magicState.unlockPassive(MagicPassiveContent.MANA_FLIGHT.id());
         magicState.unlock(MagicContent.CRUCIBLE.id());
         magicState.unlock(MagicContent.LEVIATHAN_COIL.id());
         magicState.unlock(MagicContent.HEAVENS_GAZE.id());
@@ -295,7 +316,12 @@ public final class MagicOpponentEntity extends Monster {
             return;
         }
         getLookControl().setLookAt(target, 30.0F, 30.0F);
-        updateTacticalMovement(target);
+        if (meleePressureTicks > 0) {
+            meleePressureTicks--;
+        }
+        if (!updateFlight(target)) {
+            updateTacticalMovement(target);
+        }
         if (recoveryLeft > 0) {
             // The opening. A clone never enters one, so its cadence is exactly what it always was.
             recoveryLeft--;
@@ -373,6 +399,98 @@ public final class MagicOpponentEntity extends Monster {
         }
     }
 
+
+    /**
+     * Keeps an opponent honest about the air.
+     *
+     * <p>Mana Flight is a player passive built on {@code player.getAbilities()}, which a mob has
+     * none of, so this is its own implementation - but it pays the identical price out of the same
+     * constants, and falls when the pool runs dry exactly as a player does.
+     *
+     * <p>Velocity is driven directly rather than by swapping in a flying move control and
+     * navigation. Swapping either mid-life fights the melee and look goals already registered, and
+     * an opponent that argues with its own pathfinder reads as broken rather than airborne.
+     *
+     * @return true when it is airborne this tick, so the ground movement is skipped
+     */
+    private boolean updateFlight(LivingEntity target) {
+        if (!canFly()) {
+            return descend();
+        }
+        OpponentFlight.Situation situation = situationAgainst(target);
+        if (!OpponentFlight.shouldFly(situation)) {
+            return descend();
+        }
+        if (!spendFlightMana()) {
+            // Out of fuel. The same thing that happens to a player who flies their pool empty.
+            return descend();
+        }
+        flying = true;
+        setNoGravity(true);
+        fallDistance = 0.0F;
+        getNavigation().stop();
+        steer(target, situation);
+        return true;
+    }
+
+    /** Whether this opponent has the passive at all. Clones that carry it fly too. */
+    private boolean canFly() {
+        return magicState.isPassiveEnabled(MagicPassiveContent.MANA_FLIGHT.id());
+    }
+
+    private OpponentFlight.Situation situationAgainst(LivingEntity target) {
+        AscendantStance stance = ascendantTier()
+                .map(AscendantTier::stance)
+                .orElse(AscendantStance.SKIRMISHER);
+        float manaFraction = magicState.mana() / (float) Math.max(1, magicState.maxMana());
+        boolean wantsRange = MagicMobCastingService.hasUsableProjectile(this, magicState, difficulty)
+                && distanceTo(target) < 6.0D;
+        // No ground route means the target is somewhere walking cannot reach: a pillar, a roof, a
+        // hole. That is the case flight most obviously exists to answer.
+        boolean hasGroundPath = getNavigation().createPath(target, 0) != null;
+        return new OpponentFlight.Situation(stance, manaFraction, target.onGround(), wantsRange,
+                meleePressureTicks > 0, hasGroundPath);
+    }
+
+    /** Pushes toward the altitude and standoff the situation asks for. */
+    private void steer(LivingEntity target, OpponentFlight.Situation situation) {
+        boolean wantsMelee = !MagicMobCastingService.hasUsableProjectile(this, magicState, difficulty);
+        double desiredY = OpponentFlight.desiredY(situation, target.getY(), wantsMelee);
+        double climb = Mth.clamp(desiredY - getY(), -FLIGHT_CLIMB_PER_TICK, FLIGHT_CLIMB_PER_TICK);
+
+        Vec3 flat = target.position().subtract(position()).multiply(1.0D, 0.0D, 1.0D);
+        double distance = flat.length();
+        double standoff = wantsMelee ? FLIGHT_MELEE_RANGE : FLIGHT_STANDOFF;
+        Vec3 drift = Vec3.ZERO;
+        if (distance > 1.0E-4D) {
+            double push = Mth.clamp((distance - standoff) * 0.08D, -FLIGHT_DRIFT_PER_TICK, FLIGHT_DRIFT_PER_TICK);
+            drift = flat.normalize().scale(push);
+        }
+        setDeltaMovement(drift.x, climb, drift.z);
+        hasImpulse = true;
+    }
+
+    /** Gives the ground back, and reports that ground movement should run this tick. */
+    private boolean descend() {
+        if (flying) {
+            flying = false;
+            setNoGravity(false);
+        }
+        return false;
+    }
+
+    /**
+     * Charges the same rate the player's own Mana Flight charges.
+     *
+     * @return false when the pool cannot pay, which grounds it
+     */
+    private boolean spendFlightMana() {
+        if (tickCount % MagicGameplayEvents.MANA_FLIGHT_DRAIN_INTERVAL != 0) {
+            return true;
+        }
+        return magicState.spendMana(MagicGameplayEvents.MANA_FLIGHT_DRAIN_AMOUNT);
+    }
+
     private void moveAwayFrom(LivingEntity target, double speed) {
         Vec3 away = position().subtract(target.position()).multiply(1.0D, 0.0D, 1.0D);
         if (away.lengthSqr() < 1.0E-4D) {
@@ -413,8 +531,14 @@ public final class MagicOpponentEntity extends Monster {
             // The opening has to be worth taking, or the right play is simply to keep running.
             adjusted *= staggered ? STAGGER_VULNERABILITY : RECOVERY_VULNERABILITY;
         }
+        if (damageSource.getDirectEntity() instanceof LivingEntity attacker && distanceTo(attacker) < 5.0D) {
+            meleePressureTicks = MELEE_PRESSURE_TICKS;
+        }
         if (difficulty >= 3 && getTarget() instanceof LivingEntity target && getHealth() / Math.max(1.0F, getMaxHealth()) < 0.62F && random.nextFloat() < 0.16F + difficulty * 0.035F) {
-            MagicMobCastingService.castBestDefense(this, magicState, target, difficulty);
+            // Blink out of the follow-up first; fall back to a barrier if there is nowhere to go.
+            if (!MagicMobCastingService.castBestEscape(this, magicState, target, difficulty)) {
+                MagicMobCastingService.castBestDefense(this, magicState, target, difficulty);
+            }
         }
         if (damageSource.is(net.minecraft.tags.DamageTypeTags.IS_FIRE)) {
             adjusted *= 1.0F - Math.min(0.8F, magicState.passiveReduction(MagicPassiveContent.HEAT_RESISTANCE.id()));
@@ -441,6 +565,7 @@ public final class MagicOpponentEntity extends Monster {
         tag.putString("OpponentKind", kind.name());
         tag.putInt("BurstRemaining", burstRemaining);
         tag.putInt("RecoveryLeft", recoveryLeft);
+        tag.putBoolean("Flying", flying);
         tag.putInt("CastDelay", castDelay);
     }
 
@@ -464,6 +589,8 @@ public final class MagicOpponentEntity extends Monster {
         castDelay = Math.max(0, tag.getInt("CastDelay"));
         burstRemaining = Math.max(0, tag.getInt("BurstRemaining"));
         recoveryLeft = Math.max(0, tag.getInt("RecoveryLeft"));
+        flying = tag.getBoolean("Flying");
+        setNoGravity(flying);
         java.util.Optional<AscendantTier> tier = ascendantTier();
         if (tier.isPresent()) {
             // The mana pool bonus is derived rather than saved, so it has to be rebuilt or a

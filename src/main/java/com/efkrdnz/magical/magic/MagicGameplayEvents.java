@@ -33,8 +33,9 @@ import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 
 @EventBusSubscriber(modid = MagicalMod.MODID)
 public final class MagicGameplayEvents {
-    private static final int MANA_FLIGHT_DRAIN_INTERVAL = 10;
-    private static final int MANA_FLIGHT_DRAIN_AMOUNT = 1;
+    /** Shared with opponent flight, so the two can never charge different rates. */
+    public static final int MANA_FLIGHT_DRAIN_INTERVAL = 10;
+    public static final int MANA_FLIGHT_DRAIN_AMOUNT = 1;
     private static final int FULL_FOOD_LEVEL = 20;
     private static final float MANA_SUSTENANCE_MIN_SATURATION = 1.0F;
     /** Mana Skin: share of a hit paid out of the pool, and what each point of it costs. */
