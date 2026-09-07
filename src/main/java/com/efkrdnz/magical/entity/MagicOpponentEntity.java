@@ -2,6 +2,7 @@ package com.efkrdnz.magical.entity;
 
 import com.efkrdnz.magical.entity.ascendant.AscendantLoadout;
 import com.efkrdnz.magical.entity.ascendant.AscendantStance;
+import com.efkrdnz.magical.entity.ascendant.AscendantTrait;
 import com.efkrdnz.magical.entity.ascendant.OpponentFlight;
 import com.efkrdnz.magical.magic.MagicGameplayEvents;
 import com.efkrdnz.magical.entity.ascendant.AscendantTier;
@@ -13,7 +14,12 @@ import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.registry.MagicalAttachments;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -61,6 +67,18 @@ public final class MagicOpponentEntity extends Monster {
 
     /** And when it is. */
     private static final double FLIGHT_MELEE_RANGE = 2.2D;
+
+    /** Wrath's ceiling: this much extra melee damage at zero health. */
+    private static final double WRATH_MAX_BONUS = 0.6D;
+
+    /** Gluttony heals this share of the mana a landed spell cost. */
+    private static final float GLUTTONY_HEAL_SHARE = 0.15F;
+
+    /** Greed takes this share of the target's remaining pool per landed spell. */
+    private static final float GREED_DRAIN_SHARE = 0.08F;
+
+    /** Sloth's grip on anything it touches in melee. */
+    private static final int SLOTH_SLOW_TICKS = 60;
     private PlayerMagicState magicState = new PlayerMagicState();
     private UUID copiedPlayerUuid;
     private String copiedPlayerName = "Mage Clone";
@@ -72,6 +90,8 @@ public final class MagicOpponentEntity extends Monster {
     private boolean staggered;
     private boolean flying;
     private int meleePressureTicks;
+    private int prideCharges;
+    private int enviedAtQuarter = 4;
 
     public MagicOpponentEntity(EntityType<? extends MagicOpponentEntity> entityType, Level level) {
         super(entityType, level);
@@ -181,6 +201,7 @@ public final class MagicOpponentEntity extends Monster {
         castDelay = 0;
         recoveryLeft = tier.recoveryTicks();
         burstRemaining = tier.burstSpells();
+        prideCharges = tier.has(AscendantTrait.PRIDE) ? 1 : 0;
         plantVerdict(tier);
     }
 
@@ -292,6 +313,7 @@ public final class MagicOpponentEntity extends Monster {
         super.tick();
         if (!level().isClientSide()) {
             tickMagicState();
+            tickWrath();
             tickCombatCasting();
         }
     }
@@ -319,6 +341,7 @@ public final class MagicOpponentEntity extends Monster {
         if (meleePressureTicks > 0) {
             meleePressureTicks--;
         }
+        tickEnvy(target);
         if (!updateFlight(target)) {
             updateTacticalMovement(target);
         }
@@ -344,6 +367,7 @@ public final class MagicOpponentEntity extends Monster {
             return;
         }
         if (MagicMobCastingService.cast(this, magicState, skill, target, difficulty)) {
+            onSpellLanded(skill, target);
             java.util.Optional<AscendantTier> tier = ascendantTier();
             if (tier.isPresent()) {
                 advanceBurst(tier.get());
@@ -491,6 +515,75 @@ public final class MagicOpponentEntity extends Monster {
         return magicState.spendMana(MagicGameplayEvents.MANA_FLIGHT_DRAIN_AMOUNT);
     }
 
+
+    /** True when this opponent's tier carries the trait. Clones carry none of them. */
+    private boolean has(AscendantTrait trait) {
+        return ascendantTier().map(tier -> tier.has(trait)).orElse(false);
+    }
+
+    /**
+     * Wrath: the closer to death it gets, the harder it swings.
+     *
+     * <p>Re-applied on the attribute rather than added at hit time, so the number the player would
+     * read off it and the number that lands are the same one.
+     */
+    private void tickWrath() {
+        if (tickCount % 20 != 0 || !has(AscendantTrait.WRATH)) {
+            return;
+        }
+        AscendantTier tier = ascendantTier().orElse(null);
+        if (tier == null) {
+            return;
+        }
+        float missing = 1.0F - getHealth() / Math.max(1.0F, getMaxHealth());
+        double base = tier.attack() + ForgeMobStrike.bonusDamage(this);
+        getAttribute(Attributes.ATTACK_DAMAGE).setBaseValue(base * (1.0D + WRATH_MAX_BONUS * missing));
+    }
+
+    /**
+     * Gluttony and Greed, both paid out of a spell that actually landed.
+     *
+     * <p>Called only after a successful cast, so a boss that is out of mana or still on cooldown
+     * gets nothing - the sins feed on casting, not on standing there.
+     */
+    private void onSpellLanded(MagicSkillDefinition skill, LivingEntity target) {
+        int cost = Math.max(1, skill.resolve(magicState.tuningFor(skill.id())).manaCost());
+        if (has(AscendantTrait.GLUTTONY)) {
+            heal(cost * GLUTTONY_HEAL_SHARE);
+        }
+        if (has(AscendantTrait.GREED) && target instanceof ServerPlayer player) {
+            PlayerMagicState theirs = player.getData(MagicalAttachments.MAGIC_STATE);
+            theirs.setMana(theirs.mana() - Math.round(theirs.mana() * GREED_DRAIN_SHARE));
+            theirs.sync(player);
+        }
+    }
+
+    /**
+     * Envy: it takes a spell out of your book as it loses ground.
+     *
+     * <p>The one place an Ascendant looks at the player at all, and deliberately so - it is what
+     * makes a tier 9 fight feel personal without making the boss weaker for an unprogressed player,
+     * because everything else about it is fixed.
+     */
+    private void tickEnvy(LivingEntity target) {
+        if (!has(AscendantTrait.ENVY) || !(target instanceof ServerPlayer player)) {
+            return;
+        }
+        int quarter = (int) (getHealth() / Math.max(1.0F, getMaxHealth()) * 4.0F);
+        if (quarter >= enviedAtQuarter) {
+            return;
+        }
+        enviedAtQuarter = quarter;
+        List<ResourceLocation> theirs = new ArrayList<>(
+                player.getData(MagicalAttachments.MAGIC_STATE).unlockedSkills());
+        theirs.removeIf(id -> magicState.hasUnlocked(id)
+                || !MagicMobCastingService.canMobUse(this, magicState, MagicContent.get(id), difficulty));
+        if (theirs.isEmpty()) {
+            return;
+        }
+        magicState.unlock(theirs.get(random.nextInt(theirs.size())));
+    }
+
     private void moveAwayFrom(LivingEntity target, double speed) {
         Vec3 away = position().subtract(target.position()).multiply(1.0D, 0.0D, 1.0D);
         if (away.lengthSqr() < 1.0E-4D) {
@@ -514,6 +607,9 @@ public final class MagicOpponentEntity extends Monster {
     @Override
     public boolean doHurtTarget(ServerLevel level, net.minecraft.world.entity.Entity entity) {
         boolean hurt = super.doHurtTarget(level, entity);
+        if (hurt && entity instanceof LivingEntity slowed && has(AscendantTrait.SLOTH)) {
+            slowed.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, SLOTH_SLOW_TICKS, 1), this);
+        }
         if (hurt && entity instanceof LivingEntity struck) {
             // A mob gets no combo, no charge and no echo, but the element on its blade still lands.
             ForgeMobStrike.onMeleeHit(level, this, struck, (float) getAttributeValue(Attributes.ATTACK_DAMAGE));
@@ -533,6 +629,14 @@ public final class MagicOpponentEntity extends Monster {
         }
         if (damageSource.getDirectEntity() instanceof LivingEntity attacker && distanceTo(attacker) < 5.0D) {
             meleePressureTicks = MELEE_PRESSURE_TICKS;
+        }
+        if (prideCharges > 0 && !isRecovering()) {
+            // Refused mid-burst only. The plan had this eat the first hit of the recovery window,
+            // but that window is the one reward the telegraph offers - blunting it would take back
+            // the only thing reading the tell buys. Pride protects it while it is dangerous
+            // instead of while it is exposed.
+            prideCharges--;
+            return false;
         }
         if (difficulty >= 3 && getTarget() instanceof LivingEntity target && getHealth() / Math.max(1.0F, getMaxHealth()) < 0.62F && random.nextFloat() < 0.16F + difficulty * 0.035F) {
             // Blink out of the follow-up first; fall back to a barrier if there is nowhere to go.
@@ -566,6 +670,7 @@ public final class MagicOpponentEntity extends Monster {
         tag.putInt("BurstRemaining", burstRemaining);
         tag.putInt("RecoveryLeft", recoveryLeft);
         tag.putBoolean("Flying", flying);
+        tag.putInt("PrideCharges", prideCharges);
         tag.putInt("CastDelay", castDelay);
     }
 
@@ -590,6 +695,7 @@ public final class MagicOpponentEntity extends Monster {
         burstRemaining = Math.max(0, tag.getInt("BurstRemaining"));
         recoveryLeft = Math.max(0, tag.getInt("RecoveryLeft"));
         flying = tag.getBoolean("Flying");
+        prideCharges = Math.max(0, tag.getInt("PrideCharges"));
         setNoGravity(flying);
         java.util.Optional<AscendantTier> tier = ascendantTier();
         if (tier.isPresent()) {

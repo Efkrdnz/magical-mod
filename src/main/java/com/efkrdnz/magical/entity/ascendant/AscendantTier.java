@@ -32,19 +32,20 @@ import java.util.Optional;
  *                           "survivable at full health" holds at every gear level
  * @param cooldownRate       ticks of skill cooldown burned per game tick
  * @param stance             where this tier wants to stand, which its blade should agree with
+ * @param traits             the sins it carries, applied in the entity's own hooks
  */
 public enum AscendantTier {
 
     ECHO(6, "echo", 180.0D, 8.0D, 14.0D, 0.330D, 0.35D, 400, 10, 1, 0, 40, 20, 0.35F, 4,
-            AscendantStance.SKIRMISHER),
+            AscendantStance.SKIRMISHER, AscendantTrait.NONE),
     SIN_EATER(7, "sin_eater", 240.0D, 10.0D, 17.0D, 0.340D, 0.45D, 500, 13, 2, 6, 36, 18, 0.42F, 5,
-            AscendantStance.DUELIST),
+            AscendantStance.DUELIST, AscendantTrait.SIN_EATER),
     FALLEN(8, "fallen", 320.0D, 12.0D, 20.0D, 0.350D, 0.55D, 650, 16, 3, 6, 32, 16, 0.50F, 6,
-            AscendantStance.ARTILLERY),
+            AscendantStance.ARTILLERY, AscendantTrait.FALLEN),
     BLACK_FLAME(9, "black_flame", 420.0D, 14.0D, 24.0D, 0.360D, 0.65D, 800, 20, 4, 5, 28, 13, 0.58F, 7,
-            AscendantStance.EXECUTIONER),
+            AscendantStance.EXECUTIONER, AscendantTrait.BLACK_FLAME),
     AUTHORITY(10, "authority", 560.0D, 16.0D, 29.0D, 0.370D, 0.75D, 1000, 25, 4, 4, 24, 10, 0.65F, 8,
-            AscendantStance.AUTHORITY);
+            AscendantStance.AUTHORITY, AscendantTrait.AUTHORITY);
 
     /** Lowest difficulty that is an Ascendant rather than a clone. */
     public static final int MIN_TIER = 6;
@@ -68,11 +69,12 @@ public enum AscendantTier {
     private final float failDamageFraction;
     private final int cooldownRate;
     private final AscendantStance stance;
+    private final java.util.Set<AscendantTrait> traits;
 
     AscendantTier(int tier, String path, double health, double armour, double attack, double speed,
             double knockbackResistance, int maxMana, int manaPerSecond, int burstSpells,
             int burstGapTicks, int recoveryTicks, int counterWindowTicks, float failDamageFraction,
-            int cooldownRate, AscendantStance stance) {
+            int cooldownRate, AscendantStance stance, java.util.Set<AscendantTrait> traits) {
         this.tier = tier;
         this.path = path;
         this.health = health;
@@ -89,6 +91,7 @@ public enum AscendantTier {
         this.failDamageFraction = failDamageFraction;
         this.cooldownRate = cooldownRate;
         this.stance = stance;
+        this.traits = traits;
     }
 
     /** Whether {@code difficulty} names an Ascendant rather than a clone of the player. */
@@ -183,6 +186,14 @@ public enum AscendantTier {
     /** Where this tier wants to stand, and therefore when it leaves the ground. */
     public AscendantStance stance() {
         return stance;
+    }
+
+    public java.util.Set<AscendantTrait> traits() {
+        return traits;
+    }
+
+    public boolean has(AscendantTrait trait) {
+        return traits.contains(trait);
     }
 
     /**

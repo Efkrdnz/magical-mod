@@ -108,6 +108,19 @@ class AscendantTierTest {
     }
 
     @Test
+    void sinsAccumulateUpTheTable() {
+        // Tier 6 fights on its stats alone; every tier above it keeps what the one below carried.
+        assertTrue(AscendantTier.ECHO.traits().isEmpty(), "tier 6 is the plain one");
+        AscendantTier[] tiers = AscendantTier.values();
+        for (int i = 2; i < tiers.length; i++) {
+            assertTrue(tiers[i].traits().containsAll(tiers[i - 1].traits()),
+                    tiers[i] + " lost a sin the tier below carried");
+        }
+        assertEquals(AscendantTrait.values().length, AscendantTier.AUTHORITY.traits().size(),
+                "Authority carries all of them");
+    }
+
+    @Test
     void nameKeysAreDistinctAndNamespaced() {
         long distinct = java.util.Arrays.stream(AscendantTier.values())
                 .map(AscendantTier::nameKey)
