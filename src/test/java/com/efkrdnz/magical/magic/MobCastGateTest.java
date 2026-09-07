@@ -2,6 +2,7 @@ package com.efkrdnz.magical.magic;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.efkrdnz.magical.entity.ascendant.AscendantTier;
@@ -67,6 +68,16 @@ class MobCastGateTest {
         assertTrue(MagicContent.CREATED_SKILLS.contains(MagicContent.FALLEN_SUN.id()));
         assertTrue(MagicContent.CREATED_SKILLS.contains(MagicContent.TOTAL_ECLIPSE.id()));
         assertTrue(MagicContent.CREATED_SKILLS.contains(MagicContent.TECTONIC_VERDICT.id()));
+    }
+
+    @Test
+    void theForcedCounterSentinelIsNotARealSkillOrPassive() {
+        // The client branches on this id before it tries to resolve a definition. If it ever
+        // collided with registered content the boss prompt would render as that content instead.
+        assertNull(MagicContent.get(MagicCounterService.FORCED_COUNTER),
+                "forced-counter sentinel collides with a registered skill");
+        assertNull(MagicPassiveContent.get(MagicCounterService.FORCED_COUNTER),
+                "forced-counter sentinel collides with a registered passive");
     }
 
     @Test

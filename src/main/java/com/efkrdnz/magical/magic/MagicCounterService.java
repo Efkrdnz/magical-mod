@@ -22,6 +22,15 @@ import net.minecraft.world.phys.Vec3;
 public final class MagicCounterService {
     public static final int QTE_WINDOW_TICKS = 18;
 
+    /**
+     * Stands in for the counter skill on a prompt that needs none.
+     *
+     * <p>Not a registered skill, and deliberately so: it names the absence of one. Both the client
+     * HUD and {@link #respond} branch on it before they try to resolve a definition.
+     */
+    public static final ResourceLocation FORCED_COUNTER =
+            ResourceLocation.fromNamespaceAndPath("magical", "brace");
+
     private static final Map<UUID, CounterPrompt> ACTIVE_PROMPTS = new HashMap<>();
     private static final Map<UUID, Set<Integer>> RESOLVED_THREATS = new HashMap<>();
     private static final Map<UUID, Long> AEGIS_COUNTER_COOLDOWNS = new HashMap<>();
@@ -73,6 +82,46 @@ public final class MagicCounterService {
         return true;
     }
 
+    /**
+     * Prompts unconditionally: no attribute match, no tier floor, no counter skill required.
+     *
+     * <p>{@link #offerCounter} only prompts when the defender happens to own a skill whose
+     * attribute beats the incoming one, and a tier-4 incoming additionally demands a tier-4 answer
+     * off cooldown. That is the right shape for relief from another player's spell - you get out of
+     * it with something you built for. It is the wrong shape for a boss telegraph, which most
+     * players would simply never be shown.
+     *
+     * <p>So this one asks for the key alone. The existing rules are untouched; five shipped threats
+     * depend on them.
+     */
+    public static boolean offerForcedCounter(ServerPlayer defender, CounterableSkillThreat threat,
+            Vec3 clashPosition, int windowTicks) {
+        if (!(defender.level() instanceof ServerLevel level) || !threat.canBeCounteredBy(defender)) {
+            return false;
+        }
+        int threatId = threat.counterThreatId();
+        UUID defenderId = defender.getUUID();
+        long now = level.getGameTime();
+        CounterPrompt active = ACTIVE_PROMPTS.get(defenderId);
+        if (active != null && active.threatId == threatId) {
+            if (now <= active.deadlineTick) {
+                return true;
+            }
+            clearPrompt(defender, threatId);
+            return false;
+        }
+        if (resolvedThreats(defenderId).contains(threatId)) {
+            return false;
+        }
+        int safeWindowTicks = Math.max(3, windowTicks);
+        long deadline = now + safeWindowTicks;
+        ACTIVE_PROMPTS.put(defenderId,
+                new CounterPrompt(threatId, threat.counterSkillId(), FORCED_COUNTER, deadline, clashPosition));
+        MagicalNetwork.sendCounterPrompt(defender, threatId, threat.counterSkillId(), FORCED_COUNTER,
+                deadline, safeWindowTicks);
+        return true;
+    }
+
     public static boolean hasActivePrompt(ServerPlayer defender, CounterableSkillThreat threat) {
         if (!(defender.level() instanceof ServerLevel level)) {
             return false;
@@ -99,6 +148,14 @@ public final class MagicCounterService {
         Entity entity = level.getEntity(threatId);
         if (!(entity instanceof CounterableSkillThreat threat) || !threat.canBeCounteredBy(defender)) {
             clearPrompt(defender, threatId);
+            return;
+        }
+
+        if (FORCED_COUNTER.equals(prompt.counterSkillId)) {
+            // Nothing to validate and nothing to spend: the press was the whole answer.
+            ACTIVE_PROMPTS.remove(defenderId);
+            resolvedThreats(defenderId).add(threatId);
+            threat.onForcedCounter(level, defender, prompt.clashPosition);
             return;
         }
 

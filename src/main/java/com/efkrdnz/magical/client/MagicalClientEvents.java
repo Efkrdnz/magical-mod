@@ -153,6 +153,7 @@ public final class MagicalClientEvents {
         event.registerEntityRenderer(MagicalEntities.BLACK_FLAME_FIELD.get(), BlackFlameFieldRenderer::new);
         event.registerEntityRenderer(MagicalEntities.BLACK_FLAME_ARC.get(), BlackFlameArcRenderer::new);
         event.registerEntityRenderer(MagicalEntities.BLACK_FLAME_BRAND.get(), BlackFlameBrandRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.ASCENDANT_VERDICT.get(), com.efkrdnz.magical.client.renderer.AscendantVerdictRenderer::new);
         event.registerEntityRenderer(MagicalEntities.MAGIC_CIRCLE_EFFECT.get(), MagicCircleRenderer::new);
         event.registerEntityRenderer(MagicalEntities.JUDGEMENT_BEAM.get(), JudgementBeamRenderer::new);
         event.registerEntityRenderer(MagicalEntities.GABRIEL_HOLY_FIELD.get(), GabrielHolyFieldRenderer::new);

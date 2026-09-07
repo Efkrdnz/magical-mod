@@ -39,6 +39,10 @@ public final class MagicOpponentEntity extends Monster {
 
     /** Damage multiplier against an Ascendant caught between bursts. */
     private static final float RECOVERY_VULNERABILITY = 1.25F;
+
+    /** Damage multiplier against one whose verdict was answered, and how long it lasts. */
+    private static final float STAGGER_VULNERABILITY = 1.5F;
+    private static final int STAGGER_TICKS = 60;
     private PlayerMagicState magicState = new PlayerMagicState();
     private UUID copiedPlayerUuid;
     private String copiedPlayerName = "Mage Clone";
@@ -47,6 +51,7 @@ public final class MagicOpponentEntity extends Monster {
     private OpponentKind kind = OpponentKind.CLONE;
     private int burstRemaining;
     private int recoveryLeft;
+    private boolean staggered;
 
     public MagicOpponentEntity(EntityType<? extends MagicOpponentEntity> entityType, Level level) {
         super(entityType, level);
@@ -152,6 +157,35 @@ public final class MagicOpponentEntity extends Monster {
         castDelay = 0;
         recoveryLeft = tier.recoveryTicks();
         burstRemaining = tier.burstSpells();
+        plantVerdict(tier);
+    }
+
+    /**
+     * Plants the telegraph that closes a burst.
+     *
+     * <p>A fresh entity every time: the counter service remembers one prompt per threat entity for
+     * that entity's whole life, so a reused one would ask once and never again.
+     */
+    private void plantVerdict(AscendantTier tier) {
+        if (!(level() instanceof ServerLevel level) || !(getTarget() instanceof LivingEntity target)) {
+            return;
+        }
+        if (!target.isAlive()) {
+            return;
+        }
+        level.addFreshEntity(AscendantVerdictEntity.create(level, this, target, tier));
+    }
+
+    /**
+     * Opens the punish window early, and widens it.
+     *
+     * <p>Called when a player answers a verdict. Reading the tell has to buy something, or the
+     * telegraph is only a tax on inattention.
+     */
+    public void stagger() {
+        recoveryLeft = Math.max(recoveryLeft, STAGGER_TICKS);
+        staggered = true;
+        castDelay = 0;
     }
 
     private void applyAscendantAttributes(AscendantTier tier) {
@@ -250,6 +284,9 @@ public final class MagicOpponentEntity extends Monster {
         if (recoveryLeft > 0) {
             // The opening. A clone never enters one, so its cadence is exactly what it always was.
             recoveryLeft--;
+            if (recoveryLeft == 0) {
+                staggered = false;
+            }
             return;
         }
         if (castDelay > 0) {
@@ -355,7 +392,7 @@ public final class MagicOpponentEntity extends Monster {
         float adjusted = amount;
         if (isRecovering()) {
             // The opening has to be worth taking, or the right play is simply to keep running.
-            adjusted *= RECOVERY_VULNERABILITY;
+            adjusted *= staggered ? STAGGER_VULNERABILITY : RECOVERY_VULNERABILITY;
         }
         if (difficulty >= 3 && getTarget() instanceof LivingEntity target && getHealth() / Math.max(1.0F, getMaxHealth()) < 0.62F && random.nextFloat() < 0.16F + difficulty * 0.035F) {
             MagicMobCastingService.castBestDefense(this, magicState, target, difficulty);

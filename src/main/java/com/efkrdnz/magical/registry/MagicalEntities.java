@@ -8,6 +8,7 @@ import com.efkrdnz.magical.entity.MagicBarrageFieldEntity;
 import com.efkrdnz.magical.entity.MagicBarrageShotEntity;
 import com.efkrdnz.magical.entity.AbyssalDischargeEntity;
 import com.efkrdnz.magical.entity.BlackFlameArcEntity;
+import com.efkrdnz.magical.entity.AscendantVerdictEntity;
 import com.efkrdnz.magical.entity.BlackFlameBrandEntity;
 import com.efkrdnz.magical.entity.BlackFlameFieldEntity;
 import com.efkrdnz.magical.entity.BlackFlameProjectileEntity;
@@ -81,6 +82,14 @@ public final class MagicalEntities {
                     .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
                     .updateInterval(1)
                     .build(key("black_flame_brand")));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<AscendantVerdictEntity>> ASCENDANT_VERDICT = ENTITY_TYPES.register(
+            "ascendant_verdict",
+            () -> EntityType.Builder.<AscendantVerdictEntity>of(AscendantVerdictEntity::new, MobCategory.MISC)
+                    .sized(1.6F, 1.6F)
+                    .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
+                    .updateInterval(1)
+                    .build(key("ascendant_verdict")));
 
     public static final DeferredHolder<EntityType<?>, EntityType<MagicCircleEffectEntity>> MAGIC_CIRCLE_EFFECT = ENTITY_TYPES.register(
             "magic_circle_effect",

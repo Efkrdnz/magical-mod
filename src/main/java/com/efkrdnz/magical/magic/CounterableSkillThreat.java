@@ -27,6 +27,20 @@ public interface CounterableSkillThreat {
 
     void onCountered(ServerLevel level, ServerPlayer defender, MagicSkillDefinition counterSkill, Vec3 clashPosition);
 
+    /**
+     * Answering a prompt that required no counter skill, only the key.
+     *
+     * <p>Separate from {@link #onCountered} because that one is handed the skill that paid for the
+     * counter, and a forced prompt has none. Defaults to the same outcome every other threat has:
+     * a clash, and the threat gone.
+     */
+    default void onForcedCounter(ServerLevel level, ServerPlayer defender, Vec3 clashPosition) {
+        MagicSkillDefinition incoming = MagicContent.get(counterSkillId());
+        int incomingColor = incoming == null ? 0xFFFFFF : incoming.color();
+        MagicCounterService.spawnClash(level, clashPosition, incomingColor, 0xFFD166);
+        counterEntity().discard();
+    }
+
     default void onGluttonyCountered(ServerLevel level, ServerPlayer defender, Vec3 clashPosition) {
         MagicSkillDefinition incoming = MagicContent.get(counterSkillId());
         int incomingColor = incoming == null ? 0xFFFFFF : incoming.color();
