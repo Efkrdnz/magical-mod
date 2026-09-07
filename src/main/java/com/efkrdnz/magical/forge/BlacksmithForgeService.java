@@ -5,6 +5,7 @@ import com.efkrdnz.magical.classes.MagicalClasses;
 import com.efkrdnz.magical.forge.chain.ForgeChainGrammar;
 import com.efkrdnz.magical.forge.chain.ForgeError;
 import com.efkrdnz.magical.forge.chain.ForgeGrade;
+import com.efkrdnz.magical.forge.chain.ForgeKeptGlyphs;
 import com.efkrdnz.magical.forge.chain.ForgeMaterial;
 import com.efkrdnz.magical.forge.chain.ForgeRecipe;
 import com.efkrdnz.magical.forge.chain.ForgeRules;
@@ -12,9 +13,7 @@ import com.efkrdnz.magical.forge.chain.RecognizedGlyph;
 import com.efkrdnz.magical.forge.chain.StrokeQuantizer;
 import com.efkrdnz.magical.forge.chain.ForgeValidation;
 import com.efkrdnz.magical.forge.glyph.ForgeGlyphLibrary;
-import com.efkrdnz.magical.forge.glyph.GlyphPoint;
 import com.efkrdnz.magical.forge.glyph.GlyphQuality;
-import com.efkrdnz.magical.forge.glyph.GlyphRecognizer;
 import com.efkrdnz.magical.forge.glyph.GlyphTemplate;
 import com.efkrdnz.magical.forge.glyph.RecognitionResult;
 import com.efkrdnz.magical.forge.menu.BlacksmithForgeMenu;
@@ -155,29 +154,30 @@ public final class BlacksmithForgeService {
         if (weaponFailure.isPresent()) {
             return weaponFailure.get();
         }
-        RecognizeOutcome recognized = recognizeGlyphs(payload);
-        if (recognized.failure().isPresent()) {
-            return recognized.failure().get();
+        Optional<ForgedWeapon> existing = ForgedWeapons.getOrMigrate(weapon);
+        ChainOutcome chain = buildChain(payload, existing);
+        if (chain.failure().isPresent()) {
+            return chain.failure().get();
         }
-        ForgeValidation validation = ForgeChainGrammar.validate(recognized.glyphs());
+        ForgeValidation validation = ForgeChainGrammar.validate(chain.glyphs());
         if (validation instanceof ForgeValidation.Invalid invalid) {
             return ForgeResultPayload.fail(invalid.error(), invalid.argument());
         }
         ForgeRecipe recipe = ((ForgeValidation.Valid) validation).recipe();
-        return applyRecipe(player, menu, weapon, recipe, now);
+        return applyRecipe(player, menu, weapon, existing, recipe, now);
     }
 
     // --- steps 6-11: class/material/cooldown/mana gates, then apply --------------------------
 
     private static ForgeResultPayload applyRecipe(
-            ServerPlayer player, BlacksmithForgeMenu menu, ItemStack weapon, ForgeRecipe recipe, long now) {
+            ServerPlayer player, BlacksmithForgeMenu menu, ItemStack weapon, Optional<ForgedWeapon> existing,
+            ForgeRecipe recipe, long now) {
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
         Optional<ForgeResultPayload> classFailure = checkClassGate(state, recipe.grade());
         if (classFailure.isPresent()) {
             return classFailure.get();
         }
 
-        Optional<ForgedWeapon> existing = ForgedWeapons.getOrMigrate(weapon);
         ForgeMaterial material = ForgeMaterials.detect(weapon);
         Optional<ForgeResultPayload> gradeFailure = checkGradeCap(material, recipe.grade(), existing);
         if (gradeFailure.isPresent()) {
@@ -221,8 +221,15 @@ public final class BlacksmithForgeService {
         return Optional.empty();
     }
 
+    /**
+     * A glyph is either kept - a bare id and no strokes at all - or drawn, with at least one stroke
+     * and no id. Anything carrying both, or neither, is a malformed payload rather than a chain.
+     */
     private static boolean invalidGlyphStructure(ForgeSubmitPayload.Glyph glyph) {
         List<ForgeSubmitPayload.Stroke> strokes = glyph.strokes();
+        if (glyph.isKept()) {
+            return !strokes.isEmpty() || glyph.keptId().orElseThrow().isBlank();
+        }
         if (strokes.isEmpty() || strokes.size() > ForgeRules.MAX_STROKES_PER_GLYPH) {
             return true;
         }
@@ -252,34 +259,65 @@ public final class BlacksmithForgeService {
         return Optional.empty();
     }
 
-    // --- step 4: recognition --------------------------------------------------------------
+    // --- step 4: recognition and kept-glyph resolution ---------------------------------------
 
-    private record RecognizeOutcome(List<RecognizedGlyph> glyphs, Optional<ForgeResultPayload> failure) {
-        static RecognizeOutcome ok(List<RecognizedGlyph> glyphs) {
-            return new RecognizeOutcome(glyphs, Optional.empty());
+    private record ChainOutcome(List<RecognizedGlyph> glyphs, Optional<ForgeResultPayload> failure) {
+        static ChainOutcome ok(List<RecognizedGlyph> glyphs) {
+            return new ChainOutcome(glyphs, Optional.empty());
         }
 
-        static RecognizeOutcome fail(ForgeError error, int argument) {
-            return new RecognizeOutcome(List.of(), Optional.of(ForgeResultPayload.fail(error, argument)));
+        static ChainOutcome fail(ForgeError error, int argument) {
+            return new ChainOutcome(List.of(), Optional.of(ForgeResultPayload.fail(error, argument)));
         }
     }
 
-    private static RecognizeOutcome recognizeGlyphs(ForgeSubmitPayload payload) {
-        List<List<List<GlyphPoint>>> strokesByGlyph = payload.toStrokes();
-        GlyphRecognizer recognizer = ForgeGlyphLibrary.recognizer();
-        List<RecognizedGlyph> recognized = new ArrayList<>(strokesByGlyph.size());
-        for (int index = 0; index < strokesByGlyph.size(); index++) {
-            RecognitionResult result = recognizer.recognize(strokesByGlyph.get(index));
-            if (result.status() == RecognitionResult.Status.AMBIGUOUS) {
-                return RecognizeOutcome.fail(ForgeError.AMBIGUOUS_GLYPH, index);
+    /**
+     * Turns the submitted glyphs into a chain the grammar can read. Drawn glyphs are re-recognized
+     * from their strokes exactly as before; kept glyphs are resolved against the inscription
+     * actually on the weapon in the slot, never against the id the client claimed.
+     */
+    private static ChainOutcome buildChain(ForgeSubmitPayload payload, Optional<ForgedWeapon> existing) {
+        List<ForgeSubmitPayload.Glyph> glyphs = payload.glyphs();
+        List<ForgeKeptGlyphs.Entry> entries = new ArrayList<>(glyphs.size());
+        for (int index = 0; index < glyphs.size(); index++) {
+            ForgeSubmitPayload.Glyph glyph = glyphs.get(index);
+            ChainOutcome failure = glyph.isKept()
+                    ? addKept(entries, glyph.keptId().orElseThrow(), index)
+                    : addDrawn(entries, glyph, index);
+            if (failure != null) {
+                return failure;
             }
-            if (result.status() != RecognitionResult.Status.ACCEPTED) {
-                return RecognizeOutcome.fail(ForgeError.UNRECOGNIZED_GLYPH, index);
-            }
-            GlyphTemplate best = result.best().orElseThrow();
-            recognized.add(new RecognizedGlyph(best.id(), best.category(), GlyphQuality.toQuality(result.bestScore())));
         }
-        return RecognizeOutcome.ok(List.copyOf(recognized));
+        ForgeKeptGlyphs.Resolution resolution = ForgeKeptGlyphs.resolve(entries, ForgedWeapons.keptChain(existing));
+        return resolution.ok()
+                ? ChainOutcome.ok(resolution.chain())
+                : ChainOutcome.fail(ForgeError.KEPT_GLYPH_MISSING, resolution.unbackedIndex());
+    }
+
+    /** Adds a kept glyph, taking its category from the glyph library rather than from the client. */
+    private static ChainOutcome addKept(List<ForgeKeptGlyphs.Entry> entries, String id, int index) {
+        Optional<GlyphTemplate> template = ForgeGlyphLibrary.byId(id);
+        if (template.isEmpty()) {
+            return ChainOutcome.fail(ForgeError.KEPT_GLYPH_MISSING, index);
+        }
+        entries.add(new ForgeKeptGlyphs.Entry.FromWeapon(
+                new ForgeKeptGlyphs.Kept(id, template.get().category())));
+        return null;
+    }
+
+    private static ChainOutcome addDrawn(
+            List<ForgeKeptGlyphs.Entry> entries, ForgeSubmitPayload.Glyph glyph, int index) {
+        RecognitionResult result = ForgeGlyphLibrary.recognizer().recognize(glyph.toCanvasStrokes());
+        if (result.status() == RecognitionResult.Status.AMBIGUOUS) {
+            return ChainOutcome.fail(ForgeError.AMBIGUOUS_GLYPH, index);
+        }
+        if (result.status() != RecognitionResult.Status.ACCEPTED) {
+            return ChainOutcome.fail(ForgeError.UNRECOGNIZED_GLYPH, index);
+        }
+        GlyphTemplate best = result.best().orElseThrow();
+        entries.add(new ForgeKeptGlyphs.Entry.Drawn(
+                new RecognizedGlyph(best.id(), best.category(), GlyphQuality.toQuality(result.bestScore()))));
+        return null;
     }
 
     // --- step 6: class gate -----------------------------------------------------------------

@@ -20,18 +20,33 @@ import java.util.Optional;
 public final class ForgeChainBuilder {
 
     /**
-     * A glyph that has been accepted into the chain.
+     * A glyph that has been accepted into the chain, either by being drawn and recognized or by
+     * being carried over from the weapon already in the forge slot.
      *
      * @param id       recognized template id
      * @param category recognized category
-     * @param quality  0..100 drawing quality
-     * @param strokes  the quantized strokes it was drawn with
+     * @param quality  0..100 quality: the drawing score, or the weapon's recorded quality when kept
+     * @param kept     true when this glyph came off the weapon rather than off the canvas
+     * @param strokes  the quantized strokes it was drawn with; always empty for a kept glyph
      */
     public record CommittedGlyph(
-            String id, GlyphCategory category, int quality, List<List<GlyphPoint>> strokes) {
+            String id, GlyphCategory category, int quality, boolean kept, List<List<GlyphPoint>> strokes) {
 
         public CommittedGlyph {
             strokes = copyStrokes(strokes);
+            if (kept && !strokes.isEmpty()) {
+                throw new IllegalArgumentException("a kept glyph has no strokes to carry");
+            }
+        }
+
+        public static CommittedGlyph ofDrawn(
+                String id, GlyphCategory category, int quality, List<List<GlyphPoint>> strokes) {
+            return new CommittedGlyph(id, category, quality, false, strokes);
+        }
+
+        /** A glyph lifted off the weapon in the slot, carrying that weapon's recorded quality. */
+        public static CommittedGlyph ofKept(ForgeKeptGlyphs.Kept kept, int quality) {
+            return new CommittedGlyph(kept.id(), kept.category(), quality, true, List.of());
         }
     }
 
@@ -166,13 +181,28 @@ public final class ForgeChainBuilder {
         return List.copyOf(chain);
     }
 
-    /** The quantized strokes of every committed glyph, in order, as the network layer sends them. */
-    public List<List<List<GlyphPoint>>> toPayloadGlyphs() {
-        List<List<List<GlyphPoint>>> payload = new ArrayList<>(committed.size());
-        for (CommittedGlyph glyph : committed) {
-            payload.add(glyph.strokes());
+    /**
+     * Preloads glyphs carried over from the weapon in the forge slot, each at that weapon's
+     * recorded quality, stopping at the chain's glyph budget. Kept and drawn glyphs sit in the same
+     * chain from here on: the grammar, the preview and the submit path cannot tell them apart.
+     *
+     * @return how many were actually added
+     */
+    public int preloadKept(List<ForgeKeptGlyphs.Kept> kept, int quality) {
+        int added = 0;
+        for (ForgeKeptGlyphs.Kept glyph : kept) {
+            if (committed.size() >= ForgeRules.MAX_GLYPHS) {
+                break;
+            }
+            committed.add(CommittedGlyph.ofKept(glyph, quality));
+            added++;
         }
-        return List.copyOf(payload);
+        return added;
+    }
+
+    /** Drops every kept glyph, leaving what the player drew. Used when the weapon leaves the slot. */
+    public boolean removeKept() {
+        return committed.removeIf(CommittedGlyph::kept);
     }
 
     public int idleTicks() {
@@ -185,7 +215,7 @@ public final class ForgeChainBuilder {
             return Optional.empty();
         }
         GlyphTemplate template = best.get();
-        CommittedGlyph glyph = new CommittedGlyph(
+        CommittedGlyph glyph = CommittedGlyph.ofDrawn(
                 template.id(),
                 template.category(),
                 GlyphQuality.toQuality(current.bestScore()),

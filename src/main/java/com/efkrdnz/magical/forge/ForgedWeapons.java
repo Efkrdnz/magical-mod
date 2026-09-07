@@ -9,6 +9,7 @@ import java.util.Set;
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.forge.art.ForgeArt;
 import com.efkrdnz.magical.forge.chain.ForgeGrade;
+import com.efkrdnz.magical.forge.chain.ForgeKeptChain;
 import com.efkrdnz.magical.forge.chain.LegacyRuneNames;
 import com.efkrdnz.magical.registry.MagicalDataComponents;
 
@@ -72,6 +73,31 @@ public final class ForgedWeapons {
 
     public static boolean isForged(ItemStack stack) {
         return get(stack).isPresent();
+    }
+
+    /**
+     * The inscription as the bare glyph paths a kept rune names, for the forge UI to preload and
+     * for the server to check kept glyphs against.
+     *
+     * <p>Ids from another namespace are dropped rather than matched on their path alone, so a
+     * foreign {@code othermod:fire} can never back a kept {@code fire} core.</p>
+     */
+    public static Optional<ForgeKeptChain> keptChain(Optional<ForgedWeapon> weapon) {
+        return weapon.map(forged -> new ForgeKeptChain(
+                forged.grade().serializedName(),
+                localPath(forged.element()).orElse(""),
+                forged.temper().flatMap(ForgedWeapons::localPath),
+                localPaths(forged.forms()),
+                localPaths(forged.modifiers()),
+                forged.quality()));
+    }
+
+    private static Optional<String> localPath(ResourceLocation id) {
+        return MagicalMod.MODID.equals(id.getNamespace()) ? Optional.of(id.getPath()) : Optional.empty();
+    }
+
+    private static List<String> localPaths(List<ResourceLocation> ids) {
+        return ids.stream().flatMap(id -> localPath(id).stream()).toList();
     }
 
     public static List<Component> tooltip(ItemStack stack) {

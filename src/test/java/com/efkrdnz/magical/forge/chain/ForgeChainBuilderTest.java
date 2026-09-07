@@ -219,11 +219,11 @@ class ForgeChainBuilderTest {
         commitSlash();
         commitSlash();
 
-        List<List<List<GlyphPoint>>> payload = builder.toPayloadGlyphs();
+        List<ForgeChainBuilder.CommittedGlyph> payload = builder.committed();
         List<RecognizedGlyph> chain = builder.recognizedChain();
 
         assertEquals(2, payload.size());
-        assertEquals(1, payload.get(0).size());
+        assertEquals(1, payload.get(0).strokes().size());
         assertEquals(2, chain.size());
         assertEquals("slash", chain.get(0).id());
         assertEquals(GlyphCategory.FORM, chain.get(0).category());

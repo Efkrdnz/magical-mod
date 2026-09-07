@@ -9,6 +9,11 @@ public enum ForgeError {
     BAD_PAYLOAD,
     UNRECOGNIZED_GLYPH,
     AMBIGUOUS_GLYPH,
+    /**
+     * A glyph the client claimed to have kept off the weapon in the slot, which that weapon does
+     * not actually carry in that category - or does not carry as many times as was claimed.
+     */
+    KEPT_GLYPH_MISSING,
     MISSING_GRADE,
     MISSING_ELEMENT,
     MISSING_FORM,
