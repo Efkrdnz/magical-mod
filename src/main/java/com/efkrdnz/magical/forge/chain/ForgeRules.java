@@ -26,8 +26,6 @@ public final class ForgeRules {
     /** Quality below which a forge misfires. */
     public static final int MISFIRE_QUALITY = 25;
 
-    /** Idle client ticks after which an accepted glyph commits itself. */
-    public static final int AUTO_COMMIT_IDLE_TICKS = 12;
 
     private static final int MIN_QUALITY = 0;
 

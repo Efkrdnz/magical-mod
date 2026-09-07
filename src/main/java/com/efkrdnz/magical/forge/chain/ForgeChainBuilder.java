@@ -86,18 +86,17 @@ public final class ForgeChainBuilder {
         return current;
     }
 
-    /** Advances the idle counter; auto-commits an accepted glyph once it has rested long enough. */
-    public Optional<CommittedGlyph> tick() {
+    /**
+     * Advances the idle counter. Nothing commits on its own: several glyphs need more strokes than
+     * a hand can lay down without pausing, and an idle clock cannot tell a finished drawing from a
+     * half-finished one. The player says when a drawing becomes a sigil, with Apply or Enter.
+     */
+    public void tick() {
         idleTicks++;
-        if (idleTicks < ForgeRules.AUTO_COMMIT_IDLE_TICKS
-                || current.status() != RecognitionResult.Status.ACCEPTED) {
-            return Optional.empty();
-        }
-        return commit();
     }
 
     /**
-     * Commits the current glyph on demand, on exactly the terms the auto-commit above uses.
+     * Turns the current drawing into a sigil. This is the only way a glyph is committed.
      *
      * <p>An AMBIGUOUS drawing is refused rather than committed as its best match. The server
      * re-recognizes every submitted glyph and rejects AMBIGUOUS outright

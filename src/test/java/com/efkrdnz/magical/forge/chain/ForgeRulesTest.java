@@ -103,6 +103,5 @@ class ForgeRulesTest {
         assertEquals(64, ForgeRules.MAX_POINTS_PER_STROKE);
         assertEquals(1024, ForgeRules.CANVAS_UNITS);
         assertEquals(25, ForgeRules.MISFIRE_QUALITY);
-        assertEquals(12, ForgeRules.AUTO_COMMIT_IDLE_TICKS);
     }
 }

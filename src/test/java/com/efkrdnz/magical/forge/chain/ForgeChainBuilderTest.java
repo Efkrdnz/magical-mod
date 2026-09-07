@@ -96,13 +96,23 @@ class ForgeChainBuilderTest {
     }
 
     @Test
-    void anAcceptedGlyphAutoCommitsOnTheTwelfthIdleTick() {
+    void restingOnAnAcceptedDrawingNeverCommitsItOnItsOwn() {
         drawSlash();
 
-        for (int i = 1; i <= ForgeRules.AUTO_COMMIT_IDLE_TICKS - 1; i++) {
-            assertEquals(Optional.empty(), builder.tick(), "committed too early on tick " + i);
+        for (int i = 0; i < 200; i++) {
+            builder.tick();
         }
-        Optional<ForgeChainBuilder.CommittedGlyph> committed = builder.tick();
+
+        assertEquals(RecognitionResult.Status.ACCEPTED, builder.current().status());
+        assertTrue(builder.committed().isEmpty(), "a drawing committed itself without Apply");
+        assertEquals(1, builder.currentStrokes().size(), "the drawing was taken off the canvas");
+    }
+
+    @Test
+    void applyingAnAcceptedDrawingCommitsItAndClearsTheCanvas() {
+        drawSlash();
+
+        Optional<ForgeChainBuilder.CommittedGlyph> committed = builder.commitNow();
 
         assertTrue(committed.isPresent());
         assertEquals("slash", committed.orElseThrow().id());

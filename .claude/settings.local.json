@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(.\\\\gradlew compileJava -q)",
+      "Skill(run)",
+      "PowerShell(Tee-Object *)",
+      "Bash(break)",
+      "Bash(dir /s /b \"C:\\\\Users\\\\tahsi\\\\Documents\\\\minecraft mods\\\\magical\\\\src\\\\main\\\\java\\\\com\")"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "claude-flow"
+  ]
+}
