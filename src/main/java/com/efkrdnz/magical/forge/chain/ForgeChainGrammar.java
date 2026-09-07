@@ -1,8 +1,10 @@
 package com.efkrdnz.magical.forge.chain;
 
+import com.efkrdnz.magical.forge.ForgeModifierKind;
 import com.efkrdnz.magical.forge.glyph.GlyphCategory;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -60,7 +62,7 @@ public final class ForgeChainGrammar {
         if (modifierFailure != null) {
             return modifierFailure;
         }
-        List<String> modifiers = distinctIdsOf(glyphs, GlyphCategory.MODIFIER);
+        List<String> modifiers = idsOf(glyphs, GlyphCategory.MODIFIER);
         if (modifiers.contains(SEEKING_MODIFIER) && forms.stream().noneMatch(PROJECTILE_FORMS::contains)) {
             return invalid(ForgeError.SEEKING_NEEDS_PROJECTILE, 0);
         }
@@ -95,17 +97,42 @@ public final class ForgeChainGrammar {
         return (int) Math.round((double) sum / glyphs.size());
     }
 
+    /**
+     * Modifier runes may now repeat: two PIERCE pierce harder than one, and the cost is paid in
+     * mana and in the stability the extra glyph spends.
+     *
+     * <p>Two ceilings still bind. A single rune cannot exceed its own
+     * {@link ForgeModifierKind#maxStacks() cap}, because past that the copy would do nothing while
+     * still charging for itself. And the grade's modifier slots now count glyphs rather than
+     * distinct kinds, so a stack is spent out of the same budget a second rune would have been.
+     */
     private static ForgeValidation checkModifiers(List<RecognizedGlyph> glyphs, ForgeGrade grade) {
-        Set<String> seen = new LinkedHashSet<>();
+        Map<String, Integer> copies = new LinkedHashMap<>();
+        int total = 0;
         for (int i = 0; i < glyphs.size(); i++) {
             RecognizedGlyph glyph = glyphs.get(i);
-            if (glyph.category() == GlyphCategory.MODIFIER && !seen.add(glyph.id())) {
+            if (glyph.category() != GlyphCategory.MODIFIER) {
+                continue;
+            }
+            total++;
+            int seen = copies.merge(glyph.id(), 1, Integer::sum);
+            if (seen > maxStacks(glyph.id())) {
                 return invalid(ForgeError.DUPLICATE_MODIFIER, i);
             }
         }
-        return seen.size() > grade.modifierSlots()
+        return total > grade.modifierSlots()
                 ? invalid(ForgeError.TOO_MANY_MODIFIERS, grade.modifierSlots())
                 : null;
+    }
+
+    /** The stack cap of the rune with this glyph id; unknown ids get the ordinary cap. */
+    private static int maxStacks(String modifierId) {
+        for (ForgeModifierKind kind : ForgeModifierKind.values()) {
+            if (kind.name().equalsIgnoreCase(modifierId)) {
+                return kind.maxStacks();
+            }
+        }
+        return 1;
     }
 
     private static ForgeValidation requireExactlyOne(
@@ -150,10 +177,6 @@ public final class ForgeChainGrammar {
             }
         }
         return out;
-    }
-
-    private static List<String> distinctIdsOf(List<RecognizedGlyph> glyphs, GlyphCategory category) {
-        return List.copyOf(new LinkedHashSet<>(idsOf(glyphs, category)));
     }
 
     private static ForgeValidation invalid(ForgeError error, int argument) {

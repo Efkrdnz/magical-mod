@@ -53,6 +53,23 @@ public final class ForgeRules {
     }
 
     /**
+     * What {@code copies} of one modifier rune cost in stability: the first at full price, every
+     * repeat at half.
+     *
+     * <p>Repeats have to cost something, because stacking a rune is what makes a chain strong and
+     * the misfire wall at {@link #MISFIRE_QUALITY} is the whole risk of reaching for it. Full price
+     * per copy is too steep to ever be worth taking - three PIERCE would spend 24 quality on their
+     * own and misfire all but an immaculate drawing. Half price puts a triple stack at 16 and
+     * leaves it a real choice.
+     */
+    public static int stackedStability(int stabilityDelta, int copies) {
+        if (copies <= 0) {
+            return 0;
+        }
+        return stabilityDelta + stabilityDelta * (copies - 1) / 2;
+    }
+
+    /**
      * Whether {@code material} and the weapon's existing grade allow forging at {@code grade}.
      *
      * @return the blocking error, or empty when the grade is allowed

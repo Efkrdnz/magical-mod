@@ -11,6 +11,8 @@ import java.util.Locale;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
+import com.efkrdnz.magical.forge.ForgeModifierKind;
+
 class ForgeChainGrammarTest {
 
     private static RecognizedGlyph grade(String id) {
@@ -153,12 +155,43 @@ class ForgeChainGrammarTest {
     }
 
     @Test
-    void aRepeatedModifierIsRejectedAtItsIndex() {
+    void aRepeatedModifierIsAcceptedWhenTheGradeCanPayForIt() {
+        ForgeRecipe recipe = validRecipe(List.of(
+                grade("divine"), element("fire"), form("slash"), modifier("pierce"), modifier("pierce")));
+
+        assertEquals(List.of("pierce", "pierce"), recipe.modifiers(),
+                "both copies are kept - the stack is what the player drew");
+        assertEquals(2, recipe.compiled().stepAt(0).mods().stacks(ForgeModifierKind.PIERCE));
+    }
+
+    @Test
+    void aModifierRepeatedPastItsOwnCapIsRejectedAtThatIndex() {
+        // PIERCE caps at three copies. A fourth would be charged for and do nothing.
+        ForgeValidation.Invalid invalid = invalid(List.of(
+                grade("divine"), element("fire"), form("slash"),
+                modifier("pierce"), modifier("pierce"), modifier("pierce"), modifier("pierce")));
+
+        assertEquals(ForgeError.DUPLICATE_MODIFIER, invalid.error());
+        assertEquals(6, invalid.argument(), "the index of the copy that went too far");
+    }
+
+    @Test
+    void guardIsRejectedOneCopyEarlierThanTheOtherRunes() {
+        ForgeValidation.Invalid invalid = invalid(List.of(
+                grade("divine"), element("fire"), form("slash"),
+                modifier("guard"), modifier("guard"), modifier("guard")));
+
+        assertEquals(ForgeError.DUPLICATE_MODIFIER, invalid.error());
+        assertEquals(5, invalid.argument());
+    }
+
+    @Test
+    void aStackSpendsTheGradeModifierSlotsLikeTwoDifferentRunesWould() {
         ForgeValidation.Invalid invalid = invalid(List.of(
                 grade("high"), element("fire"), form("slash"), modifier("pierce"), modifier("pierce")));
 
-        assertEquals(ForgeError.DUPLICATE_MODIFIER, invalid.error());
-        assertEquals(4, invalid.argument());
+        assertEquals(ForgeError.TOO_MANY_MODIFIERS, invalid.error(),
+                "HIGH has one modifier slot, and two copies spend two of them");
     }
 
     @Test

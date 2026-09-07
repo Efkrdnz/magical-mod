@@ -43,6 +43,65 @@ public final class ForgeStrikeMath {
     private ForgeStrikeMath() {
     }
 
+    /**
+     * The value a rune is worth at {@code stacks} copies, from a three-rung ladder.
+     *
+     * <p>Every ladder here bends the same way: the second copy is worth clearly less than the
+     * first and the third less again. A rune that scaled linearly would make stacking the only
+     * sensible chain; one that barely scaled would make it pointless. Zero copies is zero, and
+     * anything past the third rung holds there.
+     */
+    private static float rung(int stacks, float one, float two, float three) {
+        if (stacks <= 0) {
+            return 0f;
+        }
+        return stacks == 1 ? one : stacks == 2 ? two : three;
+    }
+
+    private static int rung(int stacks, int one, int two, int three) {
+        if (stacks <= 0) {
+            return 0;
+        }
+        return stacks == 1 ? one : stacks == 2 ? two : three;
+    }
+
+    /** Extra blocks of reach the REACH rune buys. A WAVE is thrown twice as far per copy. */
+    public static float reachBonus(ModifierStack mods) {
+        return rung(mods.stacks(ForgeModifierKind.REACH), 1.0f, 1.6f, 2.0f);
+    }
+
+    /** The share of a hit PIERCE deals again, ignoring armour. */
+    public static float pierceFraction(ModifierStack mods) {
+        return rung(mods.stacks(ForgeModifierKind.PIERCE), 0.20f, 0.32f, 0.40f);
+    }
+
+    /** The share of damage dealt that LEECH returns as health. */
+    public static float leechFraction(ModifierStack mods) {
+        return rung(mods.stacks(ForgeModifierKind.LEECH), 0.08f, 0.13f, 0.16f);
+    }
+
+    /** Most health one press may leech, however many bodies it touched. */
+    public static float leechCap(ModifierStack mods) {
+        return rung(mods.stacks(ForgeModifierKind.LEECH), 2.0f, 3.0f, 3.5f);
+    }
+
+    /** How far SHATTER multiplies a finisher against a target already carrying a status. */
+    public static float shatterBonus(ModifierStack mods) {
+        int stacks = mods.stacks(ForgeModifierKind.SHATTER);
+        return stacks <= 0 ? 1f : rung(stacks, 1.30f, 1.45f, 1.55f);
+    }
+
+    /** Most brand stacks a target may carry. */
+    public static int brandMaxStacks(ModifierStack mods) {
+        int stacks = mods.stacks(ForgeModifierKind.BRAND);
+        return stacks <= 0 ? 0 : rung(stacks, 3, 4, 5);
+    }
+
+    /** Radians per tick a SEEKING projectile bends toward the nearest body ahead of it. */
+    public static double seekingTurnRadians(ModifierStack mods) {
+        return rung(mods.stacks(ForgeModifierKind.SEEKING), 0.12f, 0.18f, 0.22f);
+    }
+
     public static float qualityScale(int quality) {
         return 0.75f + 0.005f * quality;
     }
@@ -62,9 +121,24 @@ public final class ForgeStrikeMath {
     }
 
     public static float finisherBonus(boolean shatterApplies, int brandStacks) {
-        int stacks = clamp(brandStacks, 0, BRAND_MAX_STACKS);
-        float bonus = (shatterApplies ? SHATTER_BONUS : 1f) * (1 + BRAND_PER_STACK * stacks);
-        return Math.min(FINISHER_BONUS_CAP, bonus);
+        return finisherBonus(shatterApplies, brandStacks, ModifierStack.EMPTY);
+    }
+
+    /**
+     * The finisher multiplier, reading SHATTER and BRAND off the stack the strike carries.
+     *
+     * <p>The two multiply, and the product is still capped: stacking both to the top would
+     * otherwise turn one press into a bigger multiplier than any grade was priced for.
+     */
+    public static float finisherBonus(boolean shatterApplies, int brandStacks, ModifierStack mods) {
+        int cap = mods.has(ForgeModifierKind.BRAND) ? brandMaxStacks(mods) : BRAND_MAX_STACKS;
+        int stacks = clamp(brandStacks, 0, cap);
+        float shatter = shatterApplies ? shatterBonusOrDefault(mods) : 1f;
+        return Math.min(FINISHER_BONUS_CAP, shatter * (1 + BRAND_PER_STACK * stacks));
+    }
+
+    private static float shatterBonusOrDefault(ModifierStack mods) {
+        return mods.has(ForgeModifierKind.SHATTER) ? shatterBonus(mods) : SHATTER_BONUS;
     }
 
     public static float reach(FormStats form, TemperStats temper, WeaponClass weaponClass, ModifierStack mods) {
@@ -77,16 +151,16 @@ public final class ForgeStrikeMath {
      */
     public static float reach(FormStats form, TemperStats temper, WeaponClass weaponClass, ModifierStack mods,
             float artBonus) {
-        boolean reachFlag = mods.has(ForgeModifierKind.REACH);
+        float bonus = reachBonus(mods);
         float value;
         if (form.family() == FormFamily.WAVE) {
-            value = form.reach() + (reachFlag ? 2f : 0f) + artBonus;
+            // A thrown crescent travels, so the rune buys it twice the ground a melee arc gets.
+            value = form.reach() + bonus * 2f + artBonus;
         } else if (form.family() == FormFamily.SPIN) {
-            value = Math.min(SPIN_RADIUS_CAP,
-                    form.reach() + temper.reachDelta() + (reachFlag ? 1f : 0f) + artBonus);
+            value = Math.min(SPIN_RADIUS_CAP, form.reach() + temper.reachDelta() + bonus + artBonus);
         } else {
-            value = Math.min(MAX_REACH, form.reach() + temper.reachDelta() + weaponClass.reachDelta()
-                    + (reachFlag ? 1f : 0f) + artBonus);
+            value = Math.min(MAX_REACH,
+                    form.reach() + temper.reachDelta() + weaponClass.reachDelta() + bonus + artBonus);
         }
         return Math.max(1.0f, value);
     }
@@ -107,8 +181,9 @@ public final class ForgeStrikeMath {
     }
 
     public static float halfWidth(FormStats form, TemperStats temper, boolean heavy, ModifierStack mods) {
-        boolean reachFlag = mods.has(ForgeModifierKind.REACH);
-        return form.halfWidth() * temper.widthScale() * (heavy ? HEAVY_SIZE_SCALE : 1f) + (reachFlag ? 0.3f : 0f);
+        // Width rides the same ladder as reach, at a third of the size.
+        return form.halfWidth() * temper.widthScale() * (heavy ? HEAVY_SIZE_SCALE : 1f)
+                + reachBonus(mods) * 0.3f;
     }
 
     public static float arcDegrees(FormStats form, boolean heavy) {
@@ -125,15 +200,15 @@ public final class ForgeStrikeMath {
 
     public static int recovery(FormStats form, TemperStats temper, WeaponClass weaponClass, boolean heavy,
             ModifierStack mods) {
-        boolean haste = mods.has(ForgeModifierKind.HASTE);
+        int haste = rung(mods.stacks(ForgeModifierKind.HASTE), 3, 5, 6);
         int raw = form.recoveryTicks() + (heavy ? HEAVY_RECOVERY : 0) + weaponClass.recoveryDelta()
-                + temper.recoveryDelta() - (haste ? 3 : 0);
+                + temper.recoveryDelta() - haste;
         return Math.max(MIN_RECOVERY, raw);
     }
 
     public static long windowEnd(long strikeTick, int recovery, TemperStats temper, ModifierStack mods) {
-        boolean haste = mods.has(ForgeModifierKind.HASTE);
-        int bonus = Math.min(MAX_WINDOW_BONUS, temper.comboWindowDelta() + (haste ? 4 : 0));
+        int haste = rung(mods.stacks(ForgeModifierKind.HASTE), 4, 7, 9);
+        int bonus = Math.min(MAX_WINDOW_BONUS, temper.comboWindowDelta() + haste);
         return strikeTick + recovery + BASE_WINDOW + bonus;
     }
 
@@ -164,8 +239,8 @@ public final class ForgeStrikeMath {
     }
 
     public static float procChance(float procBase, ForgeGrade grade, ModifierStack mods) {
-        boolean binding = mods.has(ForgeModifierKind.BINDING);
-        return Math.min(MAX_PROC, procBase + 0.05f * grade.ordinal() + (binding ? 0.25f : 0f));
+        float binding = rung(mods.stacks(ForgeModifierKind.BINDING), 0.25f, 0.40f, 0.50f);
+        return Math.min(MAX_PROC, procBase + 0.05f * grade.ordinal() + binding);
     }
 
     public static int[] flurryPulseTicks(boolean heavy) {
@@ -194,6 +269,12 @@ public final class ForgeStrikeMath {
 
     public static float leechHeal(float dealt, float healedSoFarThisPress) {
         return Math.min(LEECH_FRACTION * dealt, Math.max(0f, LEECH_CAP - healedSoFarThisPress));
+    }
+
+    /** Leech for a strike carrying {@code mods}: a bigger share, into a bigger pool, per copy. */
+    public static float leechHeal(float dealt, float healedSoFarThisPress, ModifierStack mods) {
+        return Math.min(leechFraction(mods) * dealt,
+                Math.max(0f, leechCap(mods) - healedSoFarThisPress));
     }
 
     public static StrikeSpec resolve(FormStats form, TemperStats temper, WeaponClass weaponClass, ModifierStack mods,

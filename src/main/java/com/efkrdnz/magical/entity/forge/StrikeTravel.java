@@ -40,6 +40,12 @@ public final class StrikeTravel {
 
     /** Bends {@code direction} at most {@link #SEEKING_TURN_RADIANS} toward the nearest body ahead. */
     public static Vec3 steerToward(ServerLevel level, Entity self, Entity owner, Vec3 position, Vec3 direction) {
+        return steerToward(level, self, owner, position, direction, SEEKING_TURN_RADIANS);
+    }
+
+    /** As above, but bending at most {@code turnRadians} - a stacked SEEKING rune turns harder. */
+    public static Vec3 steerToward(ServerLevel level, Entity self, Entity owner, Vec3 position, Vec3 direction,
+            double turnRadians) {
         LivingEntity target = nearestAhead(level, self, owner, position, direction);
         if (target == null) {
             return direction;
@@ -53,7 +59,7 @@ public final class StrikeTravel {
         if (angle < 1.0E-4) {
             return direction;
         }
-        double step = Math.min(1.0, SEEKING_TURN_RADIANS / angle);
+        double step = Math.min(1.0, turnRadians / angle);
         Vec3 steered = direction.scale(1.0 - step).add(toTarget.scale(step));
         return steered.lengthSqr() < EPSILON ? direction : steered.normalize();
     }

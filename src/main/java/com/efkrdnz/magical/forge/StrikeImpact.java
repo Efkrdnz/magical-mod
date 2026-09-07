@@ -81,13 +81,13 @@ public final class StrikeImpact {
         boolean shatter = loadout.has(ForgeModifierKind.SHATTER) && hasShatterStatus(target);
         if (loadout.finisher()) {
             int stacks = loadout.has(ForgeModifierKind.BRAND) ? ForgeBrandService.consume(target, now) : 0;
-            dealt *= ForgeStrikeMath.finisherBonus(shatter, stacks);
+            dealt *= ForgeStrikeMath.finisherBonus(shatter, stacks, loadout.mods());
         } else {
             if (shatter) {
-                dealt *= ForgeStrikeMath.SHATTER_BONUS;
+                dealt *= ForgeStrikeMath.shatterBonus(loadout.mods());
             }
             if (loadout.has(ForgeModifierKind.BRAND)) {
-                ForgeBrandService.addStack(target, now);
+                ForgeBrandService.addStack(target, now, ForgeStrikeMath.brandMaxStacks(loadout.mods()));
             }
         }
         return tally.consumePrimaryCorrection(target.getId(), loadout.primaryTargetId())
@@ -118,10 +118,10 @@ public final class StrikeImpact {
         }
         if (loadout.has(ForgeModifierKind.PIERCE)) {
             MagicDamageService.hurt(target, ForgeDamageTypes.magic(owner),
-                    ForgeStrikeMath.PIERCE_FRACTION * dealt, STRIKE_ID);
+                    ForgeStrikeMath.pierceFraction(loadout.mods()) * dealt, STRIKE_ID);
         }
         if (loadout.has(ForgeModifierKind.LEECH) && isLeechTarget(loadout, target, tally)) {
-            float healed = ForgeStrikeMath.leechHeal(dealt, tally.leechHealed());
+            float healed = ForgeStrikeMath.leechHeal(dealt, tally.leechHealed(), loadout.mods());
             if (healed > 0.0f) {
                 owner.heal(healed);
                 tally.addLeechHealed(healed);

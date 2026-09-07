@@ -24,11 +24,11 @@ public final class ForgeBrandService {
 
     private ForgeBrandService() {}
 
-    public static void addStack(LivingEntity target, long now) {
+    public static void addStack(LivingEntity target, long now, int maxStacks) {
         Brand current = BRANDS.get(target.getUUID());
         int stacks = current == null || now >= current.expiryTick() ? 0 : current.stacks();
         BRANDS.put(target.getUUID(),
-                new Brand(Math.min(ForgeStrikeMath.BRAND_MAX_STACKS, stacks + 1), now + LIFE_TICKS));
+                new Brand(Math.min(Math.max(1, maxStacks), stacks + 1), now + LIFE_TICKS));
     }
 
     /** The stacks standing on {@code target}, cleared in the same breath. */

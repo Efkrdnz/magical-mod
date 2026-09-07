@@ -956,7 +956,7 @@
   "forge.magical.error.duplicate_element": "Only one element core (glyph %s).",
   "forge.magical.error.too_many_forms": "This grade holds %s form(s).",
   "forge.magical.error.too_many_modifiers": "This grade holds %s modifier rune(s).",
-  "forge.magical.error.duplicate_modifier": "Modifier rune repeated (glyph %s).",
+  "forge.magical.error.duplicate_modifier": "That rune is stacked as high as it goes (glyph %s).",
   "forge.magical.error.duplicate_temper": "Only one temper mark (glyph %s).",
   "forge.magical.error.seeking_needs_projectile": "Seeking needs a Wave or Rising form.",
   "forge.magical.error.class_required": "You need the Blacksmith class.",

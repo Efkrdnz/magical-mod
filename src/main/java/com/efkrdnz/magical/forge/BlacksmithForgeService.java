@@ -188,18 +188,18 @@ public final class BlacksmithForgeService {
             return cooldownFailure.get();
         }
 
-        Optional<CostTotals> totals = computeCostTotals(recipe);
+        Optional<ForgeRuneCosts> totals = ForgeRuneCosts.of(recipe);
         if (totals.isEmpty()) {
             MagicalMod.LOGGER.warn("Forge submit from {} referenced an unknown modifier or temper definition",
                     player.getGameProfile().getName());
             return ForgeResultPayload.fail(ForgeError.BAD_PAYLOAD, 0);
         }
-        int cost = ForgeRules.manaCost(recipe.grade(), totals.get().manaSum(), state.maxMana());
+        int cost = ForgeRules.manaCost(recipe.grade(), totals.get().mana(), state.maxMana());
         if (state.mana() < cost) {
             return ForgeResultPayload.fail(ForgeError.NO_MANA, cost);
         }
 
-        int quality = ForgeRules.quality(recipe.meanGlyphQuality(), totals.get().stabilitySum());
+        int quality = ForgeRules.quality(recipe.meanGlyphQuality(), totals.get().stability());
         if (ForgeRules.isMisfire(quality)) {
             return misfire(player, state, cost, quality);
         }
@@ -360,30 +360,6 @@ public final class BlacksmithForgeService {
     }
 
     // --- step 9: mana and stability ------------------------------------------------------------
-
-    private record CostTotals(int manaSum, int stabilitySum) {
-    }
-
-    private static Optional<CostTotals> computeCostTotals(ForgeRecipe recipe) {
-        int manaSum = 0;
-        int stabilitySum = 0;
-        for (String modifierId : recipe.modifiers()) {
-            Optional<ModifierDefinition> definition = ForgeModifiers.get(ForgeIds.id(modifierId));
-            if (definition.isEmpty()) {
-                return Optional.empty();
-            }
-            manaSum += definition.get().manaDelta();
-            stabilitySum += definition.get().stabilityDelta();
-        }
-        if (recipe.temper().isPresent()) {
-            Optional<TemperDefinition> temper = ForgeTempers.get(ForgeIds.id(recipe.temper().get()));
-            if (temper.isEmpty()) {
-                return Optional.empty();
-            }
-            stabilitySum += temper.get().stabilityDelta();
-        }
-        return Optional.of(new CostTotals(manaSum, stabilitySum));
-    }
 
     // --- step 10: misfire -------------------------------------------------------------------
 

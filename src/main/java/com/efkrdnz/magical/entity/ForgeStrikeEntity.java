@@ -206,7 +206,8 @@ public final class ForgeStrikeEntity extends Entity {
             return;
         }
         if (loadout != null && loadout.has(ForgeModifierKind.SEEKING)) {
-            dir = StrikeTravel.steerToward(server, this, ownerEntity(), from, dir);
+            dir = StrikeTravel.steerToward(server, this, ownerEntity(), from, dir,
+                    ForgeStrikeMath.seekingTurnRadians(loadout.mods()));
             setDirection(dir);
         }
         StrikeTravel.Step step = StrikeTravel.advance(server, this, from, dir, speed);

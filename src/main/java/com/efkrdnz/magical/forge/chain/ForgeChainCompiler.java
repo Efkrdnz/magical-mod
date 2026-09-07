@@ -2,6 +2,7 @@ package com.efkrdnz.magical.forge.chain;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import com.efkrdnz.magical.forge.ForgeModifierKind;
 import com.efkrdnz.magical.forge.ModifierStack;
@@ -21,30 +22,55 @@ public final class ForgeChainCompiler {
     }
 
     /**
-     * Compiles a program in which every modifier applies to every form.
+     * Compiles a run left to right: each modifier attaches to the next form drawn after it, and is
+     * consumed by that form alone.
      *
-     * <p>This is what the forge has always done, and it is deliberately still what it does: the
-     * step machinery lands first and behaves identically, so a weapon forged before this change and
-     * one forged after resolve to the same strike. Making a modifier attach only to the form drawn
-     * after it is a separate, visible change.
+     * <p>So {@code pierce slash spin} gives PIERCE to the slash, and {@code slash pierce spin}
+     * gives it to the spin. Several modifiers drawn before one form all land on that form. This is
+     * what makes the order of a chain worth thinking about: two presses of the same weapon can now
+     * behave differently, which a single whole-weapon modifier set could never express.
      *
-     * <p>It is also the permanent path for weapons already in the world, which stored a flat form
-     * list and a flat modifier list and no order to recover. Those keep these semantics forever -
-     * see {@link #fromLegacy}.
+     * <p>Modifiers still waiting when the run ends attach to the <em>first</em> step. The chain is
+     * a loop - the combo wraps back to step one after the finisher - so the rune drawn last sits
+     * immediately before the rune drawn first, and reading it as attaching to nothing would quietly
+     * charge the player mana and stability for a rune that never fires.
+     *
+     * <p>Weapons forged before programs existed do not come through here at all; they kept no draw
+     * order to read and go through {@link #fromLegacy} instead.
      */
     public static ForgeProgram compile(List<String> program) {
-        List<String> forms = new ArrayList<>();
-        List<String> modifiers = new ArrayList<>();
+        List<ForgeStep> steps = new ArrayList<>();
+        List<String> pending = new ArrayList<>();
         for (String id : program) {
-            categoryOf(id).ifPresent(category -> {
-                if (category == GlyphCategory.FORM) {
-                    forms.add(id);
-                } else if (category == GlyphCategory.MODIFIER) {
-                    modifiers.add(id);
-                }
-            });
+            Optional<GlyphCategory> category = categoryOf(id);
+            if (category.isEmpty()) {
+                continue;
+            }
+            if (category.get() == GlyphCategory.FORM) {
+                steps.add(ForgeStep.of(id, stackOf(pending)));
+                pending.clear();
+            } else if (category.get() == GlyphCategory.MODIFIER) {
+                pending.add(id);
+            }
         }
-        return fromLegacy(forms, modifiers);
+        return new ForgeProgram(wrapTrailing(steps, pending));
+    }
+
+    /** Folds modifiers left over at the end of the run onto the step the chain wraps back to. */
+    private static List<ForgeStep> wrapTrailing(List<ForgeStep> steps, List<String> pending) {
+        if (pending.isEmpty() || steps.isEmpty()) {
+            return steps;
+        }
+        ForgeStep first = steps.get(0);
+        ModifierStack merged = first.mods();
+        for (String id : pending) {
+            Optional<ForgeModifierKind> kind = kindOf(id);
+            if (kind.isPresent()) {
+                merged = merged.plus(kind.get());
+            }
+        }
+        steps.set(0, new ForgeStep(first.forms(), merged, first.payload()));
+        return steps;
     }
 
     /**
@@ -74,7 +100,7 @@ public final class ForgeChainCompiler {
         return ModifierStack.of(kinds);
     }
 
-    private static java.util.Optional<GlyphCategory> categoryOf(String id) {
+    private static Optional<GlyphCategory> categoryOf(String id) {
         return ForgeGlyphLibrary.byId(id).map(template -> template.category());
     }
 
@@ -83,12 +109,12 @@ public final class ForgeChainCompiler {
      * same words in different cases, which is what lets this layer stay free of the registry that
      * holds the full {@code ModifierDefinition}.
      */
-    private static java.util.Optional<ForgeModifierKind> kindOf(String id) {
+    private static Optional<ForgeModifierKind> kindOf(String id) {
         for (ForgeModifierKind kind : ForgeModifierKind.values()) {
             if (kind.name().equalsIgnoreCase(id)) {
-                return java.util.Optional.of(kind);
+                return Optional.of(kind);
             }
         }
-        return java.util.Optional.empty();
+        return Optional.empty();
     }
 }

@@ -21,6 +21,14 @@ public enum ForgeError {
     DUPLICATE_ELEMENT,
     TOO_MANY_FORMS,
     TOO_MANY_MODIFIERS,
+    /**
+     * A modifier rune drawn more times than it stacks.
+     *
+     * <p>It used to mean any repeat at all. Runes stack now, so it means only the copy that went
+     * past the cap - one that would be charged for and then do nothing. The constant keeps its
+     * place in this enum because the wire sends errors by ordinal, and reusing it costs nothing
+     * where retiring it would leave a hole.
+     */
     DUPLICATE_MODIFIER,
     DUPLICATE_TEMPER,
     SEEKING_NEEDS_PROJECTILE,

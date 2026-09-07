@@ -5,8 +5,7 @@ import com.efkrdnz.magical.client.screen.MagicalGuiStyle;
 import com.efkrdnz.magical.forge.ForgeElements;
 import com.efkrdnz.magical.forge.ForgeIds;
 import com.efkrdnz.magical.forge.ForgeMaterials;
-import com.efkrdnz.magical.forge.ForgeModifiers;
-import com.efkrdnz.magical.forge.ForgeTempers;
+import com.efkrdnz.magical.forge.ForgeRuneCosts;
 import com.efkrdnz.magical.forge.ForgedWeapon;
 import com.efkrdnz.magical.forge.ForgedWeapons;
 import com.efkrdnz.magical.forge.chain.ForgeChainGrammar;
@@ -77,7 +76,7 @@ public final class ForgePreviewPanel {
 
     private void drawRecipe(GuiGraphics graphics, Font font, ForgeRecipe recipe,
             int x, int y, int width, int maxMana) {
-        Optional<Totals> totalsResult = totals(recipe);
+        Optional<ForgeRuneCosts> totalsResult = ForgeRuneCosts.of(recipe);
         if (totalsResult.isEmpty()) {
             // Same condition checkMana() gates on (an unresolvable modifier or temper id): show the
             // same BAD_PAYLOAD error instead of a quality/cost line computed from fabricated zeros.
@@ -85,7 +84,7 @@ public final class ForgePreviewPanel {
                     x, y, width, MagicalGuiStyle.TEXT_MUTED);
             return;
         }
-        Totals totals = totalsResult.get();
+        ForgeRuneCosts totals = totalsResult.get();
         int quality = ForgeRules.quality(recipe.meanGlyphQuality(), totals.stability());
         int cost = ForgeRules.manaCost(recipe.grade(), totals.mana(), maxMana);
         int percent = maxMana > 0 ? Math.round(cost * 100f / maxMana) : 0;
@@ -210,7 +209,7 @@ public final class ForgePreviewPanel {
     }
 
     private static Optional<PredictedError> checkMana(ForgeRecipe recipe, PlayerMagicState state) {
-        Optional<Totals> totals = totals(recipe);
+        Optional<ForgeRuneCosts> totals = ForgeRuneCosts.of(recipe);
         if (totals.isEmpty()) {
             return failure(ForgeError.BAD_PAYLOAD);
         }
@@ -227,31 +226,6 @@ public final class ForgePreviewPanel {
     }
 
     // --- shared arithmetic --------------------------------------------------------------------
-
-    /** Summed modifier mana and temper/modifier stability, exactly as the server totals them. */
-    private record Totals(int mana, int stability) {
-    }
-
-    private static Optional<Totals> totals(ForgeRecipe recipe) {
-        int mana = 0;
-        int stability = 0;
-        for (String modifierId : recipe.modifiers()) {
-            var definition = ForgeModifiers.get(ForgeIds.id(modifierId));
-            if (definition.isEmpty()) {
-                return Optional.empty();
-            }
-            mana += definition.get().manaDelta();
-            stability += definition.get().stabilityDelta();
-        }
-        if (recipe.temper().isPresent()) {
-            var temper = ForgeTempers.get(ForgeIds.id(recipe.temper().get()));
-            if (temper.isEmpty()) {
-                return Optional.empty();
-            }
-            stability += temper.get().stabilityDelta();
-        }
-        return Optional.of(new Totals(mana, stability));
-    }
 
     static Component glyphName(String id) {
         return Component.translatable("forge.magical.glyph." + id);
