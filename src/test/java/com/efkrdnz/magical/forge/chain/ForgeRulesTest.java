@@ -22,8 +22,10 @@ class ForgeRulesTest {
 
     @Test
     void manaCostIsCappedAtTheWholePoolAndFlooredAtOne() {
-        assertEquals(100, ForgeRules.manaCost(ForgeGrade.DIVINE, 0, 100));
-        assertEquals(100, ForgeRules.manaCost(ForgeGrade.DIVINE, 40, 100));
+        assertEquals(70, ForgeRules.manaCost(ForgeGrade.DIVINE, 0, 100));
+        assertEquals(100, ForgeRules.manaCost(ForgeGrade.DIVINE, 40, 100), "still clamps at the pool");
+        assertEquals(85, ForgeRules.manaCost(ForgeGrade.DIVINE, 15, 100),
+                "and below the clamp the per-rune mana is visible, which is the point of 70");
         assertEquals(1, ForgeRules.manaCost(ForgeGrade.CRUDE, -15, 100));
         assertEquals(0, ForgeRules.manaCost(ForgeGrade.CRUDE, 0, 0));
     }
@@ -98,7 +100,7 @@ class ForgeRulesTest {
 
     @Test
     void payloadLimitsAreFixed() {
-        assertEquals(12, ForgeRules.MAX_GLYPHS);
+        assertEquals(16, ForgeRules.MAX_GLYPHS);
         assertEquals(6, ForgeRules.MAX_STROKES_PER_GLYPH);
         assertEquals(64, ForgeRules.MAX_POINTS_PER_STROKE);
         assertEquals(1024, ForgeRules.CANVAS_UNITS);

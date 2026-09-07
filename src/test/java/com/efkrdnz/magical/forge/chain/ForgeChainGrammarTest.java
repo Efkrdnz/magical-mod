@@ -82,13 +82,13 @@ class ForgeChainGrammarTest {
         List<RecognizedGlyph> glyphs = new ArrayList<>();
         glyphs.add(grade("crude"));
         glyphs.add(element("fire"));
-        for (int i = 0; i < 11; i++) {
+        for (int i = 0; i < ForgeRules.MAX_GLYPHS - 1; i++) {
             glyphs.add(form("slash"));
         }
 
         ForgeValidation.Invalid invalid = invalid(glyphs);
 
-        assertEquals(13, glyphs.size());
+        assertEquals(ForgeRules.MAX_GLYPHS + 1, glyphs.size());
         assertEquals(ForgeError.BAD_PAYLOAD, invalid.error());
         assertEquals(ForgeRules.MAX_GLYPHS, invalid.argument());
     }
@@ -226,20 +226,20 @@ class ForgeChainGrammarTest {
     @Test
     void aStackSpendsTheGradeModifierSlotsLikeTwoDifferentRunesWould() {
         ForgeValidation.Invalid invalid = invalid(List.of(
-                grade("high"), element("fire"), form("slash"), modifier("pierce"), modifier("pierce")));
+                grade("fine"), element("fire"), form("slash"), modifier("pierce"), modifier("pierce")));
 
         assertEquals(ForgeError.TOO_MANY_MODIFIERS, invalid.error(),
-                "HIGH has one modifier slot, and two copies spend two of them");
+                "FINE has one modifier slot, and two copies spend two of them");
     }
 
     @Test
     void moreModifiersThanTheGradeAllowsIsRejected() {
         ForgeValidation.Invalid invalid = invalid(List.of(
-                grade("high"), element("fire"), form("slash"), modifier("pierce"), modifier("reach")));
+                grade("crude"), element("fire"), form("slash"), modifier("pierce")));
 
         assertEquals(ForgeError.TOO_MANY_MODIFIERS, invalid.error());
-        assertEquals(ForgeGrade.HIGH.modifierSlots(), invalid.argument());
-        assertEquals(1, invalid.argument());
+        assertEquals(ForgeGrade.CRUDE.modifierSlots(), invalid.argument());
+        assertEquals(0, invalid.argument());
     }
 
     @Test

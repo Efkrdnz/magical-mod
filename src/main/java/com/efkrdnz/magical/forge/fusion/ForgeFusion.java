@@ -31,7 +31,25 @@ public enum ForgeFusion {
     EXPLOSION("fire", "gale", "explosion", null, List.of()),
 
     /** A wind that freezes and drags. */
-    RIME_GALE("frost", "gale", "rime_gale", null, List.of());
+    RIME_GALE("frost", "gale", "rime_gale", null, List.of()),
+
+    /** Fire carried along a chain of lightning. */
+    PLASMA("fire", "storm", "plasma", null, List.of()),
+
+    /** Fire poured into the ground, left burning where it lands. */
+    MAGMA("fire", "terra", "magma", null, List.of()),
+
+    /** A storm of ice that spreads its cold as it jumps. */
+    HAILSTORM("frost", "storm", "hailstorm", null, List.of()),
+
+    /** Light and void together: blinding rot that still smites the undead. */
+    ECLIPSE("void", "radiant", "eclipse", null, List.of()),
+
+    /** Rot and poison, and nothing that heals through either. */
+    BLIGHT("void", "venom", "blight", null, List.of()),
+
+    /** Poison worked into the ground, so the ground itself is poison. */
+    VERDIGRIS("venom", "terra", "verdigris", null, List.of());
 
     private final String first;
     private final String second;

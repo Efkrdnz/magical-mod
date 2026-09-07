@@ -56,6 +56,12 @@ public final class ForgeElementAccent {
             case BLACK_FLAME -> new Accent(0.45f, true, Ornament.NONE);
             case EXPLOSION -> new Accent(1.0f, false, Ornament.BLOOM);
             case RIME_GALE -> new Accent(1.0f, false, Ornament.SHARDS);
+            case PLASMA -> new Accent(1.0f, false, Ornament.SPARKS);
+            case MAGMA -> new Accent(0.9f, false, Ornament.SEGMENTS);
+            case HAILSTORM -> new Accent(1.0f, false, Ornament.SHARDS);
+            case ECLIPSE -> new Accent(0.6f, true, Ornament.BLOOM);
+            case BLIGHT -> new Accent(0.85f, false, Ornament.DRIPS);
+            case VERDIGRIS -> new Accent(1.0f, false, Ornament.DRIPS);
         };
     }
 

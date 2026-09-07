@@ -25,6 +25,12 @@ public final class ForgeElements {
     public static final ElementDefinition BLACK_FLAME;
     public static final ElementDefinition EXPLOSION;
     public static final ElementDefinition RIME_GALE;
+    public static final ElementDefinition PLASMA;
+    public static final ElementDefinition MAGMA;
+    public static final ElementDefinition HAILSTORM;
+    public static final ElementDefinition ECLIPSE;
+    public static final ElementDefinition BLIGHT;
+    public static final ElementDefinition VERDIGRIS;
 
     static {
         Map<ResourceLocation, ElementDefinition> map = new LinkedHashMap<>();
@@ -50,6 +56,18 @@ public final class ForgeElements {
                 ForgeIds.id("explosion"), ForgeElementKind.EXPLOSION, 0xFF8A1E, 0xFFE08A, 0x6B2A00, 0.75f));
         RIME_GALE = register(map, new ElementDefinition(
                 ForgeIds.id("rime_gale"), ForgeElementKind.RIME_GALE, 0xCFF6FF, 0x9FE8D8, 0xFFFFFF, 0.65f));
+        PLASMA = register(map, new ElementDefinition(
+                ForgeIds.id("plasma"), ForgeElementKind.PLASMA, 0xFFB0FF, 0xFFF0B0, 0x6A00FF, 0.70f));
+        MAGMA = register(map, new ElementDefinition(
+                ForgeIds.id("magma"), ForgeElementKind.MAGMA, 0xFF5A1E, 0x8A3A10, 0xFFC46A, 0.65f));
+        HAILSTORM = register(map, new ElementDefinition(
+                ForgeIds.id("hailstorm"), ForgeElementKind.HAILSTORM, 0xCDEEFF, 0x8FD8FF, 0x2A5BFF, 0.60f));
+        ECLIPSE = register(map, new ElementDefinition(
+                ForgeIds.id("eclipse"), ForgeElementKind.ECLIPSE, 0x1A1030, 0xFFE9A0, 0x9A7BFF, 0.60f));
+        BLIGHT = register(map, new ElementDefinition(
+                ForgeIds.id("blight"), ForgeElementKind.BLIGHT, 0x5A7A2A, 0x2A0A4A, 0xB8FF6A, 0.70f));
+        VERDIGRIS = register(map, new ElementDefinition(
+                ForgeIds.id("verdigris"), ForgeElementKind.VERDIGRIS, 0x4AA88A, 0x2E7A1C, 0xC8FFD8, 0.65f));
         BY_ID = Collections.unmodifiableMap(map);
     }
 

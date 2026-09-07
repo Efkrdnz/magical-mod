@@ -59,9 +59,12 @@ class ForgeGradeTest {
     @Test
     void divineMatchesTableValues() {
         ForgeGrade divine = ForgeGrade.DIVINE;
-        assertEquals(4, divine.formSlots());
-        assertEquals(3, divine.modifierSlots());
-        assertEquals(100, divine.manaPercent());
+        assertEquals(6, divine.formSlots());
+        assertEquals(7, divine.modifierSlots());
+        assertEquals(70, divine.manaPercent(),
+                "Divine spends less than Mythic so per-rune mana still bites at the top grade");
+        assertEquals(4, divine.operatorSlots());
+        assertEquals(2, divine.elementSlots());
         assertEquals(55, divine.classXp());
         assertEquals(11.0f, divine.baseDamage());
         assertEquals(0.80f, divine.sigilAcceptScore());

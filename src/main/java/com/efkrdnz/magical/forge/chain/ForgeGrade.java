@@ -5,11 +5,14 @@ import java.util.Optional;
 
 public enum ForgeGrade {
     CRUDE(1, 0, 15, 6, 2.0f, 0.50f, ForgeMaterial.WOOD, 200),
-    FINE(2, 0, 28, 12, 3.5f, 0.56f, ForgeMaterial.WOOD, 400),
-    HIGH(2, 1, 42, 20, 5.0f, 0.62f, ForgeMaterial.IRON, 900),
-    MASTER(3, 1, 58, 30, 6.0f, 0.68f, ForgeMaterial.DIAMOND, 1800),
-    MYTHIC(3, 2, 75, 42, 8.5f, 0.74f, ForgeMaterial.NETHERITE, 3600),
-    DIVINE(4, 3, 100, 55, 11.0f, 0.80f, ForgeMaterial.IRON, 6000);
+    FINE(2, 1, 28, 12, 3.5f, 0.56f, ForgeMaterial.WOOD, 400),
+    HIGH(3, 2, 42, 20, 5.0f, 0.62f, ForgeMaterial.IRON, 900),
+    MASTER(4, 3, 58, 30, 6.0f, 0.68f, ForgeMaterial.DIAMOND, 1800),
+    MYTHIC(5, 5, 75, 42, 8.5f, 0.74f, ForgeMaterial.NETHERITE, 3600),
+    // Divine spends less of the pool than Mythic on purpose. At 100 the cost clamped to the whole
+    // pool and the per-rune mana vanished, which made stacking free exactly where it should cost
+    // most; 70 leaves about three runes of headroom.
+    DIVINE(6, 7, 70, 55, 11.0f, 0.80f, ForgeMaterial.IRON, 6000);
 
     private final int formSlots;
     private final int modifierSlots;

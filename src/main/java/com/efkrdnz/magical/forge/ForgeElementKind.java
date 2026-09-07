@@ -18,7 +18,25 @@ public enum ForgeElementKind {
     EXPLOSION,
 
     /** frost + gale: freezes and drags the target in. */
-    RIME_GALE;
+    RIME_GALE,
+
+    /** fire + storm: chains, and every arc sets what it touches alight. */
+    PLASMA,
+
+    /** fire + terra: leaves burning ground behind. */
+    MAGMA,
+
+    /** frost + storm: chains, and every jump deepens the cold. */
+    HAILSTORM,
+
+    /** void + radiant: rot and blindness, and the undead still burn. */
+    ECLIPSE,
+
+    /** void + venom: poison and rot, and healing that no longer works. */
+    BLIGHT,
+
+    /** venom + terra: poisoned ground that keeps poisoning. */
+    VERDIGRIS;
 
     /** Whether this element was fused rather than drawn. */
     public boolean isCompound() {

@@ -71,6 +71,10 @@ public final class ForgeRiderService {
             case EXPLOSION -> target.isOnFire() ? EXPLOSION_SYNERGY : 1.0f;
             case RIME_GALE -> !target.onGround() ? GALE_SYNERGY
                     : target.getTicksFrozen() > 0 ? FROST_SYNERGY : 1.0f;
+            case PLASMA, MAGMA -> target.isOnFire() ? FIRE_SYNERGY : 1.0f;
+            case HAILSTORM -> target.getTicksFrozen() > 0 ? FROST_SYNERGY : 1.0f;
+            case BLIGHT, VERDIGRIS -> target.hasEffect(MobEffects.POISON) ? FROST_SYNERGY : 1.0f;
+            case ECLIPSE -> 1.0f;
         };
     }
 
@@ -92,6 +96,28 @@ public final class ForgeRiderService {
             case BLACK_FLAME -> blackFlame(owner, target, grade);
             case EXPLOSION -> explosion(level, owner, target, ctx, grade);
             case RIME_GALE -> rimeGale(owner, target, grade);
+            case PLASMA -> {
+                storm(level, owner, target, element, ctx, grade);
+                if (ForgeTargeting.canAffect(owner, target)) {
+                    target.igniteForSeconds(2.0f + grade);
+                }
+            }
+            case MAGMA -> {
+                terra(level, owner, target, ctx, grade);
+                if (ForgeTargeting.canAffect(owner, target)) {
+                    target.igniteForSeconds(2.0f + grade);
+                }
+            }
+            case HAILSTORM -> {
+                storm(level, owner, target, element, ctx, grade);
+                frost(owner, target, grade);
+            }
+            case ECLIPSE -> eclipse(owner, target, grade);
+            case BLIGHT -> blight(owner, target, grade);
+            case VERDIGRIS -> {
+                venom(owner, target, grade);
+                terra(level, owner, target, ctx, grade);
+            }
         }
     }
 
@@ -285,6 +311,29 @@ public final class ForgeRiderService {
         target.setTicksFrozen(target.getTicksFrozen() + 50 + 20 * grade);
         // Note the sign: a gale pushes away, a rime gale hauls in.
         target.knockback(RIME_GALE_PULL, target.getX() - owner.getX(), target.getZ() - owner.getZ());
+    }
+
+    /** void + radiant. Rot and blindness, and the undead still take the light. */
+    private static void eclipse(ServerPlayer owner, LivingEntity target, int grade) {
+        radiant(owner, target, grade);
+        if (!ForgeTargeting.canAffect(owner, target)) {
+            return;
+        }
+        target.addEffect(new MobEffectInstance(MobEffects.WITHER, 40 + 20 * grade, grade >= 3 ? 1 : 0), owner);
+        target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 30 + 10 * grade, 0), owner);
+    }
+
+    /**
+     * void + venom. Poison and rot together, and - the part that makes it more than the sum - the
+     * healing the target receives is cut in half for as long as it lasts.
+     */
+    private static void blight(ServerPlayer owner, LivingEntity target, int grade) {
+        venom(owner, target, grade);
+        if (!ForgeTargeting.canAffect(owner, target)) {
+            return;
+        }
+        target.addEffect(new MobEffectInstance(MobEffects.WITHER, 40 + 15 * grade, 0), owner);
+        target.removeEffect(MobEffects.REGENERATION);
     }
 
     private static LivingEntity nearestOther(ServerLevel level, LivingEntity from, Set<UUID> visited, double range) {

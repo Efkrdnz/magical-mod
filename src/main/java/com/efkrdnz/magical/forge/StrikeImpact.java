@@ -198,7 +198,11 @@ public final class StrikeImpact {
             // Compounds borrow the impact of the parent they read as, tinted by their own palette.
             case BLACK_FLAME -> ForgeEffectStyle.VOID_IMPLOSION;
             case EXPLOSION -> ForgeEffectStyle.FIRE_BLOOM;
-            case RIME_GALE -> ForgeEffectStyle.FROST_SHARDS;
+            case RIME_GALE, HAILSTORM -> ForgeEffectStyle.FROST_SHARDS;
+            case PLASMA -> ForgeEffectStyle.STORM_FORK;
+            case MAGMA -> ForgeEffectStyle.TERRA_SHARDS;
+            case ECLIPSE -> ForgeEffectStyle.RADIANT_CROSS;
+            case BLIGHT, VERDIGRIS -> ForgeEffectStyle.VENOM_DRIP;
         };
     }
 }

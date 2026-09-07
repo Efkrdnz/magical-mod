@@ -11,8 +11,15 @@ import java.util.Optional;
  */
 public final class ForgeRules {
 
-    /** Most glyphs a single chain may contain. */
-    public static final int MAX_GLYPHS = 12;
+    /**
+     * Most glyphs a single chain may contain.
+     *
+     * <p>Sixteen quantized glyphs come to about 24.5 KB on the wire against a 32,767-byte cap, so
+     * the packet is not what binds. The recognizer is: one submit is roughly 4.7 million distance
+     * calls on the server thread, held in check only by the submit cooldown. Eighteen would still
+     * fit the packet and is not worth the tick.
+     */
+    public static final int MAX_GLYPHS = 16;
 
     /** Most strokes one glyph may be drawn with. */
     public static final int MAX_STROKES_PER_GLYPH = 6;
