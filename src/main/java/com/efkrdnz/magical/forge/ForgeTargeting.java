@@ -2,6 +2,7 @@ package com.efkrdnz.magical.forge;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 
 /**
@@ -28,13 +29,18 @@ public final class ForgeTargeting {
 
     private ForgeTargeting() {}
 
-    public static boolean canAffect(ServerPlayer owner, Entity target) {
+    public static boolean canAffect(LivingEntity owner, Entity target) {
         if (target == owner) {
             return true;
         }
         if (!(target instanceof Player other)) {
             return true; // mobs are never gated: this changes nothing for them
         }
-        return owner != null && other.canHarmPlayer(owner);
+        if (owner instanceof ServerPlayer wielder) {
+            return other.canHarmPlayer(wielder);
+        }
+        // A hostile mob wielding a forged weapon is not bound by rules that exist to stop players
+        // hurting each other. It still needs an owner: with none there is nobody to check for.
+        return owner != null;
     }
 }

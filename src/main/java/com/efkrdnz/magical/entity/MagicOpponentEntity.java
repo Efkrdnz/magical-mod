@@ -1,6 +1,8 @@
 package com.efkrdnz.magical.entity;
 
+import com.efkrdnz.magical.entity.ascendant.AscendantLoadout;
 import com.efkrdnz.magical.entity.ascendant.AscendantTier;
+import com.efkrdnz.magical.forge.ForgeMobStrike;
 import com.efkrdnz.magical.entity.ascendant.OpponentKind;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicMobCastingService;
@@ -105,6 +107,7 @@ public final class MagicOpponentEntity extends Monster {
         this.magicState.setBarrier(this.magicState.maxBarrier());
         setCustomName(Component.translatable(tier.nameKey()));
         setCustomNameVisible(true);
+        equipAscendantWeapon(tier);
         applyAscendantAttributes(tier);
         setHealth(getMaxHealth());
     }
@@ -188,9 +191,21 @@ public final class MagicOpponentEntity extends Monster {
         castDelay = 0;
     }
 
+    /**
+     * Hands the tier its blade, and guarantees it drops.
+     *
+     * <p>The weapon is the reward for the fight - an inscription the forge would refuse to make for
+     * the player who kills it - so it is not left to a vanilla drop roll.
+     */
+    private void equipAscendantWeapon(AscendantTier tier) {
+        setItemSlot(EquipmentSlot.MAINHAND, AscendantLoadout.weaponFor(tier));
+        setDropChance(EquipmentSlot.MAINHAND, 1.0F);
+    }
+
     private void applyAscendantAttributes(AscendantTier tier) {
         getAttribute(Attributes.MAX_HEALTH).setBaseValue(tier.health());
-        getAttribute(Attributes.ATTACK_DAMAGE).setBaseValue(tier.attack());
+        // The blade's own bite, on top of the tier's. Read after equipping for that reason.
+        getAttribute(Attributes.ATTACK_DAMAGE).setBaseValue(tier.attack() + ForgeMobStrike.bonusDamage(this));
         getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(tier.speed());
         // Both of these are flat on a clone at every difficulty, which is most of why level 5 melts.
         getAttribute(Attributes.ARMOR).setBaseValue(tier.armour());
@@ -381,6 +396,10 @@ public final class MagicOpponentEntity extends Monster {
     @Override
     public boolean doHurtTarget(ServerLevel level, net.minecraft.world.entity.Entity entity) {
         boolean hurt = super.doHurtTarget(level, entity);
+        if (hurt && entity instanceof LivingEntity struck) {
+            // A mob gets no combo, no charge and no echo, but the element on its blade still lands.
+            ForgeMobStrike.onMeleeHit(level, this, struck, (float) getAttributeValue(Attributes.ATTACK_DAMAGE));
+        }
         if (hurt && entity instanceof LivingEntity living && magicState.isPassiveEnabled(MagicPassiveContent.SIN_WRATH.id())) {
             living.knockback(0.22D + difficulty * 0.04D, getX() - living.getX(), getZ() - living.getZ());
         }

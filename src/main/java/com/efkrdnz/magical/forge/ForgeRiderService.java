@@ -78,7 +78,7 @@ public final class ForgeRiderService {
         };
     }
 
-    public static void apply(ServerLevel level, ServerPlayer owner, LivingEntity target, ForgedWeapon weapon,
+    public static void apply(ServerLevel level, LivingEntity owner, LivingEntity target, ForgedWeapon weapon,
             ElementDefinition element, StrikeContext ctx) {
         if (!shouldProc(owner, weapon, element, ctx)) {
             return;
@@ -121,7 +121,7 @@ public final class ForgeRiderService {
         }
     }
 
-    private static boolean shouldProc(ServerPlayer owner, ForgedWeapon weapon, ElementDefinition element,
+    private static boolean shouldProc(LivingEntity owner, ForgedWeapon weapon, ElementDefinition element,
             StrikeContext ctx) {
         if (ctx.heavy() || ctx.finisher()) {
             return true;
@@ -130,14 +130,14 @@ public final class ForgeRiderService {
         return owner.getRandom().nextFloat() < chance;
     }
 
-    private static void fire(ServerPlayer owner, LivingEntity target, int grade) {
+    private static void fire(LivingEntity owner, LivingEntity target, int grade) {
         if (!ForgeTargeting.canAffect(owner, target)) {
             return;
         }
         target.igniteForSeconds(2.0f + 1.5f * grade);
     }
 
-    private static void frost(ServerPlayer owner, LivingEntity target, int grade) {
+    private static void frost(LivingEntity owner, LivingEntity target, int grade) {
         if (!ForgeTargeting.canAffect(owner, target)) {
             return;
         }
@@ -146,7 +146,7 @@ public final class ForgeRiderService {
         target.setTicksFrozen(target.getTicksFrozen() + 50 + 20 * grade);
     }
 
-    private static void storm(ServerLevel level, ServerPlayer owner, LivingEntity target, ElementDefinition element,
+    private static void storm(ServerLevel level, LivingEntity owner, LivingEntity target, ElementDefinition element,
             StrikeContext ctx, int grade) {
         int chains = grade >= STORM_TWO_CHAIN_GRADE ? 2 : 1;
         float damage = ctx.dealtDamage() * STORM_CHAIN_FRACTION;
@@ -176,7 +176,7 @@ public final class ForgeRiderService {
      * BINDING is the rune that ties an element tighter to the blade. On a VOID weapon that shows up
      * as a deeper draw: the siphon takes two more mana on top of the grade's own share.
      */
-    private static void voidRider(ServerPlayer owner, LivingEntity target, int grade, boolean binding) {
+    private static void voidRider(LivingEntity owner, LivingEntity target, int grade, boolean binding) {
         if (ForgeTargeting.canAffect(owner, target)) {
             int amplifier = grade >= 5 ? 2 : grade >= 2 ? 1 : 0;
             target.addEffect(new MobEffectInstance(MobEffects.WITHER, 40 + 20 * grade, amplifier), owner);
@@ -184,16 +184,22 @@ public final class ForgeRiderService {
         // The mana siphon is the wielder's own draw, not something done to the target, so it is
         // unconditional: a Wither denied by the target gate still costs the wielder nothing extra,
         // but a legal siphon must not be held hostage by an illegal status.
-        PlayerMagicState state = owner.getData(MagicalAttachments.MAGIC_STATE);
-        state.addMana(VOID_BASE_SIPHON + grade + (binding ? VOID_BINDING_SIPHON : 0));
-        state.sync(owner);
+        //
+        // Only a player has a pool worth crediting. A mob wielding a forged weapon casts from a
+        // state it carries itself, not from this attachment, so siphoning into the attachment would
+        // top up something nothing ever reads.
+        if (owner instanceof ServerPlayer player) {
+            PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+            state.addMana(VOID_BASE_SIPHON + grade + (binding ? VOID_BINDING_SIPHON : 0));
+            state.sync(player);
+        }
     }
 
     private static boolean hasBinding(ForgedWeapon weapon) {
         return ForgeWeaponFlags.of(weapon).has(ForgeModifierKind.BINDING);
     }
 
-    private static void radiant(ServerPlayer owner, LivingEntity target, int grade) {
+    private static void radiant(LivingEntity owner, LivingEntity target, int grade) {
         if (ForgeTargeting.canAffect(owner, target)) {
             target.addEffect(new MobEffectInstance(MobEffects.GLOWING, 60 + 15 * grade, 0), owner);
         }
@@ -204,7 +210,7 @@ public final class ForgeRiderService {
         owner.heal(0.5f + 0.25f * grade);
     }
 
-    private static void venom(ServerPlayer owner, LivingEntity target, int grade) {
+    private static void venom(LivingEntity owner, LivingEntity target, int grade) {
         if (!ForgeTargeting.canAffect(owner, target)) {
             return;
         }
@@ -218,7 +224,7 @@ public final class ForgeRiderService {
      * The shockwave under the blow. The slow it leaves is also the "tremor" SHATTER looks for, so
      * a terra chain sets up its own finisher.
      */
-    private static void terra(ServerLevel level, ServerPlayer owner, LivingEntity target, StrikeContext ctx,
+    private static void terra(ServerLevel level, LivingEntity owner, LivingEntity target, StrikeContext ctx,
             int grade) {
         float splash = ctx.dealtDamage() * (20 + 4 * grade) / 100.0f;
         double radius = 1.5 + 0.2 * grade;
@@ -238,7 +244,7 @@ public final class ForgeRiderService {
         }
     }
 
-    private static void gale(ServerPlayer owner, LivingEntity target, int grade) {
+    private static void gale(LivingEntity owner, LivingEntity target, int grade) {
         if (ForgeTargeting.canAffect(owner, target)) {
             target.knockback(1.0 + 0.25 * grade, owner.getX() - target.getX(), owner.getZ() - target.getZ());
         }
@@ -249,7 +255,7 @@ public final class ForgeRiderService {
      * fire + void. A burn that fire resistance and water do not stop, plus the rot of the void, and
      * no regeneration to grow the damage back.
      */
-    private static void blackFlame(ServerPlayer owner, LivingEntity target, int grade) {
+    private static void blackFlame(LivingEntity owner, LivingEntity target, int grade) {
         if (!ForgeTargeting.canAffect(owner, target)) {
             return;
         }
@@ -268,7 +274,7 @@ public final class ForgeRiderService {
      * GUARD rune that soaks incoming damage, and the two together would turn a detonation into a
      * way to charge a guard rather than a risk.
      */
-    private static void explosion(ServerLevel level, ServerPlayer owner, LivingEntity target, StrikeContext ctx,
+    private static void explosion(ServerLevel level, LivingEntity owner, LivingEntity target, StrikeContext ctx,
             int grade) {
         double radius = 2.0 + 0.25 * grade;
         float centre = ctx.dealtDamage() * EXPLOSION_FRACTION;
@@ -303,7 +309,7 @@ public final class ForgeRiderService {
     }
 
     /** frost + gale. Freezes, then drags the target back toward the smith rather than away. */
-    private static void rimeGale(ServerPlayer owner, LivingEntity target, int grade) {
+    private static void rimeGale(LivingEntity owner, LivingEntity target, int grade) {
         if (!ForgeTargeting.canAffect(owner, target)) {
             return;
         }
@@ -314,7 +320,7 @@ public final class ForgeRiderService {
     }
 
     /** void + radiant. Rot and blindness, and the undead still take the light. */
-    private static void eclipse(ServerPlayer owner, LivingEntity target, int grade) {
+    private static void eclipse(LivingEntity owner, LivingEntity target, int grade) {
         radiant(owner, target, grade);
         if (!ForgeTargeting.canAffect(owner, target)) {
             return;
@@ -327,7 +333,7 @@ public final class ForgeRiderService {
      * void + venom. Poison and rot together, and - the part that makes it more than the sum - the
      * healing the target receives is cut in half for as long as it lasts.
      */
-    private static void blight(ServerPlayer owner, LivingEntity target, int grade) {
+    private static void blight(LivingEntity owner, LivingEntity target, int grade) {
         venom(owner, target, grade);
         if (!ForgeTargeting.canAffect(owner, target)) {
             return;
