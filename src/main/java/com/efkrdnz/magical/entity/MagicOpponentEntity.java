@@ -36,12 +36,17 @@ import net.minecraft.world.phys.Vec3;
 
 public final class MagicOpponentEntity extends Monster {
     private static final int BASE_CAST_INTERVAL = 26;
+
+    /** Damage multiplier against an Ascendant caught between bursts. */
+    private static final float RECOVERY_VULNERABILITY = 1.25F;
     private PlayerMagicState magicState = new PlayerMagicState();
     private UUID copiedPlayerUuid;
     private String copiedPlayerName = "Mage Clone";
     private int difficulty = 2;
     private int castDelay;
     private OpponentKind kind = OpponentKind.CLONE;
+    private int burstRemaining;
+    private int recoveryLeft;
 
     public MagicOpponentEntity(EntityType<? extends MagicOpponentEntity> entityType, Level level) {
         super(entityType, level);
@@ -115,6 +120,38 @@ public final class MagicOpponentEntity extends Monster {
             magicState.unlock(MagicContent.DIASPORA.id());
             magicState.unlock(MagicContent.FALLEN_FIRMAMENT.id());
         }
+        if (tier.tier() >= 8) {
+            // These three already declare usable mob profiles and were held back only by the
+            // created-skill check, which an Ascendant is now allowed past.
+            magicState.unlock(MagicContent.FALLEN_SUN.id());
+            magicState.unlock(MagicContent.TOTAL_ECLIPSE.id());
+            magicState.unlock(MagicContent.TECTONIC_VERDICT.id());
+        }
+    }
+
+    /**
+     * Whether the boss is in the opening between bursts.
+     *
+     * <p>This is the fight's rhythm: it casts a burst, then stands exposed. Making a boss cast ever
+     * faster only produces noise - what a player can actually read and answer is a pause.
+     */
+    public boolean isRecovering() {
+        return recoveryLeft > 0;
+    }
+
+    /** Spends one spell of the current burst, and opens the recovery window when it runs out. */
+    private void advanceBurst(AscendantTier tier) {
+        if (burstRemaining <= 0) {
+            burstRemaining = tier.burstSpells();
+        }
+        burstRemaining--;
+        if (burstRemaining > 0) {
+            castDelay = tier.burstGapTicks();
+            return;
+        }
+        castDelay = 0;
+        recoveryLeft = tier.recoveryTicks();
+        burstRemaining = tier.burstSpells();
     }
 
     private void applyAscendantAttributes(AscendantTier tier) {
@@ -210,6 +247,11 @@ public final class MagicOpponentEntity extends Monster {
         }
         getLookControl().setLookAt(target, 30.0F, 30.0F);
         updateTacticalMovement(target);
+        if (recoveryLeft > 0) {
+            // The opening. A clone never enters one, so its cadence is exactly what it always was.
+            recoveryLeft--;
+            return;
+        }
         if (castDelay > 0) {
             castDelay--;
             return;
@@ -223,8 +265,13 @@ public final class MagicOpponentEntity extends Monster {
             castDelay = Math.max(6, 18 - difficulty * 2);
             return;
         }
-        if (MagicMobCastingService.cast(this, magicState, skill, target)) {
-            castDelay = nextCastDelay(skill);
+        if (MagicMobCastingService.cast(this, magicState, skill, target, difficulty)) {
+            java.util.Optional<AscendantTier> tier = ascendantTier();
+            if (tier.isPresent()) {
+                advanceBurst(tier.get());
+            } else {
+                castDelay = nextCastDelay(skill);
+            }
         } else {
             castDelay = Math.max(7, 16 - difficulty);
         }
@@ -256,8 +303,8 @@ public final class MagicOpponentEntity extends Monster {
             return;
         }
 
-        boolean hasRanged = MagicMobCastingService.hasUsableProjectile(this, magicState);
-        boolean hasCloseBurst = MagicMobCastingService.hasUsableCloseBurst(this, magicState);
+        boolean hasRanged = MagicMobCastingService.hasUsableProjectile(this, magicState, difficulty);
+        boolean hasCloseBurst = MagicMobCastingService.hasUsableCloseBurst(this, magicState, difficulty);
         double preferredMin = hasRanged && !hasCloseBurst ? 7.5D : hasRanged ? 5.5D : 2.4D;
         double preferredMax = hasRanged ? 12.0D + difficulty * 0.75D : 5.0D;
 
@@ -306,6 +353,10 @@ public final class MagicOpponentEntity extends Monster {
     @Override
     public boolean hurtServer(ServerLevel level, DamageSource damageSource, float amount) {
         float adjusted = amount;
+        if (isRecovering()) {
+            // The opening has to be worth taking, or the right play is simply to keep running.
+            adjusted *= RECOVERY_VULNERABILITY;
+        }
         if (difficulty >= 3 && getTarget() instanceof LivingEntity target && getHealth() / Math.max(1.0F, getMaxHealth()) < 0.62F && random.nextFloat() < 0.16F + difficulty * 0.035F) {
             MagicMobCastingService.castBestDefense(this, magicState, target, difficulty);
         }
@@ -332,6 +383,8 @@ public final class MagicOpponentEntity extends Monster {
         tag.putString("CopiedPlayerName", copiedPlayerName);
         tag.putInt("OpponentDifficulty", difficulty);
         tag.putString("OpponentKind", kind.name());
+        tag.putInt("BurstRemaining", burstRemaining);
+        tag.putInt("RecoveryLeft", recoveryLeft);
         tag.putInt("CastDelay", castDelay);
     }
 
@@ -353,6 +406,8 @@ public final class MagicOpponentEntity extends Monster {
         }
         copiedPlayerName = tag.contains("CopiedPlayerName") ? tag.getString("CopiedPlayerName") : "Mage Clone";
         castDelay = Math.max(0, tag.getInt("CastDelay"));
+        burstRemaining = Math.max(0, tag.getInt("BurstRemaining"));
+        recoveryLeft = Math.max(0, tag.getInt("RecoveryLeft"));
         java.util.Optional<AscendantTier> tier = ascendantTier();
         if (tier.isPresent()) {
             // The mana pool bonus is derived rather than saved, so it has to be rebuilt or a

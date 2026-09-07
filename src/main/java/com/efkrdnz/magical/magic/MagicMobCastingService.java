@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.magic;
 
 import com.efkrdnz.magical.MagicalMod;
+import com.efkrdnz.magical.entity.ascendant.AscendantTier;
 import com.efkrdnz.magical.magic.cast.AimResolver;
 import com.efkrdnz.magical.magic.cast.CastContext;
 import com.efkrdnz.magical.magic.cast.CastResult;
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.function.Predicate;
 import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 
@@ -31,7 +33,7 @@ public final class MagicMobCastingService {
         float manaRatio = state.mana() / (float) Math.max(1, state.maxMana());
         List<MagicSkillDefinition> available = state.unlockedSkills().stream()
                 .map(MagicContent::get)
-                .filter(skill -> canMobUse(caster, state, skill))
+                .filter(skill -> canMobUse(caster, state, skill, difficulty))
                 .filter(skill -> difficulty >= 2 || caster.getRandom().nextFloat() > 0.12F)
                 .toList();
         if (available.isEmpty()) {
@@ -61,18 +63,18 @@ public final class MagicMobCastingService {
         return bestByScore(available, skill -> true, distance, healthRatio, manaRatio, difficulty);
     }
 
-    public static boolean hasUsableProjectile(LivingEntity caster, PlayerMagicState state) {
-        return hasUsable(caster, state, skill -> profile(skill).maxRange() >= 8.0F && role(skill) == MobCastProfile.Role.ATTACK);
+    public static boolean hasUsableProjectile(LivingEntity caster, PlayerMagicState state, int difficulty) {
+        return hasUsable(caster, state, difficulty, skill -> profile(skill).maxRange() >= 8.0F && role(skill) == MobCastProfile.Role.ATTACK);
     }
 
-    public static boolean hasUsableCloseBurst(LivingEntity caster, PlayerMagicState state) {
-        return hasUsable(caster, state, skill -> profile(skill).minRange() <= 2.0F && role(skill) == MobCastProfile.Role.ATTACK);
+    public static boolean hasUsableCloseBurst(LivingEntity caster, PlayerMagicState state, int difficulty) {
+        return hasUsable(caster, state, difficulty, skill -> profile(skill).minRange() <= 2.0F && role(skill) == MobCastProfile.Role.ATTACK);
     }
 
     public static boolean castBestDefense(LivingEntity caster, PlayerMagicState state, LivingEntity target, int difficulty) {
         List<MagicSkillDefinition> defenses = state.unlockedSkills().stream()
                 .map(MagicContent::get)
-                .filter(skill -> canMobUse(caster, state, skill))
+                .filter(skill -> canMobUse(caster, state, skill, difficulty))
                 .filter(skill -> role(skill) == MobCastProfile.Role.DEFENCE)
                 .toList();
         if (defenses.isEmpty()) {
@@ -81,13 +83,14 @@ public final class MagicMobCastingService {
         float healthRatio = caster.getHealth() / Math.max(1.0F, caster.getMaxHealth());
         float manaRatio = state.mana() / (float) Math.max(1, state.maxMana());
         MagicSkillDefinition best = bestByScore(defenses, skill -> true, target == null ? 0.0D : caster.distanceTo(target), healthRatio, manaRatio, difficulty);
-        return cast(caster, state, best, target == null ? caster : target);
+        return cast(caster, state, best, target == null ? caster : target, difficulty);
     }
 
-    private static boolean hasUsable(LivingEntity caster, PlayerMagicState state, Predicate<MagicSkillDefinition> predicate) {
+    private static boolean hasUsable(LivingEntity caster, PlayerMagicState state, int difficulty,
+            Predicate<MagicSkillDefinition> predicate) {
         return state.unlockedSkills().stream()
                 .map(MagicContent::get)
-                .anyMatch(skill -> canMobUse(caster, state, skill) && predicate.test(skill));
+                .anyMatch(skill -> canMobUse(caster, state, skill, difficulty) && predicate.test(skill));
     }
 
     private static MagicSkillDefinition bestByScore(List<MagicSkillDefinition> skills, Predicate<MagicSkillDefinition> filter, double distance, float healthRatio, float manaRatio, int difficulty) {
@@ -132,11 +135,12 @@ public final class MagicMobCastingService {
     }
 
     /** Cast a skill through its registry handler with a mob-built context. */
-    public static boolean cast(LivingEntity caster, PlayerMagicState state, MagicSkillDefinition definition, LivingEntity target) {
+    public static boolean cast(LivingEntity caster, PlayerMagicState state, MagicSkillDefinition definition,
+            LivingEntity target, int difficulty) {
         if (!(caster.level() instanceof ServerLevel level) || definition == null || target == null || !target.isAlive()) {
             return false;
         }
-        if (!canMobUse(caster, state, definition)) {
+        if (!canMobUse(caster, state, definition, difficulty)) {
             return false;
         }
         SkillCastHandler handler = SkillCastRegistry.get(definition.id());
@@ -187,20 +191,54 @@ public final class MagicMobCastingService {
         return false;
     }
 
+    /** Ordinary mobs, which reach no further than they ever have. */
     public static boolean canMobUse(LivingEntity caster, PlayerMagicState state, MagicSkillDefinition definition) {
+        return canMobUse(caster, state, definition, 0);
+    }
+
+    /**
+     * Whether {@code caster} may cast this, at this difficulty.
+     *
+     * <p>Ordinary mobs and clones are held to the roster they always were. Ascendants reach past it
+     * - the authority skills, the sub-skills and the created fusions - because a boss that can only
+     * cast what a zombie can cast is not a boss.
+     */
+    public static boolean canMobUse(LivingEntity caster, PlayerMagicState state,
+            MagicSkillDefinition definition, int difficulty) {
         if (definition == null || !state.hasUnlocked(definition.id()) || state.isSkillOnCooldown(definition.id())) {
             return false;
         }
-        if (MagicContent.isAuthoritySkill(definition.id()) || MagicContent.isSubSkill(definition.id())) {
+        if (isNeverCastableByMobs(definition.id())) {
             return false;
         }
-        if (MagicContent.CREATED_SKILLS.contains(definition.id()) || MagicContent.VAULT_OF_AVARICE.id().equals(definition.id())) {
-            return false;
+        if (!AscendantTier.isAscendant(difficulty)) {
+            if (MagicContent.isAuthoritySkill(definition.id()) || MagicContent.isSubSkill(definition.id())) {
+                return false;
+            }
+            if (MagicContent.CREATED_SKILLS.contains(definition.id())) {
+                return false;
+            }
         }
         if (!SkillCastRegistry.has(definition.id()) || !SkillCastRegistry.get(definition.id()).mob().usable()) {
             return false;
         }
         MagicSkillResolvedStats stats = definition.resolve(state.tuningFor(definition.id()));
         return state.mana() >= stats.manaCost();
+    }
+
+    /**
+     * The permanent denylist, which no difficulty lifts.
+     *
+     * <p>Both Perfect Seals end a fight rather than shape it: a sealed player cannot cast at all,
+     * and a sealed boss cannot be damaged. Either direction leaves nobody playing. Vault of Avarice
+     * is mana storage with no combat meaning on a mob.
+     *
+     * <p>The pair of seal ids mirrors {@code MagicCastingService.isPerfectSealSubSkill} - there are
+     * two of them, and missing either one is the whole failure.
+     */
+    public static boolean isNeverCastableByMobs(ResourceLocation id) {
+        return MagicContent.GABRIEL_PERFECT_SEAL.id().equals(id)
+                || MagicContent.AEGIS_PERFECT_SEAL.id().equals(id)
+                || MagicContent.VAULT_OF_AVARICE.id().equals(id);
     }
 }
