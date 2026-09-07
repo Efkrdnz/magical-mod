@@ -10,6 +10,7 @@ import com.efkrdnz.magical.entity.BlackFlameProjectileEntity;
 import com.efkrdnz.magical.entity.JudgementBeamEntity;
 import com.efkrdnz.magical.entity.MagicCircleEffectEntity;
 import com.efkrdnz.magical.entity.MagicOpponentEntity;
+import com.efkrdnz.magical.entity.ascendant.AscendantTier;
 import com.efkrdnz.magical.magic.AuthorityContent;
 import com.efkrdnz.magical.magic.MagicCodexService;
 import com.efkrdnz.magical.magic.MagicContent;
@@ -148,7 +149,7 @@ public final class MagicalCommands {
                     .then(Commands.literal("opponent")
                             .then(Commands.literal("clone")
                                     .executes(context -> spawnCloneOpponent(context.getSource(), 2))
-                                    .then(Commands.argument("difficulty", IntegerArgumentType.integer(0, 5))
+                                    .then(Commands.argument("difficulty", IntegerArgumentType.integer(0, AscendantTier.MAX_TIER))
                                             .executes(context -> spawnCloneOpponent(context.getSource(), IntegerArgumentType.getInteger(context, "difficulty"))))))
                     .then(Commands.literal("codex")
                             .executes(context -> withPlayer(context.getSource(), player -> {
@@ -603,15 +604,26 @@ public final class MagicalCommands {
             });
         }
 
+        /**
+         * Spawns whichever opponent the number names.
+         *
+         * <p>0-5 is still a clone of the caller, unchanged. 6 and up is an Ascendant, which copies
+         * nobody - the same fight for every player who runs the command.
+         */
         private static int spawnCloneOpponent(CommandSourceStack source, int difficulty) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
             return withPlayer(source, player -> {
                 Vec3 look = player.getLookAngle().normalize();
                 Vec3 position = player.position().add(look.scale(3.0D));
-                MagicOpponentEntity clone = MagicOpponentEntity.cloneFrom(player, difficulty);
-                clone.moveTo(position.x, position.y, position.z, player.getYRot() + 180.0F, 0.0F);
-                clone.setTarget(player);
-                player.serverLevel().addFreshEntity(clone);
-                player.displayClientMessage(Component.translatable("message.magical.opponent_clone_spawned", difficulty), false);
+                boolean ascendant = AscendantTier.isAscendant(difficulty);
+                MagicOpponentEntity opponent = ascendant
+                        ? MagicOpponentEntity.ascendant(player.level(), difficulty)
+                        : MagicOpponentEntity.cloneFrom(player, difficulty);
+                opponent.moveTo(position.x, position.y, position.z, player.getYRot() + 180.0F, 0.0F);
+                opponent.setTarget(player);
+                player.serverLevel().addFreshEntity(opponent);
+                player.displayClientMessage(Component.translatable(
+                        ascendant ? "message.magical.ascendant_spawned" : "message.magical.opponent_clone_spawned",
+                        difficulty), false);
                 return 1;
             });
         }

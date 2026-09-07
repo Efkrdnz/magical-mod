@@ -1,5 +1,8 @@
 package com.efkrdnz.magical.entity;
 
+import com.efkrdnz.magical.entity.ascendant.AscendantTier;
+import com.efkrdnz.magical.entity.ascendant.OpponentKind;
+import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicMobCastingService;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
@@ -38,6 +41,7 @@ public final class MagicOpponentEntity extends Monster {
     private String copiedPlayerName = "Mage Clone";
     private int difficulty = 2;
     private int castDelay;
+    private OpponentKind kind = OpponentKind.CLONE;
 
     public MagicOpponentEntity(EntityType<? extends MagicOpponentEntity> entityType, Level level) {
         super(entityType, level);
@@ -61,6 +65,80 @@ public final class MagicOpponentEntity extends Monster {
         return clone;
     }
 
+    /**
+     * Spawns an authored enemy rather than a copy of anyone.
+     *
+     * <p>A clone is only ever as dangerous as the player who cast it, which is the right shape for a
+     * sparring partner and the wrong one for a boss - a fresh character's level 10 would be
+     * harmless. An Ascendant reads {@link AscendantTier} instead, so tier 8 is the same fight for
+     * everyone who meets it.
+     */
+    public static MagicOpponentEntity ascendant(Level level, int tier) {
+        MagicOpponentEntity opponent = new MagicOpponentEntity(
+                com.efkrdnz.magical.registry.MagicalEntities.MAGIC_OPPONENT.get(), level);
+        opponent.becomeAscendant(AscendantTier.byTier(tier).orElse(AscendantTier.ECHO));
+        return opponent;
+    }
+
+    private void becomeAscendant(AscendantTier tier) {
+        this.kind = OpponentKind.ASCENDANT;
+        this.difficulty = tier.tier();
+        this.copiedPlayerUuid = null;
+        this.copiedPlayerName = "Ascendant";
+        this.magicState = new PlayerMagicState();
+        // maxMana() is a config base plus two bonuses; the class pool bonus is the one that is
+        // never saved, which is exactly right for a state that is rebuilt on load.
+        this.magicState.setClassPoolBonuses(
+                Math.max(0, tier.maxMana() - this.magicState.maxMana()), 0);
+        grantRoster(tier);
+        this.magicState.refillMana();
+        this.magicState.setBarrier(this.magicState.maxBarrier());
+        setCustomName(Component.translatable(tier.nameKey()));
+        setCustomNameVisible(true);
+        applyAscendantAttributes(tier);
+        setHealth(getMaxHealth());
+    }
+
+    /**
+     * The Ascendant's own spell list.
+     *
+     * <p>Every id here is already mob-castable: they carry usable {@code MobCastProfile}s and sit
+     * outside the sets {@code canMobUse} refuses. Higher tiers reach past that, which is a later
+     * phase and a change to the gate rather than to this list.
+     */
+    private void grantRoster(AscendantTier tier) {
+        magicState.unlock(MagicContent.CRUCIBLE.id());
+        magicState.unlock(MagicContent.LEVIATHAN_COIL.id());
+        magicState.unlock(MagicContent.HEAVENS_GAZE.id());
+        magicState.unlock(MagicContent.ECHOES_OF_PASSAGE.id());
+        if (tier.tier() >= 7) {
+            magicState.unlock(MagicContent.DIASPORA.id());
+            magicState.unlock(MagicContent.FALLEN_FIRMAMENT.id());
+        }
+    }
+
+    private void applyAscendantAttributes(AscendantTier tier) {
+        getAttribute(Attributes.MAX_HEALTH).setBaseValue(tier.health());
+        getAttribute(Attributes.ATTACK_DAMAGE).setBaseValue(tier.attack());
+        getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(tier.speed());
+        // Both of these are flat on a clone at every difficulty, which is most of why level 5 melts.
+        getAttribute(Attributes.ARMOR).setBaseValue(tier.armour());
+        getAttribute(Attributes.KNOCKBACK_RESISTANCE).setBaseValue(tier.knockbackResistance());
+    }
+
+    /** The tier this opponent is, or empty when it is a clone. */
+    public java.util.Optional<AscendantTier> ascendantTier() {
+        return kind == OpponentKind.ASCENDANT ? AscendantTier.byTier(difficulty) : java.util.Optional.empty();
+    }
+
+    public OpponentKind kind() {
+        return kind;
+    }
+
+    public int difficulty() {
+        return difficulty;
+    }
+
     public void copyFromPlayer(ServerPlayer player, int difficulty) {
         this.magicState = player.getData(MagicalAttachments.MAGIC_STATE).copy();
         this.magicState.clearAuthority();
@@ -69,6 +147,9 @@ public final class MagicOpponentEntity extends Monster {
         this.magicState.setBarrier(this.magicState.maxBarrier());
         this.copiedPlayerUuid = player.getUUID();
         this.copiedPlayerName = player.getGameProfile().getName() + "'s Clone";
+        // Deliberately still 0..5: a clone above 5 would wear boss stats over a roster that is only
+        // ever as good as the player who spawned it. Six and up go through ascendant() instead.
+        this.kind = OpponentKind.CLONE;
         this.difficulty = Mth.clamp(difficulty, 0, 5);
         setCustomName(Component.literal(copiedPlayerName));
         setCustomNameVisible(true);
@@ -109,13 +190,15 @@ public final class MagicOpponentEntity extends Monster {
     }
 
     private void tickMagicState() {
+        java.util.Optional<AscendantTier> tier = ascendantTier();
         if (tickCount % 20 == 0 && magicState.mana() < magicState.maxMana()) {
-            magicState.addMana(2 + difficulty);
+            magicState.addMana(tier.map(AscendantTier::manaPerSecond).orElse(2 + difficulty));
         }
+        int rate = tier.map(AscendantTier::cooldownRate).orElse(1);
         for (var skillId : magicState.unlockedSkills()) {
             int cooldown = magicState.skillCooldown(skillId);
             if (cooldown > 0) {
-                magicState.setSkillCooldown(skillId, cooldown - 1);
+                magicState.setSkillCooldown(skillId, Math.max(0, cooldown - rate));
             }
         }
     }
@@ -248,23 +331,39 @@ public final class MagicOpponentEntity extends Monster {
         }
         tag.putString("CopiedPlayerName", copiedPlayerName);
         tag.putInt("OpponentDifficulty", difficulty);
+        tag.putString("OpponentKind", kind.name());
         tag.putInt("CastDelay", castDelay);
     }
 
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
+        // An opponent saved before Ascendants existed carries no kind tag and a difficulty of at
+        // most 5, so it loads back as exactly the clone it was.
+        kind = OpponentKind.byName(tag.getString("OpponentKind"));
+        difficulty = Mth.clamp(tag.getInt("OpponentDifficulty"), 0, AscendantTier.MAX_TIER);
         if (tag.contains("MagicState")) {
             magicState = PlayerMagicState.load(tag.getCompound("MagicState"));
-            magicState.clearAuthority();
+            if (kind == OpponentKind.CLONE) {
+                magicState.clearAuthority();
+            }
         }
         if (tag.hasUUID("CopiedPlayer")) {
             copiedPlayerUuid = tag.getUUID("CopiedPlayer");
         }
         copiedPlayerName = tag.contains("CopiedPlayerName") ? tag.getString("CopiedPlayerName") : "Mage Clone";
-        difficulty = Mth.clamp(tag.getInt("OpponentDifficulty"), 0, 5);
         castDelay = Math.max(0, tag.getInt("CastDelay"));
-        setCustomName(Component.literal(copiedPlayerName));
+        java.util.Optional<AscendantTier> tier = ascendantTier();
+        if (tier.isPresent()) {
+            // The mana pool bonus is derived rather than saved, so it has to be rebuilt or a
+            // reloaded Ascendant would come back with a config-default pool it cannot cast from.
+            magicState.setClassPoolBonuses(
+                    Math.max(0, tier.get().maxMana() - new PlayerMagicState().maxMana()), 0);
+            magicState.setMana(Math.min(magicState.mana(), magicState.maxMana()));
+            setCustomName(Component.translatable(tier.get().nameKey()));
+        } else {
+            setCustomName(Component.literal(copiedPlayerName));
+        }
         setCustomNameVisible(true);
         if (MagicMobCastingService.needsWeapon(magicState) && getMainHandItem().isEmpty()) {
             setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.DIAMOND_SWORD));
