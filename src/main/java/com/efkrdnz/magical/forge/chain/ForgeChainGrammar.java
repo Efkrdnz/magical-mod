@@ -229,11 +229,24 @@ public final class ForgeChainGrammar {
      * <p>Grade, element and temper are properties of the whole weapon and are lifted out; what is
      * left is the run the weapon actually executes, and its order is the part that carries meaning.
      */
+    /**
+     * The run the weapon fires: every form, modifier and operator, in the order they were drawn.
+     *
+     * <p>Operators belong here as much as the runes they act on. A trigger only means anything
+     * relative to the form that follows it, so dropping it would leave the chain compiling as
+     * though it had never been drawn - charged for at the forge, absent from the weapon.
+     *
+     * <p>Grade, element and temper are lifted out before this and are properties of the blade
+     * rather than steps of the program.
+     */
     private static List<String> programOf(List<RecognizedGlyph> glyphs) {
         List<String> out = new ArrayList<>();
         for (RecognizedGlyph glyph : glyphs) {
-            if (glyph.category() == GlyphCategory.FORM || glyph.category() == GlyphCategory.MODIFIER) {
-                out.add(glyph.id());
+            switch (glyph.category()) {
+                case FORM, MODIFIER, OPERATOR -> out.add(glyph.id());
+                case GRADE, ELEMENT, TEMPER -> {
+                    // properties of the weapon, not steps of the program
+                }
             }
         }
         return out;
