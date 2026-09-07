@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.forge.chain;
 
 import com.efkrdnz.magical.forge.ForgeModifierKind;
+import com.efkrdnz.magical.forge.fusion.ForgeFusion;
 import com.efkrdnz.magical.forge.glyph.GlyphCategory;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -36,9 +37,11 @@ public final class ForgeChainGrammar {
             return single;
         }
         List<Integer> elements = indicesOf(glyphs, GlyphCategory.ELEMENT);
-        single = requireExactlyOne(elements, ForgeError.MISSING_ELEMENT, ForgeError.DUPLICATE_ELEMENT);
-        if (single != null) {
-            return single;
+        if (elements.isEmpty()) {
+            return invalid(ForgeError.MISSING_ELEMENT, 0);
+        }
+        if (elements.size() > 2) {
+            return invalid(ForgeError.DUPLICATE_ELEMENT, elements.get(2));
         }
         RecognizedGlyph gradeGlyph = glyphs.get(grades.get(0));
         Optional<ForgeGrade> resolved = ForgeGrade.byName(gradeGlyph.id());
@@ -66,8 +69,11 @@ public final class ForgeChainGrammar {
         if (modifiers.contains(SEEKING_MODIFIER) && forms.stream().noneMatch(PROJECTILE_FORMS::contains)) {
             return invalid(ForgeError.SEEKING_NEEDS_PROJECTILE, 0);
         }
-        return valid(glyphs, grade, glyphs.get(elements.get(0)).id(), forms, modifiers,
-                programOf(glyphs), tempers);
+        ElementOutcome element = resolveElement(glyphs, elements, grade);
+        if (element.failure() != null) {
+            return element.failure();
+        }
+        return valid(glyphs, grade, element.id(), forms, modifiers, programOf(glyphs), tempers);
     }
 
     private static ForgeValidation valid(
@@ -83,6 +89,38 @@ public final class ForgeChainGrammar {
                 : Optional.of(glyphs.get(tempers.get(0)).id());
         return new ForgeValidation.Valid(
                 new ForgeRecipe(element, grade, temper, forms, modifiers, program, meanQuality(glyphs)));
+    }
+
+    /**
+     * One element rune stands for itself; two fuse into a compound.
+     *
+     * <p>The fusion is settled here, before a recipe exists, so what leaves the grammar is always a
+     * single element id. Everything downstream - the component, the rider, the impact style - deals
+     * with one element and never learns that two runes went in.
+     *
+     * <p>Whether the smith is allowed the fusion is not decided here. This layer is Minecraft-free
+     * and knows nothing about who is holding the hammer; {@code ForgeGate} answers that on both
+     * sides, from the fusion this returns.
+     */
+    private static ElementOutcome resolveElement(
+            List<RecognizedGlyph> glyphs, List<Integer> elements, ForgeGrade grade) {
+        String first = glyphs.get(elements.get(0)).id();
+        if (elements.size() == 1) {
+            return new ElementOutcome(first, null);
+        }
+        if (grade.elementSlots() < 2) {
+            return new ElementOutcome(null, invalid(ForgeError.FUSION_NEEDS_GRADE, elements.get(1)));
+        }
+        String second = glyphs.get(elements.get(1)).id();
+        Optional<ForgeFusion> fusion = ForgeFusion.of(first, second);
+        return fusion
+                .map(found -> new ElementOutcome(found.resultPath(), null))
+                .orElseGet(() -> new ElementOutcome(
+                        null, invalid(ForgeError.FUSION_UNKNOWN_PAIR, elements.get(1))));
+    }
+
+    /** Either the element id the chain resolved to, or the rule it broke reaching for one. */
+    private record ElementOutcome(String id, ForgeValidation failure) {
     }
 
     /** Integer mean of every glyph quality in the chain, rounded half up. */

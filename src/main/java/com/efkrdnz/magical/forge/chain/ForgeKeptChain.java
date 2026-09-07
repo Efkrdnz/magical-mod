@@ -15,7 +15,7 @@ import java.util.Optional;
  * glyph is worth - stays pure and unit-testable alongside the rest of {@code forge/chain}.</p>
  *
  * @param grade     bare grade sigil path, e.g. {@code "high"}
- * @param element   bare element core path, e.g. {@code "fire"}
+ * @param elements  bare element core paths; two when the weapon element was fused
  * @param temper    optional bare temper path
  * @param forms     bare form paths, with repeats, in the order the weapon stores them
  * @param modifiers bare modifier paths, in the order the weapon stores them
@@ -24,7 +24,7 @@ import java.util.Optional;
  */
 public record ForgeKeptChain(
         String grade,
-        String element,
+        List<String> elements,
         Optional<String> temper,
         List<String> forms,
         List<String> modifiers,
@@ -32,6 +32,7 @@ public record ForgeKeptChain(
         int quality) {
 
     public ForgeKeptChain {
+        elements = List.copyOf(elements);
         forms = List.copyOf(forms);
         modifiers = List.copyOf(modifiers);
         program = List.copyOf(program);
@@ -41,7 +42,7 @@ public record ForgeKeptChain(
     public List<String> idsOf(GlyphCategory category) {
         return switch (category) {
             case GRADE -> List.of(grade);
-            case ELEMENT -> List.of(element);
+            case ELEMENT -> elements;
             case TEMPER -> temper.map(List::of).orElseGet(List::of);
             case FORM -> forms;
             case MODIFIER -> modifiers;
@@ -60,7 +61,9 @@ public record ForgeKeptChain(
     public List<ForgeKeptGlyphs.Kept> preloadOrder() {
         List<ForgeKeptGlyphs.Kept> out = new ArrayList<>();
         out.add(new ForgeKeptGlyphs.Kept(grade, GlyphCategory.GRADE));
-        out.add(new ForgeKeptGlyphs.Kept(element, GlyphCategory.ELEMENT));
+        for (String element : elements) {
+            out.add(new ForgeKeptGlyphs.Kept(element, GlyphCategory.ELEMENT));
+        }
         temper.ifPresent(id -> out.add(new ForgeKeptGlyphs.Kept(id, GlyphCategory.TEMPER)));
         for (String id : runOrder()) {
             out.add(new ForgeKeptGlyphs.Kept(id, categoryOf(id)));

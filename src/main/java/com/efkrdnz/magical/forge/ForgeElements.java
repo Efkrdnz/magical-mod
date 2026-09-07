@@ -21,6 +21,11 @@ public final class ForgeElements {
     public static final ElementDefinition TERRA;
     public static final ElementDefinition GALE;
 
+    // Compound elements. No glyph draws these; the grammar fuses a pair into one.
+    public static final ElementDefinition BLACK_FLAME;
+    public static final ElementDefinition EXPLOSION;
+    public static final ElementDefinition RIME_GALE;
+
     static {
         Map<ResourceLocation, ElementDefinition> map = new LinkedHashMap<>();
         FIRE = register(map, new ElementDefinition(
@@ -39,6 +44,12 @@ public final class ForgeElements {
                 ForgeIds.id("terra"), ForgeElementKind.TERRA, 0xC28B4A, 0x6B4423, 0xE8C99A, 0.55f));
         GALE = register(map, new ElementDefinition(
                 ForgeIds.id("gale"), ForgeElementKind.GALE, 0xD8F5E8, 0x8FE3C2, 0xFFFFFF, 0.60f));
+        BLACK_FLAME = register(map, new ElementDefinition(
+                ForgeIds.id("black_flame"), ForgeElementKind.BLACK_FLAME, 0x2A0B3D, 0x8A2BE2, 0xFF4FD8, 0.70f));
+        EXPLOSION = register(map, new ElementDefinition(
+                ForgeIds.id("explosion"), ForgeElementKind.EXPLOSION, 0xFF8A1E, 0xFFE08A, 0x6B2A00, 0.75f));
+        RIME_GALE = register(map, new ElementDefinition(
+                ForgeIds.id("rime_gale"), ForgeElementKind.RIME_GALE, 0xCFF6FF, 0x9FE8D8, 0xFFFFFF, 0.65f));
         BY_ID = Collections.unmodifiableMap(map);
     }
 

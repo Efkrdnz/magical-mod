@@ -23,7 +23,7 @@ class ForgeKeptGlyphsTest {
      * the order a reforge has to hand back.
      */
     private static final ForgeKeptChain WEAPON = new ForgeKeptChain(
-            "high", "fire", Optional.of("keen"), List.of("slash", "cleave"), List.of("pierce"),
+            "high", List.of("fire"), Optional.of("keen"), List.of("slash", "cleave"), List.of("pierce"),
             List.of("slash", "pierce", "cleave"), 30);
 
     private static final int DRAWN_QUALITY = 90;
@@ -189,7 +189,7 @@ class ForgeKeptGlyphsTest {
         // No stored program: there is no drawn order left to recover, and forms-then-modifiers is
         // the order that weapon always behaved as.
         ForgeKeptChain legacy = new ForgeKeptChain(
-                "high", "fire", Optional.of("keen"), List.of("slash", "cleave"), List.of("pierce"),
+                "high", List.of("fire"), Optional.of("keen"), List.of("slash", "cleave"), List.of("pierce"),
                 List.of(), 30);
 
         assertEquals(List.of("high", "fire", "keen", "slash", "cleave", "pierce"),
@@ -199,7 +199,7 @@ class ForgeKeptGlyphsTest {
     @Test
     void preloadOrderSkipsATemperTheWeaponDoesNotHave() {
         ForgeKeptChain plain = new ForgeKeptChain(
-                "crude", "frost", Optional.empty(), List.of("thrust"), List.of(), List.of("thrust"), 55);
+                "crude", List.of("frost"), Optional.empty(), List.of("thrust"), List.of(), List.of("thrust"), 55);
 
         assertEquals(List.of("crude", "frost", "thrust"),
                 plain.preloadOrder().stream().map(ForgeKeptGlyphs.Kept::id).toList());

@@ -36,6 +36,16 @@ public enum ForgeGrade {
         return formSlots;
     }
 
+    /**
+     * How many element runes a chain of this grade may hold.
+     *
+     * <p>Two means the smith may fuse a pair. It sits at MYTHIC and above on top of the class and
+     * skill gates, which finally gives MYTHIC a reason to exist rather than being a cheaper DIVINE.
+     */
+    public int elementSlots() {
+        return ordinal() >= MYTHIC.ordinal() ? 2 : 1;
+    }
+
     public int modifierSlots() {
         return modifierSlots;
     }

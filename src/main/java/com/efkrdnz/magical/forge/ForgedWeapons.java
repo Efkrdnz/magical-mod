@@ -85,7 +85,9 @@ public final class ForgedWeapons {
     public static Optional<ForgeKeptChain> keptChain(Optional<ForgedWeapon> weapon) {
         return weapon.map(forged -> new ForgeKeptChain(
                 forged.grade().serializedName(),
-                localPath(forged.element()).orElse(""),
+                // A fused element has no glyph of its own, so the pair that made it goes back to
+                // the strip instead. Without this a fused weapon could never be reforged.
+                ForgeFusions.componentsOf(forged.element()),
                 forged.temper().flatMap(ForgedWeapons::localPath),
                 localPaths(forged.forms()),
                 localPaths(forged.modifiers()),

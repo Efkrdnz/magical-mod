@@ -4,6 +4,7 @@ import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.classes.MagicalClasses;
 import com.efkrdnz.magical.forge.chain.ForgeChainGrammar;
 import com.efkrdnz.magical.forge.chain.ForgeError;
+import com.efkrdnz.magical.forge.fusion.ForgeFusion;
 import com.efkrdnz.magical.forge.chain.ForgeGrade;
 import com.efkrdnz.magical.forge.chain.ForgeKeptGlyphs;
 import com.efkrdnz.magical.forge.chain.ForgeMaterial;
@@ -177,6 +178,10 @@ public final class BlacksmithForgeService {
         if (classFailure.isPresent()) {
             return classFailure.get();
         }
+        Optional<ForgeResultPayload> fusionFailure = checkFusionGate(state, recipe);
+        if (fusionFailure.isPresent()) {
+            return fusionFailure.get();
+        }
 
         ForgeMaterial material = ForgeMaterials.detect(weapon);
         Optional<ForgeResultPayload> gradeFailure = checkGradeCap(material, recipe.grade(), existing);
@@ -330,6 +335,22 @@ public final class BlacksmithForgeService {
             return Optional.of(ForgeResultPayload.fail(ForgeError.DIVINESMITH_REQUIRED, 0));
         }
         return Optional.empty();
+    }
+
+    /**
+     * Whether the smith may forge the fusion they drew.
+     *
+     * <p>The refusal carries the fusion ordinal in the argument, exactly as the grade cap carries a
+     * material ordinal, so the client can name the sorcery that is missing rather than saying only
+     * that something is.
+     */
+    private static Optional<ForgeResultPayload> checkFusionGate(PlayerMagicState state, ForgeRecipe recipe) {
+        Optional<ForgeFusion> fusion = ForgeFusions.byElement(ForgeIds.id(recipe.element()));
+        if (fusion.isEmpty()) {
+            return Optional.empty();
+        }
+        return ForgeGate.checkFusion(fusion.get(), state)
+                .map(error -> ForgeResultPayload.fail(error, fusion.get().ordinal()));
     }
 
     // --- step 7: material and grade cap ------------------------------------------------------

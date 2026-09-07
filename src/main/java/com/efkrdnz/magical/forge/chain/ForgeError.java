@@ -38,7 +38,19 @@ public enum ForgeError {
     MATERIAL_CAP,
     COOLDOWN,
     NO_MANA,
-    MISFIRE;
+    MISFIRE,
+
+    // Appended, never reordered: errors travel the wire as ordinals, so an insert anywhere above
+    // would make an older client render the wrong message for every error after it.
+
+    /** Two element runes that do not fuse into anything. */
+    FUSION_UNKNOWN_PAIR,
+    /** A fusion the smith lacks the class for. The argument is the fusion ordinal. */
+    FUSION_LOCKED_CLASS,
+    /** A fusion whose sorcery the smith has not learned. The argument is the fusion ordinal. */
+    FUSION_LOCKED_SKILL,
+    /** A second element rune drawn at a grade that holds only one. */
+    FUSION_NEEDS_GRADE;
 
     /** Translation key of the message shown to the player. */
     public String langKey() {

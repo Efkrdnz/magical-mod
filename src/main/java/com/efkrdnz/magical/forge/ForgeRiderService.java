@@ -40,6 +40,18 @@ public final class ForgeRiderService {
     private static final int VOID_BASE_SIPHON = 2;
     private static final int VOID_BINDING_SIPHON = 2;
 
+    /** Black flame bites deeper into anything already burning or already rotting. */
+    private static final float BLACK_FLAME_SYNERGY = 1.35f;
+
+    /** A detonation feeds on a target already alight. */
+    private static final float EXPLOSION_SYNERGY = 1.20f;
+
+    /** Share of the hit the detonation deals at its centre, falling to nothing at the rim. */
+    private static final float EXPLOSION_FRACTION = 0.55f;
+
+    /** How hard a rime gale hauls its target back toward the smith. */
+    private static final double RIME_GALE_PULL = 0.35;
+
     private ForgeRiderService() {}
 
     /**
@@ -52,7 +64,13 @@ public final class ForgeRiderService {
             case FIRE -> target.isOnFire() ? FIRE_SYNERGY : 1.0f;
             case FROST -> target.getTicksFrozen() > 0 ? FROST_SYNERGY : 1.0f;
             case GALE -> target.onGround() ? 1.0f : GALE_SYNERGY;
-            default -> 1.0f;
+            case STORM, VOID, RADIANT, VENOM, TERRA -> 1.0f;
+            // Compounds feed on what both their parents fed on.
+            case BLACK_FLAME -> target.isOnFire() || target.hasEffect(MobEffects.WITHER)
+                    ? BLACK_FLAME_SYNERGY : 1.0f;
+            case EXPLOSION -> target.isOnFire() ? EXPLOSION_SYNERGY : 1.0f;
+            case RIME_GALE -> !target.onGround() ? GALE_SYNERGY
+                    : target.getTicksFrozen() > 0 ? FROST_SYNERGY : 1.0f;
         };
     }
 
@@ -71,6 +89,9 @@ public final class ForgeRiderService {
             case VENOM -> venom(owner, target, grade);
             case TERRA -> terra(level, owner, target, ctx, grade);
             case GALE -> gale(owner, target, grade);
+            case BLACK_FLAME -> blackFlame(owner, target, grade);
+            case EXPLOSION -> explosion(level, owner, target, ctx, grade);
+            case RIME_GALE -> rimeGale(owner, target, grade);
         }
     }
 
@@ -196,6 +217,74 @@ public final class ForgeRiderService {
             target.knockback(1.0 + 0.25 * grade, owner.getX() - target.getX(), owner.getZ() - target.getZ());
         }
         owner.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 30 + 10 * grade, 0));
+    }
+
+    /**
+     * fire + void. A burn that fire resistance and water do not stop, plus the rot of the void, and
+     * no regeneration to grow the damage back.
+     */
+    private static void blackFlame(ServerPlayer owner, LivingEntity target, int grade) {
+        if (!ForgeTargeting.canAffect(owner, target)) {
+            return;
+        }
+        target.igniteForSeconds(3.0f + 2.0f * grade);
+        int witherAmplifier = grade >= 3 ? 2 : 1;
+        target.addEffect(new MobEffectInstance(MobEffects.WITHER, 40 + 20 * grade, witherAmplifier), owner);
+        // The burn is the point, so the healing that would outrun it is taken away for as long.
+        target.removeEffect(MobEffects.REGENERATION);
+    }
+
+    /**
+     * fire + gale. The only rider that does not put a status on the body it hit - it detonates at
+     * the point of impact and everything nearby wears it, falling off to the rim.
+     *
+     * <p>The wielder is left out. Self-damage would be funnier, but the forge already hands out a
+     * GUARD rune that soaks incoming damage, and the two together would turn a detonation into a
+     * way to charge a guard rather than a risk.
+     */
+    private static void explosion(ServerLevel level, ServerPlayer owner, LivingEntity target, StrikeContext ctx,
+            int grade) {
+        double radius = 2.0 + 0.25 * grade;
+        float centre = ctx.dealtDamage() * EXPLOSION_FRACTION;
+        if (centre <= 0.0f) {
+            return;
+        }
+        Vec3 origin = target.getBoundingBox().getCenter();
+        for (Entity entity : level.getEntities(target, target.getBoundingBox().inflate(radius),
+                candidate -> candidate instanceof LivingEntity living && living.isAlive())) {
+            if (entity == owner) {
+                continue;
+            }
+            LivingEntity caught = (LivingEntity) entity;
+            double distance = caught.getBoundingBox().getCenter().distanceTo(origin);
+            float falloff = (float) Math.max(0.0, 1.0 - distance / radius);
+            if (falloff <= 0.0f) {
+                continue;
+            }
+            MagicDamageService.hurt(caught, ForgeDamageTypes.magic(owner), centre * falloff,
+                    ForgeIds.id("forge_strike"));
+            if (!ForgeTargeting.canAffect(owner, caught)) {
+                continue;
+            }
+            caught.knockback((1.2 + 0.2 * grade) * falloff,
+                    origin.x - caught.getX(), origin.z - caught.getZ());
+            caught.igniteForSeconds(2.0f + grade);
+        }
+        // The body that was actually struck always burns, even standing dead centre.
+        if (ForgeTargeting.canAffect(owner, target)) {
+            target.igniteForSeconds(2.0f + grade);
+        }
+    }
+
+    /** frost + gale. Freezes, then drags the target back toward the smith rather than away. */
+    private static void rimeGale(ServerPlayer owner, LivingEntity target, int grade) {
+        if (!ForgeTargeting.canAffect(owner, target)) {
+            return;
+        }
+        target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40 + 15 * grade, 1), owner);
+        target.setTicksFrozen(target.getTicksFrozen() + 50 + 20 * grade);
+        // Note the sign: a gale pushes away, a rime gale hauls in.
+        target.knockback(RIME_GALE_PULL, target.getX() - owner.getX(), target.getZ() - owner.getZ());
     }
 
     private static LivingEntity nearestOther(ServerLevel level, LivingEntity from, Set<UUID> visited, double range) {

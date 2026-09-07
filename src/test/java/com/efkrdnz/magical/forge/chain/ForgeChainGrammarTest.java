@@ -119,12 +119,50 @@ class ForgeChainGrammarTest {
     }
 
     @Test
-    void aSecondElementIsRejectedAtItsIndex() {
+    void aSecondElementBelowMythicIsRejectedAtItsIndex() {
         ForgeValidation.Invalid invalid =
-                invalid(List.of(grade("crude"), element("fire"), form("slash"), element("frost")));
+                invalid(List.of(grade("crude"), element("fire"), form("slash"), element("void")));
+
+        assertEquals(ForgeError.FUSION_NEEDS_GRADE, invalid.error());
+        assertEquals(3, invalid.argument());
+    }
+
+    @Test
+    void aThirdElementIsRejectedHoweverGoodTheGrade() {
+        ForgeValidation.Invalid invalid = invalid(List.of(
+                grade("divine"), element("fire"), element("void"), element("frost"), form("slash")));
 
         assertEquals(ForgeError.DUPLICATE_ELEMENT, invalid.error());
         assertEquals(3, invalid.argument());
+    }
+
+    @Test
+    void twoElementsAtMythicFuseIntoOne() {
+        ForgeRecipe recipe = validRecipe(List.of(
+                grade("mythic"), element("fire"), element("void"), form("slash")));
+
+        assertEquals("black_flame", recipe.element(),
+                "the chain leaves the grammar carrying one element, not two");
+    }
+
+    @Test
+    void fusionReadsTheSameInEitherOrder() {
+        ForgeRecipe drawn = validRecipe(List.of(
+                grade("mythic"), element("fire"), element("gale"), form("slash")));
+        ForgeRecipe reversed = validRecipe(List.of(
+                grade("mythic"), element("gale"), element("fire"), form("slash")));
+
+        assertEquals("explosion", drawn.element());
+        assertEquals(drawn.element(), reversed.element(),
+                "the element is the material of the blade, not a step in the program");
+    }
+
+    @Test
+    void twoElementsThatDoNotFuseAreRejected() {
+        ForgeValidation.Invalid invalid = invalid(List.of(
+                grade("mythic"), element("terra"), element("radiant"), form("slash")));
+
+        assertEquals(ForgeError.FUSION_UNKNOWN_PAIR, invalid.error());
     }
 
     @Test

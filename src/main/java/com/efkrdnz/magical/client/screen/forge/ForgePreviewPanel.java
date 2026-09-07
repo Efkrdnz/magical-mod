@@ -3,6 +3,8 @@ package com.efkrdnz.magical.client.screen.forge;
 import com.efkrdnz.magical.classes.MagicalClasses;
 import com.efkrdnz.magical.client.screen.MagicalGuiStyle;
 import com.efkrdnz.magical.forge.ForgeElements;
+import com.efkrdnz.magical.forge.ForgeFusions;
+import com.efkrdnz.magical.forge.ForgeGate;
 import com.efkrdnz.magical.forge.ForgeIds;
 import com.efkrdnz.magical.forge.ForgeMaterials;
 import com.efkrdnz.magical.forge.ForgeRuneCosts;
@@ -10,6 +12,7 @@ import com.efkrdnz.magical.forge.ForgedWeapon;
 import com.efkrdnz.magical.forge.ForgedWeapons;
 import com.efkrdnz.magical.forge.chain.ForgeChainGrammar;
 import com.efkrdnz.magical.forge.chain.ForgeError;
+import com.efkrdnz.magical.forge.fusion.ForgeFusion;
 import com.efkrdnz.magical.forge.chain.ForgeGrade;
 import com.efkrdnz.magical.forge.chain.ForgeMaterial;
 import com.efkrdnz.magical.forge.chain.ForgeRecipe;
@@ -172,6 +175,10 @@ public final class ForgePreviewPanel {
         if (recipe.grade() == ForgeGrade.DIVINE && !state.hasClass(MagicalClasses.DIVINESMITH)) {
             return failure(ForgeError.DIVINESMITH_REQUIRED);
         }
+        Optional<PredictedError> fusionFailure = checkFusion(recipe, state);
+        if (fusionFailure.isPresent()) {
+            return fusionFailure;
+        }
         Optional<ForgedWeapon> existing = ForgedWeapons.get(weapon);
         Optional<PredictedError> gradeFailure = checkGrade(weapon, recipe.grade(), existing);
         if (gradeFailure.isPresent()) {
@@ -206,6 +213,20 @@ public final class ForgePreviewPanel {
         return remaining <= 0
                 ? Optional.empty()
                 : failure(ForgeError.COOLDOWN, (int) Math.ceil(remaining / 20.0));
+    }
+
+    /**
+     * The same question the server asks, so a locked fusion greys out before the player commits a
+     * drawing to it. The message names what the fusion wants rather than only that it is refused.
+     */
+    private static Optional<PredictedError> checkFusion(ForgeRecipe recipe, PlayerMagicState state) {
+        Optional<ForgeFusion> fusion = ForgeFusions.byElement(ForgeIds.id(recipe.element()));
+        if (fusion.isEmpty()) {
+            return Optional.empty();
+        }
+        return ForgeGate.checkFusion(fusion.get(), state)
+                .map(error -> new PredictedError(error, Component.translatable(
+                        error.langKey(), Component.translatable(fusion.get().requirementKey()))));
     }
 
     private static Optional<PredictedError> checkMana(ForgeRecipe recipe, PlayerMagicState state) {

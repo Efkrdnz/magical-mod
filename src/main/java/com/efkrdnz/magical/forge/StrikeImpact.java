@@ -195,6 +195,10 @@ public final class StrikeImpact {
             case VENOM -> ForgeEffectStyle.VENOM_DRIP;
             case TERRA -> ForgeEffectStyle.TERRA_SHARDS;
             case GALE -> ForgeEffectStyle.GALE_SWIRL;
+            // Compounds borrow the impact of the parent they read as, tinted by their own palette.
+            case BLACK_FLAME -> ForgeEffectStyle.VOID_IMPLOSION;
+            case EXPLOSION -> ForgeEffectStyle.FIRE_BLOOM;
+            case RIME_GALE -> ForgeEffectStyle.FROST_SHARDS;
         };
     }
 }
