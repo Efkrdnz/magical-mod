@@ -140,6 +140,7 @@ public final class ForgeChainStrip {
             case GRADE, ELEMENT, TEMPER -> 1;
             case FORM -> grade.formSlots();
             case MODIFIER -> grade.modifierSlots();
+            case OPERATOR -> grade.operatorSlots();
         };
     }
 

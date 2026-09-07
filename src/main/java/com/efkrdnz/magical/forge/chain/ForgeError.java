@@ -50,7 +50,11 @@ public enum ForgeError {
     /** A fusion whose sorcery the smith has not learned. The argument is the fusion ordinal. */
     FUSION_LOCKED_SKILL,
     /** A second element rune drawn at a grade that holds only one. */
-    FUSION_NEEDS_GRADE;
+    FUSION_NEEDS_GRADE,
+    /** More operator runes than the grade holds. */
+    TOO_MANY_OPERATORS,
+    /** An operator with no form after it to act on. */
+    OPERATOR_NEEDS_FORM;
 
     /** Translation key of the message shown to the player. */
     public String langKey() {

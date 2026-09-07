@@ -1,12 +1,21 @@
 package com.efkrdnz.magical.forge.glyph;
 
-/** The five kinds of glyph a rune chain is built from. */
+/** The kinds of glyph a rune chain is built from. */
 public enum GlyphCategory {
     GRADE,
     ELEMENT,
     FORM,
     TEMPER,
-    MODIFIER;
+    MODIFIER,
+
+    /**
+     * Runes that change how the runes around them are read rather than adding a property of their
+     * own: fork binds several forms into one press, and the triggers nest one step inside another.
+     *
+     * <p>Appended, never inserted. The category ordinal is not sent over the wire, but the kept
+     * rune resolution and the strip both read it, and reordering would silently re-bucket a chain.
+     */
+    OPERATOR;
 
     /** Score a drawing must reach before a template of this category is accepted at all. */
     public float defaultAcceptScore() {

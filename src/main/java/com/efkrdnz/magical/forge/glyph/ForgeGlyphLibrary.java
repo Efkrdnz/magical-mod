@@ -160,6 +160,12 @@ public final class ForgeGlyphLibrary {
                 line(.50f, .92f, .50f, .50f),
                 poly(.15f, .08f, .50f, .50f, .85f, .08f)));
         put(map, template("guard", GlyphCategory.MODIFIER, arc(.50f, .62f, .40f, 180f, 360f)));
+
+        // Operators. A stem that splits: one press, several forms.
+        put(map, template("fork", GlyphCategory.OPERATOR,
+                line(.10f, .50f, .50f, .50f),
+                line(.50f, .50f, .90f, .18f),
+                line(.50f, .50f, .90f, .82f)));
     }
 
     private static void put(Map<String, GlyphTemplate> map, GlyphTemplate template) {

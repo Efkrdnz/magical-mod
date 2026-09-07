@@ -1,6 +1,8 @@
 package com.efkrdnz.magical.forge.chain;
 
+import com.efkrdnz.magical.forge.glyph.ForgeGlyphLibrary;
 import com.efkrdnz.magical.forge.glyph.GlyphCategory;
+import com.efkrdnz.magical.forge.glyph.GlyphTemplate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -46,6 +48,7 @@ public record ForgeKeptChain(
             case TEMPER -> temper.map(List::of).orElseGet(List::of);
             case FORM -> forms;
             case MODIFIER -> modifiers;
+            case OPERATOR -> runOfCategory(GlyphCategory.OPERATOR);
         };
     }
 
@@ -86,7 +89,23 @@ public record ForgeKeptChain(
         return out;
     }
 
-    private GlyphCategory categoryOf(String id) {
-        return forms.contains(id) ? GlyphCategory.FORM : GlyphCategory.MODIFIER;
+    /** The ids in the stored run that belong to {@code category}, in order. */
+    private List<String> runOfCategory(GlyphCategory category) {
+        List<String> out = new ArrayList<>();
+        for (String id : program) {
+            if (categoryOf(id) == category) {
+                out.add(id);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * The category of a rune in the run, read from the glyph library rather than guessed from which
+     * stored list happens to contain it. Operators appear only in the run, so membership of the
+     * flat form and modifier lists cannot tell them apart.
+     */
+    private static GlyphCategory categoryOf(String id) {
+        return ForgeGlyphLibrary.byId(id).map(GlyphTemplate::category).orElse(GlyphCategory.MODIFIER);
     }
 }

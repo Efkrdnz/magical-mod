@@ -125,6 +125,57 @@ class ForgeChainCompilerTest {
         assertTrue(step.payload().isEmpty());
     }
 
+    // --- fork ---------------------------------------------------------------------------------
+
+    @Test
+    void aForkBindsTheNextTwoFormsIntoOnePress() {
+        ForgeProgram compiled = ForgeChainCompiler.compile(List.of("fork", "slash", "spin", "thrust"));
+
+        assertEquals(2, compiled.length(), "the forked pair is one press, the thrust is another");
+        assertEquals(List.of("slash", "spin"), compiled.stepAt(0).forms());
+        assertTrue(compiled.stepAt(0).isForked());
+        assertEquals(2, compiled.stepAt(0).width());
+        assertEquals(List.of("thrust"), compiled.stepAt(1).forms());
+        assertFalse(compiled.stepAt(1).isForked());
+    }
+
+    @Test
+    void stackedForksBindThreeThenFour() {
+        assertEquals(3, ForgeChainCompiler
+                .compile(List.of("fork", "fork", "slash", "spin", "thrust")).stepAt(0).width());
+        assertEquals(4, ForgeChainCompiler
+                .compile(List.of("fork", "fork", "fork", "slash", "spin", "thrust", "cleave"))
+                .stepAt(0).width());
+    }
+
+    @Test
+    void aForkNeverBindsMoreThanFourForms() {
+        ForgeProgram compiled = ForgeChainCompiler.compile(List.of(
+                "fork", "fork", "fork", "fork", "fork",
+                "slash", "spin", "thrust", "cleave", "slam"));
+
+        assertEquals(ForgeChainCompiler.MAX_FORK_WIDTH, compiled.stepAt(0).width());
+        assertEquals(2, compiled.length(), "the fifth form starts a press of its own");
+    }
+
+    @Test
+    void aModifierBeforeAForkAttachesToTheWholeGroup() {
+        ForgeProgram compiled = ForgeChainCompiler.compile(List.of("pierce", "fork", "slash", "spin"));
+
+        assertTrue(compiled.stepAt(0).mods().has(ForgeModifierKind.PIERCE));
+        assertEquals(2, compiled.stepAt(0).width());
+    }
+
+    @Test
+    void aForkShortOfFormsStillFiresWhatItGot() {
+        // The grammar refuses a trailing operator, but a chain read from a weapon forged by
+        // another build might still arrive this way, and it must not lose the form.
+        ForgeProgram compiled = ForgeChainCompiler.compile(List.of("fork", "slash"));
+
+        assertEquals(1, compiled.length());
+        assertEquals(List.of("slash"), compiled.stepAt(0).forms());
+    }
+
     /**
      * The compiler maps a modifier glyph id onto its kind by name, because it has to stay free of
      * the Minecraft-side registry that holds the full definition. That is only safe while the two

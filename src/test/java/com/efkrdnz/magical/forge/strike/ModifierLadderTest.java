@@ -83,6 +83,18 @@ class ModifierLadderTest {
     }
 
     @Test
+    void aForkedPressSplitsItsForceRatherThanMultiplyingIt() {
+        assertEquals(1f, ForgeStrikeMath.forkScale(1), DELTA, "one form is not a fork");
+        assertTrue(ForgeStrikeMath.forkScale(2) < 1f);
+        assertTrue(ForgeStrikeMath.forkScale(4) < ForgeStrikeMath.forkScale(2));
+
+        // Four Divine heavy slams unscaled come to roughly 336 damage on a single press, which
+        // kills anything outright. Scaled, a four-way fork is worth about 2.3 single strikes.
+        float total = 4 * ForgeStrikeMath.forkScale(4);
+        assertTrue(total > 2.0f && total < 2.6f, "a four-way fork was worth " + total + " strikes");
+    }
+
+    @Test
     void leechPoursIntoABiggerPoolPerCopy() {
         ModifierStack three = stack(ForgeModifierKind.LEECH, 3);
         // Already healed 2.0, which would have exhausted a single-rune pool entirely.

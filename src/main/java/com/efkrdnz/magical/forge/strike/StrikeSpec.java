@@ -20,6 +20,13 @@ public record StrikeSpec(FormFamily family, boolean heavy, boolean finisher, int
         return mods.stacks(kind);
     }
 
+    /** This strike with its damage scaled, for a press that splits its force across several forms. */
+    public StrikeSpec withDamageScale(float scale) {
+        return scale == 1f ? this : new StrikeSpec(family, heavy, finisher, comboIndex, damage * scale, reach,
+                halfWidth, arcDegrees, speed, lifeTicks, knockback, critChance, recoveryTicks, mods,
+                chargeFraction);
+    }
+
     /** The delayed echo repeat of this strike: scaled-down damage, echo itself cannot re-echo. */
     public StrikeSpec asEcho() {
         return new StrikeSpec(family, heavy, finisher, comboIndex, damage * ForgeStrikeMath.ECHO_SCALE, reach,

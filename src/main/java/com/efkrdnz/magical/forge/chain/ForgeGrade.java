@@ -46,6 +46,21 @@ public enum ForgeGrade {
         return ordinal() >= MYTHIC.ordinal() ? 2 : 1;
     }
 
+    /**
+     * How many operator runes a chain of this grade may hold.
+     *
+     * <p>An operator does not add a property, it changes how the runes around it are read, so one
+     * is worth far more than one extra modifier. They start at HIGH and stay scarce.
+     */
+    public int operatorSlots() {
+        return switch (this) {
+            case CRUDE, FINE -> 0;
+            case HIGH, MASTER -> 1;
+            case MYTHIC -> 2;
+            case DIVINE -> 4;
+        };
+    }
+
     public int modifierSlots() {
         return modifierSlots;
     }

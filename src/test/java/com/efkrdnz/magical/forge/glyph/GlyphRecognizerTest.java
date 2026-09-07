@@ -122,11 +122,11 @@ class GlyphRecognizerTest {
     }
 
     @Test
-    void thereAreThirtyFiveTemplatesWithUniqueIds() {
+    void everyTemplateHasAUniqueId() {
         List<GlyphTemplate> templates = ForgeGlyphLibrary.all();
 
-        assertEquals(35, templates.size());
-        assertEquals(35, templates.stream().map(GlyphTemplate::id).distinct().count());
+        assertEquals(36, templates.size());
+        assertEquals(36, templates.stream().map(GlyphTemplate::id).distinct().count());
     }
 
     @ParameterizedTest(name = "{0} is never {1}")

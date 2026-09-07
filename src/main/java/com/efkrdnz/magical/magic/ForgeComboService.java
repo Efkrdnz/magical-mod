@@ -22,6 +22,7 @@ import com.efkrdnz.magical.forge.ForgeMaterials;
 import com.efkrdnz.magical.forge.ForgeModifierKind;
 import com.efkrdnz.magical.forge.ForgeTempers;
 import com.efkrdnz.magical.forge.ForgeIds;
+import com.efkrdnz.magical.forge.StrikeLoadout;
 import com.efkrdnz.magical.forge.ForgeWeaponFlags;
 import com.efkrdnz.magical.forge.chain.ForgeProgram;
 import com.efkrdnz.magical.forge.chain.ForgeStep;
@@ -96,6 +97,9 @@ public final class ForgeComboService {
     private static final double WAVE_LEAD = 1.0;
     private static final int UNKNOWN_COLOR = 0xD8E4FF;
     private static final int NO_TARGET = -1;
+
+    /** Ticks a forked press adds to its recovery for each form past the first. */
+    private static final int FORK_RECOVERY_PER_EXTRA = 4;
 
     private record PendingEcho(UUID owner, long fireTick, StrikeSpec spec, ForgedWeapon weapon, Vec3 origin,
             Vec3 direction, ResourceLocation elementId, ResourceLocation formId) {}
@@ -274,34 +278,66 @@ public final class ForgeComboService {
         }
         int index = Math.min(state.index(), program.length() - 1);
         ForgeStep step = program.stepAt(index);
-        Optional<FormDefinition> resolved = ForgeForms.get(ForgeIds.id(step.leadForm()));
-        if (resolved.isEmpty()) {
+        List<FormDefinition> forms = new ArrayList<>(step.width());
+        for (String formId : step.forms()) {
+            ForgeForms.get(ForgeIds.id(formId)).ifPresent(forms::add);
+        }
+        if (forms.isEmpty()) {
             return;
         }
-        FormDefinition form = resolved.get();
-        StrikeSpec spec = resolve(player, weapon, element.get(), form, step, stack, state, index, heavy,
-                chargeFraction);
+        float forkScale = ForgeStrikeMath.forkScale(forms.size());
+        List<StrikeSpec> specs = new ArrayList<>(forms.size());
+        for (FormDefinition member : forms) {
+            specs.add(resolve(player, weapon, element.get(), member, step, stack, state, index, heavy,
+                    chargeFraction).withDamageScale(forkScale));
+        }
         // Stored before the vanilla hit so notePrimaryHit has a state to write the target into.
         STATES.put(player.getUUID(), state);
         if (whiff) {
-            snapVanillaHit(player, spec.reach());
+            snapVanillaHit(player, specs.get(0).reach());
         }
-        launch(level, player, weapon, element.get(), form, spec, STATES.getOrDefault(player.getUUID(), state), now);
+        launch(level, player, weapon, element.get(), forms, specs,
+                STATES.getOrDefault(player.getUUID(), state), now);
+    }
+
+    /**
+     * How long a press costs when it fires several forms at once: the slowest member, plus a little
+     * for each extra one.
+     *
+     * <p>Charging only the slowest would make a fork strictly free, and summing them would make it
+     * unusable. What a fork really costs is the glyph budget it spends and the deck positions it
+     * burns - this is the smaller, per-press part of the price.
+     */
+    private static int groupRecovery(List<StrikeSpec> specs) {
+        int slowest = 0;
+        for (StrikeSpec spec : specs) {
+            slowest = Math.max(slowest, spec.recoveryTicks());
+        }
+        return slowest + FORK_RECOVERY_PER_EXTRA * (specs.size() - 1);
     }
 
     private static void launch(ServerLevel level, ServerPlayer player, ForgedWeapon weapon, ElementDefinition element,
-            FormDefinition form, StrikeSpec spec, ComboState state, long now) {
+            List<FormDefinition> forms, List<StrikeSpec> specs, ComboState state, long now) {
         Vec3 look = lookOf(player);
+        StrikeSpec spec = specs.get(0);
+        int primary = primaryTargetId(player);
+        for (int i = 0; i < specs.size(); i++) {
+            StrikeSpec member = specs.get(i);
+            Vec3 origin = originFor(player, member.family(), look, member.reach());
+            // Only the lead strike claims the single vanilla hit this press came with.
+            ForgeStrikeEntity.spawn(level, player, member, weapon, element, forms.get(i), origin, look, false,
+                    i == 0 ? primary : StrikeLoadout.NO_PRIMARY_TARGET);
+        }
         Vec3 origin = originFor(player, spec.family(), look, spec.reach());
-        ForgeStrikeEntity.spawn(level, player, spec, weapon, element, form, origin, look, false);
         ForgeSounds.play(level, player, spec.family());
-        long windowEnd = ForgeStrikeMath.windowEnd(now, spec.recoveryTicks(), temperOf(weapon), spec.mods());
-        ComboState advanced = state.afterStrike(now, spec.recoveryTicks(), windowEnd);
+        int recovery = groupRecovery(specs);
+        long windowEnd = ForgeStrikeMath.windowEnd(now, recovery, temperOf(weapon), spec.mods());
+        ComboState advanced = state.afterStrike(now, recovery, windowEnd);
         STATES.put(player.getUUID(), advanced);
         if (spec.has(ForgeModifierKind.GUARD)) {
             putGuard(HIT_GUARDS, player.getUUID(), now + GUARD_HIT_TICKS, GUARD_HIT_REDUCTION, now);
         }
-        scheduleEcho(player, spec, weapon, element, form, origin, look, now);
+        scheduleEcho(player, spec, weapon, element, forms.get(0), origin, look, now);
         syncCombo(player, advanced, element, now);
     }
 

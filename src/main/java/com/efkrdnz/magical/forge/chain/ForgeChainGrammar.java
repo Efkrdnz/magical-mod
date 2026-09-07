@@ -65,6 +65,10 @@ public final class ForgeChainGrammar {
         if (modifierFailure != null) {
             return modifierFailure;
         }
+        ForgeValidation operatorFailure = checkOperators(glyphs, grade);
+        if (operatorFailure != null) {
+            return operatorFailure;
+        }
         List<String> modifiers = idsOf(glyphs, GlyphCategory.MODIFIER);
         if (modifiers.contains(SEEKING_MODIFIER) && forms.stream().noneMatch(PROJECTILE_FORMS::contains)) {
             return invalid(ForgeError.SEEKING_NEEDS_PROJECTILE, 0);
@@ -160,6 +164,34 @@ public final class ForgeChainGrammar {
         }
         return total > grade.modifierSlots()
                 ? invalid(ForgeError.TOO_MANY_MODIFIERS, grade.modifierSlots())
+                : null;
+    }
+
+    /**
+     * Operators are budgeted by the grade, and each one has to have a form after it to act on.
+     *
+     * <p>An operator drawn last would be paid for and then do nothing, which is exactly the trap
+     * the trailing-modifier wrap avoids for runes. There is no sensible wrap for an operator - a
+     * fork that binds the first step to nothing is not a weapon - so it is refused instead.
+     */
+    private static ForgeValidation checkOperators(List<RecognizedGlyph> glyphs, ForgeGrade grade) {
+        int operators = 0;
+        int lastOperator = -1;
+        int lastForm = -1;
+        for (int i = 0; i < glyphs.size(); i++) {
+            GlyphCategory category = glyphs.get(i).category();
+            if (category == GlyphCategory.OPERATOR) {
+                operators++;
+                lastOperator = i;
+            } else if (category == GlyphCategory.FORM) {
+                lastForm = i;
+            }
+        }
+        if (operators > grade.operatorSlots()) {
+            return invalid(ForgeError.TOO_MANY_OPERATORS, grade.operatorSlots());
+        }
+        return lastOperator > lastForm && lastOperator >= 0
+                ? invalid(ForgeError.OPERATOR_NEEDS_FORM, lastOperator)
                 : null;
     }
 

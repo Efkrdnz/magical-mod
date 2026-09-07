@@ -18,6 +18,12 @@ import com.efkrdnz.magical.forge.glyph.GlyphCategory;
  */
 public final class ForgeChainCompiler {
 
+    /** Glyph id of the fork operator. */
+    public static final String FORK = "fork";
+
+    /** Most forms one press may fire at once. */
+    public static final int MAX_FORK_WIDTH = 4;
+
     private ForgeChainCompiler() {
     }
 
@@ -41,19 +47,49 @@ public final class ForgeChainCompiler {
     public static ForgeProgram compile(List<String> program) {
         List<ForgeStep> steps = new ArrayList<>();
         List<String> pending = new ArrayList<>();
+        List<String> group = new ArrayList<>();
+        int forkWidth = 1;
         for (String id : program) {
             Optional<GlyphCategory> category = categoryOf(id);
             if (category.isEmpty()) {
                 continue;
             }
-            if (category.get() == GlyphCategory.FORM) {
-                steps.add(ForgeStep.of(id, stackOf(pending)));
-                pending.clear();
-            } else if (category.get() == GlyphCategory.MODIFIER) {
-                pending.add(id);
+            switch (category.get()) {
+                case FORM -> {
+                    group.add(id);
+                    if (group.size() >= forkWidth) {
+                        steps.add(new ForgeStep(List.copyOf(group), stackOf(pending), Optional.empty()));
+                        group.clear();
+                        pending.clear();
+                        forkWidth = 1;
+                    }
+                }
+                case MODIFIER -> pending.add(id);
+                case OPERATOR -> forkWidth = widenFork(id, forkWidth);
+                default -> {
+                    // grade, element and temper are lifted out before the run reaches here
+                }
             }
         }
+        // A fork drawn with fewer forms after it than it asked for still fires what it got.
+        if (!group.isEmpty()) {
+            steps.add(new ForgeStep(List.copyOf(group), stackOf(pending), Optional.empty()));
+            pending.clear();
+        }
         return new ForgeProgram(wrapTrailing(steps, pending));
+    }
+
+    /**
+     * A fork binds the next two forms into one press; stacking forks binds three, then four.
+     *
+     * <p>Four is the ceiling. Past it a single press spawns more strikes than the combo window can
+     * account for, and each one is a separate entity with its own hit resolution.
+     */
+    private static int widenFork(String operatorId, int current) {
+        if (!FORK.equals(operatorId)) {
+            return current;
+        }
+        return Math.min(MAX_FORK_WIDTH, Math.max(2, current + 1));
     }
 
     /** Folds modifiers left over at the end of the run onto the step the chain wraps back to. */

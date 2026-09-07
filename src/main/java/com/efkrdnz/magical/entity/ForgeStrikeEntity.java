@@ -89,6 +89,21 @@ public final class ForgeStrikeEntity extends Entity {
 
     public static ForgeStrikeEntity spawn(ServerLevel level, ServerPlayer owner, StrikeSpec spec, ForgedWeapon weapon,
             ElementDefinition element, FormDefinition form, Vec3 origin, Vec3 direction, boolean echo) {
+        return spawn(level, owner, spec, weapon, element, form, origin, direction, echo,
+                ForgeComboService.primaryTargetId(owner));
+    }
+
+    /**
+     * As above, but with the primary target stated rather than read off the combo state.
+     *
+     * <p>A forked press spawns several strikes at once, and only one of them may claim the single
+     * vanilla hit the press came with. Every other member is spawned with
+     * {@link StrikeLoadout#NO_PRIMARY_TARGET}: if they each subtracted the weapon attack from the
+     * same body, a wide fork would deal almost nothing to the thing it was aimed at.
+     */
+    public static ForgeStrikeEntity spawn(ServerLevel level, ServerPlayer owner, StrikeSpec spec, ForgedWeapon weapon,
+            ElementDefinition element, FormDefinition form, Vec3 origin, Vec3 direction, boolean echo,
+            int primaryTargetId) {
         ForgeStrikeEntity strike = new ForgeStrikeEntity(MagicalEntities.FORGE_STRIKE.get(), level);
         Vec3 dir = direction.lengthSqr() < 1.0E-6 ? new Vec3(0.0, 0.0, 1.0) : direction.normalize();
         strike.setPos(origin.x, origin.y, origin.z);
@@ -96,8 +111,7 @@ public final class ForgeStrikeEntity extends Entity {
         // The primary target is snapshotted now: the combo state advances the moment this press
         // resolves, which clears it, and an anchored strike does not collect until the next tick.
         strike.loadout = StrikeLoadout.of(spec, weapon, element, form,
-                (float) owner.getAttributeValue(Attributes.ATTACK_DAMAGE), echo,
-                ForgeComboService.primaryTargetId(owner));
+                (float) owner.getAttributeValue(Attributes.ATTACK_DAMAGE), echo, primaryTargetId);
         strike.entityData.set(FORM_ORDINAL, spec.family().ordinal());
         strike.entityData.set(PRIMARY, element.primaryColor());
         strike.entityData.set(SECONDARY, element.secondaryColor());

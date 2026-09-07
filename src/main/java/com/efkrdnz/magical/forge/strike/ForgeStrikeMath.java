@@ -97,6 +97,19 @@ public final class ForgeStrikeMath {
         return stacks <= 0 ? 0 : rung(stacks, 3, 4, 5);
     }
 
+    /**
+     * What each form of a forked press is worth, as a share of firing alone.
+     *
+     * <p>Without this a fork is pure profit. A Divine heavy slam is about 84 damage; four of them
+     * on one press is 336, which kills anything in the game outright and makes every other chain a
+     * mistake. Dividing by {@code 1 + 0.25(width - 1)} leaves a four-way fork worth roughly 2.3
+     * single slams - clearly strong, worth the four operator slots and three extra glyphs, and not
+     * an instant win.
+     */
+    public static float forkScale(int width) {
+        return width <= 1 ? 1f : 1f / (1f + 0.25f * (width - 1));
+    }
+
     /** Radians per tick a SEEKING projectile bends toward the nearest body ahead of it. */
     public static double seekingTurnRadians(ModifierStack mods) {
         return rung(mods.stacks(ForgeModifierKind.SEEKING), 0.12f, 0.18f, 0.22f);
