@@ -289,7 +289,7 @@ public final class ForgeComboService {
         Vec3 origin = originFor(player, spec.family(), look, spec.reach());
         ForgeStrikeEntity.spawn(level, player, spec, weapon, element, form, origin, look, false);
         ForgeSounds.play(level, player, spec.family());
-        long windowEnd = ForgeStrikeMath.windowEnd(now, spec.recoveryTicks(), temperOf(weapon), spec.modifierFlags());
+        long windowEnd = ForgeStrikeMath.windowEnd(now, spec.recoveryTicks(), temperOf(weapon), spec.mods());
         ComboState advanced = state.afterStrike(now, spec.recoveryTicks(), windowEnd);
         STATES.put(player.getUUID(), advanced);
         if (spec.has(ForgeModifierKind.GUARD)) {
@@ -336,7 +336,7 @@ public final class ForgeComboService {
      * instead of permanently.</p>
      */
     private static void armChargeGuard(ServerPlayer player, ForgedWeapon weapon, long now) {
-        if (!ForgeStrikeMath.hasFlag(ForgeWeaponFlags.of(weapon), ForgeModifierKind.GUARD)) {
+        if (!ForgeWeaponFlags.of(weapon).has(ForgeModifierKind.GUARD)) {
             return;
         }
         Long armedAt = CHARGE_GUARD_ARMED_AT.get(player.getUUID());

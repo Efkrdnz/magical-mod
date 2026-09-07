@@ -1,10 +1,10 @@
 package com.efkrdnz.magical.forge.strike;
 
 import java.util.Arrays;
-import java.util.Collection;
 
 import com.efkrdnz.magical.forge.ForgeElementKind;
 import com.efkrdnz.magical.forge.ForgeModifierKind;
+import com.efkrdnz.magical.forge.ModifierStack;
 import com.efkrdnz.magical.forge.FormFamily;
 import com.efkrdnz.magical.forge.WeaponClass;
 import com.efkrdnz.magical.forge.chain.ForgeGrade;
@@ -67,17 +67,17 @@ public final class ForgeStrikeMath {
         return Math.min(FINISHER_BONUS_CAP, bonus);
     }
 
-    public static float reach(FormStats form, TemperStats temper, WeaponClass weaponClass, int flags) {
-        return reach(form, temper, weaponClass, flags, 0f);
+    public static float reach(FormStats form, TemperStats temper, WeaponClass weaponClass, ModifierStack mods) {
+        return reach(form, temper, weaponClass, mods, 0f);
     }
 
     /**
      * The strike's reach, with {@code artBonus} folded in before the family's cap so an Art's extra
      * reach competes with the cap exactly as the REACH rune does rather than stepping over it.
      */
-    public static float reach(FormStats form, TemperStats temper, WeaponClass weaponClass, int flags,
+    public static float reach(FormStats form, TemperStats temper, WeaponClass weaponClass, ModifierStack mods,
             float artBonus) {
-        boolean reachFlag = hasFlag(flags, ForgeModifierKind.REACH);
+        boolean reachFlag = mods.has(ForgeModifierKind.REACH);
         float value;
         if (form.family() == FormFamily.WAVE) {
             value = form.reach() + (reachFlag ? 2f : 0f) + artBonus;
@@ -106,8 +106,8 @@ public final class ForgeStrikeMath {
                 : 0f;
     }
 
-    public static float halfWidth(FormStats form, TemperStats temper, boolean heavy, int flags) {
-        boolean reachFlag = hasFlag(flags, ForgeModifierKind.REACH);
+    public static float halfWidth(FormStats form, TemperStats temper, boolean heavy, ModifierStack mods) {
+        boolean reachFlag = mods.has(ForgeModifierKind.REACH);
         return form.halfWidth() * temper.widthScale() * (heavy ? HEAVY_SIZE_SCALE : 1f) + (reachFlag ? 0.3f : 0f);
     }
 
@@ -124,15 +124,15 @@ public final class ForgeStrikeMath {
     }
 
     public static int recovery(FormStats form, TemperStats temper, WeaponClass weaponClass, boolean heavy,
-            int flags) {
-        boolean haste = hasFlag(flags, ForgeModifierKind.HASTE);
+            ModifierStack mods) {
+        boolean haste = mods.has(ForgeModifierKind.HASTE);
         int raw = form.recoveryTicks() + (heavy ? HEAVY_RECOVERY : 0) + weaponClass.recoveryDelta()
                 + temper.recoveryDelta() - (haste ? 3 : 0);
         return Math.max(MIN_RECOVERY, raw);
     }
 
-    public static long windowEnd(long strikeTick, int recovery, TemperStats temper, int flags) {
-        boolean haste = hasFlag(flags, ForgeModifierKind.HASTE);
+    public static long windowEnd(long strikeTick, int recovery, TemperStats temper, ModifierStack mods) {
+        boolean haste = mods.has(ForgeModifierKind.HASTE);
         int bonus = Math.min(MAX_WINDOW_BONUS, temper.comboWindowDelta() + (haste ? 4 : 0));
         return strikeTick + recovery + BASE_WINDOW + bonus;
     }
@@ -163,8 +163,8 @@ public final class ForgeStrikeMath {
         return now < untilTick;
     }
 
-    public static float procChance(float procBase, ForgeGrade grade, int flags) {
-        boolean binding = hasFlag(flags, ForgeModifierKind.BINDING);
+    public static float procChance(float procBase, ForgeGrade grade, ModifierStack mods) {
+        boolean binding = mods.has(ForgeModifierKind.BINDING);
         return Math.min(MAX_PROC, procBase + 0.05f * grade.ordinal() + (binding ? 0.25f : 0f));
     }
 
@@ -196,28 +196,16 @@ public final class ForgeStrikeMath {
         return Math.min(LEECH_FRACTION * dealt, Math.max(0f, LEECH_CAP - healedSoFarThisPress));
     }
 
-    public static boolean hasFlag(int flags, ForgeModifierKind kind) {
-        return (flags & kind.flag()) != 0;
-    }
-
-    public static int flagsOf(Collection<ForgeModifierKind> kinds) {
-        int flags = 0;
-        for (ForgeModifierKind kind : kinds) {
-            flags |= kind.flag();
-        }
-        return flags;
-    }
-
-    public static StrikeSpec resolve(FormStats form, TemperStats temper, WeaponClass weaponClass, int flags,
+    public static StrikeSpec resolve(FormStats form, TemperStats temper, WeaponClass weaponClass, ModifierStack mods,
             ForgeGrade grade, int quality, float weaponAttack, boolean heavy, float chargeFraction,
             boolean finisher, int comboIndex, ForgeElementKind element) {
         float hit = baseHit(weaponAttack, grade, quality);
         float damage = strikeDamage(hit, form, heavy, chargeFraction, finisher);
         float artBonus = artReachBonus(element, form.family(), heavy);
         return new StrikeSpec(form.family(), heavy, finisher, comboIndex, damage,
-                reach(form, temper, weaponClass, flags, artBonus), halfWidth(form, temper, heavy, flags),
+                reach(form, temper, weaponClass, mods, artBonus), halfWidth(form, temper, heavy, mods),
                 arcDegrees(form, heavy), speed(form, temper), form.lifeTicks(), knockback(form, temper, weaponClass),
-                temper.critChance(), recovery(form, temper, weaponClass, heavy, flags), flags, chargeFraction);
+                temper.critChance(), recovery(form, temper, weaponClass, heavy, mods), mods, chargeFraction);
     }
 
     private static float clamp(float value, float min, float max) {

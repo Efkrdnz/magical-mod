@@ -18,6 +18,7 @@ import com.efkrdnz.magical.forge.ForgeSpecials;
 import com.efkrdnz.magical.forge.ForgeTempers;
 import com.efkrdnz.magical.forge.FormDefinition;
 import com.efkrdnz.magical.forge.ModifierDefinition;
+import com.efkrdnz.magical.forge.ModifierStack;
 import com.efkrdnz.magical.forge.TemperDefinition;
 import com.efkrdnz.magical.forge.WeaponClass;
 import com.efkrdnz.magical.forge.art.ForgeArt;
@@ -57,10 +58,10 @@ public final class ForgeStatPreview implements ForgePreviewText {
         }
         FormStats form = lead.get().stats();
         TemperStats temper = temperOf(recipe);
-        int flags = flagsOf(recipe);
+        ModifierStack mods = modsOf(recipe);
         List<Component> lines = new ArrayList<>();
         lines.add(damageLine(recipe, quality, form));
-        lines.add(shapeLine(form, temper, flags, elementKindOf(recipe)));
+        lines.add(shapeLine(form, temper, mods, elementKindOf(recipe)));
         lines.add(elementLine(recipe));
         lines.addAll(artLines(recipe));
         return List.copyOf(lines);
@@ -81,12 +82,12 @@ public final class ForgeStatPreview implements ForgePreviewText {
      * reach rather than an on-hit effect, and the panel would understate a gale flurry by a block
      * if it quoted the plain form reach.
      */
-    private static Component shapeLine(FormStats form, TemperStats temper, int flags, ForgeElementKind element) {
-        float reach = ForgeStrikeMath.reach(form, temper, ASSUMED_CLASS, flags,
+    private static Component shapeLine(FormStats form, TemperStats temper, ModifierStack mods, ForgeElementKind element) {
+        float reach = ForgeStrikeMath.reach(form, temper, ASSUMED_CLASS, mods,
                 ForgeStrikeMath.artReachBonus(element, form.family(), false));
-        int recovery = ForgeStrikeMath.recovery(form, temper, ASSUMED_CLASS, false, flags);
+        int recovery = ForgeStrikeMath.recovery(form, temper, ASSUMED_CLASS, false, mods);
         // windowEnd from tick zero with no recovery is exactly the window the combo gets.
-        long window = ForgeStrikeMath.windowEnd(0L, 0, temper, flags);
+        long window = ForgeStrikeMath.windowEnd(0L, 0, temper, mods);
         return Component.translatable("screen.magical.forge_stat_shape", oneDecimal(reach), recovery, window);
     }
 
@@ -126,12 +127,12 @@ public final class ForgeStatPreview implements ForgePreviewText {
                 .orElse(TemperStats.NONE);
     }
 
-    private static int flagsOf(ForgeRecipe recipe) {
+    private static ModifierStack modsOf(ForgeRecipe recipe) {
         List<ForgeModifierKind> kinds = new ArrayList<>();
         for (String modifierId : recipe.modifiers()) {
             ForgeModifiers.get(ForgeIds.id(modifierId)).map(ModifierDefinition::kind).ifPresent(kinds::add);
         }
-        return ForgeStrikeMath.flagsOf(kinds);
+        return ModifierStack.of(kinds);
     }
 
     private static String oneDecimal(float value) {

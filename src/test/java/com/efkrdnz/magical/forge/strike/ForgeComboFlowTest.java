@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.efkrdnz.magical.forge.FormFamily;
+import com.efkrdnz.magical.forge.ModifierStack;
 import com.efkrdnz.magical.forge.WeaponClass;
 
 import org.junit.jupiter.api.Test;
@@ -168,8 +169,8 @@ class ForgeComboFlowTest {
         }
         int index = Math.min(current.index(), chain.length - 1);
         boolean finisher = current.finisherAt(index);
-        int recovery = ForgeStrikeMath.recovery(chain[index], TemperStats.NONE, WeaponClass.SWORD, heavy, 0);
-        long windowEnd = ForgeStrikeMath.windowEnd(now, recovery, TemperStats.NONE, 0);
+        int recovery = ForgeStrikeMath.recovery(chain[index], TemperStats.NONE, WeaponClass.SWORD, heavy, ModifierStack.EMPTY);
+        long windowEnd = ForgeStrikeMath.windowEnd(now, recovery, TemperStats.NONE, ModifierStack.EMPTY);
         return new Press(current.afterStrike(now, recovery, windowEnd), current, index, finisher, recovery, true);
     }
 }

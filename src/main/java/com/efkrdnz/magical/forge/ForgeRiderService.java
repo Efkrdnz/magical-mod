@@ -143,7 +143,7 @@ public final class ForgeRiderService {
     }
 
     private static boolean hasBinding(ForgedWeapon weapon) {
-        return ForgeStrikeMath.hasFlag(ForgeWeaponFlags.of(weapon), ForgeModifierKind.BINDING);
+        return ForgeWeaponFlags.of(weapon).has(ForgeModifierKind.BINDING);
     }
 
     private static void radiant(ServerPlayer owner, LivingEntity target, int grade) {

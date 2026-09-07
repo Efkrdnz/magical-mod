@@ -5,13 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.EnumSet;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
 import com.efkrdnz.magical.forge.ForgeElementKind;
 import com.efkrdnz.magical.forge.ForgeModifierKind;
+import com.efkrdnz.magical.forge.ModifierStack;
 import com.efkrdnz.magical.forge.FormFamily;
 import com.efkrdnz.magical.forge.WeaponClass;
 import com.efkrdnz.magical.forge.chain.ForgeGrade;
@@ -53,8 +53,8 @@ class ForgeStrikeMathTest {
     // Mirrors ForgeTempers.SWIFT.
     private static final TemperStats SWIFT = new TemperStats(-0.5f, 0.90f, 1.20f, 0.8f, 0f, 6, -3, 0);
 
-    private static int flags(ForgeModifierKind... kinds) {
-        return ForgeStrikeMath.flagsOf(Set.of(kinds));
+    private static ModifierStack mods(ForgeModifierKind... kinds) {
+        return ModifierStack.of(Set.of(kinds));
     }
 
     @Test
@@ -95,35 +95,35 @@ class ForgeStrikeMathTest {
 
     @Test
     void reachForSlashCombinesTemperAndWeaponClassAndCapsAtMaxReach() {
-        assertEquals(4.2f, ForgeStrikeMath.reach(SLASH, KEEN, WeaponClass.AXE, 0), DELTA);
-        assertEquals(5.2f, ForgeStrikeMath.reach(SLASH, KEEN, WeaponClass.AXE, flags(ForgeModifierKind.REACH)),
+        assertEquals(4.2f, ForgeStrikeMath.reach(SLASH, KEEN, WeaponClass.AXE, ModifierStack.EMPTY), DELTA);
+        assertEquals(5.2f, ForgeStrikeMath.reach(SLASH, KEEN, WeaponClass.AXE, mods(ForgeModifierKind.REACH)),
                 DELTA);
     }
 
     @Test
     void reachForThrustCapsAtMaxReach() {
-        assertEquals(5.5f, ForgeStrikeMath.reach(THRUST, KEEN, WeaponClass.SWORD, flags(ForgeModifierKind.REACH)),
+        assertEquals(5.5f, ForgeStrikeMath.reach(THRUST, KEEN, WeaponClass.SWORD, mods(ForgeModifierKind.REACH)),
                 DELTA);
     }
 
     @Test
     void reachForWaveIgnoresTemperAndClassAndHasNoCap() {
-        assertEquals(12f, ForgeStrikeMath.reach(WAVE, KEEN, WeaponClass.SWORD, 0), DELTA);
-        assertEquals(14f, ForgeStrikeMath.reach(WAVE, KEEN, WeaponClass.SWORD, flags(ForgeModifierKind.REACH)),
+        assertEquals(12f, ForgeStrikeMath.reach(WAVE, KEEN, WeaponClass.SWORD, ModifierStack.EMPTY), DELTA);
+        assertEquals(14f, ForgeStrikeMath.reach(WAVE, KEEN, WeaponClass.SWORD, mods(ForgeModifierKind.REACH)),
                 DELTA);
     }
 
     @Test
     void reachForSpinCapsAtTheSpinRadiusCap() {
-        assertEquals(3.5f, ForgeStrikeMath.reach(SPIN, KEEN, WeaponClass.SWORD, flags(ForgeModifierKind.REACH)),
+        assertEquals(3.5f, ForgeStrikeMath.reach(SPIN, KEEN, WeaponClass.SWORD, mods(ForgeModifierKind.REACH)),
                 DELTA);
     }
 
     @Test
     void halfWidthAppliesWidthScaleHeavySizeAndReachBonus() {
-        assertEquals(2.16f, ForgeStrikeMath.halfWidth(SLASH, HEAVY, false, 0), DELTA);
-        assertEquals(2.808f, ForgeStrikeMath.halfWidth(SLASH, HEAVY, true, 0), DELTA);
-        assertEquals(3.108f, ForgeStrikeMath.halfWidth(SLASH, HEAVY, true, flags(ForgeModifierKind.REACH)), DELTA);
+        assertEquals(2.16f, ForgeStrikeMath.halfWidth(SLASH, HEAVY, false, ModifierStack.EMPTY), DELTA);
+        assertEquals(2.808f, ForgeStrikeMath.halfWidth(SLASH, HEAVY, true, ModifierStack.EMPTY), DELTA);
+        assertEquals(3.108f, ForgeStrikeMath.halfWidth(SLASH, HEAVY, true, mods(ForgeModifierKind.REACH)), DELTA);
     }
 
     @Test
@@ -147,17 +147,17 @@ class ForgeStrikeMathTest {
     @Test
     void recoveryCombinesDeltasHeavyAndHasteAndFloorsAtMinimum() {
         assertEquals(13, ForgeStrikeMath.recovery(SLASH, SWIFT, WeaponClass.AXE, true,
-                flags(ForgeModifierKind.HASTE)));
+                mods(ForgeModifierKind.HASTE)));
         assertEquals(5, ForgeStrikeMath.recovery(SLASH, SWIFT, WeaponClass.SWORD, false,
-                flags(ForgeModifierKind.HASTE)));
+                mods(ForgeModifierKind.HASTE)));
     }
 
     @Test
     void windowEndAddsBaseWindowAndCappedComboBonus() {
-        assertEquals(132L, ForgeStrikeMath.windowEnd(100L, 8, SWIFT, flags(ForgeModifierKind.HASTE)));
+        assertEquals(132L, ForgeStrikeMath.windowEnd(100L, 8, SWIFT, mods(ForgeModifierKind.HASTE)));
         TemperStats bigWindowTemper = new TemperStats(0, 1, 1, 1, 0, 30, 0, 0);
         assertEquals(100L + 8 + ForgeStrikeMath.BASE_WINDOW + ForgeStrikeMath.MAX_WINDOW_BONUS,
-                ForgeStrikeMath.windowEnd(100L, 8, bigWindowTemper, flags(ForgeModifierKind.HASTE)));
+                ForgeStrikeMath.windowEnd(100L, 8, bigWindowTemper, mods(ForgeModifierKind.HASTE)));
     }
 
     @Test
@@ -187,10 +187,10 @@ class ForgeStrikeMathTest {
 
     @Test
     void procChanceScalesWithGradeAndBindingAndCapsAtMaxProc() {
-        assertEquals(0.60f, ForgeStrikeMath.procChance(0.60f, ForgeGrade.CRUDE, 0), DELTA);
-        assertEquals(0.98f, ForgeStrikeMath.procChance(0.60f, ForgeGrade.DIVINE, flags(ForgeModifierKind.BINDING)),
+        assertEquals(0.60f, ForgeStrikeMath.procChance(0.60f, ForgeGrade.CRUDE, ModifierStack.EMPTY), DELTA);
+        assertEquals(0.98f, ForgeStrikeMath.procChance(0.60f, ForgeGrade.DIVINE, mods(ForgeModifierKind.BINDING)),
                 DELTA);
-        assertEquals(0.65f, ForgeStrikeMath.procChance(0.50f, ForgeGrade.MASTER, 0), DELTA);
+        assertEquals(0.65f, ForgeStrikeMath.procChance(0.50f, ForgeGrade.MASTER, ModifierStack.EMPTY), DELTA);
     }
 
     @Test
@@ -235,34 +235,8 @@ class ForgeStrikeMathTest {
     }
 
     @Test
-    void hasFlagAndFlagsOfRoundTripForEveryModifierKind() {
-        for (ForgeModifierKind kind : ForgeModifierKind.values()) {
-            int flags = ForgeStrikeMath.flagsOf(Set.of(kind));
-            assertTrue(ForgeStrikeMath.hasFlag(flags, kind), kind + " should be set");
-            for (ForgeModifierKind other : ForgeModifierKind.values()) {
-                if (other != kind) {
-                    assertFalse(ForgeStrikeMath.hasFlag(flags, other), other + " should not be set for " + kind);
-                }
-            }
-        }
-        int all = ForgeStrikeMath.flagsOf(EnumSet.allOf(ForgeModifierKind.class));
-        for (ForgeModifierKind kind : ForgeModifierKind.values()) {
-            assertTrue(ForgeStrikeMath.hasFlag(all, kind));
-        }
-    }
-
-    @Test
-    void flagsOfAnEmptyCollectionIsZero() {
-        int flags = ForgeStrikeMath.flagsOf(Set.of());
-        assertEquals(0, flags);
-        for (ForgeModifierKind kind : ForgeModifierKind.values()) {
-            assertFalse(ForgeStrikeMath.hasFlag(flags, kind), kind + " should not be set");
-        }
-    }
-
-    @Test
     void resolveAssemblesEveryFieldFromTheIndividualFunctions() {
-        int flags = flags(ForgeModifierKind.REACH);
+        ModifierStack mods = mods(ForgeModifierKind.REACH);
         ForgeGrade grade = ForgeGrade.HIGH;
         int quality = 50;
         float weaponAttack = 7f;
@@ -271,7 +245,7 @@ class ForgeStrikeMathTest {
         boolean finisher = false;
         int comboIndex = 1;
 
-        StrikeSpec spec = ForgeStrikeMath.resolve(SLASH, KEEN, WeaponClass.AXE, flags, grade, quality, weaponAttack,
+        StrikeSpec spec = ForgeStrikeMath.resolve(SLASH, KEEN, WeaponClass.AXE, mods, grade, quality, weaponAttack,
                 heavy, chargeFraction, finisher, comboIndex, ForgeElementKind.FIRE);
 
         float expectedHit = ForgeStrikeMath.baseHit(weaponAttack, grade, quality);
@@ -282,15 +256,15 @@ class ForgeStrikeMathTest {
         assertEquals(finisher, spec.finisher());
         assertEquals(comboIndex, spec.comboIndex());
         assertEquals(expectedDamage, spec.damage(), DELTA);
-        assertEquals(ForgeStrikeMath.reach(SLASH, KEEN, WeaponClass.AXE, flags), spec.reach(), DELTA);
-        assertEquals(ForgeStrikeMath.halfWidth(SLASH, KEEN, heavy, flags), spec.halfWidth(), DELTA);
+        assertEquals(ForgeStrikeMath.reach(SLASH, KEEN, WeaponClass.AXE, mods), spec.reach(), DELTA);
+        assertEquals(ForgeStrikeMath.halfWidth(SLASH, KEEN, heavy, mods), spec.halfWidth(), DELTA);
         assertEquals(ForgeStrikeMath.arcDegrees(SLASH, heavy), spec.arcDegrees(), DELTA);
         assertEquals(ForgeStrikeMath.speed(SLASH, KEEN), spec.speed(), DELTA);
         assertEquals(SLASH.lifeTicks(), spec.lifeTicks());
         assertEquals(ForgeStrikeMath.knockback(SLASH, KEEN, WeaponClass.AXE), spec.knockback(), DELTA);
         assertEquals(KEEN.critChance(), spec.critChance(), DELTA);
-        assertEquals(ForgeStrikeMath.recovery(SLASH, KEEN, WeaponClass.AXE, heavy, flags), spec.recoveryTicks());
-        assertEquals(flags, spec.modifierFlags());
+        assertEquals(ForgeStrikeMath.recovery(SLASH, KEEN, WeaponClass.AXE, heavy, mods), spec.recoveryTicks());
+        assertEquals(mods, spec.mods());
         assertEquals(chargeFraction, spec.chargeFraction(), DELTA);
         assertTrue(spec.has(ForgeModifierKind.REACH));
         assertFalse(spec.has(ForgeModifierKind.HASTE));
@@ -298,9 +272,9 @@ class ForgeStrikeMathTest {
 
     @Test
     void asEchoScalesDamageAndClearsTheEchoFlag() {
-        int flags = flags(ForgeModifierKind.ECHO, ForgeModifierKind.PIERCE);
+        ModifierStack mods = mods(ForgeModifierKind.ECHO, ForgeModifierKind.PIERCE);
         StrikeSpec spec = new StrikeSpec(FormFamily.SLASH, false, false, 0, 20f, 4f, 1f, 150f, 0f, 4, 0.3f, 0.1f, 8,
-                flags, 0f);
+                mods, 0f);
 
         StrikeSpec echo = spec.asEcho();
 
@@ -337,15 +311,15 @@ class ForgeStrikeMathTest {
 
     @Test
     void theArtReachBonusIsFoldedInBeforeTheFamilyCap() {
-        int noFlags = flags();
-        float plain = ForgeStrikeMath.reach(FLURRY, KEEN, WeaponClass.SWORD, noFlags);
+        ModifierStack noMods = mods();
+        float plain = ForgeStrikeMath.reach(FLURRY, KEEN, WeaponClass.SWORD, noMods);
 
         assertEquals(plain + ForgeStrikeMath.GALE_STEP_REACH_BONUS,
-                ForgeStrikeMath.reach(FLURRY, KEEN, WeaponClass.SWORD, noFlags,
+                ForgeStrikeMath.reach(FLURRY, KEEN, WeaponClass.SWORD, noMods,
                         ForgeStrikeMath.GALE_STEP_REACH_BONUS), DELTA);
         // The cap still governs: a huge bonus cannot push a non-wave form past MAX_REACH.
         assertEquals(ForgeStrikeMath.MAX_REACH,
-                ForgeStrikeMath.reach(FLURRY, KEEN, WeaponClass.SWORD, noFlags, 99f), DELTA);
+                ForgeStrikeMath.reach(FLURRY, KEEN, WeaponClass.SWORD, noMods, 99f), DELTA);
     }
 
     @Test
@@ -363,16 +337,16 @@ class ForgeStrikeMathTest {
 
     @Test
     void aGaleFlurryResolvesOneBlockLongerThanTheSameFlurryOnAnotherElement() {
-        int noFlags = flags();
-        StrikeSpec gale = ForgeStrikeMath.resolve(FLURRY, KEEN, WeaponClass.SWORD, noFlags, ForgeGrade.HIGH, 50,
+        ModifierStack noMods = mods();
+        StrikeSpec gale = ForgeStrikeMath.resolve(FLURRY, KEEN, WeaponClass.SWORD, noMods, ForgeGrade.HIGH, 50,
                 7f, false, 0f, false, 0, ForgeElementKind.GALE);
-        StrikeSpec frost = ForgeStrikeMath.resolve(FLURRY, KEEN, WeaponClass.SWORD, noFlags, ForgeGrade.HIGH, 50,
+        StrikeSpec frost = ForgeStrikeMath.resolve(FLURRY, KEEN, WeaponClass.SWORD, noMods, ForgeGrade.HIGH, 50,
                 7f, false, 0f, false, 0, ForgeElementKind.FROST);
-        StrikeSpec heavyGale = ForgeStrikeMath.resolve(FLURRY, KEEN, WeaponClass.SWORD, noFlags, ForgeGrade.HIGH, 50,
+        StrikeSpec heavyGale = ForgeStrikeMath.resolve(FLURRY, KEEN, WeaponClass.SWORD, noMods, ForgeGrade.HIGH, 50,
                 7f, true, 0f, false, 0, ForgeElementKind.GALE);
 
         assertEquals(frost.reach() + ForgeStrikeMath.GALE_STEP_REACH_BONUS, gale.reach(), DELTA);
         assertEquals(frost.damage(), gale.damage(), DELTA);
-        assertEquals(ForgeStrikeMath.reach(FLURRY, KEEN, WeaponClass.SWORD, noFlags), heavyGale.reach(), DELTA);
+        assertEquals(ForgeStrikeMath.reach(FLURRY, KEEN, WeaponClass.SWORD, noMods), heavyGale.reach(), DELTA);
     }
 }
