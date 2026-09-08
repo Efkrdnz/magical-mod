@@ -284,6 +284,7 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
             return true;
         }
         int parentSubskillTuneLimit = java.util.stream.Stream.of(
+                        MagicContent.sovereignAegisSubSkills(),
                         MagicContent.gabrielSubSkills(),
                         MagicContent.blackFlamesSubSkills(),
                         MagicContent.spatialArsenalSubSkills(),
@@ -294,7 +295,9 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
         if (id >= BUTTON_AEGIS_TUNE_BASE && id < BUTTON_AEGIS_TUNE_BASE + parentSubskillTuneLimit) {
             ResourceLocation selectedId = selectedSkillId();
             java.util.List<MagicSkillDefinition> subSkills;
-            if (MagicContent.GABRIEL.id().equals(selectedId) && state.hasUnlocked(MagicContent.GABRIEL.id())) {
+            if (MagicContent.SOVEREIGN_AEGIS.id().equals(selectedId) && state.hasUnlocked(MagicContent.SOVEREIGN_AEGIS.id())) {
+                subSkills = MagicContent.sovereignAegisSubSkills();
+            } else if (MagicContent.GABRIEL.id().equals(selectedId) && state.hasUnlocked(MagicContent.GABRIEL.id())) {
                 subSkills = MagicContent.gabrielSubSkills();
             } else if (MagicContent.BLACK_FLAMES.id().equals(selectedId) && state.hasUnlocked(MagicContent.BLACK_FLAMES.id())) {
                 subSkills = MagicContent.blackFlamesSubSkills();

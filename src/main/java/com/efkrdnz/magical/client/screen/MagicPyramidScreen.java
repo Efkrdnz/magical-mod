@@ -354,121 +354,119 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         top += drawWrapped(guiGraphics, Component.translatable(skill.descriptionKey()), left, top, 248, 0xBFD7FF, DETAIL_LINE_H);
         drawSkillStatLines(guiGraphics, skill, stats, left, top + 5);
         top += 40;
-        guiGraphics.drawString(font, Component.translatable("screen.magical.tuning_limit", state.tuningLimit()), left, top - 8, 0x8292AB, false);
-
+        int budget = state.tuningLimit();
         List<MagicTuningStat> statsOrder = MagicSkillTuningView.statsFor(skill);
+        if (!statsOrder.isEmpty()) {
+            drawPointCounter(guiGraphics, left + 232, top - 8, tuning.spent(), budget);
+        }
         for (int i = 0; i < statsOrder.size(); i++) {
             MagicTuningStat stat = statsOrder.get(i);
             int rowY = top + i * 18;
             guiGraphics.drawString(font, Component.translatable(MagicSkillTuningView.labelKey(skill, stat)), left, rowY, 0xBFD7FF, false);
             int value = tuningValue(tuning, stat);
-            button(guiGraphics, left + 110, rowY - 2, 16, 12, 0xFF27354A, Component.literal("-"));
+            drawTuningRowButtons(guiGraphics, left, rowY, value, tuning.spent(), budget, 0xFF27354A);
             guiGraphics.drawCenteredString(font, Integer.toString(value), left + 148, rowY, 0xFFD67A);
-            button(guiGraphics, left + 168, rowY - 2, 16, 12, 0xFF27354A, Component.literal("+"));
+        }
+        int subskillTop = top + Math.max(1, statsOrder.size()) * 18 + 8;
+        if (MagicContent.SOVEREIGN_AEGIS.id().equals(skill.id())) {
+            drawSubskillTuning(guiGraphics, state, left, subskillTop,
+                    Component.translatable("screen.magical.aegis_commands"), AEGIS_PALETTE, MagicContent.sovereignAegisSubSkills());
         }
         if (MagicContent.GABRIEL.id().equals(skill.id())) {
-            drawGabrielSubskillTuning(guiGraphics, state, left, top + Math.max(1, statsOrder.size()) * 18 + 8);
+            drawSubskillTuning(guiGraphics, state, left, subskillTop,
+                    Component.translatable("screen.magical.gabriel_commands").withStyle(ChatFormatting.BOLD), GABRIEL_PALETTE, MagicContent.gabrielSubSkills());
         }
         if (MagicContent.BLACK_FLAMES.id().equals(skill.id())) {
-            drawBlackFlamesSubskillTuning(guiGraphics, state, left, top + Math.max(1, statsOrder.size()) * 18 + 8);
+            drawSubskillTuning(guiGraphics, state, left, subskillTop,
+                    Component.translatable("screen.magical.black_flames_forms"), BLACK_FLAMES_PALETTE, MagicContent.blackFlamesSubSkills());
         }
         if (MagicContent.SPATIAL_ARSENAL.id().equals(skill.id())) {
-            drawSpatialArsenalSubskillTuning(guiGraphics, state, left, top + Math.max(1, statsOrder.size()) * 18 + 8);
+            drawSubskillTuning(guiGraphics, state, left, subskillTop,
+                    Component.translatable("screen.magical.spatial_arsenal_commands"), SPATIAL_PALETTE, MagicContent.spatialArsenalSubSkills());
         }
         if (MagicContent.SOUL_VOW.id().equals(skill.id())) {
-            drawSoulVowSubskillTuning(guiGraphics, state, left, top + Math.max(1, statsOrder.size()) * 18 + 8);
+            drawSubskillTuning(guiGraphics, state, left, subskillTop,
+                    Component.translatable("screen.magical.soul_vow_commands"), SOUL_VOW_PALETTE, MagicContent.soulVowSubSkills());
         }
         guiGraphics.disableScissor();
         drawPixelScrollbar(guiGraphics, detailX() + DETAIL_PANEL_W - 8, detailY(), DETAIL_PANEL_H - 20, contentHeight, DETAIL_PANEL_H - 20, detailScroll);
     }
 
 
-    private void drawGabrielSubskillTuning(GuiGraphics guiGraphics, PlayerMagicState state, int left, int top) {
+    /**
+     * What tells one family's block of commands apart from another's. The geometry is shared; only
+     * the colours and whether the names are bold ever differed between them.
+     */
+    private record SubskillPalette(int header, int fill, int label, int button, int value, boolean bold) {}
+
+    private static final SubskillPalette AEGIS_PALETTE =
+            new SubskillPalette(0xFFF4B2, 0x66242010, 0xFFE9C6, 0xFF3A3416, 0xFFE9A6, false);
+    private static final SubskillPalette GABRIEL_PALETTE =
+            new SubskillPalette(0xFFD700, 0x66261908, 0xFFE9A6, 0xFF40300A, 0xFFD700, true);
+    private static final SubskillPalette BLACK_FLAMES_PALETTE =
+            new SubskillPalette(0xE43A16, 0x6614071D, 0xE6B8C8, 0xFF2A1320, 0xFF8A39, false);
+    private static final SubskillPalette SPATIAL_PALETTE =
+            new SubskillPalette(0x9DDAFF, 0x66101830, 0xBFD7FF, 0xFF172A46, 0xBDEBFF, false);
+    private static final SubskillPalette SOUL_VOW_PALETTE =
+            new SubskillPalette(0xD8F0FF, 0x6614252F, 0xD8F0FF, 0xFF193344, 0xF4FDFF, false);
+
+    /** A button the player cannot afford to press. */
+    private static final int SPENT_BUTTON = 0xFF1A1F2B;
+
+    /**
+     * One family's commands, each with its own point budget.
+     *
+     * <p>Per sub-skill, deliberately: a family parent is a menu rather than a spell, so the points
+     * belong to the commands underneath it and Gabriel's four are budgeted separately.
+     */
+    private void drawSubskillTuning(GuiGraphics guiGraphics, PlayerMagicState state, int left, int top,
+            Component header, SubskillPalette palette, List<MagicSkillDefinition> subSkills) {
+        int budget = state.tuningLimit();
         int y = top;
-        guiGraphics.drawString(font, Component.literal("Gabriel Commands").withStyle(ChatFormatting.BOLD), left, y, 0xFFD700, false);
+        guiGraphics.drawString(font, header, left, y, palette.header(), false);
         y += 14;
-        for (MagicSkillDefinition subSkill : MagicContent.gabrielSubSkills()) {
+        for (MagicSkillDefinition subSkill : subSkills) {
             MagicSkillTuning tuning = state.tuningFor(subSkill.id());
-            guiGraphics.fill(left - 3, y - 3, left + 236, y + 20 + MagicSkillTuningView.statsFor(subSkill).size() * 18, 0x66261908);
-            guiGraphics.drawString(font, Component.translatable(subSkill.nameKey()).withStyle(ChatFormatting.BOLD), left, y, subSkill.color(), false);
-            y += 16;
             List<MagicTuningStat> statsOrder = MagicSkillTuningView.statsFor(subSkill);
+            guiGraphics.fill(left - 3, y - 3, left + 236, y + 20 + statsOrder.size() * 18, palette.fill());
+            Component name = Component.translatable(subSkill.nameKey());
+            guiGraphics.drawString(font, palette.bold() ? name.copy().withStyle(ChatFormatting.BOLD) : name,
+                    left, y, subSkill.color(), false);
+            drawPointCounter(guiGraphics, left + 232, y, tuning.spent(), budget);
+            y += 16;
             for (MagicTuningStat stat : statsOrder) {
-                guiGraphics.drawString(font, Component.translatable(MagicSkillTuningView.labelKey(subSkill, stat)), left + 8, y, 0xFFE9A6, false);
+                guiGraphics.drawString(font, Component.translatable(MagicSkillTuningView.labelKey(subSkill, stat)), left + 8, y, palette.label(), false);
                 int value = tuningValue(tuning, stat);
-                button(guiGraphics, left + 110, y - 2, 16, 12, 0xFF40300A, Component.literal("-"));
-                guiGraphics.drawCenteredString(font, Integer.toString(value), left + 148, y, 0xFFD700);
-                button(guiGraphics, left + 168, y - 2, 16, 12, 0xFF40300A, Component.literal("+"));
+                drawTuningRowButtons(guiGraphics, left, y, value, tuning.spent(), budget, palette.button());
+                guiGraphics.drawCenteredString(font, Integer.toString(value), left + 148, y, palette.value());
                 y += 18;
             }
             y += 8;
         }
     }
 
-    private void drawBlackFlamesSubskillTuning(GuiGraphics guiGraphics, PlayerMagicState state, int left, int top) {
-        int y = top;
-        guiGraphics.drawString(font, Component.translatable("screen.magical.black_flames_forms"), left, y, 0xE43A16, false);
-        y += 14;
-        for (MagicSkillDefinition subSkill : MagicContent.blackFlamesSubSkills()) {
-            MagicSkillTuning tuning = state.tuningFor(subSkill.id());
-            guiGraphics.fill(left - 3, y - 3, left + 236, y + 20 + MagicSkillTuningView.statsFor(subSkill).size() * 18, 0x6614071D);
-            guiGraphics.drawString(font, Component.translatable(subSkill.nameKey()), left, y, subSkill.color(), false);
-            y += 16;
-            List<MagicTuningStat> statsOrder = MagicSkillTuningView.statsFor(subSkill);
-            for (MagicTuningStat stat : statsOrder) {
-                guiGraphics.drawString(font, Component.translatable(MagicSkillTuningView.labelKey(subSkill, stat)), left + 8, y, 0xE6B8C8, false);
-                int value = tuningValue(tuning, stat);
-                button(guiGraphics, left + 110, y - 2, 16, 12, 0xFF2A1320, Component.literal("-"));
-                guiGraphics.drawCenteredString(font, Integer.toString(value), left + 148, y, 0xFF8A39);
-                button(guiGraphics, left + 168, y - 2, 16, 12, 0xFF2A1320, Component.literal("+"));
-                y += 18;
-            }
-            y += 8;
-        }
+    /**
+     * The spend, right-aligned on a header row.
+     *
+     * <p>The old readout was "Limit: +/- N", which was true while every stat had its own cap. The
+     * number is now the whole allowance for the skill, so what a player needs to see is how much of
+     * it is gone.
+     */
+    private void drawPointCounter(GuiGraphics guiGraphics, int right, int y, int spent, int budget) {
+        Component text = Component.translatable("screen.magical.tuning_points", spent, budget);
+        int color = spent >= budget ? 0xFFB86B : 0x8292AB;
+        guiGraphics.drawString(font, text, right - font.width(text), y, color, false);
     }
 
-    private void drawSpatialArsenalSubskillTuning(GuiGraphics guiGraphics, PlayerMagicState state, int left, int top) {
-        int y = top;
-        guiGraphics.drawString(font, Component.translatable("screen.magical.spatial_arsenal_commands"), left, y, 0x9DDAFF, false);
-        y += 14;
-        for (MagicSkillDefinition subSkill : MagicContent.spatialArsenalSubSkills()) {
-            MagicSkillTuning tuning = state.tuningFor(subSkill.id());
-            guiGraphics.fill(left - 3, y - 3, left + 236, y + 20 + MagicSkillTuningView.statsFor(subSkill).size() * 18, 0x66101830);
-            guiGraphics.drawString(font, Component.translatable(subSkill.nameKey()), left, y, 0x9DDAFF, false);
-            y += 16;
-            List<MagicTuningStat> statsOrder = MagicSkillTuningView.statsFor(subSkill);
-            for (MagicTuningStat stat : statsOrder) {
-                guiGraphics.drawString(font, Component.translatable(MagicSkillTuningView.labelKey(subSkill, stat)), left + 8, y, 0xBFD7FF, false);
-                int value = tuningValue(tuning, stat);
-                button(guiGraphics, left + 110, y - 2, 16, 12, 0xFF172A46, Component.literal("-"));
-                guiGraphics.drawCenteredString(font, Integer.toString(value), left + 148, y, 0xBDEBFF);
-                button(guiGraphics, left + 168, y - 2, 16, 12, 0xFF172A46, Component.literal("+"));
-                y += 18;
-            }
-            y += 8;
-        }
-    }
-
-    private void drawSoulVowSubskillTuning(GuiGraphics guiGraphics, PlayerMagicState state, int left, int top) {
-        int y = top;
-        guiGraphics.drawString(font, Component.translatable("screen.magical.soul_vow_commands"), left, y, 0xD8F0FF, false);
-        y += 14;
-        for (MagicSkillDefinition subSkill : MagicContent.soulVowSubSkills()) {
-            MagicSkillTuning tuning = state.tuningFor(subSkill.id());
-            guiGraphics.fill(left - 3, y - 3, left + 236, y + 20 + MagicSkillTuningView.statsFor(subSkill).size() * 18, 0x6614252F);
-            guiGraphics.drawString(font, Component.translatable(subSkill.nameKey()), left, y, subSkill.color(), false);
-            y += 16;
-            List<MagicTuningStat> statsOrder = MagicSkillTuningView.statsFor(subSkill);
-            for (MagicTuningStat stat : statsOrder) {
-                guiGraphics.drawString(font, Component.translatable(MagicSkillTuningView.labelKey(subSkill, stat)), left + 8, y, 0xD8F0FF, false);
-                int value = tuningValue(tuning, stat);
-                button(guiGraphics, left + 110, y - 2, 16, 12, 0xFF193344, Component.literal("-"));
-                guiGraphics.drawCenteredString(font, Integer.toString(value), left + 148, y, 0xF4FDFF);
-                button(guiGraphics, left + 168, y - 2, 16, 12, 0xFF193344, Component.literal("+"));
-                y += 18;
-            }
-            y += 8;
-        }
+    /**
+     * The minus and plus for one stat, dimmed when they would do nothing.
+     *
+     * <p>A press at the budget is refused by the server, so without this the button looks live and
+     * silently does nothing - the wart the per-stat cap used to hide behind.
+     */
+    private void drawTuningRowButtons(GuiGraphics guiGraphics, int left, int y, int value, int spent, int budget, int color) {
+        button(guiGraphics, left + 110, y - 2, 16, 12, value > -budget ? color : SPENT_BUTTON, Component.literal("-"));
+        button(guiGraphics, left + 168, y - 2, 16, 12, spent < budget ? color : SPENT_BUTTON, Component.literal("+"));
     }
 
     private void drawWheelEditor(GuiGraphics guiGraphics) {
@@ -1024,6 +1022,9 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
             return false;
         }
         MagicSkillDefinition skill = MagicContent.get(selectedId);
+        if (MagicContent.SOVEREIGN_AEGIS.id().equals(selectedId)) {
+            return handleParentSubskillTuningClick(mouseX, mouseY, skill, MagicContent.sovereignAegisSubSkills());
+        }
         if (MagicContent.GABRIEL.id().equals(selectedId)) {
             return handleParentSubskillTuningClick(mouseX, mouseY, skill, MagicContent.gabrielSubSkills());
         }
@@ -1397,6 +1398,9 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     }
 
     private int detailContentHeight(MagicSkillDefinition skill) {
+        if (MagicContent.SOVEREIGN_AEGIS.id().equals(skill.id())) {
+            return parentSubskillDetailHeight(skill, MagicContent.sovereignAegisSubSkills());
+        }
         if (MagicContent.GABRIEL.id().equals(skill.id())) {
             return parentSubskillDetailHeight(skill, MagicContent.gabrielSubSkills());
         }

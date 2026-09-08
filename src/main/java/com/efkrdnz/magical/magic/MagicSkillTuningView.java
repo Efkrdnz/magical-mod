@@ -22,6 +22,12 @@ public final class MagicSkillTuningView {
         if (MagicContent.GABRIEL.id().equals(skill.id())) {
             return NONE;
         }
+        if (MagicContent.SOVEREIGN_AEGIS.id().equals(skill.id())) {
+            // Like every other family parent: the hold-wheel is not itself a spell, so the points
+            // belong to the three commands underneath it. Without this it falls through to the
+            // registry's default view and the menu ends up tunable while its commands are not.
+            return NONE;
+        }
         if (MagicContent.BLACK_FLAMES.id().equals(skill.id())) {
             return NONE;
         }
@@ -50,6 +56,15 @@ public final class MagicSkillTuningView {
             return List.of(MagicTuningStat.DAMAGE, MagicTuningStat.SPEED, MagicTuningStat.DURATION, MagicTuningStat.SIZE, MagicTuningStat.EFFICIENCY);
         }
         if (MagicContent.GABRIEL_PERFECT_SEAL.id().equals(skill.id())) {
+            return List.of(MagicTuningStat.SIZE, MagicTuningStat.EFFICIENCY);
+        }
+        if (MagicContent.AEGIS_ULTIMATE_PROTECTION.id().equals(skill.id())) {
+            return List.of(MagicTuningStat.SIZE, MagicTuningStat.SPEED, MagicTuningStat.EFFICIENCY);
+        }
+        if (MagicContent.AEGIS_SANCTUARY.id().equals(skill.id())) {
+            return List.of(MagicTuningStat.SIZE, MagicTuningStat.DURATION, MagicTuningStat.EFFICIENCY);
+        }
+        if (MagicContent.AEGIS_PERFECT_SEAL.id().equals(skill.id())) {
             return List.of(MagicTuningStat.SIZE, MagicTuningStat.EFFICIENCY);
         }
         if (MagicContent.SPACE_WALKER.id().equals(skill.id())) {
@@ -108,6 +123,29 @@ public final class MagicSkillTuningView {
                 return switch (stat) {
                     case DAMAGE -> "screen.magical.tuning.brand_punishment";
                     case SIZE -> "screen.magical.tuning.brand_duration";
+                    case EFFICIENCY -> "screen.magical.tuning.mana_mercy";
+                    default -> stat.translationKey();
+                };
+            }
+            if (MagicContent.AEGIS_ULTIMATE_PROTECTION.id().equals(skill.id())) {
+                return switch (stat) {
+                    case SIZE -> "screen.magical.tuning.nullification_cost";
+                    case SPEED -> "screen.magical.tuning.mana_gate";
+                    case EFFICIENCY -> "screen.magical.tuning.mana_mercy";
+                    default -> stat.translationKey();
+                };
+            }
+            if (MagicContent.AEGIS_SANCTUARY.id().equals(skill.id())) {
+                return switch (stat) {
+                    case SIZE -> "screen.magical.tuning.sanctuary_radius";
+                    case DURATION -> "screen.magical.tuning.sanctuary_duration";
+                    case EFFICIENCY -> "screen.magical.tuning.mana_mercy";
+                    default -> stat.translationKey();
+                };
+            }
+            if (MagicContent.AEGIS_PERFECT_SEAL.id().equals(skill.id())) {
+                return switch (stat) {
+                    case SIZE -> "screen.magical.tuning.seal_radius";
                     case EFFICIENCY -> "screen.magical.tuning.mana_mercy";
                     default -> stat.translationKey();
                 };

@@ -167,6 +167,12 @@ public final class MagicGameplayEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
             SpaceAuthorityService.closeAllDomains(player, state, false);
+            int refunded = state.takePendingTuningRefunds();
+            if (refunded > 0) {
+                // Silently wiping somebody's builds would read as a bug. Say what changed and that
+                // the points are still theirs.
+                player.sendSystemMessage(Component.translatable("message.magical.tuning_refunded", refunded));
+            }
             state.sync(player);
         }
     }

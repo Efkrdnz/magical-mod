@@ -2,9 +2,23 @@ package com.efkrdnz.magical.magic;
 
 import net.minecraft.nbt.CompoundTag;
 
+/**
+ * How one skill is customised: five stats, and a budget to divide between them.
+ *
+ * <p>The budget is the number that grows with proficiency - {@code MAX} at the start, climbing to
+ * {@code ABSOLUTE_MAX}. It used to be a cap on each stat separately, which meant a proficient player
+ * simply put the maximum into all five and every build was the same build. It is now the total, so
+ * putting a point somewhere is choosing not to put it somewhere else.
+ *
+ * <p>A single stat may still take the whole budget: the rule is that you cannot have everything at
+ * once, not that you cannot specialise.
+ */
 public record MagicSkillTuning(int damage, int speed, int size, int duration, int efficiency) {
-    public static final int MIN = -3;
+
+    /** The budget at zero proficiency. */
     public static final int MAX = 3;
+
+    /** And its ceiling, however much proficiency is earned past that. */
     public static final int ABSOLUTE_MAX = 11;
     public static final MagicSkillTuning DEFAULT = new MagicSkillTuning(0, 0, 0, 0, 0);
 
@@ -31,8 +45,20 @@ public record MagicSkillTuning(int damage, int speed, int size, int duration, in
         };
     }
 
-    public MagicSkillTuning clampToLimit(int limit) {
-        return withLimit(damage, speed, size, duration, efficiency, clampLimit(limit));
+    /**
+     * Points spent out of the budget.
+     *
+     * <p>Only what has been added counts. Taking a stat below zero weakens the skill and buys
+     * nothing back - it is a way to say "this one does not matter to me", not a source of points.
+     */
+    public int spent() {
+        return Math.max(0, damage) + Math.max(0, speed) + Math.max(0, size)
+                + Math.max(0, duration) + Math.max(0, efficiency);
+    }
+
+    /** Whether this allocation is legal for someone holding {@code budget} points. */
+    public boolean fitsIn(int budget) {
+        return spent() <= budget;
     }
 
     public CompoundTag save() {

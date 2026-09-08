@@ -220,6 +220,10 @@ public final class MagicContent {
     }
 
 
+    public static List<MagicSkillDefinition> sovereignAegisSubSkills() {
+        return List.of(AEGIS_ULTIMATE_PROTECTION, AEGIS_SANCTUARY, AEGIS_PERFECT_SEAL);
+    }
+
     public static List<MagicSkillDefinition> gabrielSubSkills() {
         return List.of(GABRIEL_ULTIMATE_PROTECTION, GABRIEL_JUDGEMENT, GABRIEL_PERFECT_SEAL, GABRIEL_HOLY_FIELD);
     }

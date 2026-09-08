@@ -72,6 +72,23 @@ public final class PlayerMagicState {
     private long lastSlothPenaltyDay = -1L;
     /** Bumped when the skill roster is replaced wholesale; saves below it get a one-time re-grant on load. */
     public static final int ROSTER_VERSION = 2;
+
+    /**
+     * Bumped when the tuning rules change in a way that makes existing allocations illegal.
+     *
+     * <p>Version 1 is the shared budget: before it, every stat had its own cap and a proficient
+     * player could hold up to five times what the budget now allows.
+     */
+    public static final int TUNING_BUDGET_VERSION = 1;
+    private int tuningBudgetVersion;
+
+    /**
+     * Skills refunded by the last budget migration, waiting to be reported.
+     *
+     * <p>Deliberately not saved. The sweep runs when the state is read off disk and the message goes
+     * out at login; a value that survived to the next load would say it twice.
+     */
+    private transient int pendingTuningRefunds;
     private final Set<ResourceLocation> unlockedSkills = new LinkedHashSet<>();
     private final ResourceLocation[] equippedSkills = new ResourceLocation[MagicContent.LOADOUT_SIZE];
     private final Set<ResourceLocation> wheelSkills = new LinkedHashSet<>();
@@ -102,6 +119,13 @@ public final class PlayerMagicState {
 
     public int barrier() {
         return barrier;
+    }
+
+    /** How many skills the budget migration reset, and clears the tally as it reports it. */
+    public int takePendingTuningRefunds() {
+        int refunds = pendingTuningRefunds;
+        pendingTuningRefunds = 0;
+        return refunds;
     }
 
     public int proficiencyXp() {
@@ -508,6 +532,12 @@ public final class PlayerMagicState {
                 unlockedSkills.add(subSkill.id());
             }
         }
+        if (MagicContent.SOVEREIGN_AEGIS.id().equals(skillId)) {
+            for (MagicSkillDefinition subSkill : MagicContent.sovereignAegisSubSkills()) {
+                tuning.computeIfAbsent(subSkill.id(), ignored -> MagicSkillTuning.DEFAULT);
+                unlockedSkills.add(subSkill.id());
+            }
+        }
         if (MagicContent.BLACK_FLAMES.id().equals(skillId)) {
             for (MagicSkillDefinition subSkill : MagicContent.blackFlamesSubSkills()) {
                 tuning.computeIfAbsent(subSkill.id(), ignored -> MagicSkillTuning.DEFAULT);
@@ -628,6 +658,9 @@ public final class PlayerMagicState {
         }
         if (MagicContent.GABRIEL.id().equals(skillId)) {
             MagicContent.gabrielSubSkills().forEach(subSkill -> removeSkill(subSkill.id()));
+        }
+        if (MagicContent.SOVEREIGN_AEGIS.id().equals(skillId)) {
+            MagicContent.sovereignAegisSubSkills().forEach(subSkill -> removeSkill(subSkill.id()));
         }
         if (MagicContent.BLACK_FLAMES.id().equals(skillId)) {
             MagicContent.blackFlamesSubSkills().forEach(subSkill -> removeSkill(subSkill.id()));
@@ -1084,9 +1117,23 @@ public final class PlayerMagicState {
         if (!hasUnlocked(skillId)) {
             return;
         }
-        tuning.put(skillId, tuningFor(skillId).adjust(stat, delta, tuningLimit()));
+        int budget = tuningLimit();
+        MagicSkillTuning next = tuningFor(skillId).adjust(stat, delta, budget);
+        if (!next.fitsIn(budget)) {
+            // Refused rather than clamped: the player has spent the budget, and the way to afford
+            // this point is to take one back off another stat.
+            return;
+        }
+        tuning.put(skillId, next);
     }
 
+    /**
+     * Points available to divide across one skill's stats.
+     *
+     * <p>Per skill, not per player - and per <em>sub</em>-skill for the families, because tuning is
+     * keyed by skill id and each sub-skill owns its own entry. Gabriel's four commands hold four
+     * separate budgets.
+     */
     public int tuningLimit() {
         return Math.min(MagicSkillTuning.ABSOLUTE_MAX, MagicSkillTuning.MAX + proficiencyLevel() * 2);
     }
@@ -1349,6 +1396,8 @@ public final class PlayerMagicState {
         copy.mana = mana;
         copy.barrier = barrier;
         copy.proficiencyXp = proficiencyXp;
+        copy.tuningBudgetVersion = tuningBudgetVersion;
+        copy.pendingTuningRefunds = pendingTuningRefunds;
         copy.manaVault = manaVault;
         copy.maxManaBonus = maxManaBonus;
         copy.maxBarrierBonus = maxBarrierBonus;
@@ -1484,6 +1533,8 @@ public final class PlayerMagicState {
             disabled.add(StringTag.valueOf(id.toString()));
         }
         tag.put("disabledPassives", disabled);
+
+        tag.putInt("tuningBudgetVersion", tuningBudgetVersion);
 
         CompoundTag disabledAtTag = new CompoundTag();
         passiveDisabledAtMillis.forEach((id, disabledAt) -> disabledAtTag.putLong(id.toString(), Math.max(0L, disabledAt)));
@@ -1649,11 +1700,22 @@ public final class PlayerMagicState {
         }
 
         int rosterVersion = tag.contains("rosterVersion") ? tag.getInt("rosterVersion") : 1;
+        state.tuningBudgetVersion = tag.getInt("tuningBudgetVersion");
+        // Under the old rules every stat had its own cap, so a saved skill can hold far more than
+        // the budget now allows. Those allocations are refunded whole - proficiencyXp is already
+        // read above, so tuningLimit() is the real budget by the time we get here.
+        boolean migrateBudget = state.tuningBudgetVersion < TUNING_BUDGET_VERSION;
+        int budget = state.tuningLimit();
         CompoundTag tuningTag = tag.getCompound("tuning");
         for (String key : tuningTag.getAllKeys()) {
             ResourceLocation id = ResourceLocation.parse(key);
             if (MagicContent.get(id) != null) {
-                state.tuning.put(id, MagicSkillTuning.load(tuningTag.getCompound(key)));
+                MagicSkillTuning saved = MagicSkillTuning.load(tuningTag.getCompound(key));
+                if (migrateBudget && !saved.fitsIn(budget)) {
+                    state.pendingTuningRefunds++;
+                    saved = MagicSkillTuning.DEFAULT;
+                }
+                state.tuning.put(id, saved);
             }
         }
         CompoundTag classesTag = tag.getCompound("classes");
@@ -1712,6 +1774,7 @@ public final class PlayerMagicState {
             // the old roster was scrapped under this save: grant the new starter awakening once
             state.unlockStarterAwakening(null);
         }
+        state.tuningBudgetVersion = TUNING_BUDGET_VERSION;
         state.ensureSinCursesForEnabledPassives();
         return state;
     }
