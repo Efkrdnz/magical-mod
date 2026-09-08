@@ -1,6 +1,8 @@
 package com.efkrdnz.magical.magic;
 
 import com.efkrdnz.magical.entity.SkillClashEffectEntity;
+import com.efkrdnz.magical.magic.visual.FxKinds;
+import com.efkrdnz.magical.network.FirstPersonEffectPayload;
 import com.efkrdnz.magical.network.MagicalNetwork;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.Comparator;
@@ -156,6 +158,8 @@ public final class MagicCounterService {
             ACTIVE_PROMPTS.remove(defenderId);
             resolvedThreats(defenderId).add(threatId);
             threat.onForcedCounter(level, defender, prompt.clashPosition);
+            celebrateParry(defender, FORCED_PARRY_COLOR);
+            notifyParried(threat, FORCED_PARRY_COLOR);
             return;
         }
 
@@ -175,6 +179,8 @@ public final class MagicCounterService {
             ACTIVE_PROMPTS.remove(defenderId);
             resolvedThreats(defenderId).add(threatId);
             threat.onGluttonyCountered(level, defender, prompt.clashPosition);
+            celebrateParry(defender, MagicPassiveContent.SIN_GLUTTONY.color());
+            notifyParried(threat, incoming == null ? FORCED_PARRY_COLOR : incoming.color());
             defender.displayClientMessage(Component.translatable("message.magical.gluttony_devoured", Component.translatable(incoming == null ? "passive.magical.sin_gluttony" : incoming.nameKey())), true);
             return;
         }
@@ -200,6 +206,10 @@ public final class MagicCounterService {
         ACTIVE_PROMPTS.remove(defenderId);
         resolvedThreats(defenderId).add(threatId);
         threat.onCountered(level, defender, counterSkill, prompt.clashPosition);
+        celebrateParry(defender, counterSkill.color());
+        notifyParried(threat, MagicContent.get(threat.counterSkillId()) == null
+                ? FORCED_PARRY_COLOR
+                : MagicContent.get(threat.counterSkillId()).color());
         defender.displayClientMessage(Component.translatable("message.magical.counter_success", Component.translatable(counterSkill.nameKey())), true);
     }
 
@@ -215,11 +225,56 @@ public final class MagicCounterService {
         RESOLVED_THREATS.computeIfPresent(playerId, (id, threats) -> threats.isEmpty() ? null : threats);
     }
 
+    /** Gold, for a parry that had no counter skill behind it - the key press was the whole answer. */
+    private static final int FORCED_PARRY_COLOR = 0xFFD166;
+
+    /** Long enough to register, short enough not to be in the way of the next attack. */
+    private static final int PARRY_OVERLAY_TICKS = 10;
+    private static final float PARRY_OVERLAY_ALPHA = 0.5F;
+    private static final int PARRY_SHAKE_TICKS = 6;
+    private static final float PARRY_SHAKE = 0.4F;
+
+    /** The hold. Three ticks of locked camera is what makes a parry land rather than merely happen. */
+    private static final int PARRY_FREEZE_TICKS = 3;
+    private static final float PARRY_FOV_KICK = -4.0F;
+
+    /**
+     * What the player who parried feels.
+     *
+     * <p>The clash entity is seen by everyone nearby; this is only for the one who earned it, and it
+     * is most of why a parry reads as a parry. A ring pulse in the colour of whatever held, a short
+     * shake, and a camera hold - the same trick every fighting game uses to say "that connected".
+     */
+    private static void celebrateParry(ServerPlayer defender, int counterColor) {
+        MagicalNetwork.playFirstPersonEffect(defender,
+                FirstPersonEffectPayload.impact(counterColor, PARRY_OVERLAY_TICKS, PARRY_OVERLAY_ALPHA,
+                                PARRY_SHAKE_TICKS, PARRY_SHAKE, PARRY_FREEZE_TICKS, PARRY_FOV_KICK)
+                        .withOverlay(FxKinds.Overlay.SHOCK_RING.id(), 40, FirstPersonEffectPayload.OMNI));
+    }
+
+    /**
+     * And what the caster feels, when the caster is a player.
+     *
+     * <p>Being parried should be information, not silence. Deliberately weaker than the defender's
+     * and in the attack's own colour, so the two sides of the same clash do not feel identical.
+     */
+    private static void notifyParried(CounterableSkillThreat threat, int incomingColor) {
+        if (threat.counterOwner() instanceof ServerPlayer caster) {
+            MagicalNetwork.playFirstPersonEffect(caster,
+                    FirstPersonEffectPayload.impact(incomingColor, 8, 0.28F, 4, 0.2F, 0, 0.0F)
+                            .withOverlay(FxKinds.Overlay.CRACKED_GLASS.id(), 24, FirstPersonEffectPayload.OMNI));
+        }
+    }
+
     public static void spawnClash(ServerLevel level, Vec3 position, int incomingColor, int counterColor) {
         level.addFreshEntity(SkillClashEffectEntity.create(level, position, incomingColor, counterColor, 24));
+        // Four layers in the order the ear wants them: the strike, the boom under it, the attack
+        // breaking, and a tail to ring out on. The old stack led with the boom and closed on a
+        // beacon powering down, which said "something switched off" rather than "you stopped it".
+        level.playSound(null, position.x, position.y, position.z, SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 1.0F, 0.6F);
         level.playSound(null, position.x, position.y, position.z, SoundEvents.TRIDENT_THUNDER.value(), SoundSource.PLAYERS, 0.75F, 1.45F);
+        level.playSound(null, position.x, position.y, position.z, SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 0.9F, 0.7F);
         level.playSound(null, position.x, position.y, position.z, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 1.0F, 0.55F);
-        level.playSound(null, position.x, position.y, position.z, SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.8F, 1.8F);
     }
 
     private static Optional<MagicSkillDefinition> bestCounterSkill(ServerPlayer defender, PlayerMagicState state, CounterableSkillThreat threat) {

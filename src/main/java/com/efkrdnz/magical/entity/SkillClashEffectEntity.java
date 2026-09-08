@@ -16,6 +16,14 @@ public final class SkillClashEffectEntity extends Entity {
     private static final EntityDataAccessor<Integer> COUNTER_COLOR = SynchedEntityData.defineId(SkillClashEffectEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> LIFE = SynchedEntityData.defineId(SkillClashEffectEntity.class, EntityDataSerializers.INT);
 
+    /**
+     * Whether the client has already thrown this clash's particles.
+     *
+     * <p>Not synced and not saved: the renderer fires the burst on the first frame it draws, and
+     * the burst belongs to whoever is watching rather than to the entity.
+     */
+    private boolean burstSpawned;
+
     public SkillClashEffectEntity(EntityType<? extends SkillClashEffectEntity> entityType, Level level) {
         super(entityType, level);
         noPhysics = true;
@@ -73,6 +81,15 @@ public final class SkillClashEffectEntity extends Entity {
     @Override
     public boolean hurtServer(ServerLevel level, net.minecraft.world.damagesource.DamageSource damageSource, float amount) {
         return false;
+    }
+
+    /** True exactly once per clash, for the client-side particle burst. */
+    public boolean takeClientBurst() {
+        if (burstSpawned) {
+            return false;
+        }
+        burstSpawned = true;
+        return true;
     }
 
     public int incomingColor() {
