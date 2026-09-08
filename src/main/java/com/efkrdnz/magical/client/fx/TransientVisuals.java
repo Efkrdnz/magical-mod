@@ -37,6 +37,17 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 public final class TransientVisuals {
     private static final List<Effect> EFFECTS = new ArrayList<>();
     private static final int MAX = 96;
+
+    /**
+     * How long a hit on a creature is worth drawing.
+     *
+     * <p>A hit on a wall leaves a mark that can sit there for seconds, because a wall has a surface
+     * and the mark lies on it. A creature has neither: it moves, and the only orientation the mark
+     * ever had was the direction the attacker happened to be standing in at the instant of the hit.
+     * So a hit on a creature is now just the flash, which is camera-facing, and the flash is over in
+     * half a second - there is nothing left to keep alive after it.
+     */
+    private static final int CREATURE_IMPACT_TICKS = 10;
     private static long frame;
 
     private TransientVisuals() {}
@@ -69,7 +80,10 @@ public final class TransientVisuals {
             }
             case VisualCuePayload.CUE_IMPACT -> {
                 ProfileCues.ImpactSpec impact = profile.impact();
-                add(new Effect(Kind.IMPACT, profile, payload, Math.max(10, impact.markTicks()), 0));
+                int life = payload.victimId() >= 0
+                        ? CREATURE_IMPACT_TICKS
+                        : Math.max(10, impact.markTicks());
+                add(new Effect(Kind.IMPACT, profile, payload, life, 0));
                 SpellParticles.burst(impact.matterKind(), payload.pos(), payload.dir(), Math.round(impact.matterCount() * payload.scale()), impact.matterSpeed(), 0.14F + profile.tier().tier() * 0.03F, 18, profile.color(ColorRole.BASE), 1.0F, impact.matterKind().dark() ? 6 : 26);
             }
             case VisualCuePayload.CUE_DECAL -> add(new Effect(Kind.DECAL, profile, payload, Math.max(10, profile.linger().decalTicks()), 0));
@@ -233,17 +247,27 @@ public final class TransientVisuals {
                     if (ctx.age < 10.0F) {
                         OrbPainter.billboard(ctx, impact.flashKind(), impact.flashSize() * 1.6F * payload.scale(), profile.color(ColorRole.HOT), 1.0F, flashLife, 8, 12);
                     }
-                    pose.pushPose();
-                    orientToNormal(pose, payload.dir());
-                    pose.translate(0.0F, 0.0F, 0.03F);
-                    MarkPainter.mark(ctx, impact.markKind(), (0.8F + 0.35F * payload.scale()) * (1.0F + profile.tier().tier() * 0.25F), profile.color(ColorRole.BASE), 1.0F - p * 0.6F, p, 8, 6);
-                    if (impact.stampDeliveryCircle() && ctx.age < 16.0F) {
-                        // the delivery circle blinks in and un-draws backward: reversed lifecycle over 16 ticks
-                        float stampAge = 16.0F - ctx.age;
-                        pose.translate(0.0F, 0.0F, 0.02F);
-                        GlyphCirclePainter.paint(profile.deliveryCircle(), profile.palette(), radius * 0.7F, stampAge, 0.0F, Math.min(ctx.detail, 1), pose, ctx.buffers, seed, false, 1.0F - ctx.age / 16.0F, 0.0F);
+                    // Nothing flat on a living target. The mark and the delivery stamp are single
+                    // quads held at the hit normal, while position() drags them along with the
+                    // victim every frame - so the moment anyone moves they are being viewed from an
+                    // angle they were never placed for, and edge-on they are a line. Under a boss
+                    // spamming spells they also pile up, several seconds each. A surface keeps them,
+                    // because a surface has a normal and does not walk away. The flash above is
+                    // camera-facing and the matter burst already went out when the cue arrived, so a
+                    // hit on a creature still reads without either of them.
+                    if (payload.victimId() < 0) {
+                        pose.pushPose();
+                        orientToNormal(pose, payload.dir());
+                        pose.translate(0.0F, 0.0F, 0.03F);
+                        MarkPainter.mark(ctx, impact.markKind(), (0.8F + 0.35F * payload.scale()) * (1.0F + profile.tier().tier() * 0.25F), profile.color(ColorRole.BASE), 1.0F - p * 0.6F, p, 8, 6);
+                        if (impact.stampDeliveryCircle() && ctx.age < 16.0F) {
+                            // the delivery circle blinks in and un-draws backward: reversed lifecycle over 16 ticks
+                            float stampAge = 16.0F - ctx.age;
+                            pose.translate(0.0F, 0.0F, 0.02F);
+                            GlyphCirclePainter.paint(profile.deliveryCircle(), profile.palette(), radius * 0.7F, stampAge, 0.0F, Math.min(ctx.detail, 1), pose, ctx.buffers, seed, false, 1.0F - ctx.age / 16.0F, 0.0F);
+                        }
+                        pose.popPose();
                     }
-                    pose.popPose();
                 }
                 case DECAL -> {
                     float p = ctx.age / (float) life;
