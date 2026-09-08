@@ -278,8 +278,9 @@ public final class MagicCounterService {
         return false;
     }
 
+    /** The apex test, kept in one place so the counter rule and the ward rule cannot diverge. */
     private static boolean isTierFive(MagicSkillDefinition skill) {
-        return skill.tier() >= 4;
+        return TierFive.is(skill);
     }
 
     private static boolean isValidGluttonyCounter(PlayerMagicState state) {

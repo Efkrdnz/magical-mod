@@ -10,9 +10,11 @@ import com.efkrdnz.magical.forge.ForgeMobStrike;
 import com.efkrdnz.magical.entity.ascendant.OpponentKind;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicMobCastingService;
+import com.efkrdnz.magical.magic.MobCombatSense;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.TierFive;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,7 +23,10 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
@@ -77,6 +82,25 @@ public final class MagicOpponentEntity extends Monster {
     /** Greed takes this share of the target's remaining pool per landed spell. */
     private static final float GREED_DRAIN_SHARE = 0.08F;
 
+    /** How long the apex ward stands once raised. Roughly one burst. */
+    private static final int WARD_TICKS = 70;
+
+    /** And how long before it can be raised again, whether it was broken or simply lapsed. */
+    private static final int WARD_COOLDOWN = 220;
+
+    /** How long a wind-up survives the board changing under it. */
+    private static final int REACTION_DELAY = 2;
+
+    /**
+     * How often a clone bothers to look at the board.
+     *
+     * <p>Reading it costs two entity scans, and a tower floor holds up to seven clones. An
+     * Ascendant is alone and is the thing that has to answer within a tick, so it looks every tick;
+     * a clone only needs the scoring to be right, not the timing, and half a second of lag on that
+     * is invisible.
+     */
+    private static final int CLONE_SENSE_INTERVAL = 10;
+
     /** Sloth's grip on anything it touches in melee. */
     private static final int SLOTH_SLOW_TICKS = 60;
     private PlayerMagicState magicState = new PlayerMagicState();
@@ -91,6 +115,9 @@ public final class MagicOpponentEntity extends Monster {
     private boolean flying;
     private int meleePressureTicks;
     private int prideCharges;
+    private int wardTicks;
+    private int wardCooldown;
+    private MobCombatSense sense = MobCombatSense.BLIND;
     private int enviedAtQuarter = 4;
 
     public MagicOpponentEntity(EntityType<? extends MagicOpponentEntity> entityType, Level level) {
@@ -244,6 +271,9 @@ public final class MagicOpponentEntity extends Monster {
         recoveryLeft = Math.max(recoveryLeft, STAGGER_TICKS);
         staggered = true;
         castDelay = 0;
+        // Answering the telegraph strips the ward too. Otherwise the opening it buys is an opening
+        // you cannot use: everything you would swing during it would be deleted.
+        dropWard(true);
     }
 
     /**
@@ -326,6 +356,7 @@ public final class MagicOpponentEntity extends Monster {
         super.tick();
         if (!level().isClientSide()) {
             tickMagicState();
+            tickWard();
             tickWrath();
             tickCombatCasting();
         }
@@ -354,6 +385,16 @@ public final class MagicOpponentEntity extends Monster {
         if (meleePressureTicks > 0) {
             meleePressureTicks--;
         }
+        // The only thing in this method that looks at what the player is doing rather than at
+        // what the opponent is doing, and the whole reason the fight can answer back.
+        if (kind == OpponentKind.ASCENDANT || tickCount % CLONE_SENSE_INTERVAL == 0) {
+            MobCombatSense fresh = MobCombatSense.read(this, target);
+            if (fresh.demandsAnswer(sense)) {
+                // The wind-up was for a board that no longer exists. Two ticks, not a full timer.
+                castDelay = Math.min(castDelay, REACTION_DELAY);
+            }
+            sense = fresh;
+        }
         tickEnvy(target);
         if (!updateFlight(target)) {
             updateTacticalMovement(target);
@@ -363,6 +404,7 @@ public final class MagicOpponentEntity extends Monster {
             recoveryLeft--;
             if (recoveryLeft == 0) {
                 staggered = false;
+                raiseWard();
             }
             return;
         }
@@ -370,11 +412,12 @@ public final class MagicOpponentEntity extends Monster {
             castDelay--;
             return;
         }
+        raiseWard();
         if (difficulty <= 1 && random.nextFloat() < (difficulty == 0 ? 0.18F : 0.08F)) {
             castDelay = 8 + random.nextInt(18);
             return;
         }
-        MagicSkillDefinition skill = MagicMobCastingService.chooseSkill(this, magicState, target, difficulty);
+        MagicSkillDefinition skill = MagicMobCastingService.chooseSkill(this, magicState, target, difficulty, sense);
         if (skill == null) {
             castDelay = Math.max(6, 18 - difficulty * 2);
             return;
@@ -597,6 +640,64 @@ public final class MagicOpponentEntity extends Monster {
         magicState.unlock(theirs.get(random.nextInt(theirs.size())));
     }
 
+
+    /**
+     * Whether the apex ward is standing.
+     *
+     * <p>The mirror of the player's Ultimate Protection, and deliberately the same shape: while it
+     * is up, everything below tier five is deleted rather than reduced, and exactly one thing gets
+     * through. A rule that only ran in one direction was not a rule about the fight - it meant your
+     * apex offence had nothing to be for.
+     */
+    public boolean isWarded() {
+        return wardTicks > 0;
+    }
+
+    /**
+     * Raises the ward at the start of a burst, if the tier has one and it is off cooldown.
+     *
+     * <p>Raised while it is dangerous rather than while it is exposed - the same reasoning as
+     * Pride. Warding the recovery window would take back the one thing reading the telegraph buys.
+     */
+    private void raiseWard() {
+        if (!has(AscendantTrait.WARD) || wardCooldown > 0 || wardTicks > 0) {
+            return;
+        }
+        wardTicks = WARD_TICKS;
+        addEffect(new MobEffectInstance(MobEffects.GLOWING, WARD_TICKS, 0, false, false));
+        if (level() instanceof ServerLevel level) {
+            level.sendParticles(ParticleTypes.END_ROD, getX(), getY() + 1.0D, getZ(), 40, 0.6D, 1.0D, 0.6D, 0.02D);
+            level.playSound(null, blockPosition(), SoundEvents.BEACON_ACTIVATE, SoundSource.HOSTILE, 1.0F, 1.6F);
+        }
+    }
+
+    /** Drops the ward and starts its cooldown. Called when it lapses, breaks, or is staggered off. */
+    private void dropWard(boolean broken) {
+        if (wardTicks <= 0) {
+            return;
+        }
+        wardTicks = 0;
+        wardCooldown = WARD_COOLDOWN;
+        removeEffect(MobEffects.GLOWING);
+        if (level() instanceof ServerLevel level) {
+            level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, getX(), getY() + 1.0D, getZ(),
+                    broken ? 50 : 12, 0.7D, 1.0D, 0.7D, 0.05D);
+            level.playSound(null, blockPosition(),
+                    broken ? SoundEvents.GLASS_BREAK : SoundEvents.BEACON_DEACTIVATE,
+                    SoundSource.HOSTILE, 1.0F, broken ? 0.7F : 1.4F);
+        }
+    }
+
+    private void tickWard() {
+        if (wardCooldown > 0) {
+            wardCooldown--;
+        }
+        if (wardTicks > 0 && --wardTicks == 0) {
+            wardCooldown = WARD_COOLDOWN;
+            removeEffect(MobEffects.GLOWING);
+        }
+    }
+
     private void moveAwayFrom(LivingEntity target, double speed) {
         Vec3 away = position().subtract(target.position()).multiply(1.0D, 0.0D, 1.0D);
         if (away.lengthSqr() < 1.0E-4D) {
@@ -643,7 +744,17 @@ public final class MagicOpponentEntity extends Monster {
         if (damageSource.getDirectEntity() instanceof LivingEntity attacker && distanceTo(attacker) < 5.0D) {
             meleePressureTicks = MELEE_PRESSURE_TICKS;
         }
-        if (prideCharges > 0 && !isRecovering()) {
+        if (wardTicks > 0) {
+            if (!TierFive.piercesProtection(damageSource)) {
+                // Deleted, not reduced - the same thing a raised Ultimate Protection does to
+                // everything the player throws at it that is not at the apex.
+                level.playSound(null, blockPosition(), SoundEvents.SHIELD_BLOCK, SoundSource.HOSTILE, 0.7F, 1.9F);
+                return false;
+            }
+            // And the one thing that gets through takes the ward with it. Landing it is the whole
+            // point of owning a tier five attack, so it lands: Pride does not get to refuse it too.
+            dropWard(true);
+        } else if (prideCharges > 0 && !isRecovering()) {
             // Refused mid-burst only. The plan had this eat the first hit of the recovery window,
             // but that window is the one reward the telegraph offers - blunting it would take back
             // the only thing reading the tell buys. Pride protects it while it is dangerous
@@ -684,6 +795,8 @@ public final class MagicOpponentEntity extends Monster {
         tag.putInt("RecoveryLeft", recoveryLeft);
         tag.putBoolean("Flying", flying);
         tag.putInt("PrideCharges", prideCharges);
+        tag.putInt("WardTicks", wardTicks);
+        tag.putInt("WardCooldown", wardCooldown);
         tag.putInt("CastDelay", castDelay);
     }
 
@@ -709,6 +822,8 @@ public final class MagicOpponentEntity extends Monster {
         recoveryLeft = Math.max(0, tag.getInt("RecoveryLeft"));
         flying = tag.getBoolean("Flying");
         prideCharges = Math.max(0, tag.getInt("PrideCharges"));
+        wardTicks = Math.max(0, tag.getInt("WardTicks"));
+        wardCooldown = Math.max(0, tag.getInt("WardCooldown"));
         setNoGravity(flying);
         java.util.Optional<AscendantTier> tier = ascendantTier();
         if (tier.isPresent()) {

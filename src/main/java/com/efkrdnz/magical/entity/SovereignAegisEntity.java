@@ -3,6 +3,7 @@ package com.efkrdnz.magical.entity;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.TierFive;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import com.efkrdnz.magical.registry.MagicalChunkTickets;
 import com.efkrdnz.magical.registry.MagicalEntities;
@@ -137,8 +138,17 @@ public final class SovereignAegisEntity extends Entity {
         return damage;
     }
 
+    /**
+     * Damage the ward does not stop.
+     *
+     * <p>This used to name one entity class, which made Ultimate Protection absolute against every
+     * other spell in the game. The rule it was reaching for is broader and is now written down
+     * once: the apex answers only to the apex. Judgement is tier five, so it still goes through.
+     */
     private static boolean isJudgementDamage(DamageSource source) {
-        return source.getDirectEntity() instanceof JudgementBeamEntity || source.getEntity() instanceof JudgementBeamEntity;
+        return source.getDirectEntity() instanceof JudgementBeamEntity
+                || source.getEntity() instanceof JudgementBeamEntity
+                || TierFive.piercesProtection(source);
     }
 
     public static boolean isInsideOffenseBlockingSanctuary(Entity entity) {

@@ -32,7 +32,20 @@ public enum AscendantTrait {
     ENVY,
 
     /** It takes the means as well as the life: landing a spell drains your pool. */
-    GREED;
+    GREED,
+
+    /**
+     * Its own Ultimate Protection, and the other half of the apex rule.
+     *
+     * <p>The player has a defence that only the apex opens. Nothing gave the boss one, which made
+     * the rule a rule about the player rather than a rule about the fight: your tier five offence
+     * was the answer to a ward and there was no ward to answer. This is that ward - raised while
+     * the boss is dangerous, deleting everything below the apex, opened by exactly one thing.
+     *
+     * <p>It is a trait rather than a skill because no mob-castable tier five defence exists; the
+     * highest DEFENCE-role skill in the registry is tier two.
+     */
+    WARD;
 
     /** Nothing, for the tiers that fight on their stats alone. */
     public static final Set<AscendantTrait> NONE = Set.of();
@@ -43,10 +56,11 @@ public enum AscendantTrait {
     /** From tier 8: it also refuses the opening hit, and it drags. */
     public static final Set<AscendantTrait> FALLEN = Set.of(WRATH, GLUTTONY, PRIDE, SLOTH);
 
-    /** From tier 9: it starts stealing out of your book. */
-    public static final Set<AscendantTrait> BLACK_FLAME = Set.of(WRATH, GLUTTONY, PRIDE, SLOTH, ENVY);
+    /** From tier 9: it starts stealing out of your book, and it raises a ward of its own. */
+    public static final Set<AscendantTrait> BLACK_FLAME =
+            Set.of(WRATH, GLUTTONY, PRIDE, SLOTH, ENVY, WARD);
 
     /** Tier 10 carries all of it. */
     public static final Set<AscendantTrait> AUTHORITY =
-            Set.of(WRATH, GLUTTONY, PRIDE, SLOTH, ENVY, GREED);
+            Set.of(WRATH, GLUTTONY, PRIDE, SLOTH, ENVY, GREED, WARD);
 }

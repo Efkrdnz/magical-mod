@@ -25,9 +25,35 @@ import net.minecraft.world.phys.Vec3;
  * the mob.
  */
 public final class MagicMobCastingService {
+
+    /**
+     * The one rule that overrides every other consideration, as four numbers.
+     *
+     * <p>A warded target deletes everything below the apex, so the apex is not merely better
+     * there - it is the only thing that does anything at all.
+     */
+    private static final double APEX_PIERCE_BONUS = 60.0D;
+
+    /** And its opposite: an ordinary spell into a ward is worse than casting nothing. */
+    private static final double WARDED_WASTE_PENALTY = -80.0D;
+
+    /** An apex spell already in the air is the one thing an apex guard exists for. */
+    private static final double APEX_GUARD_BONUS = 45.0D;
+
+    /** Enough to lose a tie while nothing is stopping an ordinary spell. Not enough to hoard. */
+    private static final double APEX_RESERVE_PENALTY = -10.0D;
+
+    /** They still hold an answer. Worth forcing sometimes, never worth preferring. */
+    private static final double APEX_CONTESTED_PENALTY = -6.0D;
+
     private MagicMobCastingService() {}
 
     public static MagicSkillDefinition chooseSkill(LivingEntity caster, PlayerMagicState state, LivingEntity target, int difficulty) {
+        return chooseSkill(caster, state, target, difficulty, MobCombatSense.read(caster, target));
+    }
+
+    public static MagicSkillDefinition chooseSkill(LivingEntity caster, PlayerMagicState state,
+            LivingEntity target, int difficulty, MobCombatSense sense) {
         double distance = target == null ? 0.0D : caster.distanceTo(target);
         float healthRatio = caster.getHealth() / Math.max(1.0F, caster.getMaxHealth());
         float manaRatio = state.mana() / (float) Math.max(1, state.maxMana());
@@ -50,17 +76,17 @@ public final class MagicMobCastingService {
         }
 
         if (healthRatio < (0.24F + difficulty * 0.055F) || (difficulty >= 4 && state.barrier() < state.maxBarrier() * 0.35F)) {
-            MagicSkillDefinition defensive = bestByScore(available, skill -> role(skill) == MobCastProfile.Role.DEFENCE, distance, healthRatio, manaRatio, difficulty);
+            MagicSkillDefinition defensive = bestByScore(available, skill -> role(skill) == MobCastProfile.Role.DEFENCE, distance, healthRatio, manaRatio, difficulty, sense);
             if (defensive != null) {
                 return defensive;
             }
         }
 
-        MagicSkillDefinition inRange = bestByScore(available, skill -> inRange(skill, distance) && role(skill) != MobCastProfile.Role.DEFENCE, distance, healthRatio, manaRatio, difficulty);
+        MagicSkillDefinition inRange = bestByScore(available, skill -> inRange(skill, distance) && role(skill) != MobCastProfile.Role.DEFENCE, distance, healthRatio, manaRatio, difficulty, sense);
         if (inRange != null) {
             return inRange;
         }
-        return bestByScore(available, skill -> true, distance, healthRatio, manaRatio, difficulty);
+        return bestByScore(available, skill -> true, distance, healthRatio, manaRatio, difficulty, sense);
     }
 
     public static boolean hasUsableProjectile(LivingEntity caster, PlayerMagicState state, int difficulty) {
@@ -89,7 +115,8 @@ public final class MagicMobCastingService {
         float healthRatio = caster.getHealth() / Math.max(1.0F, caster.getMaxHealth());
         float manaRatio = state.mana() / (float) Math.max(1, state.maxMana());
         MagicSkillDefinition best = bestByScore(escapes, skill -> true,
-                target == null ? 0.0D : caster.distanceTo(target), healthRatio, manaRatio, difficulty);
+                target == null ? 0.0D : caster.distanceTo(target), healthRatio, manaRatio, difficulty,
+                MobCombatSense.read(caster, target));
         return cast(caster, state, best, target == null ? caster : target, difficulty);
     }
 
@@ -104,7 +131,7 @@ public final class MagicMobCastingService {
         }
         float healthRatio = caster.getHealth() / Math.max(1.0F, caster.getMaxHealth());
         float manaRatio = state.mana() / (float) Math.max(1, state.maxMana());
-        MagicSkillDefinition best = bestByScore(defenses, skill -> true, target == null ? 0.0D : caster.distanceTo(target), healthRatio, manaRatio, difficulty);
+        MagicSkillDefinition best = bestByScore(defenses, skill -> true, target == null ? 0.0D : caster.distanceTo(target), healthRatio, manaRatio, difficulty, MobCombatSense.read(caster, target));
         return cast(caster, state, best, target == null ? caster : target, difficulty);
     }
 
@@ -115,10 +142,10 @@ public final class MagicMobCastingService {
                 .anyMatch(skill -> canMobUse(caster, state, skill, difficulty) && predicate.test(skill));
     }
 
-    private static MagicSkillDefinition bestByScore(List<MagicSkillDefinition> skills, Predicate<MagicSkillDefinition> filter, double distance, float healthRatio, float manaRatio, int difficulty) {
+    private static MagicSkillDefinition bestByScore(List<MagicSkillDefinition> skills, Predicate<MagicSkillDefinition> filter, double distance, float healthRatio, float manaRatio, int difficulty, MobCombatSense sense) {
         return skills.stream()
                 .filter(filter)
-                .max(Comparator.comparingDouble(skill -> scoreSkill(skill, distance, healthRatio, manaRatio, difficulty)))
+                .max(Comparator.comparingDouble(skill -> scoreSkill(skill, distance, healthRatio, manaRatio, difficulty, sense)))
                 .orElse(null);
     }
 
@@ -135,7 +162,7 @@ public final class MagicMobCastingService {
         return p.selfCast() || (distance >= p.minRange() && distance <= p.maxRange());
     }
 
-    private static double scoreSkill(MagicSkillDefinition skill, double distance, float healthRatio, float manaRatio, int difficulty) {
+    private static double scoreSkill(MagicSkillDefinition skill, double distance, float healthRatio, float manaRatio, int difficulty, MobCombatSense sense) {
         MagicSkillResolvedStats base = skill.resolve(MagicSkillTuning.DEFAULT);
         MobCastProfile p = profile(skill);
         double score = Math.max(0.0D, base.damage()) * (difficulty >= 3 ? 1.25D : 0.85D);
@@ -159,7 +186,50 @@ public final class MagicMobCastingService {
             case UTILITY -> score -= 6.0D;
             default -> { }
         }
-        return score;
+        return score + apexAdjustment(skill, p, sense);
+    }
+
+    /**
+     * The apex rule, as the caster sees it.
+     *
+     * <p>Everything above this line is about the caster - its distance, its health, its mana. None
+     * of it changes when the player does something, which is why the old opponent could not be
+     * responsive: nothing the player did appeared in the arithmetic at all.
+     *
+     * <p>Three readings, in the order they matter.
+     *
+     * <p>A warded target deletes every spell below the apex, so casting one is worse than casting
+     * nothing - it spends the mana and starts the cooldown for no effect. That gets the largest
+     * penalty in the whole function, because it is the only case where the correct play is to cast
+     * one specific thing or to hold.
+     *
+     * <p>An apex spell already in the air is the only thing an apex defence is for. Anything else
+     * raised against it is simply gone through.
+     *
+     * <p>And when neither is true the apex is worth holding. A boss that opens with its one
+     * piercing spell has nothing left for the moment the ward goes up - which is precisely the
+     * moment it needed it.
+     */
+    private static double apexAdjustment(MagicSkillDefinition skill, MobCastProfile profile, MobCombatSense sense) {
+        boolean apex = TierFive.is(skill);
+        boolean offensive = profile.role() == MobCastProfile.Role.ATTACK
+                || profile.role() == MobCastProfile.Role.CONTROL;
+        double adjustment = 0.0D;
+        if (sense.targetWarded() && offensive) {
+            adjustment += apex ? APEX_PIERCE_BONUS : WARDED_WASTE_PENALTY;
+        }
+        if (sense.apexThreatInbound() && profile.role() == MobCastProfile.Role.DEFENCE) {
+            // A non-apex guard is not useless here - it still eats whatever else is being thrown -
+            // so it gets a share rather than nothing.
+            adjustment += apex ? APEX_GUARD_BONUS : APEX_GUARD_BONUS * 0.35D;
+        }
+        if (apex && offensive && !sense.targetWarded()) {
+            adjustment += APEX_RESERVE_PENALTY;
+        }
+        if (apex && offensive && sense.targetApexReady()) {
+            adjustment += APEX_CONTESTED_PENALTY;
+        }
+        return adjustment;
     }
 
     /** Cast a skill through its registry handler with a mob-built context. */

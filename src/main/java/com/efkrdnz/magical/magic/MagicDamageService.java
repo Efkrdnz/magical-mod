@@ -28,7 +28,15 @@ public final class MagicDamageService {
     public static void hurt(LivingEntity target, DamageSource source, float amount, ResourceLocation skillId, boolean triggerSkillReactions) {
         float finalAmount = adjustForCaster(target, source, skillId, amount);
         if (finalAmount > 0.0F) {
-            target.hurt(source, finalAmount);
+            // The one place that still knows which skill this damage is. The DamageSource beneath it
+            // does not - SkillTargets builds indirectMagic(owner, owner) - so anything downstream
+            // that has to weigh the spell's tier, every apex ward included, reads it from here.
+            ResourceLocation previous = TierFive.beginAttribution(skillId);
+            try {
+                target.hurt(source, finalAmount);
+            } finally {
+                TierFive.endAttribution(previous);
+            }
             grantHitProficiency(target, source, skillId, triggerSkillReactions);
         }
     }
