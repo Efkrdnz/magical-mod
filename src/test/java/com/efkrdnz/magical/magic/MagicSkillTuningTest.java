@@ -143,6 +143,41 @@ class MagicSkillTuningTest {
     }
 
     @Test
+    void dumpingStatsCannotBuyAFreeSpell() {
+        // The mana and cooldown multipliers are sums of signed terms, so before the floor they went
+        // negative and the cost fell onto its absolute minimum: Crucible read 4 mana on an
+        // eight-tick cooldown instead of 96 and twenty seconds. Weakening a skill was the cheapest
+        // way to get a fast one, which is the opposite of what a nerf should do.
+        MagicSkillDefinition crucible = MagicContent.CRUCIBLE;
+        MagicSkillResolvedStats base = crucible.resolve(MagicSkillTuning.DEFAULT);
+        MagicSkillResolvedStats dumped = crucible.resolve(new MagicSkillTuning(-11, 0, -11, 0, 0));
+
+        assertEquals(Math.round(base.manaCost() * 0.25F), dumped.manaCost(),
+                "a nerf may discount mana by three quarters and no more");
+        assertEquals(Math.round(base.cooldownTicks() * 0.25F), dumped.cooldownTicks(),
+                "and the same for cooldown");
+        assertTrue(dumped.manaCost() > 4, "it must not reach the absolute minimum");
+        assertTrue(dumped.cooldownTicks() > 8, "nor the eight-tick floor");
+    }
+
+    @Test
+    void theFloorHoldsWhicheverWayTheSignsFall() {
+        // Applied to the product rather than to each factor: the stat sum and the efficiency
+        // multiplier can each be negative, and two negatives would otherwise multiply into a
+        // positive - or two separate floors would compound into a 94% discount.
+        MagicSkillDefinition crucible = MagicContent.CRUCIBLE;
+        int base = crucible.resolve(MagicSkillTuning.DEFAULT).manaCost();
+        int floor = Math.round(base * 0.25F);
+
+        assertEquals(floor, crucible.resolve(new MagicSkillTuning(-11, 0, -11, 0, 11)).manaCost(),
+                "stats dumped and efficiency maxed: both factors negative");
+        assertEquals(floor, crucible.resolve(new MagicSkillTuning(0, 0, 0, 0, 11)).manaCost(),
+                "max efficiency alone is a three-quarter discount, not a free spell");
+        assertTrue(crucible.resolve(new MagicSkillTuning(11, 0, 0, 0, 0)).manaCost() > base,
+                "investing still costs more, which the floor must not interfere with");
+    }
+
+    @Test
     void aSaveFromTheOldRulesIsRefundedRatherThanLeftIllegal() {
         // Under the per-stat cap this was a legal allocation worth 55 points. It has to come back as
         // zeros, not as something the player can neither keep nor edit.
