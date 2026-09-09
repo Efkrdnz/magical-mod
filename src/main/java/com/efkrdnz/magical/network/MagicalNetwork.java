@@ -12,6 +12,7 @@ import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.SpaceAuthorityService;
 import com.efkrdnz.magical.magic.SpaceWalkerService;
 import com.efkrdnz.magical.registry.MagicalAttachments;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.fml.loading.FMLEnvironment;
@@ -196,8 +197,9 @@ public final class MagicalNetwork {
         PacketDistributor.sendToPlayer(player, new ArcanePlayerDataPayload(data.copy()));
     }
 
-    public static void syncMagicState(ServerPlayer player, PlayerMagicState data) {
-        PacketDistributor.sendToPlayer(player, new PlayerMagicStatePayload(data.copy()));
+    /** Send an already-serialised state. The tag is the caller's snapshot; it is not copied again. */
+    public static void syncMagicState(ServerPlayer player, CompoundTag state) {
+        PacketDistributor.sendToPlayer(player, new PlayerMagicStatePayload(state));
     }
 
     public static void playFirstPersonEffect(ServerPlayer player, FirstPersonEffectPayload payload) {

@@ -89,6 +89,13 @@ public final class PlayerMagicState {
      * out at login; a value that survived to the next load would say it twice.
      */
     private transient int pendingTuningRefunds;
+    /**
+     * The last blob handed to this player's client, or null if nothing has been sent yet.
+     *
+     * <p>Transient and deliberately not carried by {@link #copy()}: a fresh state - a login, a
+     * respawn - must always send a first packet rather than inherit somebody else's guard.
+     */
+    private transient CompoundTag lastSyncedTag;
     private final Set<ResourceLocation> unlockedSkills = new LinkedHashSet<>();
     private final ResourceLocation[] equippedSkills = new ResourceLocation[MagicContent.LOADOUT_SIZE];
     private final Set<ResourceLocation> wheelSkills = new LinkedHashSet<>();
@@ -1452,9 +1459,28 @@ public final class PlayerMagicState {
         return copy;
     }
 
+    /**
+     * Push this state to the client that owns it.
+     *
+     * <p>This is called from over a hundred sites and some of them sit on a tick path, so it does
+     * exactly one pass over the state: the tag it serialises is both the dedupe key and the packet
+     * body. It used to make three passes - a deep copy for the attachment, a second deep copy for
+     * the payload, then the serialise - and the attachment copy was actively wrong as well as
+     * expensive, because it left every caller holding an object the attachment no longer used.
+     */
     public void sync(ServerPlayer player) {
-        player.setData(MagicalAttachments.MAGIC_STATE.get(), copy());
-        MagicalNetwork.syncMagicState(player, this);
+        if (player.getData(MagicalAttachments.MAGIC_STATE.get()) != this) {
+            // Every caller in the tree reads the attachment before mutating it, so this is the rare
+            // path: a state that is not the player's own still has to be installed before it is sent.
+            player.setData(MagicalAttachments.MAGIC_STATE.get(), copy());
+        }
+        CompoundTag snapshot = save();
+        if (snapshot.equals(lastSyncedTag)) {
+            // Byte-identical to what this client was last given, so it already holds exactly this.
+            return;
+        }
+        lastSyncedTag = snapshot;
+        MagicalNetwork.syncMagicState(player, snapshot);
     }
 
     public CompoundTag save() {
@@ -1547,7 +1573,14 @@ public final class PlayerMagicState {
         tag.put("activeCurses", curses);
 
         CompoundTag tuningTag = new CompoundTag();
-        tuning.forEach((id, value) -> tuningTag.put(id.toString(), value.save()));
+        tuning.forEach((id, value) -> {
+            // unlock() seeds a DEFAULT entry for every skill it grants, so writing the map out whole
+            // put a five-field record on the wire for each of the ~90 skills a finished character
+            // owns, nearly all of them zeroes. A key that is absent already loads back as DEFAULT.
+            if (!MagicSkillTuning.DEFAULT.equals(value)) {
+                tuningTag.put(id.toString(), value.save());
+            }
+        });
         tag.put("tuning", tuningTag);
         tag.putInt("rosterVersion", ROSTER_VERSION);
 

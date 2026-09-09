@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.client;
 
+import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.network.ArcanePlayerDataPayload;
 import com.efkrdnz.magical.network.ChronosEnvironmentPayload;
 import com.efkrdnz.magical.network.CounterClearPayload;
@@ -17,7 +18,9 @@ public final class ClientPayloadHandlers {
     }
 
     public static void handle(PlayerMagicStatePayload payload) {
-        ClientMagicState.set(payload.data());
+        ClientMagicState.set(payload.data() == null
+                ? new PlayerMagicState()
+                : PlayerMagicState.load(payload.data()));
     }
 
     public static void handle(FirstPersonEffectPayload payload) {
