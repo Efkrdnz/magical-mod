@@ -32,11 +32,11 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
     public static final int BUTTON_SLOT_BASE = 300;
     public static final int BUTTON_EQUIP_SELECTED = 400;
     public static final int BUTTON_CLEAR_SLOT = 401;
-    public static final int BUTTON_TOGGLE_WHEEL = 402;
-    public static final int BUTTON_REMOVE_WHEEL_SELECTED = 403;
-    public static final int BUTTON_MOVE_WHEEL_UP = 404;
-    public static final int BUTTON_MOVE_WHEEL_DOWN = 405;
-    public static final int BUTTON_WHEEL_SELECT_BASE = 500;
+    public static final int BUTTON_LOADOUT_SELECT_BASE = 2000;
+    public static final int BUTTON_LOADOUT_NEW = 2020;
+    public static final int BUTTON_LOADOUT_DELETE = 2021;
+    public static final int BUTTON_LOADOUT_BIND_BASE = 2030;
+    public static final int BUTTON_LOADOUT_CLEAR_BASE = 2040;
     public static final int BUTTON_CLASS_SELECT_BASE = 700;
     public static final int BUTTON_EVOLVE_SELECTED_CLASS = 800;
     public static final int BUTTON_EVOLVE_CLASS_BASE = 900;
@@ -55,7 +55,7 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
     private int selectedTier;
     private int selectedSkillIndex;
     private int selectedSlot;
-    private int selectedWheelIndex;
+    private int editedLoadout;
     private int selectedClassIndex;
     /** Sub-view the codex was opened into, synced so the client screen can jump straight there. */
     private int pendingView;
@@ -78,7 +78,7 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
                     case 0 -> selectedTier;
                     case 1 -> selectedSkillIndex;
                     case 2 -> selectedSlot;
-                    case 3 -> selectedWheelIndex;
+                    case 3 -> editedLoadout;
                     case 4 -> selectedClassIndex;
                     case 5 -> pendingView;
                     default -> 0;
@@ -91,7 +91,7 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
                     case 0 -> selectedTier = value;
                     case 1 -> selectedSkillIndex = value;
                     case 2 -> selectedSlot = value;
-                    case 3 -> selectedWheelIndex = value;
+                    case 3 -> editedLoadout = value;
                     case 4 -> selectedClassIndex = value;
                     case 5 -> pendingView = value;
                     default -> {
@@ -180,35 +180,40 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
             syncIfServer();
             return true;
         }
-        if (id == BUTTON_TOGGLE_WHEEL) {
-            ResourceLocation skillId = selectedSkillId();
-            if (skillId != null) {
-                state.toggleWheelSkill(skillId);
-                clampSelectedWheelIndex();
+        // Which loadout the Loadouts tab is editing. Purely a cursor - editing a loadout is not
+        // the same as switching to it, and only the in-game switcher does the latter.
+        if (id >= BUTTON_LOADOUT_SELECT_BASE && id < BUTTON_LOADOUT_SELECT_BASE + MagicContent.MAX_LOADOUTS) {
+            int index = id - BUTTON_LOADOUT_SELECT_BASE;
+            if (index < state.loadouts().size()) {
+                editedLoadout = index;
+            }
+            return true;
+        }
+        if (id == BUTTON_LOADOUT_NEW) {
+            if (state.createLoadout(null)) {
+                editedLoadout = state.loadouts().size() - 1;
                 syncIfServer();
             }
             return true;
         }
-        if (id >= BUTTON_WHEEL_SELECT_BASE && id < BUTTON_WHEEL_SELECT_BASE + state.wheelSkills().size()) {
-            selectedWheelIndex = id - BUTTON_WHEEL_SELECT_BASE;
+        if (id == BUTTON_LOADOUT_DELETE) {
+            if (state.deleteLoadout(editedLoadout)) {
+                clampEditedLoadout();
+                syncIfServer();
+            }
             return true;
         }
-        if (id == BUTTON_REMOVE_WHEEL_SELECTED) {
-            state.removeWheelSkillAt(selectedWheelIndex);
-            clampSelectedWheelIndex();
-            syncIfServer();
+        if (id >= BUTTON_LOADOUT_BIND_BASE && id < BUTTON_LOADOUT_BIND_BASE + MagicContent.LOADOUT_SIZE) {
+            ResourceLocation skillId = selectedSkillId();
+            if (skillId != null && state.setLoadoutSlot(editedLoadout, id - BUTTON_LOADOUT_BIND_BASE, skillId)) {
+                syncIfServer();
+            }
             return true;
         }
-        if (id == BUTTON_MOVE_WHEEL_UP) {
-            state.moveWheelSkill(selectedWheelIndex, -1);
-            selectedWheelIndex = Math.max(0, selectedWheelIndex - 1);
-            syncIfServer();
-            return true;
-        }
-        if (id == BUTTON_MOVE_WHEEL_DOWN) {
-            state.moveWheelSkill(selectedWheelIndex, 1);
-            selectedWheelIndex = Math.min(state.wheelSkills().size() - 1, selectedWheelIndex + 1);
-            syncIfServer();
+        if (id >= BUTTON_LOADOUT_CLEAR_BASE && id < BUTTON_LOADOUT_CLEAR_BASE + MagicContent.LOADOUT_SIZE) {
+            if (state.setLoadoutSlot(editedLoadout, id - BUTTON_LOADOUT_CLEAR_BASE, null)) {
+                syncIfServer();
+            }
             return true;
         }
         if (id == BUTTON_OPEN_CLASS_TREE) {
@@ -422,12 +427,14 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
         return tierHasUnlockedSkill(-5) ? Math.max(count, 5) : count;
     }
 
-    private void clampSelectedWheelIndex() {
-        if (state.wheelSkills().isEmpty()) {
-            selectedWheelIndex = 0;
-        } else {
-            selectedWheelIndex = Math.max(0, Math.min(selectedWheelIndex, state.wheelSkills().size() - 1));
-        }
+    private void clampEditedLoadout() {
+        editedLoadout = Math.max(0, Math.min(editedLoadout, state.loadouts().size() - 1));
+    }
+
+    /** Which loadout the codex is editing. Synced so the screen and the menu agree on the cursor. */
+    public int editedLoadout() {
+        clampEditedLoadout();
+        return editedLoadout;
     }
 
     private void syncIfServer() {

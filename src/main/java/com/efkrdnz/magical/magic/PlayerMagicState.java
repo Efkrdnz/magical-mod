@@ -94,6 +94,8 @@ public final class PlayerMagicState {
      * out at login; a value that survived to the next load would say it twice.
      */
     private transient int pendingTuningRefunds;
+    /** Skills that had nowhere to go when an old wheel was converted into loadouts. */
+    private transient int pendingLoadoutOverflow;
     /**
      * The last blob handed to this player's client, or null if nothing has been sent yet.
      *
@@ -102,8 +104,22 @@ public final class PlayerMagicState {
      */
     private transient CompoundTag lastSyncedTag;
     private final Set<ResourceLocation> unlockedSkills = new LinkedHashSet<>();
-    private final ResourceLocation[] equippedSkills = new ResourceLocation[MagicContent.LOADOUT_SIZE];
-    private final Set<ResourceLocation> wheelSkills = new LinkedHashSet<>();
+    /**
+     * Named sets of cast slots. Always at least one; the active one is what Z/X/C/V point at.
+     *
+     * <p>This is the single source of truth for what is equipped - there is no parallel array of
+     * current skills to keep in step, which is what makes switching a loadout correctly clear a
+     * key the new loadout leaves unbound.
+     */
+    private final List<MagicLoadout> loadouts = new ArrayList<>();
+    private int activeLoadout;
+    /**
+     * Ticks until another loadout may be selected. Armed by casting, never by switching.
+     *
+     * <p>The rule taxes the chain worth stopping - fire everything, switch, fire everything - while
+     * switching when you have not cast, out of combat or mid-reposition, stays free.
+     */
+    private int loadoutSwapLockTicks;
     private final Set<ResourceLocation> unlockedPassives = new LinkedHashSet<>();
     private final Set<ResourceLocation> disabledPassives = new LinkedHashSet<>();
     private final Set<ResourceLocation> activeCurses = new LinkedHashSet<>();
@@ -134,6 +150,12 @@ public final class PlayerMagicState {
     }
 
     /** How many skills the budget migration reset, and clears the tally as it reports it. */
+    public int takePendingLoadoutOverflow() {
+        int overflow = pendingLoadoutOverflow;
+        pendingLoadoutOverflow = 0;
+        return overflow;
+    }
+
     public int takePendingTuningRefunds() {
         int refunds = pendingTuningRefunds;
         pendingTuningRefunds = 0;
@@ -360,15 +382,179 @@ public final class PlayerMagicState {
     }
 
     public ResourceLocation equippedSkill(int slot) {
-        return slot >= 0 && slot < equippedSkills.length ? equippedSkills[slot] : null;
+        return activeLoadout().slot(slot);
+    }
+
+    public List<MagicLoadout> loadouts() {
+        ensureALoadoutExists();
+        return loadouts;
+    }
+
+    public MagicLoadout activeLoadout() {
+        ensureALoadoutExists();
+        return loadouts.get(activeLoadout);
+    }
+
+    public int activeLoadoutIndex() {
+        ensureALoadoutExists();
+        return activeLoadout;
+    }
+
+    public MagicLoadout loadout(int index) {
+        ensureALoadoutExists();
+        return index >= 0 && index < loadouts.size() ? loadouts.get(index) : null;
+    }
+
+    /**
+     * Convert a pre-loadout save: three equipped slots plus a flat wheel of extra skills.
+     *
+     * <p>The old three keep their positions in the first loadout, so a returning player finds Z, X
+     * and C exactly where they left them. The wheel then fills forward - the first wheel skill
+     * lands on the new fourth key, the rest spill into further loadouts four at a time. Anything
+     * past the cap is dropped and counted, because silently losing a skill somebody equipped reads
+     * as the mod eating their build.
+     */
+    private void migrateWheelToLoadouts(CompoundTag tag) {
+        MagicLoadout first = new MagicLoadout("Loadout 1");
+        loadouts.add(first);
+
+        ListTag equipped = tag.getList("equippedSkills", Tag.TAG_STRING);
+        for (int i = 0; i < equipped.size() && i < MagicContent.LOADOUT_SIZE; i++) {
+            String raw = equipped.getString(i);
+            ResourceLocation id = raw.isEmpty() ? null : ResourceLocation.tryParse(raw);
+            if (id != null && MagicContent.get(id) != null) {
+                first.setSlot(i, id);
+            }
+        }
+
+        int cursor = Math.min(equipped.size(), MagicContent.LOADOUT_SIZE);
+        for (Tag entry : tag.getList("wheelSkills", Tag.TAG_STRING)) {
+            ResourceLocation id = ResourceLocation.tryParse(entry.getAsString());
+            if (id == null || MagicContent.get(id) == null) {
+                continue;
+            }
+            int index = cursor / MagicContent.LOADOUT_SIZE;
+            if (index >= MagicContent.MAX_LOADOUTS) {
+                pendingLoadoutOverflow++;
+                continue;
+            }
+            while (loadouts.size() <= index) {
+                loadouts.add(new MagicLoadout("Loadout " + (loadouts.size() + 1)));
+            }
+            loadouts.get(index).setSlot(cursor % MagicContent.LOADOUT_SIZE, id);
+            cursor++;
+        }
+        activeLoadout = 0;
+    }
+
+    /** A player always has somewhere to put a skill, even on a state that was never saved. */
+    private void ensureALoadoutExists() {
+        if (loadouts.isEmpty()) {
+            loadouts.add(new MagicLoadout("Loadout 1"));
+        }
+        activeLoadout = Math.max(0, Math.min(activeLoadout, loadouts.size() - 1));
+    }
+
+    /**
+     * Whether this skill sits in any loadout at all, not merely the active one.
+     *
+     * <p>The codex marks these, because with several loadouts there is otherwise no way to tell
+     * what you have already committed, and players bind the same skill in three places.
+     */
+    public boolean isEquippedAnywhere(ResourceLocation skillId) {
+        for (MagicLoadout loadout : loadouts) {
+            if (loadout.contains(skillId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Names of the loadouts holding this skill, for the codex tooltip. */
+    public List<String> loadoutsContaining(ResourceLocation skillId) {
+        List<String> names = new ArrayList<>();
+        for (MagicLoadout loadout : loadouts) {
+            if (loadout.contains(skillId)) {
+                names.add(loadout.name());
+            }
+        }
+        return names;
+    }
+
+    public int loadoutSwapLockTicks() {
+        return loadoutSwapLockTicks;
+    }
+
+    /** Called after a cast actually succeeds. A refused cast must never lock the switcher. */
+    public void armLoadoutSwapLock() {
+        loadoutSwapLockTicks = MagicContent.LOADOUT_SWAP_LOCK_TICKS;
+    }
+
+    /**
+     * Switch loadouts. Server-authoritative: a client that ignores the lock is refused here.
+     *
+     * @return true when the active loadout actually changed
+     */
+    public boolean selectLoadout(int index) {
+        ensureALoadoutExists();
+        if (index < 0 || index >= loadouts.size() || index == activeLoadout || loadoutSwapLockTicks > 0) {
+            return false;
+        }
+        activeLoadout = index;
+        refreshLoadoutCooldownsFromSkills();
+        return true;
+    }
+
+    public boolean createLoadout(String name) {
+        ensureALoadoutExists();
+        if (loadouts.size() >= MagicContent.MAX_LOADOUTS) {
+            return false;
+        }
+        loadouts.add(new MagicLoadout(name == null || name.isBlank() ? "Loadout " + (loadouts.size() + 1) : name));
+        return true;
+    }
+
+    /** The last loadout cannot be deleted; a player with none has no way to cast at all. */
+    public boolean deleteLoadout(int index) {
+        ensureALoadoutExists();
+        if (index < 0 || index >= loadouts.size() || loadouts.size() <= 1) {
+            return false;
+        }
+        loadouts.remove(index);
+        if (activeLoadout >= loadouts.size()) {
+            activeLoadout = loadouts.size() - 1;
+        }
+        refreshLoadoutCooldownsFromSkills();
+        return true;
+    }
+
+    public boolean renameLoadout(int index, String name) {
+        ensureALoadoutExists();
+        if (index < 0 || index >= loadouts.size()) {
+            return false;
+        }
+        loadouts.get(index).setName(name);
+        return true;
+    }
+
+    /** Bind a skill into any loadout, not only the active one - the codex edits them all. */
+    public boolean setLoadoutSlot(int loadoutIndex, int slot, ResourceLocation skillId) {
+        ensureALoadoutExists();
+        if (loadoutIndex < 0 || loadoutIndex >= loadouts.size() || slot < 0 || slot >= MagicContent.LOADOUT_SIZE) {
+            return false;
+        }
+        if (skillId != null && !hasUnlocked(skillId)) {
+            return false;
+        }
+        loadouts.get(loadoutIndex).setSlot(slot, skillId);
+        if (loadoutIndex == activeLoadout) {
+            refreshLoadoutCooldownsFromSkills();
+        }
+        return true;
     }
 
     public Map<ResourceLocation, MagicSkillTuning> tuning() {
         return tuning;
-    }
-
-    public Set<ResourceLocation> wheelSkills() {
-        return wheelSkills;
     }
 
     public Set<ResourceLocation> unlockedPassives() {
@@ -714,13 +900,12 @@ public final class PlayerMagicState {
         if (MagicContent.SPATIAL_ARSENAL.id().equals(skillId)) {
             MagicContent.spatialArsenalSubSkills().forEach(subSkill -> removeSkill(subSkill.id()));
         }
-        for (int slot = 0; slot < equippedSkills.length; slot++) {
-            if (skillId.equals(equippedSkills[slot])) {
-                equippedSkills[slot] = null;
-                slotCooldowns[slot] = 0;
-            }
+        // Every loadout, not merely the active one: a skill left bound in an inactive loadout would
+        // come back the moment the player switched to it.
+        for (MagicLoadout loadout : loadouts) {
+            loadout.forget(skillId);
         }
-        wheelSkills.remove(skillId);
+        refreshLoadoutCooldownsFromSkills();
         tuning.remove(skillId);
         skillCooldowns.remove(skillId);
         cooldownEchoCounters.remove(skillId);
@@ -1164,18 +1349,18 @@ public final class PlayerMagicState {
     }
 
     public void equip(int slot, ResourceLocation skillId) {
-        if (slot < 0 || slot >= equippedSkills.length || !hasUnlocked(skillId)) {
+        if (slot < 0 || slot >= MagicContent.LOADOUT_SIZE || !hasUnlocked(skillId)) {
             return;
         }
-        equippedSkills[slot] = skillId;
+        activeLoadout().setSlot(slot, skillId);
         slotCooldowns[slot] = skillCooldown(skillId);
     }
 
     public void clearSlot(int slot) {
-        if (slot < 0 || slot >= equippedSkills.length) {
+        if (slot < 0 || slot >= MagicContent.LOADOUT_SIZE) {
             return;
         }
-        equippedSkills[slot] = null;
+        activeLoadout().setSlot(slot, null);
         slotCooldowns[slot] = 0;
     }
 
@@ -1209,27 +1394,6 @@ public final class PlayerMagicState {
         return Math.min(MagicSkillTuning.ABSOLUTE_MAX, floor + proficiencyLevel() * 2);
     }
 
-    public boolean hasWheelSkill(ResourceLocation skillId) {
-        return wheelSkills.contains(skillId);
-    }
-
-    public void addWheelSkill(ResourceLocation skillId) {
-        if (hasUnlocked(skillId)) {
-            wheelSkills.add(skillId);
-        }
-    }
-
-    public void removeWheelSkill(ResourceLocation skillId) {
-        wheelSkills.remove(skillId);
-    }
-
-    public void removeWheelSkillAt(int index) {
-        if (index < 0 || index >= wheelSkills.size()) {
-            return;
-        }
-        wheelSkills.remove(new ArrayList<>(wheelSkills).get(index));
-    }
-
     public boolean addSpaceWaypoint(SpaceWaypoint waypoint) {
         if (waypoint == null || spaceWaypoints.size() >= 24) {
             return false;
@@ -1248,26 +1412,6 @@ public final class PlayerMagicState {
 
     public SpaceWaypoint spaceWaypoint(int index) {
         return index < 0 || index >= spaceWaypoints.size() ? null : spaceWaypoints.get(index);
-    }
-
-    public void moveWheelSkill(int index, int delta) {
-        List<ResourceLocation> ordered = new ArrayList<>(wheelSkills);
-        int target = index + delta;
-        if (index < 0 || index >= ordered.size() || target < 0 || target >= ordered.size()) {
-            return;
-        }
-        ResourceLocation moved = ordered.remove(index);
-        ordered.add(target, moved);
-        wheelSkills.clear();
-        wheelSkills.addAll(ordered);
-    }
-
-    public void toggleWheelSkill(ResourceLocation skillId) {
-        if (wheelSkills.contains(skillId)) {
-            wheelSkills.remove(skillId);
-        } else if (hasUnlocked(skillId)) {
-            wheelSkills.add(skillId);
-        }
     }
 
     public int cooldown(int slot) {
@@ -1409,6 +1553,12 @@ public final class PlayerMagicState {
             skillCooldowns.entrySet().removeIf(entry -> entry.getValue() <= 0);
             refreshLoadoutCooldownsFromSkills();
         }
+        // Deliberately does not set changed: like the cooldowns above it, this counts down without
+        // costing a packet a tick. The client learns the value from the sync the cast already sends
+        // and runs the countdown itself, for the greyed-out switcher.
+        if (loadoutSwapLockTicks > 0) {
+            loadoutSwapLockTicks--;
+        }
         // Race comes first and gates everything under it: the awakening's second skill is the
         // race's, so granting it before the choice would hand out somebody else's magic. Same
         // re-opening trick as the class chooser below, for the same reason.
@@ -1501,8 +1651,9 @@ public final class PlayerMagicState {
         copy.soulBondCollapseEntityUuid = soulBondCollapseEntityUuid;
         copy.soulBondCollapseTicks = soulBondCollapseTicks;
         copy.unlockedSkills.addAll(unlockedSkills);
-        System.arraycopy(equippedSkills, 0, copy.equippedSkills, 0, equippedSkills.length);
-        copy.wheelSkills.addAll(wheelSkills);
+        loadouts.forEach(loadout -> copy.loadouts.add(loadout.copy()));
+        copy.activeLoadout = activeLoadout;
+        copy.loadoutSwapLockTicks = loadoutSwapLockTicks;
         copy.prideGauge = prideGauge;
         copy.wrathGauge = wrathGauge;
         copy.greedHoard = greedHoard;
@@ -1609,17 +1760,17 @@ public final class PlayerMagicState {
         }
         tag.put("unlockedSkills", unlocked);
 
-        ListTag equipped = new ListTag();
-        for (ResourceLocation id : equippedSkills) {
-            equipped.add(StringTag.valueOf(id == null ? "" : id.toString()));
+        // Every loadout is written, empty ones included. Dropping the empties would shift the
+        // indices that activeLoadout refers to, and would silently discard a name the player chose
+        // for a set they had not filled in yet. Six of them cost under a kilobyte.
+        ListTag loadoutTags = new ListTag();
+        for (MagicLoadout loadout : loadouts) {
+            loadoutTags.add(loadout.save());
         }
-        tag.put("equippedSkills", equipped);
-
-        ListTag wheel = new ListTag();
-        for (ResourceLocation id : wheelSkills) {
-            wheel.add(StringTag.valueOf(id.toString()));
-        }
-        tag.put("wheelSkills", wheel);
+        tag.put("loadouts", loadoutTags);
+        tag.putInt("activeLoadout", activeLoadout);
+        // On the wire so the client can grey the switcher; the server counts it down without syncing.
+        tag.putInt("loadoutSwapLockTicks", loadoutSwapLockTicks);
 
         ListTag passives = new ListTag();
         for (ResourceLocation id : unlockedPassives) {
@@ -1761,20 +1912,26 @@ public final class PlayerMagicState {
             loadedAuthority.skillIds().forEach(state::unlock);
         }
 
-        ListTag equipped = tag.getList("equippedSkills", Tag.TAG_STRING);
-        for (int i = 0; i < Math.min(equipped.size(), state.equippedSkills.length); i++) {
-            String raw = equipped.getString(i);
-            ResourceLocation id = raw.isEmpty() ? null : ResourceLocation.parse(raw);
-            state.equippedSkills[i] = id != null && state.hasUnlocked(id) && MagicContent.get(id) != null ? id : null;
+        if (tag.contains("loadouts")) {
+            for (Tag entry : tag.getList("loadouts", Tag.TAG_COMPOUND)) {
+                state.loadouts.add(MagicLoadout.load((CompoundTag) entry));
+            }
+            state.activeLoadout = tag.getInt("activeLoadout");
+        } else {
+            state.migrateWheelToLoadouts(tag);
         }
-
-        ListTag wheel = tag.getList("wheelSkills", Tag.TAG_STRING);
-        for (Tag entry : wheel) {
-            ResourceLocation id = ResourceLocation.parse(entry.getAsString());
-            if (state.hasUnlocked(id) && MagicContent.get(id) != null) {
-                state.wheelSkills.add(id);
+        state.loadoutSwapLockTicks = Math.max(0, tag.getInt("loadoutSwapLockTicks"));
+        // A slot may name a skill the player has since lost - to a class change, a curse, a command.
+        // Binding survives the skill otherwise, and the key would silently do nothing.
+        for (MagicLoadout loadout : state.loadouts) {
+            for (int slot = 0; slot < MagicContent.LOADOUT_SIZE; slot++) {
+                ResourceLocation id = loadout.slot(slot);
+                if (id != null && !state.hasUnlocked(id)) {
+                    loadout.setSlot(slot, null);
+                }
             }
         }
+        state.ensureALoadoutExists();
 
         ListTag passives = tag.getList("unlockedPassives", Tag.TAG_STRING);
         for (Tag entry : passives) {
@@ -1939,16 +2096,19 @@ public final class PlayerMagicState {
     }
 
     private void mirrorSkillCooldownToLoadout(ResourceLocation skillId, int cooldown) {
-        for (int i = 0; i < equippedSkills.length; i++) {
-            if (skillId.equals(equippedSkills[i])) {
+        MagicLoadout active = activeLoadout();
+        for (int i = 0; i < slotCooldowns.length; i++) {
+            if (skillId.equals(active.slot(i))) {
                 slotCooldowns[i] = cooldown;
             }
         }
     }
 
     private void refreshLoadoutCooldownsFromSkills() {
-        for (int i = 0; i < equippedSkills.length; i++) {
-            slotCooldowns[i] = equippedSkills[i] == null ? 0 : skillCooldown(equippedSkills[i]);
+        MagicLoadout active = activeLoadout();
+        for (int i = 0; i < slotCooldowns.length; i++) {
+            ResourceLocation id = active.slot(i);
+            slotCooldowns[i] = id == null ? 0 : skillCooldown(id);
         }
     }
 
@@ -1994,7 +2154,7 @@ public final class PlayerMagicState {
                 ", unlockedPassives=" + unlockedPassives +
                 ", passiveLevels=" + passiveLevels +
                 ", activeCurses=" + activeCurses +
-                ", equippedSkills=" + Arrays.toString(equippedSkills) +
+                ", loadouts=" + loadouts.size() + "@" + activeLoadout +
                 '}';
     }
 }

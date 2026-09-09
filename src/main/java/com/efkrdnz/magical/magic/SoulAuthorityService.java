@@ -39,16 +39,11 @@ public final class SoulAuthorityService {
     public static void castSoulVowMode(ServerPlayer player, int slot, int mode) {
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
         ResourceLocation parentId = slot >= 0 && slot < MagicContent.LOADOUT_SIZE ? state.equippedSkill(slot) : null;
-        castSoulVowMode(player, state, parentId, mode, false);
+        castSoulVowMode(player, state, parentId, mode);
     }
 
-    public static void castWheelSoulVowMode(ServerPlayer player, int mode) {
-        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
-        castSoulVowMode(player, state, MagicContent.SOUL_VOW.id(), mode, true);
-    }
-
-    private static void castSoulVowMode(ServerPlayer player, PlayerMagicState state, ResourceLocation parentId, int mode, boolean fromWheel) {
-        if (!MagicContent.SOUL_VOW.id().equals(parentId) || (fromWheel && !state.hasWheelSkill(parentId))) {
+    private static void castSoulVowMode(ServerPlayer player, PlayerMagicState state, ResourceLocation parentId, int mode) {
+        if (!MagicContent.SOUL_VOW.id().equals(parentId)) {
             return;
         }
         if (!state.hasAuthority(AuthorityContent.SOUL) || !state.hasUnlocked(MagicContent.SOUL_VOW.id()) || SovereignAegisEntity.isSealed(player)) {

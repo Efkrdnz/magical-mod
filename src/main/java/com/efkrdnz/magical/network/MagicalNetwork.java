@@ -74,19 +74,23 @@ public final class MagicalNetwork {
                                 MagicCastingService.castSlot(player, payload.slot(), payload.sneakDown());
                             }
                         }))
-                .playToServer(CastWheelSkillPayload.TYPE, CastWheelSkillPayload.STREAM_CODEC, (payload, context) ->
+                .playToServer(SelectLoadoutPayload.TYPE, SelectLoadoutPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> {
                             if (context.player() instanceof ServerPlayer player) {
-                                MagicCastingService.castWheelSkill(player, payload.skillId());
+                                PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+                                // selectLoadout enforces the post-cast lock and the index bounds, so a
+                                // client that ignores either is simply refused and told nothing changed.
+                                if (state.selectLoadout(payload.index())) {
+                                    state.sync(player);
+                                }
                             }
                         }))
-                .playToServer(CastWheelSubSkillPayload.TYPE, CastWheelSubSkillPayload.STREAM_CODEC, (payload, context) ->
+                .playToServer(RenameLoadoutPayload.TYPE, RenameLoadoutPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> {
                             if (context.player() instanceof ServerPlayer player) {
-                                if (MagicContent.SOUL_VOW.id().equals(payload.parentSkillId())) {
-                                    com.efkrdnz.magical.magic.SoulAuthorityService.castWheelSoulVowMode(player, payload.mode());
-                                } else {
-                                    MagicCastingService.castWheelSubSkill(player, payload.parentSkillId(), payload.mode());
+                                PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+                                if (state.renameLoadout(payload.index(), payload.name())) {
+                                    state.sync(player);
                                 }
                             }
                         }))
@@ -247,12 +251,12 @@ public final class MagicalNetwork {
         PacketDistributor.sendToServer(new RefillBarrierPayload());
     }
 
-    public static void sendWheelCastRequest(ResourceLocation skillId) {
-        PacketDistributor.sendToServer(new CastWheelSkillPayload(skillId));
+    public static void sendSelectLoadout(int index) {
+        PacketDistributor.sendToServer(new SelectLoadoutPayload(index));
     }
 
-    public static void sendWheelSubSkillCastRequest(ResourceLocation parentSkillId, int mode) {
-        PacketDistributor.sendToServer(new CastWheelSubSkillPayload(parentSkillId, mode));
+    public static void sendRenameLoadout(int index, String name) {
+        PacketDistributor.sendToServer(new RenameLoadoutPayload(index, name));
     }
 
     public static void sendOpenCodexRequest() {

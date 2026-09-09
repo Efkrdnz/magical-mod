@@ -167,6 +167,10 @@ public final class MagicGameplayEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
             SpaceAuthorityService.closeAllDomains(player, state, false);
+            int spilled = state.takePendingLoadoutOverflow();
+            if (spilled > 0) {
+                player.sendSystemMessage(Component.translatable("message.magical.loadout_overflow", spilled));
+            }
             int refunded = state.takePendingTuningRefunds();
             if (refunded > 0) {
                 // Silently wiping somebody's builds would read as a bug. Say what changed and that

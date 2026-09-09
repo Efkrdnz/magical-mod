@@ -82,4 +82,11 @@ public final class MagicBarrageInput {
             }
         }
     }
+
+    /** Abandon any charge in progress. Called when the player switches loadout. */
+    public static void cancel() {
+        for (int slot = 0; slot < MagicContent.LOADOUT_SIZE; slot++) {
+            resetSlot(slot);
+        }
+    }
 }

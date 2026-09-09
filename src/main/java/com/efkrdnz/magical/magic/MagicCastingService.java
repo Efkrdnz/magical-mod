@@ -51,39 +51,19 @@ public final class MagicCastingService {
         castResolved(player, state, skillId, slot + 1, sneakDown);
     }
 
-    public static void castWheelSkill(ServerPlayer player, ResourceLocation skillId) {
-        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
-        if (skillId != null && !state.hasWheelSkill(skillId)) {
-            player.displayClientMessage(Component.translatable("message.magical.skill_not_in_wheel"), true);
-            return;
-        }
-        castResolved(player, state, skillId, -1, player.isShiftKeyDown());
-    }
-
     public static void castSovereignAegisMode(ServerPlayer player, int slot, int mode) {
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
         ResourceLocation parentId = slot >= 0 && slot < MagicContent.LOADOUT_SIZE ? state.equippedSkill(slot) : null;
-        castSovereignAegisMode(player, state, parentId, mode, false);
+        castSovereignAegisMode(player, state, parentId, mode);
     }
 
-    public static void castWheelSubSkill(ServerPlayer player, ResourceLocation parentId, int mode) {
-        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
-        if (parentId == null || !state.hasWheelSkill(parentId)) {
-            player.displayClientMessage(Component.translatable("message.magical.skill_not_in_wheel"), true);
-            return;
-        }
-        if (MagicContent.GABRIEL.id().equals(parentId)) {
-            castSovereignAegisMode(player, state, parentId, mode, true);
-        } else if (MagicContent.BLACK_FLAMES.id().equals(parentId)) {
-            castBlackFlamesMode(player, state, parentId, mode, true);
-        } else if (MagicContent.SPATIAL_ARSENAL.id().equals(parentId)) {
-            castSpaceOffenseMode(player, state, parentId, mode, true);
-        }
-    }
-
-    private static void castSovereignAegisMode(ServerPlayer player, PlayerMagicState state, ResourceLocation parentId, int mode, boolean fromWheel) {
+    /**
+     * The wheel used to be a second way in here, and carried its own membership check. Now the only
+     * way in is a cast slot, and being in a slot of the active loadout is that permission already.
+     */
+    private static void castSovereignAegisMode(ServerPlayer player, PlayerMagicState state, ResourceLocation parentId, int mode) {
         boolean gabriel = MagicContent.GABRIEL.id().equals(parentId);
-        if ((!MagicContent.SOVEREIGN_AEGIS.id().equals(parentId) && !gabriel) || (fromWheel && !state.hasWheelSkill(parentId))) {
+        if (!MagicContent.SOVEREIGN_AEGIS.id().equals(parentId) && !gabriel) {
             return;
         }
         if (!state.hasUnlocked(parentId) || SovereignAegisEntity.isSealed(player)) {
@@ -144,11 +124,11 @@ public final class MagicCastingService {
     public static void castBlackFlamesMode(ServerPlayer player, int slot, int mode) {
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
         ResourceLocation parentId = slot >= 0 && slot < MagicContent.LOADOUT_SIZE ? state.equippedSkill(slot) : null;
-        castBlackFlamesMode(player, state, parentId, mode, false);
+        castBlackFlamesMode(player, state, parentId, mode);
     }
 
-    private static void castBlackFlamesMode(ServerPlayer player, PlayerMagicState state, ResourceLocation parentId, int mode, boolean fromWheel) {
-        if (!MagicContent.BLACK_FLAMES.id().equals(parentId) || (fromWheel && !state.hasWheelSkill(parentId))) {
+    private static void castBlackFlamesMode(ServerPlayer player, PlayerMagicState state, ResourceLocation parentId, int mode) {
+        if (!MagicContent.BLACK_FLAMES.id().equals(parentId)) {
             return;
         }
         if (!state.hasUnlocked(MagicContent.BLACK_FLAMES.id()) || SovereignAegisEntity.isSealed(player)) {
@@ -201,11 +181,11 @@ public final class MagicCastingService {
     public static void castSpaceOffenseMode(ServerPlayer player, int slot, int mode) {
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
         ResourceLocation parentId = slot >= 0 && slot < MagicContent.LOADOUT_SIZE ? state.equippedSkill(slot) : null;
-        castSpaceOffenseMode(player, state, parentId, mode, false);
+        castSpaceOffenseMode(player, state, parentId, mode);
     }
 
-    private static void castSpaceOffenseMode(ServerPlayer player, PlayerMagicState state, ResourceLocation parentId, int mode, boolean fromWheel) {
-        if (!MagicContent.SPATIAL_ARSENAL.id().equals(parentId) || (fromWheel && !state.hasWheelSkill(parentId))) {
+    private static void castSpaceOffenseMode(ServerPlayer player, PlayerMagicState state, ResourceLocation parentId, int mode) {
+        if (!MagicContent.SPATIAL_ARSENAL.id().equals(parentId)) {
             return;
         }
         if (!state.hasAuthority(AuthorityContent.SPACE) || !state.hasUnlocked(MagicContent.SPATIAL_ARSENAL.id()) || SovereignAegisEntity.isSealed(player)) {

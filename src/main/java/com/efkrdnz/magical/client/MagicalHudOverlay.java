@@ -51,7 +51,10 @@ public final class MagicalHudOverlay {
         int toNext = MagicContent.xpForNextLevel(xp);
         float xpFraction = toNext <= 0 ? 1.0F : into / (float) Math.max(1, into + toNext);
         bar(g, x + 46, y + 32, 66, 5, xpFraction, 0xFFF3CE63, 0xFF87681F);
-        chip(g, font, x + PANEL_W - 46, y + 29, 40, 11, "W " + state.wheelSkills().size(), 0xBFD7FF);
+        // The active loadout by name: with four keys that change meaning, which set you are on is
+        // the single most useful thing the HUD can say.
+        chip(g, font, x + PANEL_W - 62, y + 29, 56, 11,
+                font.plainSubstrByWidth(state.activeLoadout().name(), 50), 0xBFD7FF);
 
         // --- Loadout slots with bound keys and cooldowns ---
         int slotY = y + MAIN_H + 4;

@@ -101,7 +101,6 @@ public final class MagicalClientEvents {
         }
         event.register(MagicalKeyMappings.OPEN_CODEX);
         event.register(MagicalKeyMappings.OPEN_WHEEL);
-        event.register(MagicalKeyMappings.CONFIRM_WHEEL);
         event.register(MagicalKeyMappings.REFILL_BARRIER);
     }
 
@@ -260,14 +259,9 @@ public final class MagicalClientEvents {
             while (MagicalKeyMappings.OPEN_CODEX.consumeClick()) {
                 MagicalNetwork.sendOpenCodexRequest();
             }
-            while (MagicalKeyMappings.CONFIRM_WHEEL.consumeClick()) {
-                MagicWheelOverlay.castChosenSkill();
-            }
-            boolean confirmWheelDown = MagicalKeyMappings.CONFIRM_WHEEL.isDown();
-            SovereignAegisInput.tickWheelCast(confirmWheelDown);
-            BlackFlamesInput.tickWheelCast(confirmWheelDown);
-            SpaceOffenseInput.tickWheelCast(confirmWheelDown);
-            SoulVowInput.tickWheelCast(confirmWheelDown);
+            // The parry gets the key first and consumes it on the press that answers a prompt, so
+            // the switcher cannot open during a counter window. That ordering is the whole reason
+            // one key can serve both.
             boolean counterConsumesWheel = ClientCounterPrompt.tickAndConsumeWheel(minecraft, MagicalKeyMappings.OPEN_WHEEL.isDown());
             MagicWheelOverlay.tick(minecraft, counterConsumesWheel ? false : MagicalKeyMappings.OPEN_WHEEL.isDown());
             while (MagicalKeyMappings.REFILL_BARRIER.consumeClick()) {

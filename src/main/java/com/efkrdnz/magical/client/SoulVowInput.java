@@ -10,7 +10,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
 public final class SoulVowInput {
-    private static final int WHEEL_SLOT = -2;
     private static final int ACTION_BIND = 0;
     private static final int ACTION_SWAP = 100;
     private static final int ACTION_CALL = 101;
@@ -32,7 +31,6 @@ public final class SoulVowInput {
     private static int activeSlot = -1;
     private static int selectedAction;
     private static float fade;
-    private static boolean wheelConfirmWasDown;
 
     private SoulVowInput() {}
 
@@ -69,33 +67,6 @@ public final class SoulVowInput {
         }
         WAS_DOWN[slot] = down;
         return true;
-    }
-
-    public static boolean beginWheelCast() {
-        if (!ClientMagicState.get().hasAuthority(AuthorityContent.SOUL)) {
-            return false;
-        }
-        activeSlot = WHEEL_SLOT;
-        wheelConfirmWasDown = true;
-        selectedAction = 0;
-        fade = 0.0F;
-        return true;
-    }
-
-    public static void tickWheelCast(boolean confirmDown) {
-        if (activeSlot != WHEEL_SLOT) {
-            return;
-        }
-        if (!confirmDown && wheelConfirmWasDown) {
-            int mode = ClientMagicState.get().hasSoulBond() ? BOND_ACTIONS[selectedAction] : ACTION_BIND;
-            MagicalNetwork.sendWheelSubSkillCastRequest(MagicContent.SOUL_VOW.id(), mode);
-            resetWheel();
-            return;
-        }
-        if (confirmDown && ClientMagicState.get().hasSoulBond()) {
-            fade = Math.min(1.0F, fade + 0.18F);
-        }
-        wheelConfirmWasDown = confirmDown;
     }
 
     public static boolean handleScroll(double delta) {
@@ -218,10 +189,15 @@ public final class SoulVowInput {
         }
     }
 
-    private static void resetWheel() {
-        if (activeSlot == WHEEL_SLOT) {
-            activeSlot = -1;
-        }
-        wheelConfirmWasDown = false;
+    /**
+     * Abandon whatever this handler was charging.
+     *
+     * <p>Called when the player switches loadout. Charge state is keyed by slot number, so without
+     * this a swap mid-charge would leave slot two still charging the old loadout skill while the
+     * key now points at a different one - you would charge one spell and release another.
+     */
+    public static void cancel() {
+        activeSlot = -1;
+        fade = 0.0F;
     }
 }

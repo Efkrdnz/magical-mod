@@ -11,7 +11,19 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 
 public final class MagicContent {
-    public static final int LOADOUT_SIZE = 3;
+    /** Z, X, C, V. Sized here because the keybind array and the cooldown array both follow it. */
+    public static final int LOADOUT_SIZE = 4;
+
+    /** How many named loadouts a player may keep. Capped so the state payload stays small. */
+    public static final int MAX_LOADOUTS = 6;
+
+    /**
+     * Ticks after a successful cast during which the loadout may not be switched.
+     *
+     * <p>Casting locks the switch, not the other way round: the chain worth stopping is fire
+     * everything, switch, fire everything. Switching when you have not cast stays free.
+     */
+    public static final int LOADOUT_SWAP_LOCK_TICKS = 20;
 
     private static final Map<ResourceLocation, MagicSkillDefinition> SKILLS = new LinkedHashMap<>();
     private static final List<ResourceLocation> ORDERED_IDS = new ArrayList<>();

@@ -99,15 +99,19 @@ public final class MagicFusionService {
             player.displayClientMessage(Component.translatable("message.magical.fusion_already_created"), true);
             return false;
         }
-        int replacementSlot = -1;
-        for (int slot = 0; slot < MagicContent.LOADOUT_SIZE; slot++) {
-            ResourceLocation equipped = state.equippedSkill(slot);
-            if (firstInput.equals(equipped) || secondInput.equals(equipped)) {
-                replacementSlot = slot;
-                break;
+        // Where the inputs sat, across every loadout - captured before removeSkill unbinds them.
+        // The old code could only replace one slot of the one active set, so a fusion silently
+        // emptied whatever other places the inputs had been bound into.
+        List<int[]> replacements = new ArrayList<>();
+        for (int index = 0; index < state.loadouts().size(); index++) {
+            MagicLoadout loadout = state.loadouts().get(index);
+            for (int slot = 0; slot < MagicContent.LOADOUT_SIZE; slot++) {
+                ResourceLocation equipped = loadout.slot(slot);
+                if (firstInput.equals(equipped) || secondInput.equals(equipped)) {
+                    replacements.add(new int[]{index, slot});
+                }
             }
         }
-        boolean replaceWheel = state.hasWheelSkill(firstInput) || state.hasWheelSkill(secondInput);
         if (recipe.consumesFirstInput() && !state.removeSkill(firstInput)) {
             player.displayClientMessage(Component.translatable("message.magical.fusion_requirements_missing"), true);
             return false;
@@ -118,11 +122,8 @@ public final class MagicFusionService {
         }
         if (state.unlock(recipe.outputSkill())) {
             MagicSkillDefinition skill = MagicContent.get(recipe.outputSkill());
-            if (replacementSlot >= 0) {
-                state.equip(replacementSlot, recipe.outputSkill());
-            }
-            if (replaceWheel) {
-                state.addWheelSkill(recipe.outputSkill());
+            for (int[] at : replacements) {
+                state.setLoadoutSlot(at[0], at[1], recipe.outputSkill());
             }
             player.displayClientMessage(Component.translatable("message.magical.fusion_created", Component.translatable(skill.nameKey())), false);
             state.addClassXp(recipe.requiredClass(), 35);

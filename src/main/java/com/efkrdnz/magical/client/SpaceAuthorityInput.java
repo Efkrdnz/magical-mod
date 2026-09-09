@@ -60,4 +60,10 @@ public final class SpaceAuthorityInput {
             SpaceManipulationOverlay.finish();
         }
     }
+
+    /** Abandon any charge in progress. Called when the player switches loadout. */
+    public static void cancel() {
+        java.util.Arrays.fill(WAS_DOWN, false);
+        java.util.Arrays.fill(CHARGE_TICKS, 0);
+    }
 }

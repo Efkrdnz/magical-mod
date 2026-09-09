@@ -9,7 +9,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
 public final class SovereignAegisInput {
-    private static final int WHEEL_SLOT = -2;
     private static final ResourceLocation[] MODES = {
             MagicContent.AEGIS_ULTIMATE_PROTECTION.id(),
             MagicContent.AEGIS_SANCTUARY.id(),
@@ -26,7 +25,6 @@ public final class SovereignAegisInput {
     private static int selectedMode;
     private static float fade;
     private static ResourceLocation wheelParentId;
-    private static boolean wheelConfirmWasDown;
 
     private SovereignAegisInput() {}
 
@@ -55,34 +53,6 @@ public final class SovereignAegisInput {
         }
         WAS_DOWN[slot] = down;
         return true;
-    }
-
-    public static boolean beginWheelCast(ResourceLocation parentId) {
-        if (!isSupportedParent(parentId)) {
-            return false;
-        }
-        activeSlot = WHEEL_SLOT;
-        wheelParentId = parentId;
-        wheelConfirmWasDown = true;
-        selectedMode = 0;
-        fade = 0.0F;
-        return true;
-    }
-
-    public static void tickWheelCast(boolean confirmDown) {
-        if (activeSlot != WHEEL_SLOT) {
-            return;
-        }
-        if (!confirmDown && wheelConfirmWasDown) {
-            MagicalNetwork.sendWheelSubSkillCastRequest(wheelParentId, selectedMode);
-            resetWheel();
-            return;
-        }
-        if (confirmDown) {
-            selectedMode = Math.floorMod(selectedMode, modesFor(wheelParentId).length);
-            fade = Math.min(1.0F, fade + 0.18F);
-        }
-        wheelConfirmWasDown = confirmDown;
     }
 
     public static boolean handleScroll(double delta) {
@@ -238,7 +208,7 @@ public final class SovereignAegisInput {
     }
 
     private static ResourceLocation activeParentId() {
-        return activeSlot == WHEEL_SLOT ? wheelParentId : ClientMagicState.get().equippedSkill(activeSlot);
+        return ClientMagicState.get().equippedSkill(activeSlot);
     }
 
     private static void resetSlot(int slot) {
@@ -250,11 +220,15 @@ public final class SovereignAegisInput {
         }
     }
 
-    private static void resetWheel() {
-        if (activeSlot == WHEEL_SLOT) {
-            activeSlot = -1;
-        }
-        wheelParentId = null;
-        wheelConfirmWasDown = false;
+    /**
+     * Abandon whatever this handler was charging.
+     *
+     * <p>Called when the player switches loadout. Charge state is keyed by slot number, so without
+     * this a swap mid-charge would leave slot two still charging the old loadout skill while the
+     * key now points at a different one - you would charge one spell and release another.
+     */
+    public static void cancel() {
+        activeSlot = -1;
+        fade = 0.0F;
     }
 }

@@ -13,13 +13,15 @@ public final class MagicalKeyMappings {
     public static final KeyMapping[] CAST_SLOTS = new KeyMapping[MagicContent.LOADOUT_SIZE];
     public static final KeyMapping OPEN_CODEX = create("open_codex", GLFW.GLFW_KEY_K);
     public static final KeyMapping OPEN_WHEEL = create("open_wheel", GLFW.GLFW_KEY_B);
-    public static final KeyMapping CONFIRM_WHEEL = create("confirm_wheel", GLFW.GLFW_KEY_V);
     public static final KeyMapping REFILL_BARRIER = create("refill_barrier", GLFW.GLFW_KEY_R);
 
     static {
         CAST_SLOTS[0] = create("cast_slot_1", GLFW.GLFW_KEY_Z);
         CAST_SLOTS[1] = create("cast_slot_2", GLFW.GLFW_KEY_X);
         CAST_SLOTS[2] = create("cast_slot_3", GLFW.GLFW_KEY_C);
+        // V used to confirm a wheel selection. The wheel holds loadouts now and commits on release,
+        // so the key is free and becomes the fourth cast slot.
+        CAST_SLOTS[3] = create("cast_slot_4", GLFW.GLFW_KEY_V);
     }
 
     private MagicalKeyMappings() {}

@@ -81,6 +81,10 @@ public final class MagicSinService {
     }
 
     public static void afterSuccessfulCast(ServerPlayer player, PlayerMagicState state, MagicSkillDefinition definition) {
+        // Every cast service funnels through here, which is why the loadout swap lock arms here and
+        // nowhere else: a cast that was refused never reaches this line, so a failed cast - out of
+        // mana, on cooldown, locked - cannot shut the player out of their own switcher.
+        state.armLoadoutSwapLock();
         BlackFlamesService.onSuccessfulSkillCast(player, definition);
         ClassPassiveEffects.afterCast(player, state, definition);
         if (isOffensive(definition)) {

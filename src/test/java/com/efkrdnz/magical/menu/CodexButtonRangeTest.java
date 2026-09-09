@@ -38,7 +38,9 @@ class CodexButtonRangeTest {
         List<Band> bands = new ArrayList<>();
         bands.add(new Band("skill select", MagicPyramidMenu.BUTTON_SKILL_BASE, MagicContent.orderedSkillIds().size()));
         bands.add(new Band("loadout slot", MagicPyramidMenu.BUTTON_SLOT_BASE, MagicContent.LOADOUT_SIZE));
-        bands.add(new Band("wheel select", MagicPyramidMenu.BUTTON_WHEEL_SELECT_BASE, MagicContent.orderedSkillIds().size()));
+        bands.add(new Band("loadout select", MagicPyramidMenu.BUTTON_LOADOUT_SELECT_BASE, MagicContent.MAX_LOADOUTS));
+        bands.add(new Band("loadout bind", MagicPyramidMenu.BUTTON_LOADOUT_BIND_BASE, MagicContent.LOADOUT_SIZE));
+        bands.add(new Band("loadout clear", MagicPyramidMenu.BUTTON_LOADOUT_CLEAR_BASE, MagicContent.LOADOUT_SIZE));
         bands.add(new Band("class select", MagicPyramidMenu.BUTTON_CLASS_SELECT_BASE, MagicalClasses.all().size()));
         bands.add(new Band("class evolve", MagicPyramidMenu.BUTTON_EVOLVE_CLASS_BASE, MagicalClasses.all().size()));
         bands.add(new Band("skill tuning", MagicPyramidMenu.BUTTON_TUNE_BASE, MagicTuningStat.values().length * 10));
