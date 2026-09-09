@@ -174,7 +174,14 @@ public final class PlayerMagicState {
         return MagicalConfig.MAX_BARRIER.get() + Math.max(0, maxBarrierBonus) + Math.max(0, classMaxBarrierBonus);
     }
 
-    /** Set by the class-passive slow tick; these are derived from gear and counters, never saved. */
+    /**
+     * Set by the class-passive slow tick, which is where a race's bonus pool arrives too.
+     *
+     * <p>Derived on the server from gear, counters and race, and never authored by hand - but still
+     * written by {@link #save()} and carried by {@link #copy()}, because the client cannot derive
+     * them: it does not run passive handlers. The saved value is only ever a stale mirror; the next
+     * slow tick overwrites it.
+     */
     public void setClassPoolBonuses(int manaBonus, int barrierBonus) {
         classMaxManaBonus = Math.max(0, manaBonus);
         classMaxBarrierBonus = Math.max(0, barrierBonus);
@@ -1630,6 +1637,10 @@ public final class PlayerMagicState {
         copy.manaVault = manaVault;
         copy.maxManaBonus = maxManaBonus;
         copy.maxBarrierBonus = maxBarrierBonus;
+        // Derived, but still copied: ClientMagicState rebuilds through copy(), so dropping these
+        // here leaves the HUD drawing the base ceiling while the server spends the real one.
+        copy.classMaxManaBonus = classMaxManaBonus;
+        copy.classMaxBarrierBonus = classMaxBarrierBonus;
         copy.manaBoostPurchases = manaBoostPurchases;
         copy.barrierBoostPurchases = barrierBoostPurchases;
         copy.authorityId = authorityId;
@@ -1715,6 +1726,12 @@ public final class PlayerMagicState {
         tag.putInt("manaVault", manaVault);
         tag.putInt("maxManaBonus", maxManaBonus);
         tag.putInt("maxBarrierBonus", maxBarrierBonus);
+        // These are derived server-side and re-computed every slow tick, so writing them to disk is
+        // redundant - but save() is also the wire format, and the client has no way to derive them:
+        // it never runs the passive handlers. Left out, the HUD reports the base pool while the
+        // server spends the real one, and a race's bonus mana looks like a spell that costs nothing.
+        tag.putInt("classMaxManaBonus", classMaxManaBonus);
+        tag.putInt("classMaxBarrierBonus", classMaxBarrierBonus);
         tag.putInt("manaBoostPurchases", manaBoostPurchases);
         tag.putInt("barrierBoostPurchases", barrierBoostPurchases);
         if (authorityId != null) {
@@ -1853,6 +1870,10 @@ public final class PlayerMagicState {
         state.manaVault = tag.getInt("manaVault");
         state.maxManaBonus = tag.getInt("maxManaBonus");
         state.maxBarrierBonus = tag.getInt("maxBarrierBonus");
+        // Absent on saves written before these were carried; getInt gives 0, and the server's next
+        // slow tick puts the real figure back within half a second.
+        state.classMaxManaBonus = tag.getInt("classMaxManaBonus");
+        state.classMaxBarrierBonus = tag.getInt("classMaxBarrierBonus");
         state.manaBoostPurchases = tag.getInt("manaBoostPurchases");
         state.barrierBoostPurchases = tag.getInt("barrierBoostPurchases");
         if (tag.contains("authorityId")) {

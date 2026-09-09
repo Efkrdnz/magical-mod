@@ -159,4 +159,53 @@ class MagicalRaceTest {
             }
         }
     }
+
+    @Test
+    void aRacePoolBonusReachesTheClientRatherThanStayingOnTheServer() {
+        // The bug this pins: the bonus arrives through the passive handlers, which only run on the
+        // server, and the two fields it lands in were carried by neither copy() nor save(). The HUD
+        // therefore drew the base ceiling while the server spent the real one - so a spell paid for
+        // out of the invisible top of the pool looked like it cost nothing at all.
+        PlayerMagicState state = new PlayerMagicState();
+        state.chooseRace(MagicalRaces.ELF.id());
+        int base = state.maxMana();
+        state.setClassPoolBonuses(MagicalRaces.ELF.bonusMaxMana(), MagicalRaces.ELF.bonusMaxBarrier());
+
+        assertTrue(MagicalRaces.ELF.bonusMaxMana() > 0, "this test is worthless if the elf gains nothing");
+        assertEquals(base + MagicalRaces.ELF.bonusMaxMana(), state.maxMana());
+
+        // save() is the wire format, and ClientMagicState rebuilds through copy(): both have to
+        // carry it, and the client cannot re-derive it because it never runs a passive handler.
+        assertEquals(state.maxMana(), PlayerMagicState.load(state.save()).maxMana(), "lost over the wire");
+        assertEquals(state.maxMana(), state.copy().maxMana(), "lost in copy()");
+        assertEquals(state.maxBarrier(), PlayerMagicState.load(state.save()).copy().maxBarrier(),
+                "the client applies load() then copy(), so the barrier must survive both");
+    }
+
+    @Test
+    void everyRacePoolBonusIsReportedByTheHandlerThatOwnsIt() {
+        // RaceSelectScreen advertises these numbers before the choice is made, so nothing may
+        // promise a bonus that the handler does not then hand out.
+        RacePassives handler = new RacePassives();
+        for (MagicalRace race : MagicalRaces.all()) {
+            PlayerMagicState state = new PlayerMagicState();
+            state.chooseRace(race.id());
+            assertEquals(race.bonusMaxMana(), handler.bonusMaxMana(null, state), race.id() + " mana");
+            assertEquals(race.bonusMaxBarrier(), handler.bonusMaxBarrier(null, state), race.id() + " barrier");
+        }
+    }
+
+    @Test
+    void aStateWrittenBeforeThePoolFieldsExistedStillLoads() {
+        PlayerMagicState state = new PlayerMagicState();
+        state.chooseRace(MagicalRaces.DWARF.id());
+        CompoundTag legacy = state.save();
+        legacy.remove("classMaxManaBonus");
+        legacy.remove("classMaxBarrierBonus");
+
+        PlayerMagicState loaded = PlayerMagicState.load(legacy);
+        assertEquals(new PlayerMagicState().maxMana(), loaded.maxMana(),
+                "an old save reads as no bonus until the next slow tick, not as a crash");
+        assertEquals(MagicalRaces.DWARF.id(), loaded.race().id());
+    }
 }
