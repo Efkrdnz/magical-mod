@@ -13,6 +13,8 @@ public final class MagicPassiveContent {
     private static final Map<ResourceLocation, MagicPassiveDefinition> PASSIVES = new LinkedHashMap<>();
     /** Filled by {@link #classPassive}; declared first so the field initialisers below can add to it. */
     private static final Set<ResourceLocation> CLASS_PASSIVES = new LinkedHashSet<>();
+    /** Filled by {@link #racePassive}; same reason. */
+    private static final Set<ResourceLocation> RACE_PASSIVES = new LinkedHashSet<>();
 
     public static final MagicPassiveDefinition MANA_SKIN = register("mana_skin", false, 1, 0.0F, 0, 0, 0x72E4FF, 1, 5000);
     public static final MagicPassiveDefinition HEAT_RESISTANCE = register("heat_resistance", false, 5, 0.2F, 0, 0, 0xFF7A45, 3, 35000);
@@ -102,6 +104,16 @@ public final class MagicPassiveContent {
     public static final MagicPassiveDefinition MIASMA = classPassive("miasma", 0x7AA84A);
     public static final MagicPassiveDefinition EQUIVALENT_EXCHANGE = classPassive("equivalent_exchange", 0xF0E68A);
 
+    // --- race identity passives ---
+    // One each, granted with the race at first spawn and never switchable. They are what a race
+    // *is*, so unlike a class passive there is no checkbox: see PlayerMagicState.togglePassive.
+    public static final MagicPassiveDefinition ADAPTABLE = racePassive("adaptable", 0xD9C7A8);
+    public static final MagicPassiveDefinition DEEP_WELL = racePassive("deep_well", 0x9FE8C8);
+    public static final MagicPassiveDefinition FORGEBORN = racePassive("forgeborn", 0xD98A4A);
+    public static final MagicPassiveDefinition QUICKENED_INSTINCT = racePassive("quickened_instinct", 0xA8D98A);
+    public static final MagicPassiveDefinition CORRUPTION_RESISTANCE = racePassive("corruption_resistance", 0xC2506E);
+    public static final MagicPassiveDefinition BLESSED = racePassive("blessed", 0xF7E38A);
+
     public static final Set<ResourceLocation> STARTER_PASSIVES = Set.of(
             MANA_SKIN.id(),
             HEAT_RESISTANCE.id(),
@@ -119,6 +131,26 @@ public final class MagicPassiveContent {
         MagicPassiveDefinition definition = register(path, false, 1, 0.0F, 0, 0, color);
         CLASS_PASSIVES.add(definition.id());
         return definition;
+    }
+
+    /**
+     * A passive granted by a race rather than earned. Single-level like a class passive, and never
+     * a curse - the negative half of a race, where one exists, is expressed as a smaller bonus
+     * elsewhere rather than as something the player has to dispel.
+     */
+    private static MagicPassiveDefinition racePassive(String path, int color) {
+        MagicPassiveDefinition definition = register(path, false, 1, 0.0F, 0, 0, color);
+        RACE_PASSIVES.add(definition.id());
+        return definition;
+    }
+
+    /** Ids of every race passive, in declaration order. */
+    public static Set<ResourceLocation> racePassives() {
+        return java.util.Collections.unmodifiableSet(RACE_PASSIVES);
+    }
+
+    public static boolean isRacePassive(ResourceLocation id) {
+        return RACE_PASSIVES.contains(id);
     }
 
     /** Ids of every class-granted passive, in declaration order. */

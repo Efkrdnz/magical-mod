@@ -31,7 +31,8 @@ public final class ClassPassiveEffects {
             new WarPassives(),
             new WildPassives(),
             new ArcanePassives(),
-            new BrewPassives());
+            new BrewPassives(),
+            new RacePassives());
 
     private ClassPassiveEffects() {}
 

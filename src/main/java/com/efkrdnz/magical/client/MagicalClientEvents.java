@@ -88,6 +88,7 @@ public final class MagicalClientEvents {
         event.register(MagicalMenus.GREED_VAULT.get(), GreedVaultScreen::new);
         event.register(MagicalMenus.SPACE_WALKER.get(), SpaceWalkerScreen::new);
         event.register(MagicalMenus.CLASS_SELECT.get(), com.efkrdnz.magical.client.screen.ClassSelectScreen::new);
+        event.register(MagicalMenus.RACE_SELECT.get(), com.efkrdnz.magical.client.screen.RaceSelectScreen::new);
         event.register(MagicalMenus.CLASS_TREE.get(), com.efkrdnz.magical.client.screen.ClassTreeScreen::new);
         event.register(MagicalMenus.SPACE_ARSENAL_STORAGE.get(), SpaceArsenalStorageScreen::new);
         event.register(MagicalMenus.BLACKSMITH_FORGE.get(), BlacksmithForgeScreen::new);

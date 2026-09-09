@@ -4,7 +4,10 @@ import com.efkrdnz.magical.MagicalConfig;
 import com.efkrdnz.magical.classes.MagicalClassDefinition;
 import com.efkrdnz.magical.classes.MagicalClassProgress;
 import com.efkrdnz.magical.classes.MagicalClasses;
+import com.efkrdnz.magical.magic.passive.RacePassives;
 import com.efkrdnz.magical.network.MagicalNetwork;
+import com.efkrdnz.magical.race.MagicalRace;
+import com.efkrdnz.magical.race.MagicalRaces;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -37,6 +40,8 @@ public final class PlayerMagicState {
     private int manaBoostPurchases;
     private int barrierBoostPurchases;
     private ResourceLocation authorityId;
+    /** Chosen once at first spawn and never again; null until then, which is what holds the awakening. */
+    private ResourceLocation raceId;
     private int activeSubspaceEntityId = -1;
     private String anchorSigilDimension = "";
     private int anchorSigilX;
@@ -202,6 +207,36 @@ public final class PlayerMagicState {
 
     public ResourceLocation authorityId() {
         return authorityId;
+    }
+
+    public ResourceLocation raceId() {
+        return raceId;
+    }
+
+    public MagicalRace race() {
+        return MagicalRaces.get(raceId);
+    }
+
+    public boolean hasRace() {
+        return MagicalRaces.exists(raceId);
+    }
+
+    /**
+     * Take a race. Once only: there is no unmaking this, which is the whole reason it is asked
+     * before anything else happens.
+     *
+     * <p>The race's passive and starter skill are granted here rather than by the awakening, so the
+     * choice is already paid out by the time the player sees the class chooser behind it.
+     */
+    public boolean chooseRace(ResourceLocation candidate) {
+        MagicalRace chosen = MagicalRaces.get(candidate);
+        if (chosen == null || hasRace()) {
+            return false;
+        }
+        raceId = chosen.id();
+        unlockPassive(chosen.passiveId());
+        unlock(chosen.starterSkill());
+        return true;
     }
 
     public boolean hasAuthority(ResourceLocation id) {
@@ -697,6 +732,13 @@ public final class PlayerMagicState {
         ids.forEach(this::unlock);
     }
 
+    /**
+     * The first-spawn grant: the universal starter, then the race's own skill.
+     *
+     * <p>That second slot used to be a random roll. It is the race's now, so what a character wakes
+     * up able to do follows from the one decision the player actually made. A state with no race
+     * still rolls, which only happens if the chooser was configured away.
+     */
     public List<ResourceLocation> unlockStarterAwakening(ServerPlayer player) {
         List<ResourceLocation> unlocked = new ArrayList<>();
         for (ResourceLocation skillId : MagicContent.STARTER_UNLOCKS) {
@@ -704,7 +746,10 @@ public final class PlayerMagicState {
                 unlocked.add(skillId);
             }
         }
-        ResourceLocation bonus = MagicContent.randomStarterBonusSkill(unlockedSkills, player == null ? net.minecraft.util.RandomSource.create() : player.getRandom());
+        MagicalRace chosen = race();
+        ResourceLocation bonus = chosen != null
+                ? chosen.starterSkill()
+                : MagicContent.randomStarterBonusSkill(unlockedSkills, player == null ? net.minecraft.util.RandomSource.create() : player.getRandom());
         if (bonus != null && unlock(bonus)) {
             unlocked.add(bonus);
         }
@@ -796,7 +841,8 @@ public final class PlayerMagicState {
     }
 
     public void togglePassive(ResourceLocation passiveId) {
-        if (!hasPassive(passiveId)) {
+        if (!hasPassive(passiveId) || MagicPassiveContent.isRacePassive(passiveId)) {
+            // A race passive has no checkbox: it is what the player is, not something they switched on.
             return;
         }
         if (disabledPassives.remove(passiveId)) {
@@ -874,20 +920,33 @@ public final class PlayerMagicState {
         setBarrier(barrier + amount);
     }
 
+    /**
+     * Demon's corruption resistance, applied where sin is added rather than where it is spent.
+     *
+     * <p>Only growth is damped. A reduction passes through whole, so resistance can never make a
+     * gauge harder to clear than it is for anyone else.
+     */
+    private int dampenSinGain(int amount) {
+        if (amount <= 0 || !isPassiveEnabled(MagicPassiveContent.CORRUPTION_RESISTANCE.id())) {
+            return amount;
+        }
+        return Math.max(1, Math.round(amount * RacePassives.CORRUPTION_SIN_SCALE));
+    }
+
     public void addPride(int amount) {
-        prideGauge = clamp(prideGauge + amount, 0, MAX_SIN_GAUGE);
+        prideGauge = clamp(prideGauge + dampenSinGain(amount), 0, MAX_SIN_GAUGE);
     }
 
     public void addWrath(int amount) {
-        wrathGauge = clamp(wrathGauge + amount, 0, MAX_SIN_GAUGE);
+        wrathGauge = clamp(wrathGauge + dampenSinGain(amount), 0, MAX_SIN_GAUGE);
     }
 
     public void addGreedHoard(int amount) {
-        greedHoard = clamp(greedHoard + amount, 0, MAX_GREED_HOARD);
+        greedHoard = clamp(greedHoard + dampenSinGain(amount), 0, MAX_GREED_HOARD);
     }
 
     public void addSlothStillness(int amount) {
-        slothStillness = clamp(slothStillness + amount, 0, MAX_SIN_GAUGE);
+        slothStillness = clamp(slothStillness + dampenSinGain(amount), 0, MAX_SIN_GAUGE);
     }
 
     public void reduceSlothStillness(int amount) {
@@ -1142,7 +1201,12 @@ public final class PlayerMagicState {
      * separate budgets.
      */
     public int tuningLimit() {
-        return Math.min(MagicSkillTuning.ABSOLUTE_MAX, MagicSkillTuning.MAX + proficiencyLevel() * 2);
+        // Adaptable is Human's whole identity - "can pursue nearly any path" read as build freedom
+        // rather than as a stat. It shifts the ladder up a step (4/6/8/10/11/11) and is still held
+        // under ABSOLUTE_MAX, so it buys an earlier choice, never a bigger one.
+        int floor = MagicSkillTuning.MAX
+                + (isPassiveEnabled(MagicPassiveContent.ADAPTABLE.id()) ? RacePassives.ADAPTABLE_BONUS_POINTS : 0);
+        return Math.min(MagicSkillTuning.ABSOLUTE_MAX, floor + proficiencyLevel() * 2);
     }
 
     public boolean hasWheelSkill(ResourceLocation skillId) {
@@ -1345,7 +1409,15 @@ public final class PlayerMagicState {
             skillCooldowns.entrySet().removeIf(entry -> entry.getValue() <= 0);
             refreshLoadoutCooldownsFromSkills();
         }
-        if (MagicalConfig.STARTER_UNLOCK_ON_LOGIN.get() && unlockedSkills.isEmpty()) {
+        // Race comes first and gates everything under it: the awakening's second skill is the
+        // race's, so granting it before the choice would hand out somebody else's magic. Same
+        // re-opening trick as the class chooser below, for the same reason.
+        boolean awaitingRace = MagicalConfig.STARTER_UNLOCK_ON_LOGIN.get() && !hasRace();
+        if (awaitingRace && player.tickCount > 40 && player.tickCount % 20 == 0
+                && player.containerMenu == player.inventoryMenu) {
+            RaceSelectService.open(player);
+        }
+        if (!awaitingRace && MagicalConfig.STARTER_UNLOCK_ON_LOGIN.get() && unlockedSkills.isEmpty()) {
             for (ResourceLocation skillId : unlockStarterAwakening(player)) {
                 MagicSkillDefinition skill = MagicContent.get(skillId);
                 if (skill != null) {
@@ -1354,13 +1426,13 @@ public final class PlayerMagicState {
             }
             changed = true;
         }
-        if (MagicalConfig.STARTER_UNLOCK_ON_LOGIN.get() && unlockedPassives.isEmpty()) {
+        if (!awaitingRace && MagicalConfig.STARTER_UNLOCK_ON_LOGIN.get() && unlockedPassives.isEmpty()) {
             unlockPassives(MagicPassiveContent.STARTER_PASSIVES);
             changed = true;
         }
         // No starting class yet: put the chooser on screen and keep it there. Re-opening from the
         // server is what actually enforces the choice, since a client can close a container itself.
-        if (MagicalConfig.STARTER_UNLOCK_ON_LOGIN.get() && !hasAnyRootClass()
+        if (!awaitingRace && MagicalConfig.STARTER_UNLOCK_ON_LOGIN.get() && !hasAnyRootClass()
                 && player.tickCount > 40 && player.tickCount % 20 == 0
                 && player.containerMenu == player.inventoryMenu) {
             ClassSelectService.open(player);
@@ -1411,6 +1483,7 @@ public final class PlayerMagicState {
         copy.manaBoostPurchases = manaBoostPurchases;
         copy.barrierBoostPurchases = barrierBoostPurchases;
         copy.authorityId = authorityId;
+        copy.raceId = raceId;
         copy.activeSubspaceEntityId = activeSubspaceEntityId;
         copy.anchorSigilDimension = anchorSigilDimension;
         copy.anchorSigilX = anchorSigilX;
@@ -1495,6 +1568,9 @@ public final class PlayerMagicState {
         tag.putInt("barrierBoostPurchases", barrierBoostPurchases);
         if (authorityId != null) {
             tag.putString("authorityId", authorityId.toString());
+        }
+        if (raceId != null) {
+            tag.putString("raceId", raceId.toString());
         }
         tag.putInt("activeSubspaceEntityId", activeSubspaceEntityId);
         tag.putString("anchorSigilDimension", anchorSigilDimension);
@@ -1632,6 +1708,12 @@ public final class PlayerMagicState {
             ResourceLocation loadedAuthority = ResourceLocation.parse(tag.getString("authorityId"));
             if (AuthorityContent.get(loadedAuthority) != null) {
                 state.authorityId = loadedAuthority;
+            }
+        }
+        if (tag.contains("raceId")) {
+            ResourceLocation loadedRace = ResourceLocation.parse(tag.getString("raceId"));
+            if (MagicalRaces.exists(loadedRace)) {
+                state.raceId = loadedRace;
             }
         }
         state.activeSubspaceEntityId = tag.contains("activeSubspaceEntityId") ? tag.getInt("activeSubspaceEntityId") : -1;

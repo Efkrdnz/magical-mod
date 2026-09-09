@@ -37,12 +37,15 @@ class ClassPassiveEffectsTest {
         Set<ResourceLocation> claimed = new LinkedHashSet<>(claims);
         assertEquals(claims.size(), claimed.size(), "two handlers claim the same passive");
 
-        Set<ResourceLocation> registered = MagicPassiveContent.classPassives();
+        // Race passives run through the same handler list, so they answer to the same rule: the
+        // registry and the handlers must agree exactly, in both directions.
+        Set<ResourceLocation> registered = new LinkedHashSet<>(MagicPassiveContent.classPassives());
+        registered.addAll(MagicPassiveContent.racePassives());
         for (ResourceLocation id : registered) {
             assertTrue(claimed.contains(id), id + " is registered but no handler implements it");
         }
         for (ResourceLocation id : claimed) {
-            assertTrue(registered.contains(id), id + " is handled but is not a registered class passive");
+            assertTrue(registered.contains(id), id + " is handled but is not a registered class or race passive");
         }
     }
 

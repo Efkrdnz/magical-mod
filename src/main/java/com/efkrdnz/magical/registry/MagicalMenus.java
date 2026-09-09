@@ -4,6 +4,7 @@ import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.arcane.menu.ArcaneWorkbenchMenu;
 import com.efkrdnz.magical.forge.menu.BlacksmithForgeMenu;
 import com.efkrdnz.magical.magic.menu.ClassSelectMenu;
+import com.efkrdnz.magical.magic.menu.RaceSelectMenu;
 import com.efkrdnz.magical.magic.menu.ClassTreeMenu;
 import com.efkrdnz.magical.magic.menu.GreedVaultMenu;
 import com.efkrdnz.magical.magic.menu.MagicPyramidMenu;
@@ -29,6 +30,9 @@ public final class MagicalMenus {
 
     public static final DeferredHolder<MenuType<?>, MenuType<ClassSelectMenu>> CLASS_SELECT =
             MENUS.register("class_select", () -> new MenuType<>(ClassSelectMenu::new, net.minecraft.world.flag.FeatureFlags.DEFAULT_FLAGS));
+
+    public static final DeferredHolder<MenuType<?>, MenuType<RaceSelectMenu>> RACE_SELECT =
+            MENUS.register("race_select", () -> new MenuType<>(RaceSelectMenu::new, net.minecraft.world.flag.FeatureFlags.DEFAULT_FLAGS));
 
     public static final DeferredHolder<MenuType<?>, MenuType<ClassTreeMenu>> CLASS_TREE =
             MENUS.register("class_tree", () -> new MenuType<>(ClassTreeMenu::new, net.minecraft.world.flag.FeatureFlags.DEFAULT_FLAGS));
