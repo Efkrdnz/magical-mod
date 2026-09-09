@@ -484,9 +484,9 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     /**
      * The Loadouts tab: pick a loadout on the left, edit its four keys on the right.
      *
-     * <p>Editing a loadout is not the same as switching to it - only the in-game switcher on the
-     * hold key does that - so the highlighted row and the row marked with a diamond can differ, and
-     * nothing here changes which set the player is currently casting from.
+     * <p>Picking a row switches to that loadout as well as editing it, so a skill bound here is on
+     * the keys immediately without closing the codex. The two only disagree when the server refuses
+     * the switch under the post-cast lock: the highlight moves, the diamond does not.
      */
     private void drawLoadoutEditor(GuiGraphics guiGraphics) {
         int left = leftPos + CodexLayout.EDITOR_X;

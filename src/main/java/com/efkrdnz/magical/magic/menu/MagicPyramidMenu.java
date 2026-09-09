@@ -180,12 +180,20 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
             syncIfServer();
             return true;
         }
-        // Which loadout the Loadouts tab is editing. Purely a cursor - editing a loadout is not
-        // the same as switching to it, and only the in-game switcher does the latter.
+        // Picking a loadout here both moves the edit cursor and switches to it, so binding a skill
+        // in the codex takes effect on the keys without closing the screen first.
+        //
+        // The swap lock still applies. It cannot fire from the codex itself - keybinds are inert
+        // while a screen is open - but it stops cast, open codex, swap, close, cast from laundering
+        // the one-second penalty a cast is supposed to carry. If it refuses, the cursor still moves
+        // so the loadout stays editable, and the active marker staying put shows why.
         if (id >= BUTTON_LOADOUT_SELECT_BASE && id < BUTTON_LOADOUT_SELECT_BASE + MagicContent.MAX_LOADOUTS) {
             int index = id - BUTTON_LOADOUT_SELECT_BASE;
             if (index < state.loadouts().size()) {
                 editedLoadout = index;
+                if (state.selectLoadout(index)) {
+                    syncIfServer();
+                }
             }
             return true;
         }
