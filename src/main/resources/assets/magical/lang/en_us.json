@@ -1241,6 +1241,8 @@
   "screen.magical.loadout_active": "Active: %s",
   "screen.magical.loadout_binding": "Bind: %s",
   "screen.magical.loadout_bind_none": "Pick a skill on the main page",
+  "screen.magical.loadout_name": "Name",
+  "screen.magical.loadout_rename": "Rename",
   "screen.magical.loadout_key": "Key %s",
   "screen.magical.loadout_switch": "Scroll to choose, release to switch",
   "screen.magical.loadout_locked": "Just cast - switching is locked",

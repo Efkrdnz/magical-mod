@@ -123,6 +123,18 @@ public final class CodexLayout {
     public static final int BIND_TARGET_DY = 10;
     public static final int BIND_TARGET_MAX_W = BACK_DX - 4 - BIND_TARGET_DX;
 
+    /**
+     * The rename row, under New/Delete. It sits in the list column rather than beside the keys,
+     * because it names the loadout the list is pointing at, not any one key.
+     */
+    public static final int NAME_LABEL_DY = LIST_ACTION_DY + LIST_ACTION_H + 6;
+    public static final int NAME_LABEL_W = 60;
+    public static final int NAME_BOX_DY = NAME_LABEL_DY + 14;
+    public static final int NAME_BOX_W = 110;
+    public static final int NAME_BOX_H = 16;
+    public static final int NAME_SAVE_DX = LIST_DX + 116;
+    public static final int NAME_SAVE_W = 50;
+
     public static int slotY(int slot) {
         return LIST_DY + slot * SLOT_STRIDE;
     }
@@ -169,6 +181,9 @@ public final class CodexLayout {
         }
         rects.add(new Rect("new", EDITOR_X + LIST_DX, EDITOR_Y + LIST_ACTION_DY, LIST_ACTION_W, LIST_ACTION_H));
         rects.add(new Rect("delete", EDITOR_X + DELETE_DX, EDITOR_Y + LIST_ACTION_DY, LIST_ACTION_W, LIST_ACTION_H));
+        rects.add(new Rect("name label", EDITOR_X + LIST_DX, EDITOR_Y + NAME_LABEL_DY, NAME_LABEL_W, NAME_H));
+        rects.add(new Rect("name box", EDITOR_X + LIST_DX, EDITOR_Y + NAME_BOX_DY, NAME_BOX_W, NAME_BOX_H));
+        rects.add(new Rect("rename", EDITOR_X + NAME_SAVE_DX, EDITOR_Y + NAME_BOX_DY, NAME_SAVE_W, NAME_BOX_H));
         for (int slot = 0; slot < MagicContent.LOADOUT_SIZE; slot++) {
             rects.add(new Rect("slot " + slot, EDITOR_X + SLOT_DX, EDITOR_Y + slotY(slot), SLOT_W, SLOT_H));
         }

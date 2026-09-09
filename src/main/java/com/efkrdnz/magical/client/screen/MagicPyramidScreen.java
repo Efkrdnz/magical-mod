@@ -19,6 +19,7 @@ import com.efkrdnz.magical.network.MagicalNetwork;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -30,6 +31,9 @@ import net.minecraft.world.entity.player.Inventory;
 public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyramidMenu> {
     /** Display only. The real bindings live in MagicalKeyMappings and the player may rebind them. */
     private static final String[] KEY_NAMES = {"Z", "X", "C", "V"};
+    private static final int KEY_ESCAPE = 256;
+    private static final int KEY_ENTER = 257;
+    private static final int KEY_KP_ENTER = 335;
     private static final int BG = 0xEE111827;
     private static final int PANEL = 0xFF172033;
     private static final int PANEL_ALT = 0xFF101827;
@@ -67,6 +71,10 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     private int passiveListScroll;
     private int curseListScroll;
     private boolean wheelEditorOpen;
+    /** The loadout rename field. Only drawn and only fed input while the Loadouts tab is open. */
+    private EditBox loadoutNameBox;
+    /** Which loadout the field currently holds, so switching rows reloads it. */
+    private int nameBoxLoadout = -1;
     private boolean classViewOpen;
     private boolean spellCreatorOpen;
     private ResourceLocation fusionFirstInput;
@@ -97,6 +105,16 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
             }
             default -> { }
         }
+        // addWidget, not addRenderableWidget: this screen never calls super.render, so the field is
+        // drawn by hand in the Loadouts branch and would be invisible everywhere else anyway.
+        loadoutNameBox = new EditBox(font,
+                leftPos + CodexLayout.EDITOR_X + CodexLayout.LIST_DX,
+                topPos + CodexLayout.EDITOR_Y + CodexLayout.NAME_BOX_DY,
+                CodexLayout.NAME_BOX_W, CodexLayout.NAME_BOX_H,
+                Component.translatable("screen.magical.loadout_name"));
+        loadoutNameBox.setMaxLength(MagicLoadout.MAX_NAME_LENGTH);
+        nameBoxLoadout = -1;
+        addWidget(loadoutNameBox);
     }
 
     @Override
@@ -150,6 +168,9 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         if (wheelEditorOpen) {
             renderBg(guiGraphics, partialTick, mouseX, mouseY);
             drawLoadoutEditor(guiGraphics);
+            if (loadoutNameBox != null) {
+                loadoutNameBox.render(guiGraphics, mouseX, mouseY, partialTick);
+            }
             renderTooltip(guiGraphics, mouseX, mouseY);
             return;
         }
@@ -189,12 +210,47 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
             return handlePassivesClick(mouseX, mouseY);
         }
         if (wheelEditorOpen) {
-            return handleLoadoutEditorClick(mouseX, mouseY);
+            return handleLoadoutEditorClick(mouseX, mouseY, button);
         }
         if (handlePyramidClick(mouseX, mouseY) || handleLoadoutClick(mouseX, mouseY) || handleDetailClick(mouseX, mouseY)) {
             return true;
         }
         return true;
+    }
+
+    /**
+     * While the name field has focus it eats the keyboard.
+     *
+     * <p>Without this, typing a loadout name containing the inventory key closes the codex
+     * mid-word, because AbstractContainerScreen treats that key as close whenever no child claimed
+     * it - and a plain letter is never claimed by keyPressed, only by charTyped.
+     */
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (wheelEditorOpen && loadoutNameBox != null && loadoutNameBox.isFocused()) {
+            if (keyCode == KEY_ENTER || keyCode == KEY_KP_ENTER) {
+                commitLoadoutName();
+                return true;
+            }
+            if (keyCode == KEY_ESCAPE) {
+                // Drop focus rather than closing the whole codex.
+                loadoutNameBox.setFocused(false);
+                setFocused(null);
+                return true;
+            }
+            if (loadoutNameBox.keyPressed(keyCode, scanCode, modifiers) || loadoutNameBox.canConsumeInput()) {
+                return true;
+            }
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean charTyped(char codePoint, int modifiers) {
+        if (wheelEditorOpen && loadoutNameBox != null && loadoutNameBox.isFocused()) {
+            return loadoutNameBox.charTyped(codePoint, modifiers);
+        }
+        return super.charTyped(codePoint, modifiers);
     }
 
     @Override
@@ -496,6 +552,7 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         // Clamped against the live client state, not the menu's own: the menu holds the player
         // attachment, which the client never writes.
         int edited = Math.max(0, Math.min(menu.editedLoadout(), loadouts.size() - 1));
+        syncNameBox(loadouts, edited);
 
         MagicalGuiStyle.panel(guiGraphics, left, top, left + CodexLayout.EDITOR_W, top + CodexLayout.EDITOR_H,
                 MagicalGuiStyle.ACCENT_ARCANE);
@@ -539,6 +596,12 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         button(guiGraphics, left + CodexLayout.DELETE_DX, actionY, CodexLayout.LIST_ACTION_W,
                 CodexLayout.LIST_ACTION_H, loadouts.size() <= 1 ? 0xFF1A1F2B : 0xFF4A2730,
                 Component.translatable("screen.magical.loadout_delete"));
+
+        guiGraphics.drawString(font, Component.translatable("screen.magical.loadout_name"),
+                listX, top + CodexLayout.NAME_LABEL_DY, 0x8292AB, false);
+        button(guiGraphics, left + CodexLayout.NAME_SAVE_DX, top + CodexLayout.NAME_BOX_DY,
+                CodexLayout.NAME_SAVE_W, CodexLayout.NAME_BOX_H, 0xFF20445B,
+                Component.translatable("screen.magical.loadout_rename"));
 
         int slotX = left + CodexLayout.SLOT_DX;
         for (int slot = 0; slot < MagicContent.LOADOUT_SIZE; slot++) {
@@ -1008,6 +1071,41 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         return false;
     }
 
+    /**
+     * Reload the field when the chosen loadout changes, and after a rename lands.
+     *
+     * <p>The second case is what keeps it honest: the server sanitizes the name, so what comes back
+     * can differ from what was typed, and the field should show the name the loadout actually has.
+     * It is never overwritten while focused, so this cannot eat somebody mid-edit.
+     */
+    private void syncNameBox(List<MagicLoadout> loadouts, int edited) {
+        if (loadoutNameBox == null || loadouts.isEmpty()) {
+            return;
+        }
+        String actual = loadouts.get(edited).name();
+        if (edited != nameBoxLoadout) {
+            nameBoxLoadout = edited;
+            loadoutNameBox.setValue(actual);
+            loadoutNameBox.setFocused(false);
+        } else if (!loadoutNameBox.isFocused() && !loadoutNameBox.getValue().equals(actual)) {
+            loadoutNameBox.setValue(actual);
+        }
+    }
+
+    private void commitLoadoutName() {
+        if (loadoutNameBox == null) {
+            return;
+        }
+        List<MagicLoadout> loadouts = ClientMagicState.get().loadouts();
+        if (loadouts.isEmpty()) {
+            return;
+        }
+        int edited = Math.max(0, Math.min(menu.editedLoadout(), loadouts.size() - 1));
+        MagicalNetwork.sendRenameLoadout(edited, loadoutNameBox.getValue());
+        loadoutNameBox.setFocused(false);
+        setFocused(null);
+    }
+
     private boolean handleLoadoutClick(double mouseX, double mouseY) {
         int left = leftPos + CodexLayout.ORIGIN_X;
         int top = topPos + CodexLayout.ORIGIN_Y;
@@ -1108,9 +1206,24 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         return false;
     }
 
-    private boolean handleLoadoutEditorClick(double mouseX, double mouseY) {
+    private boolean handleLoadoutEditorClick(double mouseX, double mouseY, int button) {
         int left = leftPos + CodexLayout.EDITOR_X;
         int top = topPos + CodexLayout.EDITOR_Y;
+        // Focus follows the click. Clicking anywhere else drops it, so the next keypress goes back
+        // to being a keypress rather than another character in somebody's loadout name.
+        if (loadoutNameBox != null) {
+            boolean onBox = loadoutNameBox.isMouseOver(mouseX, mouseY);
+            loadoutNameBox.setFocused(onBox);
+            setFocused(onBox ? loadoutNameBox : null);
+            if (onBox) {
+                return loadoutNameBox.mouseClicked(mouseX, mouseY, button);
+            }
+        }
+        if (inside(mouseX, mouseY, left + CodexLayout.NAME_SAVE_DX, top + CodexLayout.NAME_BOX_DY,
+                CodexLayout.NAME_SAVE_W, CodexLayout.NAME_BOX_H)) {
+            commitLoadoutName();
+            return true;
+        }
         if (inside(mouseX, mouseY, left + CodexLayout.BACK_DX, top + CodexLayout.BACK_DY,
                 CodexLayout.BACK_W, CodexLayout.BACK_H)) {
             wheelEditorOpen = false;
