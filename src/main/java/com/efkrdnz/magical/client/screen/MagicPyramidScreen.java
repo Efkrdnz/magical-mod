@@ -37,29 +37,26 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     private static final int LEFT_PANEL_Y = 30;
     private static final int LEFT_PANEL_W = 142;
     private static final int LEFT_PANEL_H = 286;
-    private static final int LOADOUT_PANEL_X = 160;
-    private static final int LOADOUT_PANEL_Y = 30;
-    private static final int LOADOUT_PANEL_W = 274;
-    private static final int LOADOUT_PANEL_H = 108;
+    // The loadout panel and the Loadouts tab are positioned by CodexLayout, which is unit-tested
+    // for overlap. These aliases keep every existing use site pointed at the tested numbers.
+    private static final int LOADOUT_PANEL_X = CodexLayout.PANEL_X;
+    private static final int LOADOUT_PANEL_Y = CodexLayout.PANEL_Y;
+    private static final int LOADOUT_PANEL_W = CodexLayout.PANEL_W;
+    private static final int LOADOUT_PANEL_H = CodexLayout.PANEL_H;
     private static final int DETAIL_PANEL_X = 160;
     private static final int DETAIL_PANEL_Y = 146;
     private static final int DETAIL_PANEL_W = 274;
     private static final int DETAIL_PANEL_H = 170;
-    private static final int WHEEL_LIST_X = 372;
-    private static final int WHEEL_LIST_Y = 40;
-    private static final int WHEEL_LIST_W = 54;
-    private static final int WHEEL_LIST_H = 70;
     private static final int SKILL_LIST_Y_OFFSET = 112;
     private static final int SKILL_ROW_H = 18;
     private static final int DETAIL_LINE_H = 11;
-    private static final int WHEEL_EDITOR_X = 22;
-    private static final int WHEEL_EDITOR_Y = 22;
-    private static final int WHEEL_EDITOR_W = 400;
-    private static final int WHEEL_EDITOR_H = 300;
+    private static final int WHEEL_EDITOR_X = CodexLayout.EDITOR_X;
+    private static final int WHEEL_EDITOR_Y = CodexLayout.EDITOR_Y;
+    private static final int WHEEL_EDITOR_W = CodexLayout.EDITOR_W;
+    private static final int WHEEL_EDITOR_H = CodexLayout.EDITOR_H;
     private static final int CLASS_ROW_H = 26;
     private static final int CLASS_ROW_STEP = 30;
-    private static final int WHEEL_ROW_H = 20;
-    private static final int WHEEL_LIST_ROWS = 11;
+    private static final int WHEEL_ROW_H = CodexLayout.LIST_ROW_STRIDE;
     private static final int DEFAULT_BELOW_TIER_COUNT = 3;
     private static final int PYRAMID_ROW_STEP = 29;
     private static final int PYRAMID_MAX_WIDTH = 110;
@@ -67,7 +64,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
 
     private int skillListScroll;
     private int detailScroll;
-    private int wheelListScroll;
     private int passiveListScroll;
     private int curseListScroll;
     private boolean wheelEditorOpen;
@@ -127,9 +123,8 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
                 belowPyramidOpen ? MagicalGuiStyle.ACCENT_VIOLET : MagicalGuiStyle.ACCENT_ARCANE);
         MagicalGuiStyle.panel(guiGraphics, left + LOADOUT_PANEL_X, top + LOADOUT_PANEL_Y, left + LOADOUT_PANEL_X + LOADOUT_PANEL_W, top + LOADOUT_PANEL_Y + LOADOUT_PANEL_H, MagicalGuiStyle.ACCENT_GOLD);
         MagicalGuiStyle.panel(guiGraphics, left + DETAIL_PANEL_X, top + DETAIL_PANEL_Y, left + DETAIL_PANEL_X + DETAIL_PANEL_W, top + DETAIL_PANEL_Y + DETAIL_PANEL_H, MagicalGuiStyle.ACCENT_ARCANE);
-        MagicalGuiStyle.inset(guiGraphics, left + WHEEL_LIST_X, top + WHEEL_LIST_Y, left + WHEEL_LIST_X + WHEEL_LIST_W, top + WHEEL_LIST_Y + WHEEL_LIST_H);
         drawPyramid(guiGraphics, left + 18, top + 40);
-        drawLoadout(guiGraphics, left + 170, top + 40);
+        drawLoadout(guiGraphics, left + CodexLayout.ORIGIN_X, top + CodexLayout.ORIGIN_Y);
     }
 
     @Override
@@ -179,7 +174,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         guiGraphics.drawString(font, font.plainSubstrByWidth(Component.translatable("screen.magical.proficiency", state.proficiencyLevel(), state.proficiencyXp()).getString(), 126), 170, 10, 0xFFD67A, false);
         MagicalGuiStyle.legend(guiGraphics, font, 16, 27, Component.translatable(belowPyramidOpen ? "screen.magical.below_pyramid" : "screen.magical.pyramid"), belowPyramidOpen ? 0xD19BFF : 0xBFD7FF);
         MagicalGuiStyle.legend(guiGraphics, font, 170, 27, Component.translatable("screen.magical.loadout"), 0xBFD7FF);
-        MagicalGuiStyle.legend(guiGraphics, font, 378, 37, Component.literal(font.plainSubstrByWidth(state.activeLoadout().name(), 48)), 0xBFD7FF);
         MagicalGuiStyle.legend(guiGraphics, font, 170, 143, Component.translatable("screen.magical.skill_detail"), 0xBFD7FF);
     }
 
@@ -206,10 +200,8 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (wheelEditorOpen) {
-            if (inside(mouseX, mouseY, wheelEditorListX(), wheelEditorListY(), 172, WHEEL_LIST_ROWS * WHEEL_ROW_H)) {
-                wheelListScroll = 0;
-                return true;
-            }
+            // Every loadout fits on screen at once, so there is nothing to scroll here - but the
+            // wheel is still swallowed so it does not move the hotbar behind the open codex.
             return true;
         }
         if (passivesOpen && inside(mouseX, mouseY, leftPos + WHEEL_EDITOR_X + 14, topPos + WHEEL_EDITOR_Y + 38, 188, passiveListHeight())) {
@@ -302,33 +294,52 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         drawScrollbar(guiGraphics, skillListX() + 126, skillListY(), skillListHeight(), skills.size(), visibleSkillRows(), skillListScroll);
     }
 
+    /**
+     * The four cast keys of the active loadout, plus the controls that edit them.
+     *
+     * <p>Every rectangle here comes from {@link CodexLayout}, so the overlap test knows about it.
+     * The loadout name gets its own line: a name the player chose needs the panel's full width, and
+     * squeezing it into the corner beside the keys is exactly what drove a label through the fourth
+     * card when the row grew from three keys to four.
+     */
     private void drawLoadout(GuiGraphics guiGraphics, int left, int top) {
         PlayerMagicState state = ClientMagicState.get();
+        guiGraphics.drawString(font,
+                font.plainSubstrByWidth(
+                        Component.translatable("screen.magical.loadout_active", state.activeLoadout().name()).getString(),
+                        CodexLayout.NAME_MAX_W),
+                left, top + CodexLayout.NAME_DY, 0xFFD67A, false);
+
         for (int slot = 0; slot < MagicContent.LOADOUT_SIZE; slot++) {
-            int x = left + slot * 62;
-            int y = top;
+            int x = left + slot * CodexLayout.CARD_STRIDE;
+            int y = top + CodexLayout.CARD_DY;
+            int w = CodexLayout.CARD_W;
+            int h = CodexLayout.CARD_H;
             boolean selected = slot == menu.selectedSlot();
             ResourceLocation skillId = state.equippedSkill(slot);
             MagicSkillDefinition equipped = skillId == null ? null : MagicContent.get(skillId);
-            MagicalGuiStyle.card(guiGraphics, x, y, x + 54, y + 26, selected ? 0xFF2D5A74 : 0xFF1A2230);
+            MagicalGuiStyle.card(guiGraphics, x, y, x + w, y + h, selected ? 0xFF2D5A74 : 0xFF1A2230);
             if (selected) {
-                guiGraphics.fill(x - 1, y - 1, x + 55, y, MagicalGuiStyle.ACCENT_GOLD);
+                guiGraphics.fill(x - 1, y - 1, x + w + 1, y, MagicalGuiStyle.ACCENT_GOLD);
             }
-            guiGraphics.fill(x, y + 24, x + 54, y + 26, equipped == null ? 0xFF0A0F1B : 0xFF000000 | equipped.color());
-            guiGraphics.drawString(font, String.valueOf(slot + 1), x + 4, y + 4, 0xFFD67A, false);
+            guiGraphics.fill(x, y + h - 2, x + w, y + h, equipped == null ? 0xFF0A0F1B : 0xFF000000 | equipped.color());
+            // The key, not the slot number: these are the keys the player presses.
+            guiGraphics.drawString(font, KEY_NAMES[slot], x + 4, y + 4, 0xFFD67A, false);
             String label = equipped == null ? "-" : Component.translatable(equipped.nameKey()).getString();
-            guiGraphics.drawString(font, font.plainSubstrByWidth(label, 42), x + 8, y + 14, 0xE7F4FF, false);
+            guiGraphics.drawString(font, font.plainSubstrByWidth(label, w - 12), x + 6, y + 14, 0xE7F4FF, false);
         }
-        button(guiGraphics, left, top + 38, 88, 20, 0xFF20445B, Component.translatable("screen.magical.equip"));
-        button(guiGraphics, left + 96, top + 38, 88, 20, 0xFF4A2730, Component.translatable("screen.magical.clear_slot"));
-        button(guiGraphics, left, top + 70, 184, 20, 0xFF24384E, Component.translatable("screen.magical.loadouts"));
-        button(guiGraphics, left + 128, top - 32, 64, 20, 0xFF234C44, Component.translatable("screen.magical.passives"));
-        button(guiGraphics, left + 198, top - 32, 62, 20, 0xFF3A2E5A, Component.translatable("screen.magical.classes"));
-        for (int slot = 0; slot < MagicContent.LOADOUT_SIZE; slot++) {
-            ResourceLocation bound = state.activeLoadout().slot(slot);
-            String label = bound == null ? "-" : Component.translatable(MagicContent.get(bound).nameKey()).getString();
-            guiGraphics.drawString(font, font.plainSubstrByWidth(label, 48), left + 206, top + 12 + slot * 14, 0xE7F4FF, false);
-        }
+
+        int actionY = top + CodexLayout.ACTION_DY;
+        button(guiGraphics, left, actionY, CodexLayout.ACTION_W, CodexLayout.ACTION_H, 0xFF20445B,
+                Component.translatable("screen.magical.equip"));
+        button(guiGraphics, left + CodexLayout.CLEAR_DX, actionY, CodexLayout.ACTION_W, CodexLayout.ACTION_H,
+                0xFF4A2730, Component.translatable("screen.magical.clear_slot"));
+        button(guiGraphics, left, top + CodexLayout.TAB_DY, CodexLayout.TAB_W, CodexLayout.TAB_H, 0xFF24384E,
+                Component.translatable("screen.magical.loadouts"));
+        button(guiGraphics, left + CodexLayout.PASSIVES_DX, top + CodexLayout.HEADER_DY, CodexLayout.PASSIVES_W,
+                CodexLayout.ACTION_H, 0xFF234C44, Component.translatable("screen.magical.passives"));
+        button(guiGraphics, left + CodexLayout.CLASSES_DX, top + CodexLayout.HEADER_DY, CodexLayout.CLASSES_W,
+                CodexLayout.ACTION_H, 0xFF3A2E5A, Component.translatable("screen.magical.classes"));
     }
 
     private void drawDetails(GuiGraphics guiGraphics) {
@@ -471,56 +482,82 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     }
 
     /**
-     * The Loadouts tab. Editing a loadout is not the same as switching to it - only the in-game
-     * switcher does that - so this never changes which set the player is currently casting from.
+     * The Loadouts tab: pick a loadout on the left, edit its four keys on the right.
+     *
+     * <p>Editing a loadout is not the same as switching to it - only the in-game switcher on the
+     * hold key does that - so the highlighted row and the row marked with a diamond can differ, and
+     * nothing here changes which set the player is currently casting from.
      */
     private void drawLoadoutEditor(GuiGraphics guiGraphics) {
-        int left = leftPos + WHEEL_EDITOR_X;
-        int top = topPos + WHEEL_EDITOR_Y;
+        int left = leftPos + CodexLayout.EDITOR_X;
+        int top = topPos + CodexLayout.EDITOR_Y;
         PlayerMagicState state = ClientMagicState.get();
         List<MagicLoadout> loadouts = state.loadouts();
+        // Clamped against the live client state, not the menu's own: the menu holds the player
+        // attachment, which the client never writes.
         int edited = Math.max(0, Math.min(menu.editedLoadout(), loadouts.size() - 1));
 
-        MagicalGuiStyle.panel(guiGraphics, left, top, left + WHEEL_EDITOR_W, top + WHEEL_EDITOR_H, MagicalGuiStyle.ACCENT_ARCANE);
-        MagicalGuiStyle.sectionLabel(guiGraphics, font, left + 10, top + 8, Component.translatable("screen.magical.loadout_editor"), 0xF4F8FF);
-        button(guiGraphics, left + WHEEL_EDITOR_W - 54, top + 6, 44, 16, 0xFF27354A, Component.translatable("screen.magical.back"));
+        MagicalGuiStyle.panel(guiGraphics, left, top, left + CodexLayout.EDITOR_W, top + CodexLayout.EDITOR_H,
+                MagicalGuiStyle.ACCENT_ARCANE);
+        MagicalGuiStyle.sectionLabel(guiGraphics, font, left + 10, top + 8,
+                Component.translatable("screen.magical.loadout_editor"), 0xF4F8FF);
+        button(guiGraphics, left + CodexLayout.BACK_DX, top + CodexLayout.BACK_DY, CodexLayout.BACK_W,
+                CodexLayout.BACK_H, 0xFF27354A, Component.translatable("screen.magical.back"));
 
-        int listX = left + 14;
-        int listY = top + 34;
-        MagicalGuiStyle.inset(guiGraphics, listX - 4, listY - 4, listX + 172, listY + MagicContent.MAX_LOADOUTS * WHEEL_ROW_H + 4);
+        // Bind uses whatever is selected back on the main page, so name it - otherwise the button
+        // is a press with no visible subject.
+        ResourceLocation pickedId = menu.selectedSkillId();
+        MagicSkillDefinition picked = pickedId == null ? null : MagicContent.get(pickedId);
+        String bindTarget = picked == null
+                ? Component.translatable("screen.magical.loadout_bind_none").getString()
+                : Component.translatable("screen.magical.loadout_binding",
+                        Component.translatable(picked.nameKey()).getString()).getString();
+        guiGraphics.drawString(font, font.plainSubstrByWidth(bindTarget, CodexLayout.BIND_TARGET_MAX_W),
+                left + CodexLayout.BIND_TARGET_DX, top + CodexLayout.BIND_TARGET_DY,
+                picked == null ? 0x8292AB : 0xFFD67A, false);
+
+        int listX = left + CodexLayout.LIST_DX;
+        int listY = top + CodexLayout.LIST_DY;
+        MagicalGuiStyle.inset(guiGraphics, listX - 4, listY - 4, listX + CodexLayout.LIST_W + 4,
+                listY + MagicContent.MAX_LOADOUTS * CodexLayout.LIST_ROW_STRIDE + 4);
         for (int index = 0; index < loadouts.size(); index++) {
             MagicLoadout loadout = loadouts.get(index);
-            int y = listY + index * WHEEL_ROW_H;
+            int y = listY + index * CodexLayout.LIST_ROW_STRIDE;
             boolean isActive = index == state.activeLoadoutIndex();
-            MagicalGuiStyle.listRow(guiGraphics, listX, y, 166, 17, index == edited, isActive ? 0xFFF7D774 : 0xFF5FD4FF);
-            guiGraphics.drawString(font, font.plainSubstrByWidth(loadout.name(), 128), listX + 6, y + 4, 0xF4F9FF, false);
+            MagicalGuiStyle.listRow(guiGraphics, listX, y, CodexLayout.LIST_W, CodexLayout.LIST_ROW_H,
+                    index == edited, isActive ? 0xFFF7D774 : 0xFF5FD4FF);
+            guiGraphics.drawString(font, font.plainSubstrByWidth(loadout.name(), CodexLayout.LIST_W - 38),
+                    listX + 6, y + 4, 0xF4F9FF, false);
             if (isActive) {
-                guiGraphics.drawString(font, "\u25C6", listX + 152, y + 4, 0xFFD67A, false);
+                guiGraphics.drawString(font, "\u25C6", listX + CodexLayout.LIST_W - 14, y + 4, 0xFFD67A, false);
             }
         }
-        button(guiGraphics, listX, listY + MagicContent.MAX_LOADOUTS * WHEEL_ROW_H + 10, 80, 18,
+        int actionY = top + CodexLayout.LIST_ACTION_DY;
+        button(guiGraphics, listX, actionY, CodexLayout.LIST_ACTION_W, CodexLayout.LIST_ACTION_H,
                 loadouts.size() >= MagicContent.MAX_LOADOUTS ? 0xFF1A1F2B : 0xFF345C42,
                 Component.translatable("screen.magical.loadout_new"));
-        button(guiGraphics, listX + 86, listY + MagicContent.MAX_LOADOUTS * WHEEL_ROW_H + 10, 80, 18,
-                loadouts.size() <= 1 ? 0xFF1A1F2B : 0xFF4A2730,
+        button(guiGraphics, left + CodexLayout.DELETE_DX, actionY, CodexLayout.LIST_ACTION_W,
+                CodexLayout.LIST_ACTION_H, loadouts.size() <= 1 ? 0xFF1A1F2B : 0xFF4A2730,
                 Component.translatable("screen.magical.loadout_delete"));
 
-        // The four keys of the loadout being edited, each with its own bind and clear.
-        int slotX = left + 200;
-        MagicSkillDefinition picked = menu.selectedSkillId() == null ? null : MagicContent.get(menu.selectedSkillId());
+        int slotX = left + CodexLayout.SLOT_DX;
         for (int slot = 0; slot < MagicContent.LOADOUT_SIZE; slot++) {
-            int y = listY + slot * 44;
+            int y = top + CodexLayout.slotY(slot);
             ResourceLocation bound = loadouts.get(edited).slot(slot);
             MagicSkillDefinition skill = bound == null ? null : MagicContent.get(bound);
-            MagicalGuiStyle.inset(guiGraphics, slotX, y, slotX + 158, y + 38);
-            guiGraphics.drawString(font, Component.translatable("screen.magical.loadout_key", KEY_NAMES[slot]), slotX + 6, y + 5, 0xFFD67A, false);
+            MagicalGuiStyle.inset(guiGraphics, slotX, y, slotX + CodexLayout.SLOT_W, y + CodexLayout.SLOT_H);
+            guiGraphics.drawString(font, Component.translatable("screen.magical.loadout_key", KEY_NAMES[slot]),
+                    slotX + 6, y + 5, 0xFFD67A, false);
             guiGraphics.drawString(font,
-                    font.plainSubstrByWidth(skill == null ? "-" : Component.translatable(skill.nameKey()).getString(), 146),
-                    slotX + 6, y + 16, skill == null ? 0x8292AB : 0xE7F4FF, false);
-            button(guiGraphics, slotX + 6, y + 26, 70, 10, picked == null ? 0xFF1A1F2B : 0xFF20445B,
-                    Component.translatable("screen.magical.loadout_bind"));
-            button(guiGraphics, slotX + 82, y + 26, 70, 10, bound == null ? 0xFF1A1F2B : 0xFF4A2730,
-                    Component.translatable("screen.magical.clear_slot"));
+                    font.plainSubstrByWidth(skill == null ? "-" : Component.translatable(skill.nameKey()).getString(),
+                            CodexLayout.SLOT_W - 12),
+                    slotX + 6, y + 15, skill == null ? 0x8292AB : 0xE7F4FF, false);
+            button(guiGraphics, left + CodexLayout.SLOT_BIND_DX, y + CodexLayout.SLOT_BUTTON_DY,
+                    CodexLayout.SLOT_BUTTON_W, CodexLayout.SLOT_BUTTON_H,
+                    picked == null ? 0xFF1A1F2B : 0xFF20445B, Component.translatable("screen.magical.loadout_bind"));
+            button(guiGraphics, left + CodexLayout.SLOT_CLEAR_DX, y + CodexLayout.SLOT_BUTTON_DY,
+                    CodexLayout.SLOT_BUTTON_W, CodexLayout.SLOT_BUTTON_H,
+                    bound == null ? 0xFF1A1F2B : 0xFF4A2730, Component.translatable("screen.magical.clear_slot"));
         }
     }
 
@@ -835,26 +872,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         MagicalGuiStyle.checkbox(guiGraphics, x, y, checked);
     }
 
-    private void drawWheelPreview(GuiGraphics guiGraphics, int centerX, int centerY, int radius, List<ResourceLocation> wheel) {
-        fillCircleRows(guiGraphics, centerX, centerY, radius + 14, MagicalGuiStyle.withAlpha(MagicalGuiStyle.ACCENT_ARCANE, 0x55));
-        fillCircleRows(guiGraphics, centerX, centerY, radius + 12, 0xFF0B1422);
-        fillCircleRows(guiGraphics, centerX, centerY, 25, MagicalGuiStyle.withAlpha(MagicalGuiStyle.ACCENT_ARCANE, 0x77));
-        fillCircleRows(guiGraphics, centerX, centerY, 24, 0xFF172033);
-        if (wheel.isEmpty()) {
-            guiGraphics.drawCenteredString(font, "-", centerX, centerY - 4, 0x8292AB);
-            return;
-        }
-        for (int i = 0; i < wheel.size(); i++) {
-            MagicSkillDefinition skill = MagicContent.get(wheel.get(i));
-            double angle = (-Math.PI / 2D) + (Math.PI * 2D * i / wheel.size());
-            int x = centerX + (int) (Math.cos(angle) * radius);
-            int y = centerY + (int) (Math.sin(angle) * radius);
-            MagicalGuiStyle.card(guiGraphics, x - 22, y - 8, x + 22, y + 8, i == menu.selectedWheelIndex() ? 0xFF2D5A74 : 0xFF1B2433);
-            guiGraphics.fill(x - 22, y + 6, x + 22, y + 8, 0xFF000000 | skill.color());
-            guiGraphics.drawCenteredString(font, font.plainSubstrByWidth(Component.translatable(skill.nameKey()).getString(), 40), x, y - 4, 0xF4F9FF);
-        }
-    }
-
     private void drawSpellCreator(GuiGraphics guiGraphics) {
         int left = leftPos + WHEEL_EDITOR_X;
         int top = topPos + WHEEL_EDITOR_Y;
@@ -992,32 +1009,35 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     }
 
     private boolean handleLoadoutClick(double mouseX, double mouseY) {
-        int left = leftPos + 170;
-        int top = topPos + 40;
+        int left = leftPos + CodexLayout.ORIGIN_X;
+        int top = topPos + CodexLayout.ORIGIN_Y;
         for (int slot = 0; slot < MagicContent.LOADOUT_SIZE; slot++) {
-            int x = left + slot * 62;
-            if (inside(mouseX, mouseY, x, top, 54, 26)) {
+            if (inside(mouseX, mouseY, left + slot * CodexLayout.CARD_STRIDE, top + CodexLayout.CARD_DY,
+                    CodexLayout.CARD_W, CodexLayout.CARD_H)) {
                 press(MagicPyramidMenu.BUTTON_SLOT_BASE + slot);
                 return true;
             }
         }
-        if (inside(mouseX, mouseY, left, top + 38, 88, 20)) {
+        if (inside(mouseX, mouseY, left, top + CodexLayout.ACTION_DY, CodexLayout.ACTION_W, CodexLayout.ACTION_H)) {
             press(MagicPyramidMenu.BUTTON_EQUIP_SELECTED);
             return true;
         }
-        if (inside(mouseX, mouseY, left + 96, top + 38, 88, 20)) {
+        if (inside(mouseX, mouseY, left + CodexLayout.CLEAR_DX, top + CodexLayout.ACTION_DY,
+                CodexLayout.ACTION_W, CodexLayout.ACTION_H)) {
             press(MagicPyramidMenu.BUTTON_CLEAR_SLOT);
             return true;
         }
-        if (inside(mouseX, mouseY, left, top + 70, 184, 20)) {
+        if (inside(mouseX, mouseY, left, top + CodexLayout.TAB_DY, CodexLayout.TAB_W, CodexLayout.TAB_H)) {
             wheelEditorOpen = true;
             return true;
         }
-        if (inside(mouseX, mouseY, left + 128, top - 32, 64, 20)) {
+        if (inside(mouseX, mouseY, left + CodexLayout.PASSIVES_DX, top + CodexLayout.HEADER_DY,
+                CodexLayout.PASSIVES_W, CodexLayout.ACTION_H)) {
             passivesOpen = true;
             return true;
         }
-        if (inside(mouseX, mouseY, left + 198, top - 32, 62, 20)) {
+        if (inside(mouseX, mouseY, left + CodexLayout.CLASSES_DX, top + CodexLayout.HEADER_DY,
+                CodexLayout.CLASSES_W, CodexLayout.ACTION_H)) {
             classViewOpen = true;
             return true;
         }
@@ -1089,38 +1109,42 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     }
 
     private boolean handleLoadoutEditorClick(double mouseX, double mouseY) {
-        int left = leftPos + WHEEL_EDITOR_X;
-        int top = topPos + WHEEL_EDITOR_Y;
-        if (inside(mouseX, mouseY, left + WHEEL_EDITOR_W - 54, top + 6, 44, 16)) {
+        int left = leftPos + CodexLayout.EDITOR_X;
+        int top = topPos + CodexLayout.EDITOR_Y;
+        if (inside(mouseX, mouseY, left + CodexLayout.BACK_DX, top + CodexLayout.BACK_DY,
+                CodexLayout.BACK_W, CodexLayout.BACK_H)) {
             wheelEditorOpen = false;
             return true;
         }
-        int listX = left + 14;
-        int listY = top + 34;
+        int listX = left + CodexLayout.LIST_DX;
+        int listY = top + CodexLayout.LIST_DY;
         List<MagicLoadout> loadouts = ClientMagicState.get().loadouts();
         for (int index = 0; index < loadouts.size(); index++) {
-            if (inside(mouseX, mouseY, listX, listY + index * WHEEL_ROW_H, 166, 17)) {
+            if (inside(mouseX, mouseY, listX, listY + index * CodexLayout.LIST_ROW_STRIDE,
+                    CodexLayout.LIST_W, CodexLayout.LIST_ROW_H)) {
                 press(MagicPyramidMenu.BUTTON_LOADOUT_SELECT_BASE + index);
                 return true;
             }
         }
-        int buttonsY = listY + MagicContent.MAX_LOADOUTS * WHEEL_ROW_H + 10;
-        if (inside(mouseX, mouseY, listX, buttonsY, 80, 18)) {
+        int actionY = top + CodexLayout.LIST_ACTION_DY;
+        if (inside(mouseX, mouseY, listX, actionY, CodexLayout.LIST_ACTION_W, CodexLayout.LIST_ACTION_H)) {
             press(MagicPyramidMenu.BUTTON_LOADOUT_NEW);
             return true;
         }
-        if (inside(mouseX, mouseY, listX + 86, buttonsY, 80, 18)) {
+        if (inside(mouseX, mouseY, left + CodexLayout.DELETE_DX, actionY,
+                CodexLayout.LIST_ACTION_W, CodexLayout.LIST_ACTION_H)) {
             press(MagicPyramidMenu.BUTTON_LOADOUT_DELETE);
             return true;
         }
-        int slotX = left + 200;
         for (int slot = 0; slot < MagicContent.LOADOUT_SIZE; slot++) {
-            int y = listY + slot * 44;
-            if (inside(mouseX, mouseY, slotX + 6, y + 26, 70, 10)) {
+            int y = top + CodexLayout.slotY(slot) + CodexLayout.SLOT_BUTTON_DY;
+            if (inside(mouseX, mouseY, left + CodexLayout.SLOT_BIND_DX, y,
+                    CodexLayout.SLOT_BUTTON_W, CodexLayout.SLOT_BUTTON_H)) {
                 press(MagicPyramidMenu.BUTTON_LOADOUT_BIND_BASE + slot);
                 return true;
             }
-            if (inside(mouseX, mouseY, slotX + 82, y + 26, 70, 10)) {
+            if (inside(mouseX, mouseY, left + CodexLayout.SLOT_CLEAR_DX, y,
+                    CodexLayout.SLOT_BUTTON_W, CodexLayout.SLOT_BUTTON_H)) {
                 press(MagicPyramidMenu.BUTTON_LOADOUT_CLEAR_BASE + slot);
                 return true;
             }
@@ -1344,13 +1368,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
 
     private void drawPixelScrollbar(GuiGraphics guiGraphics, int x, int y, int height, int totalHeight, int visibleHeight, int scroll) {
         MagicalGuiStyle.scrollbar(guiGraphics, x, y, height, totalHeight, visibleHeight, scroll);
-    }
-
-    private void fillCircleRows(GuiGraphics guiGraphics, int centerX, int centerY, int radius, int color) {
-        for (int y = -radius; y <= radius; y++) {
-            int width = Mth.floor(Math.sqrt((radius * radius) - (y * y)));
-            guiGraphics.fill(centerX - width, centerY + y, centerX + width, centerY + y + 1, color);
-        }
     }
 
     private List<MagicSkillDefinition> ownedSkillsForTier(int tier) {
@@ -1586,14 +1603,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
 
     private int detailY() {
         return topPos + DETAIL_PANEL_Y + 14;
-    }
-
-    private int wheelEditorListX() {
-        return leftPos + WHEEL_EDITOR_X + 14;
-    }
-
-    private int wheelEditorListY() {
-        return topPos + WHEEL_EDITOR_Y + 42;
     }
 
     private boolean inside(double mouseX, double mouseY, int x, int y, int width, int height) {

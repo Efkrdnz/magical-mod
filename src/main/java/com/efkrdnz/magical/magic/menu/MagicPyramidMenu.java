@@ -356,10 +356,6 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
         return data.get(2);
     }
 
-    public int selectedWheelIndex() {
-        return data.get(3);
-    }
-
     /** Sub-view requested when the codex was opened; the screen consumes this once on init. */
     public int pendingView() {
         return data.get(5);
@@ -431,9 +427,18 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
         editedLoadout = Math.max(0, Math.min(editedLoadout, state.loadouts().size() - 1));
     }
 
-    /** Which loadout the codex is editing. Synced so the screen and the menu agree on the cursor. */
+    /**
+     * Which loadout the codex is editing, as a ContainerData slot the server owns.
+     *
+     * <p>Deliberately does not clamp. This menu's {@code state} is the player's attachment, and on
+     * the client that attachment is never written - the synced copy lives in {@code
+     * ClientMagicState}. Clamping here measured the cursor against an empty client state, so it
+     * saw one loadout, forced the cursor back to zero on every frame, and destroyed the value the
+     * server had just synced: picking any loadout but the first appeared to do nothing at all.
+     *
+     * <p>The screen clamps against the live client state, and the server clamps after a delete.
+     */
     public int editedLoadout() {
-        clampEditedLoadout();
         return editedLoadout;
     }
 
