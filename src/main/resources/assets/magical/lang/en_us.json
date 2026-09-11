@@ -260,6 +260,7 @@
   "message.magical.no_active_preset": "No active spell preset is selected.",
   "message.magical.invalid_preset": "That preset is no longer valid.",
   "message.magical.not_enough_mana": "You do not have enough mana.",
+  "message.magical.not_enough_blood": "Not enough blood - the Vessel is dry and you cannot spare more.",
   "message.magical.unknown_authority": "Unknown authority.",
   "message.magical.authority_set": "Authority awakened: %s",
   "message.magical.authority_cleared": "Authority cleared.",

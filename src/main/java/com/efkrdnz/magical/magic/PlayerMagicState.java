@@ -68,6 +68,16 @@ public final class PlayerMagicState {
     private int gluttonyCooldownTicks;
     private int slothBedTicks;
     /**
+     * The Crimson Vessel: blood harvested from other things bleeding, and the first fuel every
+     * blood skill reaches for. Only the shortfall is ever taken out of the caster.
+     *
+     * <p>Persisted, unlike the class pool bonuses above, because nothing recomputes it - it is
+     * earned, so dropping it on relog would be dropping the fight that filled it.
+     */
+    private int bloodVessel;
+    /** Set whenever a blood cost is paid in health. Healing is suppressed while it runs. */
+    private int openWoundTicks;
+    /**
      * Class-passive contributions to the pools, recomputed every slow tick by
      * {@link com.efkrdnz.magical.magic.passive.ClassPassiveEffects}. Derived, so never persisted.
      */
@@ -188,6 +198,49 @@ public final class PlayerMagicState {
         // Taking armour off shrinks the ceiling, so re-clamp or the pools sit above their own maximum.
         setMana(mana);
         setBarrier(barrier);
+    }
+
+    /** How full the Crimson Vessel is, 0..{@link #MAX_BLOOD_VESSEL}. */
+    public int bloodVessel() {
+        return bloodVessel;
+    }
+
+    /**
+     * The Vessel's ceiling. Deliberately small next to the mana pool: it is a war chest for two or
+     * three spells, not a second mana bar, and a blood mage who leans on it has to keep killing.
+     */
+    public static final int MAX_BLOOD_VESSEL = 100;
+
+    /** Adds harvested blood, or spends it when negative. Clamped; never goes past the ceiling. */
+    public void addBloodVessel(int amount) {
+        bloodVessel = clamp(bloodVessel + amount, 0, MAX_BLOOD_VESSEL);
+    }
+
+    /**
+     * Takes what the Vessel can cover and reports the remainder, which the caller must find in
+     * health. Returns the cost untouched when the Vessel is empty, and zero when it covered it all.
+     */
+    public int drawFromVessel(int cost) {
+        int paid = Math.min(Math.max(0, cost), bloodVessel);
+        bloodVessel -= paid;
+        return Math.max(0, cost) - paid;
+    }
+
+    /** Ticks left on the wound a health payment opened. Healing is suppressed while above zero. */
+    public int openWoundTicks() {
+        return openWoundTicks;
+    }
+
+    public void openWound(int ticks) {
+        openWoundTicks = Math.max(openWoundTicks, Math.max(0, ticks));
+    }
+
+    /** Counts the wound down one tick; returns true while it is still open. */
+    public boolean tickOpenWound() {
+        if (openWoundTicks > 0) {
+            openWoundTicks--;
+        }
+        return openWoundTicks > 0;
     }
 
     public int manaVault() {
@@ -1641,6 +1694,10 @@ public final class PlayerMagicState {
         // here leaves the HUD drawing the base ceiling while the server spends the real one.
         copy.classMaxManaBonus = classMaxManaBonus;
         copy.classMaxBarrierBonus = classMaxBarrierBonus;
+        // save() is the wire format and ClientMagicState rebuilds through copy(), so the Vessel
+        // has to be in both or the HUD bar stays empty while the server spends a full one.
+        copy.bloodVessel = bloodVessel;
+        copy.openWoundTicks = openWoundTicks;
         copy.manaBoostPurchases = manaBoostPurchases;
         copy.barrierBoostPurchases = barrierBoostPurchases;
         copy.authorityId = authorityId;
@@ -1730,6 +1787,8 @@ public final class PlayerMagicState {
         // redundant - but save() is also the wire format, and the client has no way to derive them:
         // it never runs the passive handlers. Left out, the HUD reports the base pool while the
         // server spends the real one, and a race's bonus mana looks like a spell that costs nothing.
+        tag.putInt("bloodVessel", bloodVessel);
+        tag.putInt("openWoundTicks", openWoundTicks);
         tag.putInt("classMaxManaBonus", classMaxManaBonus);
         tag.putInt("classMaxBarrierBonus", classMaxBarrierBonus);
         tag.putInt("manaBoostPurchases", manaBoostPurchases);
@@ -1872,6 +1931,10 @@ public final class PlayerMagicState {
         state.maxBarrierBonus = tag.getInt("maxBarrierBonus");
         // Absent on saves written before these were carried; getInt gives 0, and the server's next
         // slow tick puts the real figure back within half a second.
+        // Absent on any save written before blood magic existed, which getInt reads as zero:
+        // an empty Vessel and no open wound, which is exactly the right starting state.
+        state.bloodVessel = clamp(tag.getInt("bloodVessel"), 0, MAX_BLOOD_VESSEL);
+        state.openWoundTicks = Math.max(0, tag.getInt("openWoundTicks"));
         state.classMaxManaBonus = tag.getInt("classMaxManaBonus");
         state.classMaxBarrierBonus = tag.getInt("classMaxBarrierBonus");
         state.manaBoostPurchases = tag.getInt("manaBoostPurchases");
