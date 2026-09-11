@@ -195,6 +195,9 @@ public final class StrikeImpact {
             case VENOM -> ForgeEffectStyle.VENOM_DRIP;
             case TERRA -> ForgeEffectStyle.TERRA_SHARDS;
             case GALE -> ForgeEffectStyle.GALE_SWIRL;
+            // Borrows the void implosion until dark earns a style of its own: a new
+            // ForgeEffectStyle is a synced ordinal plus a renderer branch, which this does not need.
+            case DARK -> ForgeEffectStyle.VOID_IMPLOSION;
             // Compounds borrow the impact of the parent they read as, tinted by their own palette.
             case BLACK_FLAME -> ForgeEffectStyle.VOID_IMPLOSION;
             case EXPLOSION -> ForgeEffectStyle.FIRE_BLOOM;

@@ -67,7 +67,7 @@ public final class MagicCounterService {
             int safeWindowTicks = Math.max(3, windowTicks);
             long deadline = now + safeWindowTicks;
             ACTIVE_PROMPTS.put(defenderId, new CounterPrompt(threatId, threat.counterSkillId(), MagicPassiveContent.SIN_GLUTTONY.id(), deadline, clashPosition));
-            MagicalNetwork.sendCounterPrompt(defender, threatId, threat.counterSkillId(), MagicPassiveContent.SIN_GLUTTONY.id(), deadline, safeWindowTicks);
+            MagicalNetwork.sendCounterPrompt(defender, threatId, threat.counterSkillId(), MagicPassiveContent.SIN_GLUTTONY.id(), deadline, safeWindowTicks, threat.counterNameKey());
             return true;
         }
 
@@ -80,7 +80,7 @@ public final class MagicCounterService {
         int safeWindowTicks = Math.max(3, windowTicks);
         long deadline = now + safeWindowTicks;
         ACTIVE_PROMPTS.put(defenderId, new CounterPrompt(threatId, threat.counterSkillId(), counterSkill.id(), deadline, clashPosition));
-        MagicalNetwork.sendCounterPrompt(defender, threatId, threat.counterSkillId(), counterSkill.id(), deadline, safeWindowTicks);
+        MagicalNetwork.sendCounterPrompt(defender, threatId, threat.counterSkillId(), counterSkill.id(), deadline, safeWindowTicks, threat.counterNameKey());
         return true;
     }
 
@@ -120,7 +120,7 @@ public final class MagicCounterService {
         ACTIVE_PROMPTS.put(defenderId,
                 new CounterPrompt(threatId, threat.counterSkillId(), FORCED_COUNTER, deadline, clashPosition));
         MagicalNetwork.sendCounterPrompt(defender, threatId, threat.counterSkillId(), FORCED_COUNTER,
-                deadline, safeWindowTicks);
+                deadline, safeWindowTicks, threat.counterNameKey());
         return true;
     }
 
@@ -130,6 +130,22 @@ public final class MagicCounterService {
         }
         CounterPrompt prompt = ACTIVE_PROMPTS.get(defender.getUUID());
         return prompt != null && prompt.threatId == threat.counterThreatId() && level.getGameTime() <= prompt.deadlineTick;
+    }
+
+    public static boolean hasActivePrompt(ServerPlayer defender) {
+        CounterPrompt prompt = ACTIVE_PROMPTS.get(defender.getUUID());
+        return prompt != null && defender.level().getGameTime() <= prompt.deadlineTick;
+    }
+
+    /** Retire a discarded short-lived threat without clearing a newer/unrelated prompt. */
+    public static void releaseThreat(ServerPlayer defender, CounterableSkillThreat threat) {
+        CounterPrompt prompt = ACTIVE_PROMPTS.get(defender.getUUID());
+        if (prompt != null && prompt.threatId == threat.counterThreatId()) {
+            ACTIVE_PROMPTS.remove(defender.getUUID());
+            MagicalNetwork.sendCounterClear(defender, threat.counterThreatId());
+        }
+        Set<Integer> resolved = RESOLVED_THREATS.get(defender.getUUID());
+        if (resolved != null) resolved.remove(threat.counterThreatId());
     }
 
     public static void expirePrompt(ServerPlayer defender, CounterableSkillThreat threat) {
@@ -153,12 +169,16 @@ public final class MagicCounterService {
             return;
         }
 
+        if (!threat.validateCounterResponse(defender)) {
+            clearPrompt(defender, threatId);
+            return;
+        }
         if (FORCED_COUNTER.equals(prompt.counterSkillId)) {
             // Nothing to validate and nothing to spend: the press was the whole answer.
             ACTIVE_PROMPTS.remove(defenderId);
             resolvedThreats(defenderId).add(threatId);
             threat.onForcedCounter(level, defender, prompt.clashPosition);
-            celebrateParry(defender, FORCED_PARRY_COLOR);
+            celebrateParry(defender, FORCED_PARRY_COLOR, threat);
             notifyParried(threat, FORCED_PARRY_COLOR);
             return;
         }
@@ -170,7 +190,7 @@ public final class MagicCounterService {
                 return;
             }
             MagicSkillDefinition incoming = MagicContent.get(threat.counterSkillId());
-            int tier = incoming == null ? 1 : Math.max(1, incoming.tier() + 1);
+            int tier = Math.max(1, threat.counterTier() + 1);
             int manaGain = incoming == null ? 12 : Math.max(8, incoming.baseManaCost() / 2 + tier * 5);
             state.addMana(manaGain);
             state.addManaCharge(Math.min(5, Math.max(1, tier)), 20 * (12 + tier * 8));
@@ -179,7 +199,7 @@ public final class MagicCounterService {
             ACTIVE_PROMPTS.remove(defenderId);
             resolvedThreats(defenderId).add(threatId);
             threat.onGluttonyCountered(level, defender, prompt.clashPosition);
-            celebrateParry(defender, MagicPassiveContent.SIN_GLUTTONY.color());
+            celebrateParry(defender, MagicPassiveContent.SIN_GLUTTONY.color(), threat);
             notifyParried(threat, incoming == null ? FORCED_PARRY_COLOR : incoming.color());
             defender.displayClientMessage(Component.translatable("message.magical.gluttony_devoured", Component.translatable(incoming == null ? "passive.magical.sin_gluttony" : incoming.nameKey())), true);
             return;
@@ -206,7 +226,7 @@ public final class MagicCounterService {
         ACTIVE_PROMPTS.remove(defenderId);
         resolvedThreats(defenderId).add(threatId);
         threat.onCountered(level, defender, counterSkill, prompt.clashPosition);
-        celebrateParry(defender, counterSkill.color());
+        celebrateParry(defender, counterSkill.color(), threat);
         notifyParried(threat, MagicContent.get(threat.counterSkillId()) == null
                 ? FORCED_PARRY_COLOR
                 : MagicContent.get(threat.counterSkillId()).color());
@@ -245,7 +265,12 @@ public final class MagicCounterService {
      * is most of why a parry reads as a parry. A ring pulse in the colour of whatever held, a short
      * shake, and a camera hold - the same trick every fighting game uses to say "that connected".
      */
-    private static void celebrateParry(ServerPlayer defender, int counterColor) {
+    private static void celebrateParry(ServerPlayer defender, int counterColor, CounterableSkillThreat threat) {
+        if (threat.counterOwner() instanceof com.efkrdnz.magical.boss.unwaking.UnwakingGodEntity) {
+            MagicalNetwork.playFirstPersonEffect(defender, FirstPersonEffectPayload.impact(counterColor, 8, 0.15F, 0, 0, 0, 0)
+                    .withOverlay(FxKinds.Overlay.SHOCK_RING.id(), 12, FirstPersonEffectPayload.OMNI));
+            return;
+        }
         MagicalNetwork.playFirstPersonEffect(defender,
                 FirstPersonEffectPayload.impact(counterColor, PARRY_OVERLAY_TICKS, PARRY_OVERLAY_ALPHA,
                                 PARRY_SHAKE_TICKS, PARRY_SHAKE, PARRY_FREEZE_TICKS, PARRY_FOV_KICK)
@@ -302,8 +327,11 @@ public final class MagicCounterService {
             if (!skill.attribute().counters(threat.counterAttribute())) {
                 return false;
             }
+            if (!matchesForbiddenDepth(skill, threat.counterTier())) {
+                return false;
+            }
         }
-        if (incoming != null && isTierFive(incoming) && !isTierFive(skill)) {
+        if (threat.counterTier() >= TierFive.APEX_TIER && !isTierFive(skill)) {
             return false;
         }
         if (!aegisProtection && state.isSkillOnCooldown(skill.id())) {
@@ -313,12 +341,41 @@ public final class MagicCounterService {
         return state.mana() >= stats.manaCost();
     }
 
+    /**
+     * Forbidden magic is answered by matching its depth: a counter of tier X answers tier -X, so
+     * display tier 1 answers -1, display tier 5 answers -4, and nothing at all answers -5. That
+     * last part costs nothing to enforce - the ladder stops at {@link TierFive#APEX_TIER}, so no
+     * skill can ever hold the tier 5 that -5 would demand, and Authority is uncounterable without
+     * a special case for it.
+     *
+     * <p>Positive threats are unaffected, and so are boss strikes: {@code counterTier()} is
+     * overridden to report the attack's own power tier, so an attack that merely borrows a
+     * forbidden spell's identity is not treated as forbidden magic.
+     */
+    // Package-private rather than private: this is the whole rule for answering forbidden magic,
+    // and every path that would exercise it from outside needs a live ServerPlayer.
+    static boolean matchesForbiddenDepth(MagicSkillDefinition counter, int incomingTier) {
+        return incomingTier >= 0 || counter.tier() == -incomingTier;
+    }
+
     private static boolean isAegisProtectionCounter(MagicSkillDefinition skill) {
         return MagicContent.GABRIEL_ULTIMATE_PROTECTION.id().equals(skill.id());
     }
 
+    /**
+     * The one layer Sovereign Aegis refuses. Aegis answers by authority rather than by opposition -
+     * it skips both the attribute check and {@link #matchesForbiddenDepth} - so it carries its own
+     * exclusions instead: the authority skills by id, and this tier by depth.
+     *
+     * <p>Deliberately {@code != } rather than {@code >=}: three tier -5 skills (singularity,
+     * dimensional_guillotine, soul_valley) sit outside {@code AUTHORITY_SKILLS}, so a floor here
+     * would quietly stop Aegis answering them. That is a balance decision, not a cleanup.
+     */
+    private static final int AEGIS_REFUSED_TIER = -4;
+
     private static boolean canAegisCounterIncoming(MagicSkillDefinition incoming) {
-        return incoming == null || (!MagicContent.isAuthoritySkill(incoming.id()) && incoming.tier() != -4);
+        return incoming == null || (!MagicContent.isAuthoritySkill(incoming.id())
+                && incoming.tier() != AEGIS_REFUSED_TIER);
     }
 
     private static boolean aegisCounterCooling(ServerPlayer defender) {
@@ -343,7 +400,8 @@ public final class MagicCounterService {
     }
 
     private static void clearPrompt(UUID defenderId, int threatId) {
-        ACTIVE_PROMPTS.remove(defenderId);
+        CounterPrompt prompt = ACTIVE_PROMPTS.get(defenderId);
+        if (prompt != null && prompt.threatId == threatId) ACTIVE_PROMPTS.remove(defenderId);
         resolvedThreats(defenderId).add(threatId);
     }
 

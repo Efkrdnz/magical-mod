@@ -62,6 +62,8 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     private static final int CLASS_ROW_STEP = 30;
     private static final int WHEEL_ROW_H = CodexLayout.LIST_ROW_STRIDE;
     private static final int DEFAULT_BELOW_TIER_COUNT = 3;
+    /** Layers -1..-4 have school names; -5 is Authority and carries its own label. */
+    private static final int NAMED_BELOW_LAYERS = 4;
     private static final int PYRAMID_ROW_STEP = 29;
     private static final int PYRAMID_MAX_WIDTH = 110;
     private static final int PYRAMID_WIDTH_STEP = 12;
@@ -304,7 +306,7 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
                         ? authorityTier ? 0xFF2E6B82 : 0xFF6A3F84
                         : authorityTier ? 0xFF24465D : 0xFF342143;
                 drawTierBlock(guiGraphics, x, y, tierWidth, color, selected, authorityTier ? MagicalGuiStyle.ACCENT_ARCANE : MagicalGuiStyle.ACCENT_VIOLET);
-                guiGraphics.drawCenteredString(font, authorityTier ? Component.translatable("authority.magical.authority_of_space") : Component.translatable("screen.magical.negative_tier", tier), x + tierWidth / 2, y + 6, authorityTier ? 0xE5FBFF : 0xF3E7FF);
+                guiGraphics.drawCenteredString(font, authorityTier ? Component.translatable("authority.magical.authority_of_space") : negativeTierLabel(tier), x + tierWidth / 2, y + 6, authorityTier ? 0xE5FBFF : 0xF3E7FF);
             }
         } else {
             for (int row = 0; row < visibleTiers.size(); row++) {
@@ -1489,6 +1491,20 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         return source.stream()
                 .filter(skill -> state.hasUnlocked(skill.id()))
                 .toList();
+    }
+
+    /**
+     * The rows below the line are named, not numbered - one layer, one school, one price - so the
+     * pyramid reads as four kinds of forbidden magic rather than four negative integers.
+     *
+     * <p>-5 never reaches here; it has its own authority label. Anything deeper than the four named
+     * layers falls back to the old signed number, so a future row can never render a raw key.
+     */
+    private Component negativeTierLabel(int tier) {
+        int layer = -tier;
+        return layer >= 1 && layer <= NAMED_BELOW_LAYERS
+                ? Component.translatable("tier.magical.below." + layer)
+                : Component.translatable("screen.magical.negative_tier", tier);
     }
 
     private List<Integer> visiblePyramidTiers() {

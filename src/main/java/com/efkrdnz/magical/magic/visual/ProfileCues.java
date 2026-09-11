@@ -120,6 +120,13 @@ public final class ProfileCues {
                 case VOID -> SoundCue.of(SoundEvents.WARDEN_HEARTBEAT, 0.6F, pitch);
                 case SPATIAL -> SoundCue.of(SoundEvents.ENDERMAN_TELEPORT, 0.4F, pitch + 0.3F);
                 case SOUL -> SoundCue.of(SoundEvents.SOUL_ESCAPE.value(), 0.6F, pitch);
+                // Forbidden schools. Without these five they would all share the beacon fallback,
+                // which is the one sound in the set that reads as friendly.
+                case BLOOD -> SoundCue.of(SoundEvents.RESPAWN_ANCHOR_DEPLETE.value(), 0.6F, pitch - 0.3F);
+                case DARK -> SoundCue.of(SoundEvents.EVOKER_PREPARE_SUMMON, 0.55F, pitch - 0.2F);
+                case CHAOS -> SoundCue.of(SoundEvents.ENCHANTMENT_TABLE_USE, 0.6F, pitch + 0.3F);
+                case PRIMORDIAL -> SoundCue.of(SoundEvents.TRIDENT_THUNDER.value(), 0.5F, pitch - 0.5F);
+                case ELDRITCH -> SoundCue.of(SoundEvents.SCULK_SHRIEKER_SHRIEK, 0.45F, pitch - 0.4F);
                 default -> SoundCue.of(SoundEvents.BEACON_AMBIENT, 0.6F, pitch + 0.4F);
             };
             return new SoundSpec(bed,

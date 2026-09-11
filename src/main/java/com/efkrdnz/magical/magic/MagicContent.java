@@ -34,12 +34,12 @@ public final class MagicContent {
     public static final MagicSkillDefinition GABRIEL_PERFECT_SEAL = register("gabriel_perfect_seal", MagicSchool.LIGHT, MagicSkillType.BARRIER, 4, 5, 0.0F, 0.0F, 3.0F, 98, 1500, 20, 0.0F, 0, 0xFFE27A, MagicAttribute.DIVINE);
     public static final MagicSkillDefinition GABRIEL_HOLY_FIELD = register("gabriel_holy_field", MagicSchool.LIGHT, MagicSkillType.BURST, 4, 5, 34.0F, 0.0F, 3.6F, 132, 2800, 170, 0.45F, 0, 0xFFF1A8, MagicAttribute.DIVINE);
     public static final MagicSkillDefinition SPACE_WALKER = register("space_walker", MagicSchool.SPATIAL, MagicSkillType.BURST, 3, 3, 0.0F, 0.0F, 1.0F, 8, 30, 8, 0.0F, 0, 0x88DFFF, MagicAttribute.SPATIAL);
-    public static final MagicSkillDefinition BLACK_FLAMES = register("black_flames", MagicSchool.VOID, MagicSkillType.BURST, -3, 3, 16.0F, 1.18F, 1.35F, 46, 92, 80, 0.28F, 0, 0x1A071F, MagicAttribute.DARK);
-    public static final MagicSkillDefinition BLACK_FLAMES_CAST = register("black_flames_cast", MagicSchool.VOID, MagicSkillType.PROJECTILE, -3, 3, 16.0F, 1.48F, 1.45F, 48, 108, 118, 0.25F, 0, 0x1A071F, MagicAttribute.DARK);
-    public static final MagicSkillDefinition BLACK_FLAMES_IMBUE = register("black_flames_imbue", MagicSchool.VOID, MagicSkillType.BURST, -3, 3, 7.5F, 1.0F, 1.0F, 34, 220, 220, 0.35F, 0, 0x2A061E, MagicAttribute.DARK);
-    public static final MagicSkillDefinition BLACK_FLAMES_BRAND = register("black_flames_brand", MagicSchool.VOID, MagicSkillType.BURST, -3, 3, 13.0F, 1.0F, 1.35F, 42, 260, 220, 0.15F, 0, 0x5A083A, MagicAttribute.DARK);
+    public static final MagicSkillDefinition BLACK_FLAMES = register("black_flames", MagicSchool.DARK, MagicSkillType.BURST, -2, 3, 16.0F, 1.18F, 1.35F, 46, 92, 80, 0.28F, 0, 0x1A071F, MagicAttribute.DARK);
+    public static final MagicSkillDefinition BLACK_FLAMES_CAST = register("black_flames_cast", MagicSchool.DARK, MagicSkillType.PROJECTILE, -2, 3, 16.0F, 1.48F, 1.45F, 48, 108, 118, 0.25F, 0, 0x1A071F, MagicAttribute.DARK);
+    public static final MagicSkillDefinition BLACK_FLAMES_IMBUE = register("black_flames_imbue", MagicSchool.DARK, MagicSkillType.BURST, -2, 3, 7.5F, 1.0F, 1.0F, 34, 220, 220, 0.35F, 0, 0x2A061E, MagicAttribute.DARK);
+    public static final MagicSkillDefinition BLACK_FLAMES_BRAND = register("black_flames_brand", MagicSchool.DARK, MagicSkillType.BURST, -2, 3, 13.0F, 1.0F, 1.35F, 42, 260, 220, 0.15F, 0, 0x5A083A, MagicAttribute.DARK);
 
-    public static final MagicSkillDefinition ABYSSAL_DISCHARGE = register("abyssal_discharge", MagicSchool.VOID, MagicSkillType.BURST, -2, 0, 18.5F, 0.0F, 4.7F, 58, 260, 38, 0.55F, 0, 0x341052, MagicAttribute.DARK);
+    public static final MagicSkillDefinition ABYSSAL_DISCHARGE = register("abyssal_discharge", MagicSchool.DARK, MagicSkillType.BURST, -2, 0, 18.5F, 0.0F, 4.7F, 58, 260, 38, 0.55F, 0, 0x341052, MagicAttribute.DARK);
     public static final MagicSkillDefinition VAULT_OF_AVARICE = register("vault_of_avarice", MagicSchool.VOID, MagicSkillType.BURST, -4, 0, 0.0F, 0.0F, 1.0F, 0, 0, 20, 0.0F, 0, 0xD7F75B, MagicAttribute.DARK);
     public static final MagicSkillDefinition CREATE_SUBSPACE = register("create_subspace", MagicSchool.ARCANE, MagicSkillType.BURST, -5, 0, 0.0F, 0.0F, 1.0F, 22, 40, 20, 0.0F, 0, 0x88DFFF, MagicAttribute.ARCANE);
     public static final MagicSkillDefinition MANIPULATE_SPACE = register("manipulate_space", MagicSchool.ARCANE, MagicSkillType.BURST, -5, 0, 0.0F, 0.0F, 1.0F, 8, 8, 20, 0.0F, 0, 0xA9ECFF, MagicAttribute.ARCANE);

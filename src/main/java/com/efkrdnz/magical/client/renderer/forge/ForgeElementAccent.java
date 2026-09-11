@@ -52,6 +52,8 @@ public final class ForgeElementAccent {
             case VENOM -> new Accent(1.0f, false, Ornament.DRIPS);
             case TERRA -> new Accent(0.85f, false, Ornament.SEGMENTS);
             case GALE -> new Accent(1.0f, false, Ornament.TWIN);
+            // Darker than void, and broken rather than whole: the wake comes apart behind the blow.
+            case DARK -> new Accent(0.50f, true, Ornament.SEGMENTS);
             // Compounds read as the parent they most look like, darkened or brightened.
             case BLACK_FLAME -> new Accent(0.45f, true, Ornament.NONE);
             case EXPLOSION -> new Accent(1.0f, false, Ornament.BLOOM);

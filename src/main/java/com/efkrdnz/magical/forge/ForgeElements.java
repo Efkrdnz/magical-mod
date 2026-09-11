@@ -20,6 +20,7 @@ public final class ForgeElements {
     public static final ElementDefinition VENOM;
     public static final ElementDefinition TERRA;
     public static final ElementDefinition GALE;
+    public static final ElementDefinition DARK;
 
     // Compound elements. No glyph draws these; the grammar fuses a pair into one.
     public static final ElementDefinition BLACK_FLAME;
@@ -50,6 +51,10 @@ public final class ForgeElements {
                 ForgeIds.id("terra"), ForgeElementKind.TERRA, 0xC28B4A, 0x6B4423, 0xE8C99A, 0.55f));
         GALE = register(map, new ElementDefinition(
                 ForgeIds.id("gale"), ForgeElementKind.GALE, 0xD8F5E8, 0x8FE3C2, 0xFFFFFF, 0.60f));
+        // Deliberately not void's lavender: dark is the colour of a bruise going bad, so the two
+        // read apart at a glance on a blade and in the glyph list.
+        DARK = register(map, new ElementDefinition(
+                ForgeIds.id("dark"), ForgeElementKind.DARK, 0x3A1F52, 0x7E52A6, 0x120A1C, 0.55f));
         BLACK_FLAME = register(map, new ElementDefinition(
                 ForgeIds.id("black_flame"), ForgeElementKind.BLACK_FLAME, 0x2A0B3D, 0x8A2BE2, 0xFF4FD8, 0.70f));
         EXPLOSION = register(map, new ElementDefinition(

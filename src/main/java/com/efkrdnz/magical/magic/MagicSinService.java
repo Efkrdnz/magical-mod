@@ -67,6 +67,12 @@ public final class MagicSinService {
     }
 
     public static boolean spendManaForSkill(ServerPlayer player, PlayerMagicState state, int amount) {
+        if (MagicPrice.waived(player)) {
+            // Creative is charged nothing. The contract is unchanged - true still means "the cast
+            // may proceed" - so the rollback paths that refund manaCost on a failed cast simply
+            // clamp back to full and change nothing.
+            return true;
+        }
         if (state.spendManaWithGreedHoard(amount)) {
             return true;
         }

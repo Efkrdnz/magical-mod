@@ -104,6 +104,11 @@ public final class ForgeGlyphLibrary {
                 poly(.10f, .25f, .90f, .25f, .90f, .75f, .10f, .75f, .10f, .25f)));
         put(map, template("gale", GlyphCategory.ELEMENT,
                 spiral(.50f, .50f, .48f, .06f, 1f)));
+        // A mark struck through. Kept well clear of void's two circles and terra's square, which
+        // are the two an inverted triangle could otherwise be confused with.
+        put(map, template("dark", GlyphCategory.ELEMENT,
+                poly(.12f, .18f, .88f, .18f, .50f, .92f, .12f, .18f),
+                line(.26f, .52f, .74f, .52f)));
     }
 
     private static void putForms(Map<String, GlyphTemplate> map) {

@@ -19,10 +19,13 @@ import java.util.Optional;
 public enum ForgeFusion {
 
     /**
-     * The one the smith has to earn. Fire and void together are the sorcery a Divinesmith learns as
+     * The one the smith has to earn. Fire and dark together are the sorcery a Divinesmith learns as
      * Black Flames, and forging it demands they actually know it.
+     *
+     * <p>Dark rather than void: black flames are dark magic, and the skills that share the name now
+     * sit in the dark school on the -2 layer. Fire + void is no longer a recipe at all.
      */
-    BLACK_FLAME("fire", "void", "black_flame", "divinesmith", List.of("black_flames")),
+    BLACK_FLAME("fire", "dark", "black_flame", "divinesmith", List.of("black_flames")),
 
     /**
      * Air fed into flame. Ungated on purpose: it is the fusion that teaches a player fusion exists,

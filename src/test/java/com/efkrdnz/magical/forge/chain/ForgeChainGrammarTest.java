@@ -139,10 +139,21 @@ class ForgeChainGrammarTest {
     @Test
     void twoElementsAtMythicFuseIntoOne() {
         ForgeRecipe recipe = validRecipe(List.of(
-                grade("mythic"), element("fire"), element("void"), form("slash")));
+                grade("mythic"), element("fire"), element("dark"), form("slash")));
 
         assertEquals("black_flame", recipe.element(),
                 "the chain leaves the grammar carrying one element, not two");
+    }
+
+    @Test
+    void theOldBlackFlameRecipeIsGoneRatherThanAlsoAccepted() {
+        // Black flames are dark magic, so dark is what forges them. Without this, moving the recipe
+        // to fire + dark while leaving fire + void quietly working would look identical from the
+        // passing tests: the new pair proven, the old one never asked about.
+        ForgeValidation.Invalid invalid = invalid(List.of(
+                grade("mythic"), element("fire"), element("void"), form("slash")));
+
+        assertEquals(ForgeError.FUSION_UNKNOWN_PAIR, invalid.error());
     }
 
     @Test

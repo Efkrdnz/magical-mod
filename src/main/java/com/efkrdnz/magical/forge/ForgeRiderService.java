@@ -41,6 +41,8 @@ public final class ForgeRiderService {
     private static final int VOID_BINDING_SIPHON = 2;
 
     /** Black flame bites deeper into anything already burning or already rotting. */
+    private static final float DARK_SYNERGY = 1.28f;
+
     private static final float BLACK_FLAME_SYNERGY = 1.35f;
 
     /** A detonation feeds on a target already alight. */
@@ -65,6 +67,9 @@ public final class ForgeRiderService {
             case FROST -> target.getTicksFrozen() > 0 ? FROST_SYNERGY : 1.0f;
             case GALE -> target.onGround() ? 1.0f : GALE_SYNERGY;
             case STORM, VOID, RADIANT, VENOM, TERRA -> 1.0f;
+            // Dark feeds on what it already did: a target it has blinded is one it hits harder.
+            case DARK -> target.hasEffect(MobEffects.DARKNESS) || target.hasEffect(MobEffects.BLINDNESS)
+                    ? DARK_SYNERGY : 1.0f;
             // Compounds feed on what both their parents fed on.
             case BLACK_FLAME -> target.isOnFire() || target.hasEffect(MobEffects.WITHER)
                     ? BLACK_FLAME_SYNERGY : 1.0f;
@@ -93,6 +98,7 @@ public final class ForgeRiderService {
             case VENOM -> venom(owner, target, grade);
             case TERRA -> terra(level, owner, target, ctx, grade);
             case GALE -> gale(owner, target, grade);
+            case DARK -> dark(owner, target, grade);
             case BLACK_FLAME -> blackFlame(owner, target, grade);
             case EXPLOSION -> explosion(level, owner, target, ctx, grade);
             case RIME_GALE -> rimeGale(owner, target, grade);
@@ -255,6 +261,20 @@ public final class ForgeRiderService {
      * fire + void. A burn that fire resistance and water do not stop, plus the rot of the void, and
      * no regeneration to grow the damage back.
      */
+    /**
+     * Dark takes what would have made the target whole, rather than rotting it the way void does.
+     * The blindness is the tell and the setup at once: it is what {@link #preHitScale} feeds on, so
+     * a dark blade that keeps connecting keeps getting worse for whatever it is hitting.
+     */
+    private static void dark(LivingEntity owner, LivingEntity target, int grade) {
+        if (!ForgeTargeting.canAffect(owner, target)) {
+            return;
+        }
+        target.addEffect(new MobEffectInstance(MobEffects.DARKNESS, 60 + 20 * grade, 0), owner);
+        target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 60 + 20 * grade, grade >= 4 ? 1 : 0), owner);
+        target.removeEffect(MobEffects.REGENERATION);
+    }
+
     private static void blackFlame(LivingEntity owner, LivingEntity target, int grade) {
         if (!ForgeTargeting.canAffect(owner, target)) {
             return;

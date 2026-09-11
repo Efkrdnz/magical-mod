@@ -45,7 +45,7 @@ class ForgeChainRecipeTest {
 
     @Test
     void aBlackFlameWaveCanBurstOnImpact() {
-        ForgeRecipe recipe = forge("mythic", "fire", "void", "trigger", "wave", "slam");
+        ForgeRecipe recipe = forge("mythic", "fire", "dark", "trigger", "wave", "slam");
 
         assertEquals("black_flame", recipe.element());
         ForgeProgram program = recipe.compiled();
@@ -60,7 +60,7 @@ class ForgeChainRecipeTest {
 
     @Test
     void aBlackFlameWaveCanBurstWhereItExpiresInstead() {
-        ForgeRecipe recipe = forge("mythic", "fire", "void", "wake", "wave", "slam");
+        ForgeRecipe recipe = forge("mythic", "fire", "dark", "wake", "wave", "slam");
 
         assertEquals(TriggerKind.EXPIRY,
                 recipe.compiled().stepAt(0).payload().get().kind());

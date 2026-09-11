@@ -3,15 +3,24 @@ package com.efkrdnz.magical.forge;
 /**
  * Every element a forged weapon can carry.
  *
- * <p>The first eight are drawn directly. The rest are compounds: two element runes fused in the
+ * <p>The first nine are drawn directly. The rest are compounds: two element runes fused in the
  * grammar into one element, so that everything below the grammar still deals with a single kind.
  * Adding one here is deliberately noisy - the exhaustive switches in the rider, the impact style
  * and the accent colour all stop compiling until the new element is given behaviour and a look.
+ *
+ * <p>Order matters, but only relatively: {@link #isCompound()} compares against BLACK_FLAME, so a
+ * drawable element has to be declared before it. Nothing persists these by ordinal - a forged
+ * weapon stores its element as a ResourceLocation - so inserting one is safe.
  */
 public enum ForgeElementKind {
-    FIRE, FROST, STORM, VOID, RADIANT, VENOM, TERRA, GALE,
+    /**
+     * DARK is unrelated to MagicSchool.DARK and MagicAttribute.DARK despite the shared word: this
+     * one is a thing you hammer into a blade. It is drawn rather than fused, and it is the second
+     * half of BLACK_FLAME now that black flames are fire + dark rather than fire + void.
+     */
+    FIRE, FROST, STORM, VOID, RADIANT, VENOM, TERRA, GALE, DARK,
 
-    /** fire + void: a burn that resistance and water cannot put out, and that stops healing. */
+    /** fire + dark: a burn that resistance and water cannot put out, and that stops healing. */
     BLACK_FLAME,
 
     /** fire + gale: detonates where it lands instead of applying anything. */
