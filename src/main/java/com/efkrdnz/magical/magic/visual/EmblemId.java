@@ -92,7 +92,8 @@ public enum EmblemId {
     TALLY,
     CUT_THREAD,
     // and the Light mark that answers them
-    CHALICE;
+    CHALICE,
+    SPLATTER;
 
     public static final int FIRST_CELL = 32;
 
