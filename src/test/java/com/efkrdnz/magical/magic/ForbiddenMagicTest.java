@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The rules that make the underside of the pyramid a system rather than a junk drawer: one layer
- * one school, a counter that has to match the depth it answers, and a floor nothing reaches.
+ * one school, a counter that has to reach the depth it answers, and a floor nothing reaches.
  */
 class ForbiddenMagicTest {
 
@@ -24,14 +24,28 @@ class ForbiddenMagicTest {
     }
 
     @Test
-    void aForbiddenSkillIsAnsweredOnlyAtItsOwnDepth() {
-        // Display tier X answers negative tier -(X-1), which in code tiers is simply X answers -X.
+    void aForbiddenSkillIsAnsweredFromItsOwnDepthOrBelow() {
+        // The depth rule is a floor, not an exact match: tier X answers -X and everything shallower.
+        // Exact matching left tier -1 with a single legal answer in the entire registry.
         MagicSkillDefinition tierTwo = MagicContent.CLEANSING_RAY;
         assertEquals(2, tierTwo.tier(), "this test is anchored to cleansing_ray sitting at code tier 2");
 
         assertTrue(MagicCounterService.matchesForbiddenDepth(tierTwo, -2), "tier 2 must answer -2");
-        assertFalse(MagicCounterService.matchesForbiddenDepth(tierTwo, -1), "and nothing shallower");
-        assertFalse(MagicCounterService.matchesForbiddenDepth(tierTwo, -3), "and nothing deeper");
+        assertTrue(MagicCounterService.matchesForbiddenDepth(tierTwo, -1), "and anything shallower");
+        assertFalse(MagicCounterService.matchesForbiddenDepth(tierTwo, -3), "but never deeper");
+    }
+
+    @Test
+    void bloodIsNotLeftWithASingleAnswerInTheWholeGame() {
+        // What the floor bought. Blood is the shallowest forbidden layer and the first one a player
+        // meets; under exact matching, revelation was the only skill in the game that could answer
+        // it, so anyone who had not unlocked that one skill had no counterplay at all.
+        long answers = everySkillIncludingSubSkills().stream()
+                .filter(skill -> skill.attribute().counters(MagicAttribute.BLOOD))
+                .filter(skill -> MagicCounterService.matchesForbiddenDepth(skill, -1))
+                .count();
+
+        assertTrue(answers > 1, "blood has only " + answers + " answer(s) in the whole registry");
     }
 
     @Test
@@ -67,7 +81,7 @@ class ForbiddenMagicTest {
             final int tier = -layer;
             final int answeringTier = layer;
             List<MagicSkillDefinition> answers = everySkillIncludingSubSkills().stream()
-                    .filter(skill -> skill.tier() == answeringTier)
+                    .filter(skill -> skill.tier() >= answeringTier)
                     .filter(skill -> skill.attribute().counters(MagicAttribute.BLOOD)
                             || skill.attribute().counters(MagicAttribute.DARK))
                     .toList();

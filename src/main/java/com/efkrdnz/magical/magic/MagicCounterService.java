@@ -342,11 +342,16 @@ public final class MagicCounterService {
     }
 
     /**
-     * Forbidden magic is answered by matching its depth: a counter of tier X answers tier -X, so
-     * display tier 1 answers -1, display tier 5 answers -4, and nothing at all answers -5. That
-     * last part costs nothing to enforce - the ladder stops at {@link TierFive#APEX_TIER}, so no
-     * skill can ever hold the tier 5 that -5 would demand, and Authority is uncounterable without
-     * a special case for it.
+     * Forbidden magic has to be answered from at least its own depth: a counter of tier X answers
+     * tier -X, and everything shallower than that too. In display tiers, tier 5 answers -4 and it
+     * answers -1 as well - the strongest holy magic in the game stopping a novice blood spell is
+     * the reading that makes sense, and matching exactly left tier -1 with precisely one legal
+     * answer in the whole registry.
+     *
+     * <p>Nothing answers -5. That costs nothing to enforce: it would want a tier 5 counter, the
+     * ladder stops at {@link TierFive#APEX_TIER}, and so Authority is uncounterable without a
+     * single line saying so. Which is also why this is a floor and not "deeper always wins" - the
+     * ceiling is the load-bearing half.
      *
      * <p>Positive threats are unaffected, and so are boss strikes: {@code counterTier()} is
      * overridden to report the attack's own power tier, so an attack that merely borrows a
@@ -355,7 +360,7 @@ public final class MagicCounterService {
     // Package-private rather than private: this is the whole rule for answering forbidden magic,
     // and every path that would exercise it from outside needs a live ServerPlayer.
     static boolean matchesForbiddenDepth(MagicSkillDefinition counter, int incomingTier) {
-        return incomingTier >= 0 || counter.tier() == -incomingTier;
+        return incomingTier >= 0 || counter.tier() >= -incomingTier;
     }
 
     private static boolean isAegisProtectionCounter(MagicSkillDefinition skill) {
