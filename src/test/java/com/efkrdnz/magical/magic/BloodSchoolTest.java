@@ -31,8 +31,14 @@ class BloodSchoolTest {
     }
 
     @Test
-    void theLayerHoldsExactlySixActivesAndThreePassives() {
-        assertEquals(6, bloodSkills().size(), "the school was budgeted at six actives");
+    void theLayerHoldsExactlySevenActivesAndThreePassives() {
+        // Named as well as counted, because a bare number says nothing about which one went missing
+        // the day somebody deletes a registration.
+        assertEquals(List.of(MagicContent.CRIMSON_TITHE, MagicContent.HEMORRHAGE,
+                        MagicContent.SCARLET_LANCE, MagicContent.SECOND_HEART,
+                        MagicContent.VEIN_WALK, MagicContent.EXSANGUINATE,
+                        MagicContent.BLOOD_MANIPULATION),
+                bloodSkills(), "the school is budgeted at seven actives, and these are the seven");
         // Named rather than counted: forbiddenPassives() holds every school's, so a bare size
         // assertion would break every time a new layer is built rather than when Blood changes.
         for (MagicPassiveDefinition passive : List.of(MagicPassiveContent.BLOODSCENT,

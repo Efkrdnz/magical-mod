@@ -249,6 +249,37 @@ public final class FxMesh {
         });
     }
 
+    /** Floats one face of {@link #voxelUnit()} occupies, so a face index is a straight offset. */
+    public static final int FACE_STRIDE = STRIDE * 4;
+
+    /**
+     * Centred unit cube, -1..1 on every axis, faces in the fixed order +X, -X, +Y, -Y, +Z, -Z.
+     *
+     * <p>Separate from {@link #slab()} because a slab is not a cube: it runs 0..1 in y with its
+     * origin on the bottom face, so scaling it uniformly gives a box twice as wide as tall, sitting
+     * half a height too high. The axis order here is what lets a caller emit only the three faces
+     * that can possibly face the camera by indexing with a bit mask.
+     */
+    public static float[] voxelUnit() {
+        return CACHE.computeIfAbsent("voxelUnit", key -> {
+            float[] m = new float[6 * 4 * STRIDE];
+            int o = 0;
+            // +X
+            o = put(m, o, 1, -1, -1, 0, 0); o = put(m, o, 1, 1, -1, 0, 1); o = put(m, o, 1, 1, 1, 1, 1); o = put(m, o, 1, -1, 1, 1, 0);
+            // -X
+            o = put(m, o, -1, -1, 1, 0, 0); o = put(m, o, -1, 1, 1, 0, 1); o = put(m, o, -1, 1, -1, 1, 1); o = put(m, o, -1, -1, -1, 1, 0);
+            // +Y
+            o = put(m, o, -1, 1, -1, 0, 0); o = put(m, o, -1, 1, 1, 0, 1); o = put(m, o, 1, 1, 1, 1, 1); o = put(m, o, 1, 1, -1, 1, 0);
+            // -Y
+            o = put(m, o, -1, -1, 1, 0, 0); o = put(m, o, -1, -1, -1, 0, 1); o = put(m, o, 1, -1, -1, 1, 1); o = put(m, o, 1, -1, 1, 1, 0);
+            // +Z
+            o = put(m, o, -1, -1, 1, 0, 0); o = put(m, o, -1, 1, 1, 0, 1); o = put(m, o, 1, 1, 1, 1, 1); o = put(m, o, 1, -1, 1, 1, 0);
+            // -Z
+            o = put(m, o, 1, -1, -1, 0, 0); o = put(m, o, 1, 1, -1, 0, 1); o = put(m, o, -1, 1, -1, 1, 1); put(m, o, -1, -1, -1, 1, 0);
+            return m;
+        });
+    }
+
     /** Axis-aligned box -1..1 x 0..1 x -1..1 (six faces, planar uv per face). */
     public static float[] slab() {
         return CACHE.computeIfAbsent("slab", key -> {

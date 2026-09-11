@@ -26,6 +26,7 @@ const int GOLD = 8;
 const int STONE = 9;
 const int AMBER = 10;
 const int PEARL = 11;
+const int BLOOD = 12;
 
 void main() {
     int kind = magicA.x;
@@ -101,9 +102,20 @@ void main() {
         float inc = step(0.95, nz(Sampler0, uv * 5.0 + seed)) * 0.4;
         base = mix(vec3(0.85, 0.5, 0.1), vec3(1.0, 0.8, 0.35), fresnel) * mix(vec3(1.0), tint, 0.3) + inc;
         alpha = 0.85;
-    } else {                                     // PEARL
+    } else if (kind == PEARL) {
         vec3 iri = vec3(0.5 + 0.5 * sin(fresnel * 6.0), 0.5 + 0.5 * sin(fresnel * 6.0 + 2.0), 0.5 + 0.5 * sin(fresnel * 6.0 + 4.0));
         base = mix(vec3(0.95), iri, 0.35) * mix(vec3(1.0), tint, 0.2);
+        alpha = 1.0;
+    } else {                                     // BLOOD
+        // Deep where it pools, bright at the rim, wet on top. The chain used to end in a bare else
+        // holding PEARL, which meant every kind past the end of the enum rendered as white nacre
+        // with nothing logged - splitting it is what makes adding a material a compile-time act.
+        float wet = fbmTap(Sampler0, uv * 0.7 + seed);
+        base = mix(tint * 0.30, tint, 0.35 + wet * 0.40);
+        base += pow(fresnel, 2.0) * tint * 0.9;
+        base += spec * 1.6;
+        // Opaque on purpose. shardBody writes depth and flushes first, so a half-transparent cube
+        // punches a hole in every glow behind it; the fade is the cube shrinking, not this.
         alpha = 1.0;
     }
 
@@ -114,7 +126,11 @@ void main() {
         float k = (phase - 0.7) / 0.3;
         float f = fbmTap(Sampler0, uv * 2.0 + seed * 3.0);
         cracks = (1.0 - smoothstep(0.0, 0.03 + k * 0.03, abs(f - 0.5))) * k;
-        keep = step(k * 0.9, w + 0.1);
+        // The general form leaves everything with w >= 0.8 alive at phase 1.0 - about a fifth of
+        // the surface, and the same fifth every cast, since the seed only has six bits. On a big
+        // faceted body that reads as leftover shards. On a thousand cubes it is two hundred of them
+        // that never leave, so blood gets a dissolve that actually finishes.
+        keep = kind == BLOOD ? step(k, w) : step(k * 0.9, w + 0.1);
     }
 
     vec3 col = base * lambert + spec + tint * fresnel * 0.35 + vec3(1.0) * cracks * 0.8;

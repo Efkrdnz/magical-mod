@@ -16,6 +16,7 @@ public final class FxBudget {
     private static int circlesThisFrame;
     private static int riftsThisFrame;
     private static int lensesThisFrame;
+    private static int voxelsThisFrame;
     private static float lodMultiplier = 1.0F;
     private static long frameId;
 
@@ -28,6 +29,7 @@ public final class FxBudget {
             circlesThisFrame = 0;
             riftsThisFrame = 0;
             lensesThisFrame = 0;
+            voxelsThisFrame = 0;
         }
     }
 
@@ -62,6 +64,23 @@ public final class FxBudget {
 
     public static boolean claimLens() {
         return lensesThisFrame++ < 4;
+    }
+
+    /** Cubes every voxel field on screen shares in one frame, at three quads each. */
+    private static final int VOXEL_FRAME_CAP = 1600;
+
+    /**
+     * Claims part of the shared voxel allowance, returning how many the caller may actually draw.
+     *
+     * <p>A cap rather than a per-field limit: two overlapping blood fields should share sixteen
+     * hundred cubes between them, not take that many each. Unlike {@link #lodForDistance} this is
+     * not fed back into anything the caller does per frame, so a field that loses the race thins
+     * out rather than flickering.
+     */
+    public static int claimVoxels(int want) {
+        int grant = Math.max(0, Math.min(want, VOXEL_FRAME_CAP - voxelsThisFrame));
+        voxelsThisFrame += grant;
+        return grant;
     }
 
     /** Detail level from distance bands: > 24 blocks drop importance 3, > 48 keep 1, > 96 keep 0. */

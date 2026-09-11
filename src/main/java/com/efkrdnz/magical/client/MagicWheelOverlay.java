@@ -102,6 +102,7 @@ public final class MagicWheelOverlay {
         SoulVowInput.cancel();
         MagicBarrageInput.cancel();
         SpaceAuthorityInput.cancel();
+        BloodShapeInput.cancel();
         MagicalNetwork.sendSelectLoadout(highlighted);
     }
 

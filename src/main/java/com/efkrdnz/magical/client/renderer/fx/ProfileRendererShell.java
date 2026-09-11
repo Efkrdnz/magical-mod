@@ -34,6 +34,7 @@ public class ProfileRendererShell<E extends Entity & ProfiledEffect> extends Ent
     @Override
     public void extractRenderState(E entity, State state, float partialTick) {
         super.extractRenderState(entity, state, partialTick);
+        state.partialTick = partialTick;
         state.skillIndex = entity.skillIndex();
         state.age = entity.effectAge() + partialTick;
         state.life = entity.effectLife();
@@ -63,7 +64,10 @@ public class ProfileRendererShell<E extends Entity & ProfiledEffect> extends Ent
     @Override
     public void render(State state, PoseStack poseStack, MultiBufferSource buffer, int packedLight) {
         VisualProfile profile = com.efkrdnz.magical.magic.visual.VisualProfiles.byIndex(state.skillIndex);
-        FxContext ctx = new FxContext(poseStack, buffer, 0.0F, entityRenderDispatcher.cameraOrientation(), state.cameraOffset)
+        // render() is not handed the partial tick, so it is carried across on the state. It used to
+        // be hardcoded to zero here, which made ctx.partialTick useless on the entity path and any
+        // painter reading a player's interpolated look angle snap at twenty hertz.
+        FxContext ctx = new FxContext(poseStack, buffer, state.partialTick, entityRenderDispatcher.cameraOrientation(), state.cameraOffset)
                 .timing(state.age, state.life, state.seed)
                 .phase(state.phase);
         ctx.extra = state.value;
@@ -138,6 +142,7 @@ public class ProfileRendererShell<E extends Entity & ProfiledEffect> extends Ent
     }
 
     public static class State extends EntityRenderState {
+        public float partialTick;
         public int skillIndex = -1;
         public float age;
         public int life;

@@ -2,6 +2,7 @@ package com.efkrdnz.magical.network;
 
 import com.efkrdnz.magical.arcane.ArcanePlayerData;
 import com.efkrdnz.magical.forge.BlacksmithForgeService;
+import com.efkrdnz.magical.magic.BloodShapeService;
 import com.efkrdnz.magical.magic.ForgeComboService;
 import com.efkrdnz.magical.magic.MagicBarrageService;
 import com.efkrdnz.magical.magic.MagicCounterService;
@@ -23,7 +24,7 @@ public final class MagicalNetwork {
     private MagicalNetwork() {}
 
     public static void registerPayloads(RegisterPayloadHandlersEvent event) {
-        event.registrar("1")
+        event.registrar("2")
                 .playToClient(ArcanePlayerDataPayload.TYPE, ArcanePlayerDataPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToClient(PlayerMagicStatePayload.TYPE, PlayerMagicStatePayload.STREAM_CODEC, (payload, context) ->
@@ -72,6 +73,18 @@ public final class MagicalNetwork {
                         context.enqueueWork(() -> {
                             if (payload.slot() >= 0 && payload.slot() < MagicContent.LOADOUT_SIZE && context.player() instanceof ServerPlayer player) {
                                 MagicCastingService.castSlot(player, payload.slot(), payload.sneakDown());
+                            }
+                        }))
+                .playToServer(BloodShapeSubmitPayload.TYPE, BloodShapeSubmitPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> {
+                            if (context.player() instanceof ServerPlayer player) {
+                                BloodShapeService.submit(player, payload);
+                            }
+                        }))
+                .playToServer(BloodShapeCastPayload.TYPE, BloodShapeCastPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> {
+                            if (context.player() instanceof ServerPlayer player) {
+                                BloodShapeService.fire(player, payload);
                             }
                         }))
                 .playToServer(SelectLoadoutPayload.TYPE, SelectLoadoutPayload.STREAM_CODEC, (payload, context) ->
@@ -245,6 +258,14 @@ public final class MagicalNetwork {
 
     public static void sendCastRequest(int slot, boolean sneakDown) {
         PacketDistributor.sendToServer(new CastLoadoutSlotPayload(slot, sneakDown));
+    }
+
+    public static void sendBloodShapeSubmit(BloodShapeSubmitPayload payload) {
+        PacketDistributor.sendToServer(payload);
+    }
+
+    public static void sendBloodShapeCast(int slot, int shapeIndex) {
+        PacketDistributor.sendToServer(new BloodShapeCastPayload(slot, shapeIndex));
     }
 
     public static void sendBarrierRefillRequest() {

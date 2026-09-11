@@ -17,6 +17,9 @@ public final class MagicalGuiStyle {
     public static final int ACCENT_VIOLET = 0xFFB48AFF;
     public static final int ACCENT_BLOOD = 0xFFE06470;
     static final int ACCENT_NATURE = 0xFF8FEA9C;
+
+    /** Width of a {@link #slider} knob, so a layout can convert pixels to a fraction the same way. */
+    public static final int SLIDER_KNOB_WIDTH = 4;
     public static final int TEXT_PRIMARY = 0xF4F9FF;
     public static final int TEXT_MUTED = 0x8292AB;
 
@@ -90,7 +93,7 @@ public final class MagicalGuiStyle {
     }
 
     /** Legend chip that sits on a panel's top border, like a titled fieldset. */
-    static void legend(GuiGraphics g, Font font, int x, int y, Component label, int color) {
+    public static void legend(GuiGraphics g, Font font, int x, int y, Component label, int color) {
         int width = font.width(label);
         g.fill(x - 4, y - 2, x + width + 4, y + 9, 0xFF0A101C);
         g.fill(x - 4, y - 2, x + width + 4, y - 1, withAlpha(color, 0x66));
@@ -117,15 +120,57 @@ public final class MagicalGuiStyle {
         g.fill(x, thumbY, x + 2, thumbY + 1, 0x66FFFFFF);
     }
 
-    /** Checkbox with border, sunken well, and glowing check. */
-    static void checkbox(GuiGraphics g, int x, int y, boolean checked) {
-        g.fill(x - 1, y - 1, x + 11, y + 11, checked ? withAlpha(ACCENT_NATURE, 0xCC) : 0xFF37465F);
+    /** Checkbox with border, sunken well, and glowing check. Green, as the codex has always drawn it. */
+    public static void checkbox(GuiGraphics g, int x, int y, boolean checked) {
+        // The tick colour is passed rather than derived so this stays the exact green the codex
+        // already draws - it was hand-picked against ACCENT_NATURE, not computed from it.
+        checkbox(g, x, y, checked, ACCENT_NATURE, 0xFFA6E3A1);
+    }
+
+    /** The same checkbox in another school's colour, for screens that are not the codex. */
+    public static void checkbox(GuiGraphics g, int x, int y, boolean checked, int accent) {
+        checkbox(g, x, y, checked, accent, lighten(accent, 0.45F));
+    }
+
+    private static void checkbox(GuiGraphics g, int x, int y, boolean checked, int accent, int tick) {
+        g.fill(x - 1, y - 1, x + 11, y + 11, checked ? withAlpha(accent, 0xCC) : 0xFF37465F);
         g.fillGradient(x, y, x + 10, y + 10, 0xFF0B1220, 0xFF101B2E);
         if (checked) {
-            g.fill(x + 3, y + 5, x + 5, y + 7, 0xFFA6E3A1);
-            g.fill(x + 5, y + 3, x + 8, y + 5, 0xFFA6E3A1);
-            g.fill(x + 2, y + 4, x + 4, y + 6, 0x5FA6E3A1);
+            g.fill(x + 3, y + 5, x + 5, y + 7, tick);
+            g.fill(x + 5, y + 3, x + 8, y + 5, tick);
+            g.fill(x + 2, y + 4, x + 4, y + 6, withAlpha(tick, 0x5F));
         }
+    }
+
+    /**
+     * Horizontal slider: sunken track, accent fill up to the knob, bevelled knob.
+     *
+     * <p>Drawing only. There is no state here and no hit testing - the drag lives on the screen and
+     * the pixel-to-fraction arithmetic lives in that screen's layout class, where a test can reach
+     * it without a render context.
+     */
+    public static void slider(GuiGraphics g, int x, int y, int w, int h, float fraction, int accent) {
+        int knobX = x + Math.round((w - SLIDER_KNOB_WIDTH) * Mth.clamp(fraction, 0.0F, 1.0F));
+        g.fill(x - 1, y - 1, x + w + 1, y + h + 1, 0xFF060B14);
+        g.fillGradient(x, y, x + w, y + h, 0xFF0B1220, 0xFF101B2E);
+        g.fill(x, y, x + w, y + 1, 0x66000000);
+        if (knobX > x + 1) {
+            g.fillGradient(x + 1, y + 1, knobX, y + h - 1,
+                    withAlpha(accent, 0x99), withAlpha(accent, 0x55));
+        }
+        g.fill(knobX, y - 1, knobX + SLIDER_KNOB_WIDTH, y + h + 1, accent);
+        g.fill(knobX, y - 1, knobX + SLIDER_KNOB_WIDTH, y, 0x55FFFFFF);
+        g.fill(knobX, y + h, knobX + SLIDER_KNOB_WIDTH, y + h + 1, 0x77000000);
+    }
+
+    /** Mixes a colour toward white, keeping its alpha. */
+    private static int lighten(int color, float amount) {
+        int out = color & 0xFF000000;
+        for (int shift = 16; shift >= 0; shift -= 8) {
+            int channel = (color >> shift) & 0xFF;
+            out |= Math.round(channel + (255 - channel) * Mth.clamp(amount, 0.0F, 1.0F)) << shift;
+        }
+        return out;
     }
 
     /** Item slot: dark well with a beveled border. */

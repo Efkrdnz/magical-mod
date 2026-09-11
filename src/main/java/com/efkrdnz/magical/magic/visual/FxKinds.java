@@ -62,7 +62,12 @@ public final class FxKinds {
     }
 
     public enum Body {
-        CRYSTAL, ICE, OBSIDIAN, MAGMA_ROCK, BONE_IVORY, GLASS, METAL_BANDS, WOOD_VINE, GOLD, STONE, AMBER, PEARL;
+        CRYSTAL, ICE, OBSIDIAN, MAGMA_ROCK, BONE_IVORY, GLASS, METAL_BANDS, WOOD_VINE, GOLD, STONE, AMBER, PEARL,
+        /**
+         * Wet, dark and viscous. Added for the blood voxel field, and the one material whose
+         * dissolve actually reaches zero - see the BLOOD branch in rendertype_shard_body.fsh.
+         */
+        BLOOD;
 
         public int id() { return ordinal(); }
     }

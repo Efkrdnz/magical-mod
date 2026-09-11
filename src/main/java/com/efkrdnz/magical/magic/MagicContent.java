@@ -49,6 +49,9 @@ public final class MagicContent {
     public static final MagicSkillDefinition SECOND_HEART = register("second_heart", MagicSchool.BLOOD, MagicSkillType.BARRIER, -1, 0, 0.0F, 0.0F, 1.2F, 0, 700, 400, 0.0F, 0, 0x8A0B1E);
     public static final MagicSkillDefinition VEIN_WALK = register("vein_walk", MagicSchool.BLOOD, MagicSkillType.BURST, -1, 0, 0.0F, 0.0F, 1.0F, 0, 160, 20, 0.0F, 0, 0xD62839);
     public static final MagicSkillDefinition EXSANGUINATE = register("exsanguinate", MagicSchool.BLOOD, MagicSkillType.BURST, -1, 0, 4.0F, 0.0F, 1.0F, 0, 240, 80, 0.0F, 0, 0x6E0B1A);
+    // Size is the reach of the drawing canvas in blocks rather than a radius, relabelled through the
+    // handler's tuning view. Duration is the life of the formed field, which the speed stat shortens.
+    public static final MagicSkillDefinition BLOOD_MANIPULATION = register("blood_manipulation", MagicSchool.BLOOD, MagicSkillType.BURST, -1, 0, 9.0F, 1.0F, 6.0F, 0, 120, 60, 0.15F, 0, 0xB01732);
 
     // DARK, layer -2, joining black_flames and abyssal_discharge above. Zero mana again, for the
     // opposite reason to Blood's: these cost nothing at the moment of casting. DarkService writes

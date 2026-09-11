@@ -8,6 +8,7 @@ public final class MagicalPainters {
 
     public static void register() {
         CustomPainters.register("wildfire", WildfirePainter::paint);
+        BloodPainters.register();
         LightPainters.register();
         VoidPainters.register();
         SpatialPainters.register();

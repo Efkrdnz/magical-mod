@@ -252,6 +252,12 @@ public final class MagicalClientEvents {
                     }
                     continue;
                 }
+                if (BloodShapeInput.tickSlot(minecraft, i)) {
+                    while (MagicalKeyMappings.CAST_SLOTS[i].consumeClick()) {
+                        // Blood Manipulation fires on a number press, never on the ability key.
+                    }
+                    continue;
+                }
                 while (MagicalKeyMappings.CAST_SLOTS[i].consumeClick()) {
                     MagicalNetwork.sendCastRequest(i, minecraft.player != null && minecraft.player.isShiftKeyDown());
                 }
@@ -290,6 +296,7 @@ public final class MagicalClientEvents {
             BlackFlamesInput.render(guiGraphics, minecraft);
             SpaceOffenseInput.render(guiGraphics, minecraft);
             SoulVowInput.render(guiGraphics, minecraft);
+            BloodShapeInput.render(guiGraphics, minecraft);
         }
 
         @SubscribeEvent
@@ -391,22 +398,9 @@ public final class MagicalClientEvents {
         }
 
 
-        /**
-         * Number row drives space-rule presets while the manipulation wheel is open.
-         * Tap to load a slot, shift-tap to save the current selection into it.
-         */
-        @SubscribeEvent
-        public static void onKeyPressed(InputEvent.Key event) {
-            if (event.getAction() != org.lwjgl.glfw.GLFW.GLFW_PRESS || !SpaceManipulationOverlay.active()) {
-                return;
-            }
-            int slot = event.getKey() - org.lwjgl.glfw.GLFW.GLFW_KEY_1;
-            if (slot < 0 || slot > 8) {
-                return;
-            }
-            boolean save = (event.getModifiers() & org.lwjgl.glfw.GLFW.GLFW_MOD_SHIFT) != 0;
-            SpaceManipulationOverlay.handlePresetSlot(slot, save);
-        }
+        // The number row is claimed in MagicalHotbarGuard, on ClientTickEvent.Pre. It used to be
+        // taken here on InputEvent.Key, which cannot suppress the press: the click is already
+        // queued on the mapping by the time the event fires, so the hotbar moved anyway.
 
         @SubscribeEvent
         public static void onInteractionKey(InputEvent.InteractionKeyMappingTriggered event) {

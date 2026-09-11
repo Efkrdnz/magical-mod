@@ -78,6 +78,18 @@ public final class PlayerMagicState {
     /** Set whenever a blood cost is paid in health. Healing is suppressed while it runs. */
     private int openWoundTicks;
     /**
+     * The nine shapes Blood Manipulation forms along. Authored in its editor, spent by the number
+     * row, and kept here rather than in a client-only store because the server is the only side
+     * allowed to decide what a cast actually reaches.
+     */
+    private BloodShapeBook bloodShapes = new BloodShapeBook();
+    /**
+     * Which of the nine the number row last chose. Persisted and synced for the same reason the
+     * active loadout is: it is a choice the player made, and forgetting it on relog would be a small
+     * betrayal every single time.
+     */
+    private int selectedBloodShape;
+    /**
      * What dark magic charges. Corruption is not a resource: nothing spends it, nothing refunds it,
      * and no amount of time removes it. It only ever goes up, and only Purification brings it down.
      *
@@ -239,6 +251,23 @@ public final class PlayerMagicState {
     /** Ticks left on the wound a health payment opened. Healing is suppressed while above zero. */
     public int openWoundTicks() {
         return openWoundTicks;
+    }
+
+    /** The shapes Blood Manipulation draws from. Never null; unset slots hold the empty shape. */
+    public BloodShapeBook bloodShapes() {
+        return bloodShapes;
+    }
+
+    /** Which shape the next cast will use, 0..8. */
+    public int selectedBloodShape() {
+        return selectedBloodShape;
+    }
+
+    /** Out-of-range indices are ignored rather than clamped: a bad packet must not silently re-aim. */
+    public void setSelectedBloodShape(int index) {
+        if (BloodShapeBook.isSlot(index)) {
+            selectedBloodShape = index;
+        }
     }
 
     public void openWound(int ticks) {
@@ -1775,6 +1804,11 @@ public final class PlayerMagicState {
         // has to be in both or the HUD bar stays empty while the server spends a full one.
         copy.bloodVessel = bloodVessel;
         copy.openWoundTicks = openWoundTicks;
+        // The client rebuilds through copy(), so a book left out here would save and load perfectly
+        // on the server and open empty in the editor - in multiplayer only, after a resync, with
+        // nothing logged anywhere.
+        copy.bloodShapes = bloodShapes.copy();
+        copy.selectedBloodShape = selectedBloodShape;
         copy.corruption = corruption;
         copy.manaBoostPurchases = manaBoostPurchases;
         copy.barrierBoostPurchases = barrierBoostPurchases;
@@ -1867,6 +1901,12 @@ public final class PlayerMagicState {
         // server spends the real one, and a race's bonus mana looks like a spell that costs nothing.
         tag.putInt("bloodVessel", bloodVessel);
         tag.putInt("openWoundTicks", openWoundTicks);
+        // Omitted entirely while nothing is drawn: this is on the wire for every player on every
+        // sync, and the overwhelming majority of them will never own the skill that writes it.
+        if (!bloodShapes.isEmpty()) {
+            tag.put("bloodShapes", bloodShapes.save());
+            tag.putInt("selectedBloodShape", selectedBloodShape);
+        }
         tag.putInt("corruption", corruption);
         tag.putInt("classMaxManaBonus", classMaxManaBonus);
         tag.putInt("classMaxBarrierBonus", classMaxBarrierBonus);
@@ -2014,6 +2054,8 @@ public final class PlayerMagicState {
         // an empty Vessel and no open wound, which is exactly the right starting state.
         state.bloodVessel = clamp(tag.getInt("bloodVessel"), 0, MAX_BLOOD_VESSEL);
         state.openWoundTicks = Math.max(0, tag.getInt("openWoundTicks"));
+        state.bloodShapes = BloodShapeBook.load(tag.getList("bloodShapes", Tag.TAG_COMPOUND));
+        state.setSelectedBloodShape(tag.getInt("selectedBloodShape"));
         state.corruption = clamp(tag.getInt("corruption"), 0, MAX_CORRUPTION);
         state.classMaxManaBonus = tag.getInt("classMaxManaBonus");
         state.classMaxBarrierBonus = tag.getInt("classMaxBarrierBonus");
