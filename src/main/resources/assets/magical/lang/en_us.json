@@ -1303,5 +1303,7 @@
   "skill.magical.long_debt": "The Long Debt",
   "message.magical.long_debt_defaulted": "You did not deliver. The whole of the Long Debt is yours.",
   "message.magical.long_debt_named": "%s is named. Everything now, and the reckoning after.",
-  "skill.magical.umbral_tenancy.desc": "Steps into a living thing's shadow. You are carried a pace behind it, unseen, and anything hunting you loses the thread - but you go where it goes, not where you want. You come out behind it with its back turned and the next spell you cast already loaded."
+  "skill.magical.umbral_tenancy.desc": "Steps into a living thing's shadow. You are carried a pace behind it, unseen, and anything hunting you loses the thread - but you go where it goes, not where you want. You come out behind it with its back turned and the next spell you cast already loaded.",
+  "skill.magical.purification": "Purification",
+  "skill.magical.purification.desc": "A rite drawn on the ground beneath you. Everyone standing in it - you included - is stripped of every harmful effect and has a quarter of their Corruption burned away, which is the only way in the world that debt ever comes off. Expensive, and slow to come back."
 }

@@ -105,6 +105,12 @@ public final class MagicContent {
     public static final MagicSkillDefinition REVELATION = register("revelation", MagicSchool.LIGHT, MagicSkillType.BURST, 1, 1, 5.0F, 15.0F, 24.0F, 18, 160, 100, 0.0F, 0, 0xFFE2A0, MagicAttribute.DIVINE);
     public static final MagicSkillDefinition CLEANSING_RAY = register("cleansing_ray", MagicSchool.LIGHT, MagicSkillType.BURST, 2, 3, 7.0F, 0.0F, 2.0F, 28, 80, 100, 0.2F, 0, 0xFFF1B8, MagicAttribute.DIVINE);
     public static final MagicSkillDefinition PRISM_CASCADE = register("prism_cascade", MagicSchool.LIGHT, MagicSkillType.BURST, 3, 5, 22.0F, 0.0F, 1.1F, 48, 120, 30, 0.4F, 0, 0xFFD873, MagicAttribute.DIVINE);
+    /**
+     * Display Tier 4 - code tier 3. The counterweight to the whole underside: the only thing that
+     * takes Corruption back off a player, and under the forbidden-depth rule a tier-3 counter also
+     * answers everything down to layer -3.
+     */
+    public static final MagicSkillDefinition PURIFICATION = register("purification", MagicSchool.LIGHT, MagicSkillType.BURST, 3, 5, 0.0F, 0.0F, 3.0F, 90, 2400, 30, 0.0F, 0, 0xFFF6D8);
     public static final MagicSkillDefinition HEAVENS_GAZE = register("heavens_gaze", MagicSchool.LIGHT, MagicSkillType.BURST, 4, 5, 6.0F, 0.35F, 2.6F, 96, 1200, 120, 0.3F, 0, 0xFFE04A, MagicAttribute.DIVINE);
     public static final MagicSkillDefinition DIVINE_DIVIDER = register("divine_divider", MagicSchool.LIGHT, MagicSkillType.BURST, 3, 4, 36.0F, 1.35F, 3.1F, 78, 1200, 52, 1.0F, 0, 0xF8FCFF);
     public static final MagicSkillDefinition SOVEREIGN_AEGIS = register("sovereign_aegis", MagicSchool.LIGHT, MagicSkillType.BARRIER, 4, 5, 0.0F, 0.0F, 1.0F, 32, 220, 60, 0.0F, 0, 0xFFF4B2, MagicAttribute.DIVINE);

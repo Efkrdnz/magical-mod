@@ -90,7 +90,9 @@ public enum EmblemId {
     EFFIGY_DOLL,
     CAST_SHADOW,
     TALLY,
-    CUT_THREAD;
+    CUT_THREAD,
+    // and the Light mark that answers them
+    CHALICE;
 
     public static final int FIRST_CELL = 32;
 
