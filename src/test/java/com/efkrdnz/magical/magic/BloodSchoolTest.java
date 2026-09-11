@@ -33,8 +33,13 @@ class BloodSchoolTest {
     @Test
     void theLayerHoldsExactlySixActivesAndThreePassives() {
         assertEquals(6, bloodSkills().size(), "the school was budgeted at six actives");
-        assertEquals(3, MagicPassiveContent.forbiddenPassives().size(),
-                "and three passives - every forbidden passive so far is one of Blood's");
+        // Named rather than counted: forbiddenPassives() holds every school's, so a bare size
+        // assertion would break every time a new layer is built rather than when Blood changes.
+        for (MagicPassiveDefinition passive : List.of(MagicPassiveContent.BLOODSCENT,
+                MagicPassiveContent.CLOTTING, MagicPassiveContent.VESSEL_OVERFLOWS)) {
+            assertTrue(MagicPassiveContent.isForbiddenPassive(passive.id()),
+                    passive.id() + " is one of Blood's three passives");
+        }
     }
 
     @Test

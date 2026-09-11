@@ -78,6 +78,14 @@ public final class PlayerMagicState {
     /** Set whenever a blood cost is paid in health. Healing is suppressed while it runs. */
     private int openWoundTicks;
     /**
+     * What dark magic charges. Corruption is not a resource: nothing spends it, nothing refunds it,
+     * and no amount of time removes it. It only ever goes up, and only Purification brings it down.
+     *
+     * <p>Persisted for the same reason the Vessel is, and for a harsher one - a debt you could
+     * relog away would not be a debt.
+     */
+    private int corruption;
+    /**
      * Class-passive contributions to the pools, recomputed every slow tick by
      * {@link com.efkrdnz.magical.magic.passive.ClassPassiveEffects}. Derived, so never persisted.
      */
@@ -177,11 +185,13 @@ public final class PlayerMagicState {
     }
 
     public int maxMana() {
-        return MagicalConfig.MAX_MANA.get() + Math.max(0, maxManaBonus) + Math.max(0, classMaxManaBonus);
+        int base = MagicalConfig.MAX_MANA.get() + Math.max(0, maxManaBonus) + Math.max(0, classMaxManaBonus);
+        return base - corruptionPenalty(base);
     }
 
     public int maxBarrier() {
-        return MagicalConfig.MAX_BARRIER.get() + Math.max(0, maxBarrierBonus) + Math.max(0, classMaxBarrierBonus);
+        int base = MagicalConfig.MAX_BARRIER.get() + Math.max(0, maxBarrierBonus) + Math.max(0, classMaxBarrierBonus);
+        return base - corruptionPenalty(base);
     }
 
     /**
@@ -241,6 +251,63 @@ public final class PlayerMagicState {
             openWoundTicks--;
         }
         return openWoundTicks > 0;
+    }
+
+    /** How far into the debt you are, 0..{@link #MAX_CORRUPTION}. */
+    public int corruption() {
+        return corruption;
+    }
+
+    /**
+     * The point past which Corruption stops climbing. It is a ceiling rather than a game over: a
+     * fully corrupted mage still casts, just out of pools most of the way gone.
+     */
+    public static final int MAX_CORRUPTION = 100;
+
+    /**
+     * The most Corruption can ever take from a pool. Expressed as a share, so the floor holds at
+     * any config value: whatever your ceiling is, forty percent of it stays yours. That floor is
+     * the whole reason this is a penalty term rather than a plain subtraction - a pool that could
+     * reach zero would make the last cast before Purification impossible, which is a trap and not
+     * a cost.
+     */
+    public static final float MAX_POOL_PENALTY = 0.6F;
+
+    /** Corruption as a 0..1 share of the ceiling, which is how every penalty reads it. */
+    public float corruptionFraction() {
+        return corruption / (float) MAX_CORRUPTION;
+    }
+
+    /** Takes on debt, or writes some off when negative. Clamped at both ends. */
+    public void addCorruption(int amount) {
+        setCorruption(corruption + amount);
+    }
+
+    public void setCorruption(int value) {
+        corruption = clamp(value, 0, MAX_CORRUPTION);
+        // The ceilings just moved. Re-clamp, or the pools sit above their own maximum until the
+        // next thing that happens to touch them.
+        setMana(mana);
+        setBarrier(barrier);
+    }
+
+    /**
+     * What Corruption takes off a pool of the given size.
+     *
+     * <p>Proportional rather than flat, so it scales with the build it is punishing, and softened
+     * by {@code willing} - the Dark passive whose whole trade is smaller penalties for faster
+     * decay. Read on both sides: the client needs the same ceiling the server is enforcing, and it
+     * has the passive set and the Corruption to work it out with.
+     */
+    private int corruptionPenalty(int base) {
+        if (corruption <= 0) {
+            return 0;
+        }
+        float share = MAX_POOL_PENALTY * corruptionFraction();
+        if (isPassiveEnabled(MagicPassiveContent.WILLING.id())) {
+            share *= 1.0F - DarkService.WILLING_PENALTY_RELIEF;
+        }
+        return Math.round(base * share);
     }
 
     public int manaVault() {
@@ -1118,6 +1185,12 @@ public final class PlayerMagicState {
                     && disabledPassives.contains(linkedSinPassive)
                     && sinCurseDispelRemainingMillis(curseId) <= 0L;
         }
+        // The Corruption curse is a statement about how much you are carrying, so the codex button
+        // cannot argue with it: pay the debt down first - which only Purification does - and only
+        // then is there anything left to dispel.
+        if (curseId.equals(MagicPassiveContent.CORRUPTION_CURSE.id()) && corruption >= DarkService.CURSE_AT) {
+            return false;
+        }
         return definition != null
                 && definition.curse()
                 && hasCurse(curseId)
@@ -1599,7 +1672,11 @@ public final class PlayerMagicState {
 
     public boolean tickServer(ServerPlayer player) {
         boolean changed = false;
-        if (player.tickCount % MagicalConfig.MANA_REGEN_INTERVAL_TICKS.get() == 0 && mana < maxMana()) {
+        // The Corruption curse's whole effect, and the only curse in the file that has one: at the
+        // top of the ladder mana stops coming back on its own. Everything else still refills it -
+        // potions, vault taps, class passives - so the curse is a hard squeeze rather than a wall.
+        boolean manaStilled = hasCurse(MagicPassiveContent.CORRUPTION_CURSE.id());
+        if (!manaStilled && player.tickCount % MagicalConfig.MANA_REGEN_INTERVAL_TICKS.get() == 0 && mana < maxMana()) {
             mana = Math.min(maxMana(), mana + MagicalConfig.MANA_PER_REGEN.get());
             changed = true;
         }
@@ -1698,6 +1775,7 @@ public final class PlayerMagicState {
         // has to be in both or the HUD bar stays empty while the server spends a full one.
         copy.bloodVessel = bloodVessel;
         copy.openWoundTicks = openWoundTicks;
+        copy.corruption = corruption;
         copy.manaBoostPurchases = manaBoostPurchases;
         copy.barrierBoostPurchases = barrierBoostPurchases;
         copy.authorityId = authorityId;
@@ -1789,6 +1867,7 @@ public final class PlayerMagicState {
         // server spends the real one, and a race's bonus mana looks like a spell that costs nothing.
         tag.putInt("bloodVessel", bloodVessel);
         tag.putInt("openWoundTicks", openWoundTicks);
+        tag.putInt("corruption", corruption);
         tag.putInt("classMaxManaBonus", classMaxManaBonus);
         tag.putInt("classMaxBarrierBonus", classMaxBarrierBonus);
         tag.putInt("manaBoostPurchases", manaBoostPurchases);
@@ -1935,6 +2014,7 @@ public final class PlayerMagicState {
         // an empty Vessel and no open wound, which is exactly the right starting state.
         state.bloodVessel = clamp(tag.getInt("bloodVessel"), 0, MAX_BLOOD_VESSEL);
         state.openWoundTicks = Math.max(0, tag.getInt("openWoundTicks"));
+        state.corruption = clamp(tag.getInt("corruption"), 0, MAX_CORRUPTION);
         state.classMaxManaBonus = tag.getInt("classMaxManaBonus");
         state.classMaxBarrierBonus = tag.getInt("classMaxBarrierBonus");
         state.manaBoostPurchases = tag.getInt("manaBoostPurchases");

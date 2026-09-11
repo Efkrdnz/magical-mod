@@ -28,6 +28,9 @@ class CodexButtonRangeTest {
         Bootstrap.bootStrap();
     }
 
+    /** One past the highest id any codex control may use. Not a runtime limit - a budget. */
+    private static final int BUTTON_ID_CEILING = 4000;
+
     private record Band(String name, int start, int size) {
         int endExclusive() {
             return start + size;
@@ -46,6 +49,10 @@ class CodexButtonRangeTest {
         bands.add(new Band("skill tuning", MagicPyramidMenu.BUTTON_TUNE_BASE, MagicTuningStat.values().length * 10));
         bands.add(new Band("passive toggle", MagicPyramidMenu.BUTTON_PASSIVE_TOGGLE_BASE, MagicPassiveContent.normalPassives().size()));
         bands.add(new Band("curse dispel", MagicPyramidMenu.BUTTON_CURSE_DISPEL_BASE, MagicPassiveContent.curses().size()));
+        // A zero-width band past the top of the id space, so the highest real band is bounded by
+        // something too. Without it the last band in the sort order is checked against nothing,
+        // which is exactly the band most likely to grow.
+        bands.add(new Band("ceiling", BUTTON_ID_CEILING, 0));
         bands.sort((a, b) -> Integer.compare(a.start(), b.start()));
         return bands;
     }

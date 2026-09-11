@@ -28,7 +28,12 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
 
     public static final int BUTTON_TIER_BASE = 100;
     public static final int BUTTON_BELOW_TIER_BASE = 120;
-    public static final int BUTTON_SKILL_BASE = 200;
+    /**
+     * The skill list is the one band whose width is the size of the roster, so it is the one band
+     * that grows every time content is added. It sits above every fixed control for that reason -
+     * at 200 it had a hundred ids of room and the forbidden schools used the last of them.
+     */
+    public static final int BUTTON_SKILL_BASE = 3000;
     public static final int BUTTON_SLOT_BASE = 300;
     public static final int BUTTON_EQUIP_SELECTED = 400;
     public static final int BUTTON_CLEAR_SLOT = 401;

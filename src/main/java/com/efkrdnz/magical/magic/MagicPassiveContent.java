@@ -47,6 +47,15 @@ public final class MagicPassiveContent {
     public static final MagicPassiveDefinition SIN_GLUTTONY_CURSE = register("sin_gluttony_curse", true, 1, 0.0F, 0, 0, 0xB878FF);
     public static final MagicPassiveDefinition SIN_WRATH_CURSE = register("sin_wrath_curse", true, 1, 0.0F, 0, 0, 0xFF3C38);
     public static final MagicPassiveDefinition SIN_SLOTH_CURSE = register("sin_sloth_curse", true, 1, 0.0F, 0, 0, 0x6F7FA8);
+    /**
+     * DARK, layer -2. What a fully corrupted mage is left holding, and the one curse in this file
+     * with teeth: while it holds, mana stops regenerating on its own
+     * ({@code PlayerMagicState.tickServer}). Dispellable only once Corruption is back under
+     * {@code DarkService.CURSE_AT}, which nothing but Purification can do - so the way out of it is
+     * always the same way, and it is never the button on the codex alone.
+     */
+    public static final MagicPassiveDefinition CORRUPTION_CURSE =
+            register("corruption_curse", true, 1, 0.0F, 3, 40, 0x5B3A78);
 
     // ---------------------------------------------------------------------------------------
     // Class passives. Exactly one node of the evolution trees grants each of these and nothing
@@ -124,6 +133,11 @@ public final class MagicPassiveContent {
     public static final MagicPassiveDefinition BLOODSCENT = forbiddenPassive("bloodscent", 0xE8425E);
     public static final MagicPassiveDefinition CLOTTING = forbiddenPassive("clotting", 0x8A0B1E);
     public static final MagicPassiveDefinition VESSEL_OVERFLOWS = forbiddenPassive("vessel_overflows", 0xC4122B);
+
+    // DARK, layer -2. Two, per the school's budget of four actives and two passives. One makes the
+    // debt readable, the other makes it worse on purpose.
+    public static final MagicPassiveDefinition LEDGER = forbiddenPassive("ledger", 0x8A6BB5);
+    public static final MagicPassiveDefinition WILLING = forbiddenPassive("willing", 0x3F2456);
 
     public static final Set<ResourceLocation> STARTER_PASSIVES = Set.of(
             MANA_SKIN.id(),

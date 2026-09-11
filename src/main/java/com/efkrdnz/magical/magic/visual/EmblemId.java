@@ -84,7 +84,13 @@ public enum EmblemId {
     ORRERY,
     WHEEL,
     ECLIPSE,
-    JAWS;
+    JAWS,
+    // forbidden cells. The atlas is 16x16 and emblems start at cell 32, so there is room for well
+    // over a hundred more - new schools add marks here rather than reusing another school's.
+    EFFIGY_DOLL,
+    CAST_SHADOW,
+    TALLY,
+    CUT_THREAD;
 
     public static final int FIRST_CELL = 32;
 
