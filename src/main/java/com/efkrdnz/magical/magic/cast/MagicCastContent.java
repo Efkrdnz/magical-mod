@@ -27,6 +27,7 @@ public final class MagicCastContent {
         MagicCastContentSpatial.register();
         MagicCastContentClass.register();
         MagicCastContentFusion.register();
+        MagicCastContentBlood.register();
         MagicalMod.LOGGER.info("Registered {} skill cast handlers", SkillCastRegistry.all().size());
     }
 }

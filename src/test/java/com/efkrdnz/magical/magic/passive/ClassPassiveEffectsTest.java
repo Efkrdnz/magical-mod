@@ -41,6 +41,9 @@ class ClassPassiveEffectsTest {
         // registry and the handlers must agree exactly, in both directions.
         Set<ResourceLocation> registered = new LinkedHashSet<>(MagicPassiveContent.classPassives());
         registered.addAll(MagicPassiveContent.racePassives());
+        // Forbidden-school passives run through the same handler list, so they answer to the same
+        // rule. Leaving them out here would let a blood passive ship with no handler at all.
+        registered.addAll(MagicPassiveContent.forbiddenPassives());
         for (ResourceLocation id : registered) {
             assertTrue(claimed.contains(id), id + " is registered but no handler implements it");
         }

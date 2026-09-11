@@ -40,6 +40,15 @@ public final class MagicContent {
     public static final MagicSkillDefinition BLACK_FLAMES_BRAND = register("black_flames_brand", MagicSchool.DARK, MagicSkillType.BURST, -2, 3, 13.0F, 1.0F, 1.35F, 42, 260, 220, 0.15F, 0, 0x5A083A, MagicAttribute.DARK);
 
     public static final MagicSkillDefinition ABYSSAL_DISCHARGE = register("abyssal_discharge", MagicSchool.DARK, MagicSkillType.BURST, -2, 0, 18.5F, 0.0F, 4.7F, 58, 260, 38, 0.55F, 0, 0x341052, MagicAttribute.DARK);
+
+    // BLOOD, layer -1. Every one of these costs zero mana on purpose: they are billed in blood by
+    // their own handler through BloodService, and a mana cost here would charge the player twice.
+    public static final MagicSkillDefinition CRIMSON_TITHE = register("crimson_tithe", MagicSchool.BLOOD, MagicSkillType.BURST, -1, 0, 0.0F, 0.0F, 1.0F, 0, 320, 200, 0.0F, 0, 0xC4122B);
+    public static final MagicSkillDefinition HEMORRHAGE = register("hemorrhage", MagicSchool.BLOOD, MagicSkillType.BURST, -1, 0, 6.0F, 0.0F, 5.0F, 0, 180, 140, 0.1F, 0, 0xA8142E);
+    public static final MagicSkillDefinition SCARLET_LANCE = register("scarlet_lance", MagicSchool.BLOOD, MagicSkillType.PROJECTILE, -1, 0, 15.0F, 1.7F, 1.0F, 0, 140, 60, 0.45F, 0, 0xE8425E);
+    public static final MagicSkillDefinition SECOND_HEART = register("second_heart", MagicSchool.BLOOD, MagicSkillType.BARRIER, -1, 0, 0.0F, 0.0F, 1.2F, 0, 700, 400, 0.0F, 0, 0x8A0B1E);
+    public static final MagicSkillDefinition VEIN_WALK = register("vein_walk", MagicSchool.BLOOD, MagicSkillType.BURST, -1, 0, 0.0F, 0.0F, 1.0F, 0, 160, 20, 0.0F, 0, 0xD62839);
+    public static final MagicSkillDefinition EXSANGUINATE = register("exsanguinate", MagicSchool.BLOOD, MagicSkillType.BURST, -1, 0, 4.0F, 0.0F, 1.0F, 0, 240, 80, 0.0F, 0, 0x6E0B1A);
     public static final MagicSkillDefinition VAULT_OF_AVARICE = register("vault_of_avarice", MagicSchool.VOID, MagicSkillType.BURST, -4, 0, 0.0F, 0.0F, 1.0F, 0, 0, 20, 0.0F, 0, 0xD7F75B, MagicAttribute.DARK);
     public static final MagicSkillDefinition CREATE_SUBSPACE = register("create_subspace", MagicSchool.ARCANE, MagicSkillType.BURST, -5, 0, 0.0F, 0.0F, 1.0F, 22, 40, 20, 0.0F, 0, 0x88DFFF, MagicAttribute.ARCANE);
     public static final MagicSkillDefinition MANIPULATE_SPACE = register("manipulate_space", MagicSchool.ARCANE, MagicSkillType.BURST, -5, 0, 0.0F, 0.0F, 1.0F, 8, 8, 20, 0.0F, 0, 0xA9ECFF, MagicAttribute.ARCANE);

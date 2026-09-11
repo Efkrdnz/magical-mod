@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.client;
 
+import com.efkrdnz.magical.magic.BloodService;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
@@ -22,6 +23,8 @@ public final class MagicalHudOverlay {
     private static final int PANEL_Y = 6;
     private static final int PANEL_W = 168;
     private static final int MAIN_H = 44;
+    /** Height the panel grows by when the Vessel bar is drawn, and everything under it shifts. */
+    private static final int VESSEL_ROW_H = 11;
     private static final int ACCENT = 0x5FD4FF;
     private static final int GOLD = 0xF7D774;
 
@@ -32,8 +35,11 @@ public final class MagicalHudOverlay {
         int x = PANEL_X;
         int y = PANEL_Y;
 
-        // --- Main panel: mana, barrier, proficiency, wheel ---
-        panel(g, x, y, x + PANEL_W, y + MAIN_H, ACCENT);
+        // --- Main panel: mana, barrier, Vessel, proficiency, loadout ---
+        // The Crimson Vessel earns a third bar, but only for someone with a blood skill to spend
+        // it on. Everything under it shifts by exactly one row, so no other player's HUD moves.
+        int vesselRow = BloodService.isBloodMage(state) ? VESSEL_ROW_H : 0;
+        panel(g, x, y, x + PANEL_W, y + MAIN_H + vesselRow, ACCENT);
         boolean greedVault = state.hasPassive(MagicPassiveContent.SIN_GREED.id());
         int barX = x + 6;
         int manaBarW = greedVault ? 110 : 156;
@@ -45,19 +51,24 @@ public final class MagicalHudOverlay {
         bar(g, barX, y + 16, 156, 9, fraction(state.barrier(), state.maxBarrier()), 0xFF7AF1FF, 0xFF25707E);
         g.drawString(font, state.barrier() + "/" + state.maxBarrier(), barX + 4, y + 17, 0xFFE8FBFF, false);
 
-        chip(g, font, x + 6, y + 29, 34, 11, "Lv " + state.proficiencyLevel(), GOLD);
+        if (vesselRow > 0) {
+            bar(g, barX, y + 27, 156, 9, fraction(state.bloodVessel(), PlayerMagicState.MAX_BLOOD_VESSEL), 0xFFE8425E, 0xFF6B0A18);
+            g.drawString(font, state.bloodVessel() + "/" + PlayerMagicState.MAX_BLOOD_VESSEL, barX + 4, y + 28, 0xFFFFE3E8, false);
+        }
+
+        chip(g, font, x + 6, y + 29 + vesselRow, 34, 11, "Lv " + state.proficiencyLevel(), GOLD);
         int xp = state.proficiencyXp();
         int into = MagicContent.xpIntoLevel(xp);
         int toNext = MagicContent.xpForNextLevel(xp);
         float xpFraction = toNext <= 0 ? 1.0F : into / (float) Math.max(1, into + toNext);
-        bar(g, x + 46, y + 32, 66, 5, xpFraction, 0xFFF3CE63, 0xFF87681F);
+        bar(g, x + 46, y + 32 + vesselRow, 66, 5, xpFraction, 0xFFF3CE63, 0xFF87681F);
         // The active loadout by name: with four keys that change meaning, which set you are on is
         // the single most useful thing the HUD can say.
-        chip(g, font, x + PANEL_W - 62, y + 29, 56, 11,
+        chip(g, font, x + PANEL_W - 62, y + 29 + vesselRow, 56, 11,
                 font.plainSubstrByWidth(state.activeLoadout().name(), 50), 0xBFD7FF);
 
         // --- Loadout slots with bound keys and cooldowns ---
-        int slotY = y + MAIN_H + 4;
+        int slotY = y + MAIN_H + vesselRow + 4;
         for (int slot = 0; slot < MagicContent.LOADOUT_SIZE; slot++) {
             int slotX = x + slot * 36;
             drawLoadoutSlot(g, font, minecraft, state, slot, slotX, slotY);

@@ -15,6 +15,12 @@ public final class MagicPassiveContent {
     private static final Set<ResourceLocation> CLASS_PASSIVES = new LinkedHashSet<>();
     /** Filled by {@link #racePassive}; same reason. */
     private static final Set<ResourceLocation> RACE_PASSIVES = new LinkedHashSet<>();
+    /**
+     * Passives belonging to a forbidden school rather than to a class or a race. Kept as their own
+     * category because they are earned by studying the school, not handed over by a tree node - but
+     * they answer to the same handler rule, so the coverage test treats all three sets alike.
+     */
+    private static final Set<ResourceLocation> FORBIDDEN_PASSIVES = new LinkedHashSet<>();
 
     public static final MagicPassiveDefinition MANA_SKIN = register("mana_skin", false, 1, 0.0F, 0, 0, 0x72E4FF, 1, 5000);
     public static final MagicPassiveDefinition HEAT_RESISTANCE = register("heat_resistance", false, 5, 0.2F, 0, 0, 0xFF7A45, 3, 35000);
@@ -114,6 +120,11 @@ public final class MagicPassiveContent {
     public static final MagicPassiveDefinition CORRUPTION_RESISTANCE = racePassive("corruption_resistance", 0xC2506E);
     public static final MagicPassiveDefinition BLESSED = racePassive("blessed", 0xF7E38A);
 
+    // BLOOD, layer -1. Three, per the school's budget of six actives and three passives.
+    public static final MagicPassiveDefinition BLOODSCENT = forbiddenPassive("bloodscent", 0xE8425E);
+    public static final MagicPassiveDefinition CLOTTING = forbiddenPassive("clotting", 0x8A0B1E);
+    public static final MagicPassiveDefinition VESSEL_OVERFLOWS = forbiddenPassive("vessel_overflows", 0xC4122B);
+
     public static final Set<ResourceLocation> STARTER_PASSIVES = Set.of(
             MANA_SKIN.id(),
             HEAT_RESISTANCE.id(),
@@ -142,6 +153,26 @@ public final class MagicPassiveContent {
         MagicPassiveDefinition definition = register(path, false, 1, 0.0F, 0, 0, color);
         RACE_PASSIVES.add(definition.id());
         return definition;
+    }
+
+    /**
+     * A passive that comes with a forbidden school. Single-level and never a curse, like the other
+     * two kinds - a forbidden school already charges its price through its own currency, and making
+     * the passive itself a curse would be billing twice for the same choice.
+     */
+    private static MagicPassiveDefinition forbiddenPassive(String path, int color) {
+        MagicPassiveDefinition definition = register(path, false, 1, 0.0F, 0, 0, color);
+        FORBIDDEN_PASSIVES.add(definition.id());
+        return definition;
+    }
+
+    /** Ids of every forbidden-school passive, in declaration order. */
+    public static Set<ResourceLocation> forbiddenPassives() {
+        return java.util.Collections.unmodifiableSet(FORBIDDEN_PASSIVES);
+    }
+
+    public static boolean isForbiddenPassive(ResourceLocation id) {
+        return FORBIDDEN_PASSIVES.contains(id);
     }
 
     /** Ids of every race passive, in declaration order. */

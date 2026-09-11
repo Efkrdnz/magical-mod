@@ -3,6 +3,7 @@ package com.efkrdnz.magical.magic;
 import com.efkrdnz.magical.magic.passive.PassiveHooks;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 
@@ -36,6 +37,23 @@ public final class BloodService {
     public static final float MAX_POTENCY = 2.2F;
 
     private BloodService() {
+    }
+
+    /**
+     * True when the player holds any blood skill at all.
+     *
+     * <p>This gates the school's whole economy, so that someone who has never touched Blood is not
+     * quietly accruing a resource they can neither see nor spend - and it gates the HUD bar, so the
+     * Vessel only takes up room on screen for players it means something to.
+     */
+    public static boolean isBloodMage(PlayerMagicState state) {
+        for (ResourceLocation id : state.unlockedSkills()) {
+            MagicSkillDefinition skill = MagicContent.get(id);
+            if (skill != null && skill.school() == MagicSchool.BLOOD) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
