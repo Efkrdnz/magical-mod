@@ -69,7 +69,7 @@ class BloodShapeRulesTest {
         BloodShape shape = BloodShape.of(List.of(new int[] {
                 BloodShapeRules.pack(30000, -30000),
                 BloodShapeRules.pack(0, 0),
-        }), 50, 0);
+        }), 50, 0, 0);
         assertEquals(BloodShapeRules.MAX_UNIT,
                 BloodShapeRules.unpackX(shape.packed(0)), "a hostile x is clamped, not trusted");
         assertEquals(-BloodShapeRules.MAX_UNIT,
@@ -101,7 +101,7 @@ class BloodShapeRulesTest {
 
     @Test
     void anUnknownFlagBitCannotSwitchOnBehaviour() {
-        BloodShape shape = BloodShape.of(List.of(new int[] {0, 0}), 50, 0xFFFF);
+        BloodShape shape = BloodShape.of(List.of(new int[] {0, 0}), 50, 0, 0xFFFF);
         assertTrue(shape.trackYaw() && shape.trackPitch() && shape.keepRotating(),
                 "the three real flags still come through");
         assertEquals(BloodShapeRules.FLAG_TRACK_YAW | BloodShapeRules.FLAG_TRACK_PITCH
@@ -115,7 +115,7 @@ class BloodShapeRulesTest {
             longStroke[i] = BloodShapeRules.pack(i, i);
         }
         BloodShape shape = BloodShape.of(List.of(longStroke, longStroke, longStroke, longStroke,
-                longStroke, longStroke), 50, 0);
+                longStroke, longStroke), 50, 0, 0);
 
         assertEquals(BloodShapeRules.MAX_STROKES_PER_SHAPE, shape.strokeCount(),
                 "extra strokes are dropped");
@@ -125,10 +125,10 @@ class BloodShapeRulesTest {
 
     @Test
     void aStrokeWithNothingToDrawIsNotAStroke() {
-        assertTrue(BloodShape.of(List.of(new int[] {BloodShapeRules.pack(1, 1)}), 50, 0).isEmpty(),
+        assertTrue(BloodShape.of(List.of(new int[] {BloodShapeRules.pack(1, 1)}), 50, 0, 0).isEmpty(),
                 "one point is a dot, not a path");
-        assertTrue(BloodShape.of(List.of(), 50, 0).isEmpty());
-        assertTrue(BloodShape.of(null, 50, 0).isEmpty());
+        assertTrue(BloodShape.of(List.of(), 50, 0, 0).isEmpty());
+        assertTrue(BloodShape.of(null, 50, 0, 0).isEmpty());
     }
 
     @Test
@@ -138,22 +138,74 @@ class BloodShapeRulesTest {
         int[] points = {BloodShapeRules.pack(0, 0), BloodShapeRules.pack(16, 0),
                 BloodShapeRules.pack(32, 0), BloodShapeRules.pack(48, 0)};
 
-        assertEquals(2, BloodShape.ofFlat(points, new int[] {2, 4}, 50, 0).strokeCount());
-        assertEquals(1, BloodShape.ofFlat(points, new int[] {2, 900}, 50, 0).strokeCount(),
+        assertEquals(2, BloodShape.ofFlat(points, new int[] {2, 4}, 50, 0, 0).strokeCount());
+        assertEquals(1, BloodShape.ofFlat(points, new int[] {2, 900}, 50, 0, 0).strokeCount(),
                 "an end past the points keeps what parsed");
-        assertEquals(1, BloodShape.ofFlat(points, new int[] {2, 2}, 50, 0).strokeCount(),
+        assertEquals(1, BloodShape.ofFlat(points, new int[] {2, 2}, 50, 0, 0).strokeCount(),
                 "a table that does not ascend stops there");
-        assertTrue(BloodShape.ofFlat(points, new int[0], 50, 0).isEmpty());
-        assertTrue(BloodShape.ofFlat(null, new int[] {2}, 50, 0).isEmpty());
+        assertTrue(BloodShape.ofFlat(points, new int[0], 50, 0, 0).isEmpty());
+        assertTrue(BloodShape.ofFlat(null, new int[] {2}, 50, 0, 0).isEmpty());
     }
 
     @Test
     void theStoredPointsCannotBeReachedThroughAndChanged() {
         BloodShape shape = BloodShape.of(List.of(new int[] {
-                BloodShapeRules.pack(0, 0), BloodShapeRules.pack(16, 16)}), 50, 0);
+                BloodShapeRules.pack(0, 0), BloodShapeRules.pack(16, 16)}), 50, 0, 0);
         int[] leaked = shape.pointsCopy();
         leaked[0] = 12345;
         assertEquals(BloodShapeRules.pack(0, 0), shape.packed(0),
                 "a shape handed to the wire writer must not be editable through the array it handed back");
+    }
+
+    // ---------------------------------------------------------------- vertical spread
+
+    @Test
+    void aCentredSpreadSliderGivesTheThinSheet() {
+        // The default has to be the sheet, not the wall. A shape is drawn on a plan view, and
+        // standing it up by default buries the drawing inside a slab.
+        assertEquals(BloodShapeRules.BASE_WALL_HEIGHT,
+                BloodShapeRules.wallHeightBlocks(0, 1.8D), 1.0E-9D);
+        assertEquals(0.2D, BloodShapeRules.BASE_WALL_HEIGHT, 1.0E-9D);
+    }
+
+    @Test
+    void bothEndsOfTheSpreadSliderReachTheSameHeightInOppositeDirections() {
+        double up = BloodShapeRules.wallHeightBlocks(100, 1.8D);
+        double down = BloodShapeRules.wallHeightBlocks(-100, 1.8D);
+        assertEquals(1.1D * 1.8D, up, 1.0E-9D, "fully up is 1.1 times the caster's height");
+        assertEquals(-up, down, 1.0E-9D, "and fully down is the same reach, the other way");
+    }
+
+    @Test
+    void theSpreadGrowsSmoothlyOutOfTheCentreInBothDirections() {
+        double previousUp = BloodShapeRules.wallHeightBlocks(0, 1.8D);
+        double previousDown = previousUp;
+        for (int step = 1; step <= 100; step++) {
+            double up = BloodShapeRules.wallHeightBlocks(step, 1.8D);
+            double down = -BloodShapeRules.wallHeightBlocks(-step, 1.8D);
+            assertTrue(up > previousUp, "up stalled at " + step);
+            assertTrue(down > previousDown, "down stalled at " + step);
+            assertEquals(up, down, 1.0E-9D, "the two directions must be mirror images at " + step);
+            previousUp = up;
+            previousDown = down;
+        }
+    }
+
+    @Test
+    void theSpreadSliderClampsRatherThanRunningPastItsEnds() {
+        assertEquals(BloodShapeRules.wallHeightBlocks(100, 1.8D),
+                BloodShapeRules.wallHeightBlocks(9000, 1.8D), 1.0E-9D);
+        assertEquals(BloodShapeRules.wallHeightBlocks(-100, 1.8D),
+                BloodShapeRules.wallHeightBlocks(-9000, 1.8D), 1.0E-9D);
+        assertEquals(100, BloodShapeRules.clampSpreadPercent(Integer.MAX_VALUE));
+        assertEquals(-100, BloodShapeRules.clampSpreadPercent(Integer.MIN_VALUE));
+    }
+
+    @Test
+    void aTinyCasterNeverGetsAWallShorterThanTheDefaultSheet() {
+        // The reach is measured against the caster, and a very small one would otherwise make the
+        // extremes of the slider shallower than its middle.
+        double sheet = BloodShapeRules.wallHeightBlocks(0, 0.1D);
+        assertTrue(Math.abs(BloodShapeRules.wallHeightBlocks(100, 0.1D)) >= sheet);
     }
 }

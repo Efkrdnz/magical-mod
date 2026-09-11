@@ -24,18 +24,21 @@ import java.util.List;
 public final class BloodShape {
 
     /** An unset slot. Shared, because there is nothing in one to tell it apart from another. */
-    public static final BloodShape EMPTY =
-            new BloodShape(new int[0], new int[0], BloodShapeRules.DEFAULT_HEIGHT_PERCENT, 0);
+    public static final BloodShape EMPTY = new BloodShape(new int[0], new int[0],
+            BloodShapeRules.DEFAULT_HEIGHT_PERCENT, BloodShapeRules.DEFAULT_SPREAD_PERCENT, 0);
 
     private final int[] points;
     private final int[] strokeEnds;
     private final int heightPercent;
+    private final int spreadPercent;
     private final int flags;
 
-    private BloodShape(int[] points, int[] strokeEnds, int heightPercent, int flags) {
+    private BloodShape(int[] points, int[] strokeEnds, int heightPercent, int spreadPercent,
+            int flags) {
         this.points = points;
         this.strokeEnds = strokeEnds;
         this.heightPercent = heightPercent;
+        this.spreadPercent = spreadPercent;
         this.flags = flags;
     }
 
@@ -48,9 +51,10 @@ public final class BloodShape {
      * an out-of-range point is deliberate - this is the format check, and the reach check happens
      * at cast time against the reach the caster has then.
      */
-    public static BloodShape of(List<int[]> strokes, int heightPercent, int flags) {
+    public static BloodShape of(List<int[]> strokes, int heightPercent, int spreadPercent,
+            int flags) {
         if (strokes == null || strokes.isEmpty()) {
-            return withSettings(EMPTY, heightPercent, flags);
+            return withSettings(EMPTY, heightPercent, spreadPercent, flags);
         }
         List<int[]> kept = new ArrayList<>(BloodShapeRules.MAX_STROKES_PER_SHAPE);
         int total = 0;
@@ -70,7 +74,7 @@ public final class BloodShape {
             total += length;
         }
         if (kept.isEmpty()) {
-            return withSettings(EMPTY, heightPercent, flags);
+            return withSettings(EMPTY, heightPercent, spreadPercent, flags);
         }
         int[] flat = new int[total];
         int[] ends = new int[kept.size()];
@@ -82,6 +86,7 @@ public final class BloodShape {
             ends[s] = cursor;
         }
         return new BloodShape(flat, ends, BloodShapeRules.clampHeightPercent(heightPercent),
+                BloodShapeRules.clampSpreadPercent(spreadPercent),
                 BloodShapeRules.clampFlags(flags));
     }
 
@@ -92,9 +97,10 @@ public final class BloodShape {
      * tag was edited by hand or written by an older build. Reading stops there and keeps what
      * parsed, rather than throwing and taking the whole player state down with it.
      */
-    public static BloodShape ofFlat(int[] points, int[] strokeEnds, int heightPercent, int flags) {
+    public static BloodShape ofFlat(int[] points, int[] strokeEnds, int heightPercent,
+            int spreadPercent, int flags) {
         if (points == null || strokeEnds == null || points.length == 0 || strokeEnds.length == 0) {
-            return withSettings(EMPTY, heightPercent, flags);
+            return withSettings(EMPTY, heightPercent, spreadPercent, flags);
         }
         List<int[]> strokes = new ArrayList<>(strokeEnds.length);
         int start = 0;
@@ -107,12 +113,15 @@ public final class BloodShape {
             strokes.add(stroke);
             start = end;
         }
-        return of(strokes, heightPercent, flags);
+        return of(strokes, heightPercent, spreadPercent, flags);
     }
 
-    private static BloodShape withSettings(BloodShape base, int heightPercent, int flags) {
+    private static BloodShape withSettings(BloodShape base, int heightPercent, int spreadPercent,
+            int flags) {
         return new BloodShape(base.points, base.strokeEnds,
-                BloodShapeRules.clampHeightPercent(heightPercent), BloodShapeRules.clampFlags(flags));
+                BloodShapeRules.clampHeightPercent(heightPercent),
+                BloodShapeRules.clampSpreadPercent(spreadPercent),
+                BloodShapeRules.clampFlags(flags));
     }
 
     private static int clampPoint(int packed) {
@@ -162,6 +171,11 @@ public final class BloodShape {
         return heightPercent;
     }
 
+    /** How far the blood stands off the drawn plane, and which way. See the rules for the curve. */
+    public int spreadPercent() {
+        return spreadPercent;
+    }
+
     public int flags() {
         return flags;
     }
@@ -179,11 +193,18 @@ public final class BloodShape {
     }
 
     public BloodShape withHeightPercent(int percent) {
-        return new BloodShape(points, strokeEnds, BloodShapeRules.clampHeightPercent(percent), flags);
+        return new BloodShape(points, strokeEnds, BloodShapeRules.clampHeightPercent(percent),
+                spreadPercent, flags);
+    }
+
+    public BloodShape withSpreadPercent(int percent) {
+        return new BloodShape(points, strokeEnds, heightPercent,
+                BloodShapeRules.clampSpreadPercent(percent), flags);
     }
 
     public BloodShape withFlags(int newFlags) {
-        return new BloodShape(points, strokeEnds, heightPercent, BloodShapeRules.clampFlags(newFlags));
+        return new BloodShape(points, strokeEnds, heightPercent, spreadPercent,
+                BloodShapeRules.clampFlags(newFlags));
     }
 
     public BloodShape toggling(int flag) {

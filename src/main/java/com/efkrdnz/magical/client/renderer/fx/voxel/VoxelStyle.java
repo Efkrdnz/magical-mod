@@ -1,14 +1,17 @@
 package com.efkrdnz.magical.client.renderer.fx.voxel;
 
-import com.efkrdnz.magical.magic.visual.ColorRole;
 import com.efkrdnz.magical.magic.visual.FxKinds;
 
 /**
  * How one ability's voxel field looks and moves. This is the whole authoring surface of the
  * framework: a new blood skill writes one of these and registers a painter that hands it over.
  *
- * @param cube        cube edge as a fraction of the field's pitch; below one it leaves a visible
- *                    gap, so the field reads as separate drops rather than a solid extrusion
+ * @param rgb         the flat colour the field draws in. Explicit rather than a palette role: the
+ *                    school ramp's bright and hot slots are derived by shifting blue hardest, which
+ *                    carries blood toward pink - right for a rune band, wrong for liquid
+ * @param cube        cube edge as a fraction of the field's pitch. At or just above one the cubes
+ *                    touch and the field reads as a body of liquid; below one it separates into
+ *                    visible drops with gaps between them
  * @param cap         cubes this ability may ask for, before the profile's budget class scales it
  * @param burstRadius how far from the caster the blood starts, so it leaves rather than appears
  * @param archHeight  how high the flight arcs; blood thrown across a room should not slide
@@ -19,7 +22,7 @@ import com.efkrdnz.magical.magic.visual.FxKinds;
  */
 public record VoxelStyle(
         FxKinds.Body kind,
-        ColorRole role,
+        int rgb,
         float cube,
         int cap,
         Timeline timing,
@@ -45,8 +48,8 @@ public record VoxelStyle(
 
     /** The look Blood Manipulation forms with: a thrown sheet that lands hard and drains fast. */
     public static final VoxelStyle STRIKE = new VoxelStyle(
-            FxKinds.Body.BLOOD, ColorRole.BASE,
-            0.88F, 1200,
+            FxKinds.Body.BLOOD, 0xF23B47,
+            1.05F, 1800,
             new Timeline(7.0F, 2.0F, 2.5F, 9.0F, 6.0F),
             0.55F, 1.1F,
             0.012F, 0.11F,

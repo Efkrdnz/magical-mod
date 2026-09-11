@@ -35,7 +35,10 @@ public final class VoxelEmitter {
      * point. Tinting per face on the way in costs nothing - the colour is already a per-call
      * argument - and it is the entire difference between reading as a cube and reading as a smudge.
      */
-    private static final float[] FACE_LIGHT = {0.80F, 0.72F, 1.00F, 0.45F, 0.86F, 0.66F};
+    // Minecraft's own face ramp, compressed toward the top. The full spread runs a lit top against
+    // a near-black underside, which on a solid mass of cubes reads as two materials rather than one
+    // shape; keeping the order but narrowing the range still tells the faces apart.
+    private static final float[] FACE_LIGHT = {0.88F, 0.83F, 1.00F, 0.68F, 0.93F, 0.78F};
 
     private final VertexConsumer consumer;
     private final Matrix4f matrix;

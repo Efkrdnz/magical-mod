@@ -208,7 +208,7 @@ public final class MagicalFxRenderTypes {
             // The size is in BYTES, not vertices: this format is 28 bytes a vertex, so the old
             // 16384 was 585 vertices - smaller than a single prism. A blood voxel field is about
             // 437 KB, and undersizing only costs a run of reallocations on its first frame.
-            shardBody = create("shard_body", base(SHARD_BODY, false, true).setWriteMaskState(RenderStateShard.COLOR_DEPTH_WRITE), 786432, true);
+            shardBody = create("shard_body", base(SHARD_BODY, false, true).setWriteMaskState(RenderStateShard.COLOR_DEPTH_WRITE), 1048576, true);
         }
         return shardBody;
     }

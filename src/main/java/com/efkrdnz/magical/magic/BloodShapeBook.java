@@ -110,6 +110,8 @@ public final class BloodShapeBook {
         }
         tag.put("e", new ByteArrayTag(packedEnds));
         tag.putByte("h", (byte) shape.heightPercent());
+        // Signed, and -100..100 fits a byte with room to spare.
+        tag.putByte("v", (byte) shape.spreadPercent());
         tag.putByte("f", (byte) shape.flags());
         return tag;
     }
@@ -145,6 +147,8 @@ public final class BloodShapeBook {
         for (int i = 0; i < rawEnds.length; i++) {
             ends[i] = rawEnds[i] & 0xFF;
         }
-        return BloodShape.ofFlat(points, ends, tag.getByte("h"), tag.getByte("f"));
+        // A tag written before the spread slider existed has no "v", and getByte answers zero for
+        // a missing key - which is the centred default, so an old save reads as the sheet it was.
+        return BloodShape.ofFlat(points, ends, tag.getByte("h"), tag.getByte("v"), tag.getByte("f"));
     }
 }

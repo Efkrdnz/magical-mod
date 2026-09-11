@@ -94,7 +94,7 @@ public final class BloodVoxels {
         int basePacked = MagicVertex.pack(style.kind().id(), style.shaderCount(),
                 style.shaderParamB(), 0.0F, ctx.seed, 0);
         int alpha = Mth.clamp(Math.round(silhouette.opacity() * 255.0F), 1, 255);
-        int rgb = profile.color(style.role());
+        int rgb = style.rgb();
 
         float pitchSize = source.pitch();
         float anchorX = (float) shift.x;

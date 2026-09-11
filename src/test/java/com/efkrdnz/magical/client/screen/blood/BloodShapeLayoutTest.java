@@ -107,6 +107,47 @@ class BloodShapeLayoutTest {
     }
 
     @Test
+    void theSpreadSliderIsCentreZeroAndSignedAtItsEnds() {
+        int centre = BloodShapeLayout.SLIDER_X + BloodShapeLayout.sliderTravel() / 2;
+        assertEquals(0, BloodShapeLayout.spreadPercent(centre),
+                "the middle of the spread track is the default sheet");
+        assertEquals(-BloodShapeRules.SPREAD_PERCENT_RANGE,
+                BloodShapeLayout.spreadPercent(BloodShapeLayout.SLIDER_X - 40),
+                "left is all the way down");
+        assertEquals(BloodShapeRules.SPREAD_PERCENT_RANGE,
+                BloodShapeLayout.spreadPercent(
+                        BloodShapeLayout.SLIDER_X + BloodShapeLayout.SLIDER_W + 40),
+                "right is all the way up");
+    }
+
+    @Test
+    void theSpreadSliderSnapsToZeroNearTheMiddleAndNowhereElse() {
+        // Zero is a default rather than an end stop, so it has to be reachable by hand; on a track
+        // this long an exact centre is a coin flip without a detent.
+        int centre = BloodShapeLayout.SLIDER_X + BloodShapeLayout.sliderTravel() / 2;
+        for (int dx = -3; dx <= 3; dx++) {
+            assertEquals(0, BloodShapeLayout.spreadPercent(centre + dx),
+                    "the detent should hold " + dx + " pixels off centre");
+        }
+        int outside = BloodShapeLayout.sliderKnobX(BloodShapeLayout.spreadFraction(40));
+        assertEquals(40, BloodShapeLayout.spreadPercent(outside), 1,
+                "and it must not reach anywhere near the rest of the track");
+    }
+
+    @Test
+    void theSpreadSliderRoundTripsThroughItsOwnFraction() {
+        for (int percent = -BloodShapeRules.SPREAD_PERCENT_RANGE;
+                percent <= BloodShapeRules.SPREAD_PERCENT_RANGE; percent++) {
+            if (Math.abs(percent) <= BloodShapeLayout.SPREAD_DETENT) {
+                continue;
+            }
+            int pixel = BloodShapeLayout.sliderKnobX(BloodShapeLayout.spreadFraction(percent));
+            assertEquals(percent, BloodShapeLayout.spreadPercent(pixel), 1,
+                    "round trip failed at " + percent);
+        }
+    }
+
+    @Test
     void theCanvasReadsLeftToRightAndBottomToTop() {
         int left = BloodShapeLayout.CANVAS_X;
         int right = BloodShapeLayout.CANVAS_X + BloodShapeLayout.CANVAS_SIZE;

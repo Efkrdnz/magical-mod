@@ -31,7 +31,8 @@ class BloodShapeGeometryTest {
     }
 
     private static BloodShape shapeOf(int flags, int[]... strokes) {
-        return BloodShape.of(List.of(strokes), BloodShapeRules.DEFAULT_HEIGHT_PERCENT, flags);
+        return BloodShape.of(List.of(strokes), BloodShapeRules.DEFAULT_HEIGHT_PERCENT,
+                BloodShapeRules.DEFAULT_SPREAD_PERCENT, flags);
     }
 
     // ---------------------------------------------------------------- clipping
@@ -190,8 +191,8 @@ class BloodShapeGeometryTest {
 
     @Test
     void theHeightSliderMovesThePlaneFromTheFeetToTheCrown() {
-        BloodShape feet = BloodShape.of(List.of(stroke(0, 0, 1, 0)), 0, 0);
-        BloodShape crown = BloodShape.of(List.of(stroke(0, 0, 1, 0)), 100, 0);
+        BloodShape feet = BloodShape.of(List.of(stroke(0, 0, 1, 0)), 0, 0, 0);
+        BloodShape crown = BloodShape.of(List.of(stroke(0, 0, 1, 0)), 100, 0, 0);
 
         assertEquals(0.0D, BloodShapeGeometry.spine(feet, 6, 0.5, 1.8, 180, 0).get(0).y(), EPS);
         assertEquals(1.8D, BloodShapeGeometry.spine(crown, 6, 0.5, 1.8, 180, 0).get(0).y(), EPS);
@@ -245,13 +246,59 @@ class BloodShapeGeometryTest {
 
         int written = BloodShapeGeometry.expand(spine, 1.0D, 0.08D, 0.25D, 7, 4096, out);
         assertTrue(written > 0, "a four block stroke with a one block wall is not empty");
-        assertTrue(written <= BloodShapeGeometry.voxelDemand(spine.length / 2, 1.0D, 0.25D),
+        assertTrue(written <= BloodShapeGeometry.voxelDemand(spine.length / 2, 1.0D, 0.2D, 0.25D),
                 "the frayed top may drop voxels but must never invent them");
 
         for (int i = 0; i < written; i++) {
             assertTrue(out[i * 3 + 1] >= -0.05F && out[i * 3 + 1] <= 1.05F,
                     "every voxel belongs between the plane and the top of the wall");
         }
+    }
+
+    @Test
+    void aNegativeWallHangsBelowThePlaneInsteadOfStandingOnIt() {
+        // The spread slider's second job. Getting this wrong does not fail anywhere - it silently
+        // builds the shape the player asked to hang downward standing upward instead.
+        double[] spine = BloodShapeGeometry.resample(new double[] {0, 0, 2, 0}, 0.25D);
+        float[] out = new float[3 * 4096];
+
+        int written = BloodShapeGeometry.expand(spine, -1.0D, 0.08D, 0.25D, 7, 4096, out);
+        assertTrue(written > 0);
+        double lowest = 0.0D;
+        for (int i = 0; i < written; i++) {
+            assertTrue(out[i * 3 + 1] <= 0.05F, "a downward wall must not rise above its plane");
+            lowest = Math.min(lowest, out[i * 3 + 1]);
+        }
+        assertTrue(lowest < -0.7D, "and it must actually reach down, not just sit flat");
+    }
+
+    @Test
+    void theWallIsFilledAcrossItsThicknessRatherThanScatteredThroughIt() {
+        // The gap bug. One jittered cube per column covers a sliver of a band many times its own
+        // width, and the eye reads the rest of the band as holes; filling it is what makes the
+        // blood read as liquid. Asserted as lanes actually occupied, since that is the symptom.
+        double thickness = 0.2D;
+        double pitch = 0.05D;
+        double[] spine = BloodShapeGeometry.resample(new double[] {0, 0, 1, 0}, pitch);
+        float[] out = new float[3 * 8192];
+
+        int written = BloodShapeGeometry.expand(spine, 0.2D, thickness, pitch, 3, 8192, out);
+        assertTrue(written > 0);
+
+        // The stroke runs along u, so its normal is v, and the lanes spread along v.
+        boolean[] lane = new boolean[16];
+        for (int i = 0; i < written; i++) {
+            double across = out[i * 3 + 2];
+            assertTrue(Math.abs(across) <= thickness + pitch,
+                    "a voxel escaped the band it was meant to fill: " + across);
+            int bucket = (int) ((across + thickness) / (thickness * 2.0D) * (lane.length - 1));
+            lane[Math.max(0, Math.min(lane.length - 1, bucket))] = true;
+        }
+        int occupied = 0;
+        for (boolean used : lane) {
+            occupied += used ? 1 : 0;
+        }
+        assertTrue(occupied >= 8, "only " + occupied + " of 16 slices across the band were filled");
     }
 
     @Test

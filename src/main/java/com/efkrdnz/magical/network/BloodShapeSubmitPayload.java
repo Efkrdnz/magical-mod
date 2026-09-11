@@ -24,8 +24,8 @@ import net.minecraft.resources.ResourceLocation;
  * by the codec itself - an over-length list is refused while it is being read, before a byte of it
  * reaches any of this mod's code.
  */
-public record BloodShapeSubmitPayload(int slot, int heightPercent, int flags,
-        List<Integer> points, List<Integer> ends) implements CustomPacketPayload {
+public record BloodShapeSubmitPayload(int slot, int heightPercent, int spreadPercent,
+        int flags, List<Integer> points, List<Integer> ends) implements CustomPacketPayload {
 
     private static final int MAX_POINTS =
             BloodShapeRules.MAX_STROKES_PER_SHAPE * BloodShapeRules.MAX_POINTS_PER_STROKE;
@@ -37,6 +37,9 @@ public record BloodShapeSubmitPayload(int slot, int heightPercent, int flags,
             StreamCodec.composite(
                     ByteBufCodecs.VAR_INT, BloodShapeSubmitPayload::slot,
                     ByteBufCodecs.VAR_INT, BloodShapeSubmitPayload::heightPercent,
+                    // Signed, so VAR_INT's zigzag-free encoding costs five bytes at the down end.
+                    // Five bytes once per edit is not worth a second encoding to get wrong.
+                    ByteBufCodecs.VAR_INT, BloodShapeSubmitPayload::spreadPercent,
                     ByteBufCodecs.VAR_INT, BloodShapeSubmitPayload::flags,
                     ByteBufCodecs.INT.apply(ByteBufCodecs.list(MAX_POINTS)),
                     BloodShapeSubmitPayload::points,
@@ -54,8 +57,8 @@ public record BloodShapeSubmitPayload(int slot, int heightPercent, int flags,
         for (int end : shape.strokeEndsCopy()) {
             ends.add(end);
         }
-        return new BloodShapeSubmitPayload(slot, shape.heightPercent(), shape.flags(),
-                List.copyOf(points), List.copyOf(ends));
+        return new BloodShapeSubmitPayload(slot, shape.heightPercent(), shape.spreadPercent(),
+                shape.flags(), List.copyOf(points), List.copyOf(ends));
     }
 
     /**
@@ -75,7 +78,7 @@ public record BloodShapeSubmitPayload(int slot, int heightPercent, int flags,
         for (int i = 0; i < strokeEnds.length; i++) {
             strokeEnds[i] = ends.get(i);
         }
-        return BloodShape.ofFlat(packed, strokeEnds, heightPercent, flags);
+        return BloodShape.ofFlat(packed, strokeEnds, heightPercent, spreadPercent, flags);
     }
 
     @Override

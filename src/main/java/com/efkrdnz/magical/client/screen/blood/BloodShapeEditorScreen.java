@@ -48,15 +48,21 @@ public class BloodShapeEditorScreen extends Screen {
 
     private static final int INK = 0xFFE06470;
 
+    private static final int DRAG_NONE = -1;
+    private static final int DRAG_HEIGHT = 0;
+    private static final int DRAG_SPREAD = 1;
+
     private int leftPos;
     private int topPos;
 
     private int slot;
     private BloodStrokeBuilder builder = new BloodStrokeBuilder();
     private int heightPercent = BloodShapeRules.DEFAULT_HEIGHT_PERCENT;
+    private int spreadPercent = BloodShapeRules.DEFAULT_SPREAD_PERCENT;
     private int flags;
     private boolean dirty;
-    private boolean draggingSlider;
+    /** Which track the mouse has hold of: none, the height row, or the spread row. */
+    private int dragging = DRAG_NONE;
 
     public BloodShapeEditorScreen() {
         super(Component.translatable("screen.magical.blood_shape.title"));
@@ -106,15 +112,14 @@ public class BloodShapeEditorScreen extends Screen {
                 Component.translatable("screen.magical.blood_shape.slot", slot + 1),
                 MagicalGuiStyle.TEXT_PRIMARY);
 
-        g.drawString(font, Component.translatable("screen.magical.blood_shape.height"),
-                x0 + BloodShapeLayout.SIDE_X, y0 + BloodShapeLayout.SLIDER_LABEL_Y,
-                MagicalGuiStyle.TEXT_MUTED, false);
-        MagicalGuiStyle.slider(g, x0 + BloodShapeLayout.SLIDER_X, y0 + BloodShapeLayout.SLIDER_Y,
-                BloodShapeLayout.SLIDER_W, BloodShapeLayout.SLIDER_H, heightPercent / 100.0F,
-                MagicalGuiStyle.ACCENT_BLOOD);
-        g.drawString(font, Component.literal(heightPercent + "%"),
-                x0 + BloodShapeLayout.sliderValue().x(), y0 + BloodShapeLayout.SLIDER_Y + 1,
-                MagicalGuiStyle.TEXT_PRIMARY, false);
+        sliderRow(g, x0, y0, BloodShapeLayout.HEIGHT_LABEL_Y, BloodShapeLayout.HEIGHT_SLIDER_Y,
+                "screen.magical.blood_shape.height", heightPercent / 100.0F,
+                heightPercent + "%", BloodShapeLayout.heightValue().x());
+        // Signed and centre-zero, so the readout carries its sign: "+0%" would read as a floor.
+        sliderRow(g, x0, y0, BloodShapeLayout.SPREAD_LABEL_Y, BloodShapeLayout.SPREAD_SLIDER_Y,
+                "screen.magical.blood_shape.spread", BloodShapeLayout.spreadFraction(spreadPercent),
+                spreadPercent > 0 ? "+" + spreadPercent : String.valueOf(spreadPercent),
+                BloodShapeLayout.spreadValue().x());
 
         for (int row = 0; row < BloodShapeLayout.CHECK_COUNT; row++) {
             int rowY = y0 + BloodShapeLayout.CHECK_Y + row * BloodShapeLayout.CHECK_STRIDE;
@@ -129,6 +134,17 @@ public class BloodShapeEditorScreen extends Screen {
         button(g, x0, y0, ACTION_CLEAR, 0xFF2A1A20, "screen.magical.blood_shape.clear");
         button(g, x0, y0, ACTION_UNDO, 0xFF2A1A20, "screen.magical.blood_shape.undo");
         button(g, x0, y0, ACTION_DONE, 0xFF3A2028, "screen.magical.blood_shape.done");
+    }
+
+    private void sliderRow(GuiGraphics g, int x0, int y0, int labelY, int trackY, String key,
+            float fraction, String value, int valueX) {
+        g.drawString(font, Component.translatable(key), x0 + BloodShapeLayout.SIDE_X, y0 + labelY,
+                MagicalGuiStyle.TEXT_MUTED, false);
+        MagicalGuiStyle.slider(g, x0 + BloodShapeLayout.SLIDER_X, y0 + trackY,
+                BloodShapeLayout.SLIDER_W, BloodShapeLayout.SLIDER_H, fraction,
+                MagicalGuiStyle.ACCENT_BLOOD);
+        g.drawString(font, Component.literal(value), x0 + valueX, y0 + trackY + 1,
+                MagicalGuiStyle.TEXT_PRIMARY, false);
     }
 
     private void button(GuiGraphics g, int x0, int y0, int action, int base, String key) {
@@ -152,6 +168,7 @@ public class BloodShapeEditorScreen extends Screen {
                 String.format("%.1f", drawn)), x, line + 12, MagicalGuiStyle.TEXT_MUTED, false);
         g.drawString(font, Component.translatable("screen.magical.blood_shape.cost",
                 BloodShapeRules.bloodCost(drawn)), x, line + 24, INK, false);
+
     }
 
     private void drawStrip(GuiGraphics g, int x0, int y0) {
@@ -222,9 +239,14 @@ public class BloodShapeEditorScreen extends Screen {
             builder.begin(BloodShapeLayout.canvasU(lx), BloodShapeLayout.canvasV(ly));
             return true;
         }
-        if (grabsSlider(lx, ly)) {
-            draggingSlider = true;
+        if (grabs(BloodShapeLayout.HEIGHT_SLIDER_Y, lx, ly)) {
+            dragging = DRAG_HEIGHT;
             setHeightFrom(lx);
+            return true;
+        }
+        if (grabs(BloodShapeLayout.SPREAD_SLIDER_Y, lx, ly)) {
+            dragging = DRAG_SPREAD;
+            setSpreadFrom(lx);
             return true;
         }
         int check = BloodShapeLayout.checkAt(lx, ly);
@@ -250,8 +272,12 @@ public class BloodShapeEditorScreen extends Screen {
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         double lx = mouseX - leftPos;
         double ly = mouseY - topPos;
-        if (draggingSlider) {
+        if (dragging == DRAG_HEIGHT) {
             setHeightFrom(lx);
+            return true;
+        }
+        if (dragging == DRAG_SPREAD) {
+            setSpreadFrom(lx);
             return true;
         }
         if (builder.isDrawing()) {
@@ -265,7 +291,7 @@ public class BloodShapeEditorScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        draggingSlider = false;
+        dragging = DRAG_NONE;
         if (builder.isDrawing()) {
             builder.finish(halfExtent());
             dirty = true;
@@ -313,6 +339,7 @@ public class BloodShapeEditorScreen extends Screen {
         BloodShape stored = state().bloodShapes().shape(slot);
         builder = BloodStrokeBuilder.of(stored);
         heightPercent = stored.heightPercent();
+        spreadPercent = stored.spreadPercent();
         flags = stored.flags();
         dirty = false;
     }
@@ -332,7 +359,7 @@ public class BloodShapeEditorScreen extends Screen {
     }
 
     private BloodShape shape() {
-        return builder.toShape(heightPercent, flags);
+        return builder.toShape(heightPercent, spreadPercent, flags);
     }
 
     private void setHeightFrom(double lx) {
@@ -344,12 +371,20 @@ public class BloodShapeEditorScreen extends Screen {
         }
     }
 
-    /** A few pixels of slop above and below the track, because a ten-pixel bar is a small target. */
-    private boolean grabsSlider(double lx, double ly) {
+    private void setSpreadFrom(double lx) {
+        int percent = BloodShapeLayout.spreadPercent(lx);
+        if (percent != spreadPercent) {
+            spreadPercent = percent;
+            dirty = true;
+        }
+    }
+
+    /** A few pixels of slop above and below a track, because a ten-pixel bar is a small target. */
+    private boolean grabs(int trackY, double lx, double ly) {
         return lx >= BloodShapeLayout.SLIDER_X
                 && lx < BloodShapeLayout.SLIDER_X + BloodShapeLayout.SLIDER_W
-                && ly >= BloodShapeLayout.SLIDER_Y - 3
-                && ly < BloodShapeLayout.SLIDER_Y + BloodShapeLayout.SLIDER_H + 3;
+                && ly >= trackY - 3
+                && ly < trackY + BloodShapeLayout.SLIDER_H + 3;
     }
 
     /**

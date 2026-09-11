@@ -36,11 +36,15 @@ class PlayerMagicStateBloodShapeTest {
     }
 
     private static BloodShape drawing(int heightPercent, int flags) {
+        return drawing(heightPercent, BloodShapeRules.DEFAULT_SPREAD_PERCENT, flags);
+    }
+
+    private static BloodShape drawing(int heightPercent, int spreadPercent, int flags) {
         return BloodShape.of(List.of(
                 new int[] {BloodShapeRules.pack(0, 0), BloodShapeRules.pack(48, 16),
                         BloodShapeRules.pack(-32, 64)},
                 new int[] {BloodShapeRules.pack(16, -16), BloodShapeRules.pack(16, 96)}),
-                heightPercent, flags);
+                heightPercent, spreadPercent, flags);
     }
 
     private static PlayerMagicState populated() {

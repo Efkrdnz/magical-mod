@@ -40,13 +40,16 @@ class BloodShapeSubmitPayloadTest {
         BloodShape original = BloodShape.of(List.of(
                         stroke(0, 0, 16, 32, 48, 64),
                         stroke(-16, -32, -48, -64)),
-                42, BloodShapeRules.FLAG_TRACK_YAW | BloodShapeRules.FLAG_KEEP_ROTATING);
+                42, -35, BloodShapeRules.FLAG_TRACK_YAW | BloodShapeRules.FLAG_KEEP_ROTATING);
 
         BloodShape back = BloodShapeSubmitPayload.of(3, original).toShape();
 
         assertEquals(original.pointCount(), back.pointCount());
         assertEquals(original.strokeCount(), back.strokeCount());
         assertEquals(original.heightPercent(), back.heightPercent());
+        // Negative on purpose: the spread is the one signed setting, and a sign lost on the wire
+        // would flip a shape meant to hang below the caster into one standing above them.
+        assertEquals(-35, back.spreadPercent());
         assertEquals(original.flags(), back.flags());
         for (int i = 0; i < original.pointCount(); i++) {
             assertEquals(original.packed(i), back.packed(i), "point " + i + " changed on the wire");
@@ -55,7 +58,7 @@ class BloodShapeSubmitPayloadTest {
 
     @Test
     void negativeCoordinatesSurviveTheWire() {
-        BloodShape original = BloodShape.of(List.of(stroke(-320, -320, -1, -1, 320, 320)), 50, 0);
+        BloodShape original = BloodShape.of(List.of(stroke(-320, -320, -1, -1, 320, 320)), 50, 0, 0);
         BloodShape back = BloodShapeSubmitPayload.of(0, original).toShape();
 
         assertEquals(-20.0D, back.u(0), 1.0E-9D);
@@ -67,9 +70,10 @@ class BloodShapeSubmitPayloadTest {
     @Test
     void theSlotAndTheSettingsRideAlongUnchanged() {
         BloodShapeSubmitPayload payload = BloodShapeSubmitPayload.of(8,
-                BloodShape.of(List.of(stroke(0, 0, 8, 8)), 0, BloodShapeRules.FLAG_TRACK_PITCH));
+                BloodShape.of(List.of(stroke(0, 0, 8, 8)), 0, 0, BloodShapeRules.FLAG_TRACK_PITCH));
         assertEquals(8, payload.slot());
         assertEquals(0, payload.heightPercent());
+        assertEquals(0, payload.spreadPercent());
         assertEquals(BloodShapeRules.FLAG_TRACK_PITCH, payload.flags());
     }
 
@@ -94,7 +98,7 @@ class BloodShapeSubmitPayloadTest {
             strokes.add(points);
         }
         BloodShapeSubmitPayload payload =
-                BloodShapeSubmitPayload.of(0, BloodShape.of(strokes, 100, 0));
+                BloodShapeSubmitPayload.of(0, BloodShape.of(strokes, 100, 0, 0));
 
         assertEquals(BloodShapeRules.MAX_STROKES_PER_SHAPE * BloodShapeRules.MAX_POINTS_PER_STROKE,
                 payload.points().size());
@@ -107,7 +111,7 @@ class BloodShapeSubmitPayloadTest {
         for (int i = 0; i < tooMany.length; i++) {
             tooMany[i] = BloodShapeRules.pack(i, i);
         }
-        BloodShape back = new BloodShapeSubmitPayload(0, 50, 0,
+        BloodShape back = new BloodShapeSubmitPayload(0, 50, 0, 0,
                 boxed(tooMany), List.of(tooMany.length)).toShape();
         assertTrue(back.pointCount() <= BloodShapeRules.MAX_POINTS_PER_STROKE,
                 "a long stroke reached " + back.pointCount() + " points");
@@ -118,7 +122,7 @@ class BloodShapeSubmitPayloadTest {
         // The format check, not the reach check: what lands here only has to be storable, and
         // whether the caster may reach it is decided at cast time against the reach they have then.
         int[] wild = {BloodShapeRules.pack(30000, -30000), BloodShapeRules.pack(0, 0)};
-        BloodShape back = new BloodShapeSubmitPayload(0, 50, 0, boxed(wild), List.of(2)).toShape();
+        BloodShape back = new BloodShapeSubmitPayload(0, 50, 0, 0, boxed(wild), List.of(2)).toShape();
 
         assertEquals(BloodShapeRules.MAX_UNIT / (double) BloodShapeRules.UNITS_PER_BLOCK,
                 back.u(0), 1.0E-9D);
@@ -132,7 +136,7 @@ class BloodShapeSubmitPayloadTest {
         // than taking the connection down with it.
         int[] points = stroke(0, 0, 16, 16);
         BloodShape back =
-                new BloodShapeSubmitPayload(0, 50, 0, boxed(points), List.of(99)).toShape();
+                new BloodShapeSubmitPayload(0, 50, 0, 0, boxed(points), List.of(99)).toShape();
         assertTrue(back.isEmpty());
     }
 
@@ -140,16 +144,17 @@ class BloodShapeSubmitPayloadTest {
     void aStrokeTableThatRunsBackwardsIsRefusedWithoutThrowing() {
         int[] points = stroke(0, 0, 16, 16, 32, 32);
         BloodShape back =
-                new BloodShapeSubmitPayload(0, 50, 0, boxed(points), List.of(3, 1)).toShape();
+                new BloodShapeSubmitPayload(0, 50, 0, 0, boxed(points), List.of(3, 1)).toShape();
         assertEquals(1, back.strokeCount(), "the descending end should have stopped the read");
         assertEquals(3, back.pointCount());
     }
 
     @Test
     void anOutOfRangeHeightOrFlagBitIsClamped() {
-        BloodShape back = new BloodShapeSubmitPayload(0, 900, 0xFF,
+        BloodShape back = new BloodShapeSubmitPayload(0, 900, -4000, 0xFF,
                 boxed(stroke(0, 0, 8, 8)), List.of(2)).toShape();
         assertEquals(100, back.heightPercent());
+        assertEquals(-BloodShapeRules.SPREAD_PERCENT_RANGE, back.spreadPercent());
         assertEquals(BloodShapeRules.clampFlags(0xFF), back.flags());
     }
 }

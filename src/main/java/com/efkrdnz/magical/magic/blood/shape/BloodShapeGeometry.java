@@ -326,10 +326,16 @@ public final class BloodShapeGeometry {
      * so a shape set to keep rotating can follow the caster's view smoothly - which it could not do
      * if the rotation had been baked in here.
      *
-     * <p>Each point of the spine gets a short column across the path's normal, jittered by less than
-     * one pitch. The jitter is what makes a drawn line read as a torn blade rather than a decal, and
-     * it has a second job: no two cubes end up exactly coplanar, which removes coincident-face
-     * z-fighting as a whole class rather than one bug at a time.
+     * <p>Each point of the spine gets a filled block of cubes: a lane for every pitch across the
+     * path's normal, and a row for every pitch up (or down) the wall. Filling the across axis rather
+     * than scattering one cube somewhere inside it is what makes the blood read as liquid instead of
+     * as a spray of specks - a single jittered cube per column covers a fraction of a band many
+     * times its own width, and the eye reads the rest as holes.
+     *
+     * <p>Jitter is kept well under one pitch, so it breaks coplanarity - which removes
+     * coincident-face z-fighting as a whole class - without opening the grid back up.
+     *
+     * <p>{@code wallHeight} is signed: positive extrudes up from the drawn plane, negative down.
      *
      * @param out receives {@code u, w, v} per voxel; expansion stops when it is full
      * @return how many voxels were written
@@ -340,7 +346,14 @@ public final class BloodShapeGeometry {
             return 0;
         }
         int columns = spine.length / 2;
-        int rows = Math.max(1, (int) Math.round(wallHeight / pitch));
+        int rows = Math.max(1, (int) Math.round(Math.abs(wallHeight) / pitch));
+        double rowStep = wallHeight / rows;
+        double span = Math.max(0.0D, thickness) * 2.0D;
+        int lanes = Math.max(1, (int) Math.round(span / pitch));
+        double laneStep = lanes > 1 ? span / (lanes - 1) : 0.0D;
+        // Fraying eats the top of the wall, which is right for a tall slab and wrong for a sheet
+        // three cubes high - there it just punches holes in the thing it was meant to soften.
+        boolean fray = rows >= 6;
         int limit = Math.min(cap, out.length / 3);
         int written = 0;
 
@@ -355,19 +368,26 @@ public final class BloodShapeGeometry {
             double nu = tangent > 1.0E-6D ? -tv / tangent : 1.0D;
             double nv = tangent > 1.0E-6D ? tu / tangent : 0.0D;
 
-            for (int r = 0; r < rows && written < limit; r++) {
-                float across = hash01(c * 7919 + r * 104729 + seed);
-                float along = hash01(c * 6271 + r * 39916 + seed + 1);
-                double top = r / (double) rows;
-                // The last fifth of the wall frays instead of ending in a ruled line.
-                if (top > 0.8D && along < (top - 0.8D) * 5.0D) {
-                    continue;
+            for (int l = 0; l < lanes && written < limit; l++) {
+                double offset = lanes > 1 ? -thickness + l * laneStep : 0.0D;
+                for (int r = 0; r < rows && written < limit; r++) {
+                    int salt = c * 7919 + r * 104729 + l * 33391 + seed;
+                    float wobble = hash01(salt);
+                    float along = hash01(salt + 1);
+                    if (fray) {
+                        double top = r / (double) rows;
+                        // The last fifth of a tall wall ends ragged rather than in a ruled line.
+                        if (top > 0.8D && along < (top - 0.8D) * 5.0D) {
+                            continue;
+                        }
+                    }
+                    double drift = (wobble - 0.5D) * pitch * 0.3D;
+                    out[written * 3] = (float) (su + nu * (offset + drift));
+                    out[written * 3 + 1] =
+                            (float) (r * rowStep + (along - 0.5D) * pitch * 0.2D);
+                    out[written * 3 + 2] = (float) (sv + nv * (offset + drift));
+                    written++;
                 }
-                double offset = (across - 0.5D) * 2.0D * thickness;
-                out[written * 3] = (float) (su + nu * offset);
-                out[written * 3 + 1] = (float) (r * pitch + (along - 0.5D) * pitch * 0.25D);
-                out[written * 3 + 2] = (float) (sv + nv * offset);
-                written++;
             }
         }
         return written;
@@ -377,11 +397,14 @@ public final class BloodShapeGeometry {
      * How many voxels an expansion of this size wants before any cap. Callers use it to pick a
      * coarser pitch rather than to drop rows - thinning a wall by dropping rows leaves a comb.
      */
-    public static int voxelDemand(int spinePoints, double wallHeight, double pitch) {
+    public static int voxelDemand(int spinePoints, double wallHeight, double thickness,
+            double pitch) {
         if (spinePoints <= 0 || !(pitch > 0.0D)) {
             return 0;
         }
-        return spinePoints * Math.max(1, (int) Math.round(wallHeight / pitch));
+        int rows = Math.max(1, (int) Math.round(Math.abs(wallHeight) / pitch));
+        int lanes = Math.max(1, (int) Math.round(Math.max(0.0D, thickness) * 2.0D / pitch));
+        return spinePoints * rows * lanes;
     }
 
     /** A stable value in {@code [0, 1)} from an integer. No allocation, no shared state. */

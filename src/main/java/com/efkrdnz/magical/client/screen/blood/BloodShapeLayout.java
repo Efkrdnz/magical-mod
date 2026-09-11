@@ -40,23 +40,30 @@ public final class BloodShapeLayout {
     public static final int TITLE_Y = 30;
     public static final int TITLE_H = 10;
 
-    public static final int SLIDER_LABEL_Y = 46;
-    public static final int SLIDER_Y = 58;
+    /** Both sliders share a track; only their rows differ. */
     public static final int SLIDER_H = 10;
-    /** Value readout width, reserved on the right so the track never runs under the number. */
-    public static final int SLIDER_VALUE_W = 22;
+    /** Value readout width, reserved on the right so a track never runs under its number. */
+    public static final int SLIDER_VALUE_W = 26;
     public static final int SLIDER_X = SIDE_X;
     public static final int SLIDER_W = SIDE_W - SLIDER_VALUE_W - 4;
 
-    public static final int CHECK_Y = 84;
+    /** Where the plane sits, from the feet to the top of the head. */
+    public static final int HEIGHT_LABEL_Y = 44;
+    public static final int HEIGHT_SLIDER_Y = 56;
+
+    /** How far the blood stands off that plane, and which way. Centre is the thin sheet. */
+    public static final int SPREAD_LABEL_Y = 72;
+    public static final int SPREAD_SLIDER_Y = 84;
+
+    public static final int CHECK_Y = 102;
     public static final int CHECK_STRIDE = 20;
     public static final int CHECK_SIZE = 10;
     public static final int CHECK_COUNT = 3;
 
-    public static final int READOUT_Y = 152;
-    public static final int READOUT_H = 44;
+    public static final int READOUT_Y = 166;
+    public static final int READOUT_H = 36;
 
-    public static final int ACTION_Y = 204;
+    public static final int ACTION_Y = 208;
     public static final int ACTION_W = 64;
     public static final int ACTION_H = 20;
     public static final int ACTION_STRIDE = 68;
@@ -83,12 +90,21 @@ public final class BloodShapeLayout {
         return new Rect("canvas", CANVAS_X, CANVAS_Y, CANVAS_SIZE, CANVAS_SIZE);
     }
 
-    public static Rect slider() {
-        return new Rect("slider", SLIDER_X, SLIDER_Y, SLIDER_W, SLIDER_H);
+    public static Rect heightSlider() {
+        return new Rect("heightSlider", SLIDER_X, HEIGHT_SLIDER_Y, SLIDER_W, SLIDER_H);
     }
 
-    public static Rect sliderValue() {
-        return new Rect("sliderValue", SIDE_X + SIDE_W - SLIDER_VALUE_W, SLIDER_Y,
+    public static Rect heightValue() {
+        return new Rect("heightValue", SIDE_X + SIDE_W - SLIDER_VALUE_W, HEIGHT_SLIDER_Y,
+                SLIDER_VALUE_W, SLIDER_H);
+    }
+
+    public static Rect spreadSlider() {
+        return new Rect("spreadSlider", SLIDER_X, SPREAD_SLIDER_Y, SLIDER_W, SLIDER_H);
+    }
+
+    public static Rect spreadValue() {
+        return new Rect("spreadValue", SIDE_X + SIDE_W - SLIDER_VALUE_W, SPREAD_SLIDER_Y,
                 SLIDER_VALUE_W, SLIDER_H);
     }
 
@@ -114,9 +130,12 @@ public final class BloodShapeLayout {
         List<Rect> rects = new ArrayList<>();
         rects.add(canvas());
         rects.add(new Rect("title", SIDE_X, TITLE_Y, SIDE_W, TITLE_H));
-        rects.add(new Rect("sliderLabel", SIDE_X, SLIDER_LABEL_Y, SIDE_W, 10));
-        rects.add(slider());
-        rects.add(sliderValue());
+        rects.add(new Rect("heightLabel", SIDE_X, HEIGHT_LABEL_Y, SIDE_W, 10));
+        rects.add(heightSlider());
+        rects.add(heightValue());
+        rects.add(new Rect("spreadLabel", SIDE_X, SPREAD_LABEL_Y, SIDE_W, 10));
+        rects.add(spreadSlider());
+        rects.add(spreadValue());
         for (int i = 0; i < CHECK_COUNT; i++) {
             rects.add(checkRow(i));
         }
@@ -195,6 +214,29 @@ public final class BloodShapeLayout {
      */
     public static float sliderFraction(double lx) {
         return clamp01((float) ((lx - SLIDER_X) / sliderTravel()));
+    }
+
+    /** How close to centre the spread slider snaps to zero, in percent of its travel. */
+    public static final int SPREAD_DETENT = 4;
+
+    /**
+     * Cursor to spread percent, centre-zero and snapped.
+     *
+     * <p>Zero is the default rather than an end of the range, so it has to be reachable by hand. On
+     * a track this long an exact centre is a coin flip without a detent, and the difference between
+     * 0 and 1 is the difference between a sheet and a sheet that is very slightly a wall.
+     */
+    public static int spreadPercent(double lx) {
+        int percent = Math.round((sliderFraction(lx) * 2.0F - 1.0F)
+                * BloodShapeRules.SPREAD_PERCENT_RANGE);
+        return Math.abs(percent) <= SPREAD_DETENT ? 0 : BloodShapeRules.clampSpreadPercent(percent);
+    }
+
+    /** The inverse, for drawing the knob where the stored value says it is. */
+    public static float spreadFraction(int percent) {
+        return clamp01((BloodShapeRules.clampSpreadPercent(percent)
+                + (float) BloodShapeRules.SPREAD_PERCENT_RANGE)
+                / (2.0F * BloodShapeRules.SPREAD_PERCENT_RANGE));
     }
 
     /** Canvas x under the cursor, -1 at the left edge to 1 at the right. */

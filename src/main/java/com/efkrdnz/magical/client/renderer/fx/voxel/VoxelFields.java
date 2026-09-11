@@ -63,7 +63,13 @@ public final class VoxelFields {
         float[] targets = new float[cap * 3];
         float[] scratch = new float[cap * 3];
         double pitch = source.pitch();
-        double wall = Math.max(pitch, source.wallHeight());
+        // Floored in magnitude, not clamped upward: max() against a positive pitch would turn a
+        // downward wall into an upward one and silently flip every field the slider was pulled down
+        // for.
+        double wall = source.wallHeight();
+        if (Math.abs(wall) < pitch) {
+            wall = wall < 0.0D ? -pitch : pitch;
+        }
         double thickness = Math.max(0.0D, source.thickness());
 
         int written = 0;

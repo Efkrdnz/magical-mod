@@ -107,13 +107,15 @@ void main() {
         base = mix(vec3(0.95), iri, 0.35) * mix(vec3(1.0), tint, 0.2);
         alpha = 1.0;
     } else {                                     // BLOOD
-        // Deep where it pools, bright at the rim, wet on top. The chain used to end in a bare else
-        // holding PEARL, which meant every kind past the end of the enum rendered as white nacre
-        // with nothing logged - splitting it is what makes adding a material a compile-time act.
-        float wet = fbmTap(Sampler0, uv * 0.7 + seed);
-        base = mix(tint * 0.30, tint, 0.35 + wet * 0.40);
-        base += pow(fresnel, 2.0) * tint * 0.9;
-        base += spec * 1.6;
+        // One flat colour, straight off the vertex. The chain used to end in a bare else holding
+        // PEARL, which meant every kind past the end of the enum rendered as white nacre with
+        // nothing logged - splitting it is what makes adding a material a compile-time act.
+        //
+        // No noise tap, no fresnel rim, no specular. Those read as a wet gem, and a wet gem is what
+        // made a field of cubes look like a heap of different-coloured beads instead of blood. The
+        // only variation left is the per-face brightness the emitter bakes into the vertex colour,
+        // which is one colour lit six ways rather than six colours.
+        base = tint;
         // Opaque on purpose. shardBody writes depth and flushes first, so a half-transparent cube
         // punches a hole in every glow behind it; the fade is the cube shrinking, not this.
         alpha = 1.0;
@@ -133,8 +135,16 @@ void main() {
         keep = kind == BLOOD ? step(k, w) : step(k * 0.9, w + 0.1);
     }
 
-    vec3 col = base * lambert + spec + tint * fresnel * 0.35 + vec3(1.0) * cracks * 0.8;
-    col *= edgeDark * 0.4 + 0.6;
+    vec3 col;
+    if (kind == BLOOD) {
+        // Every term in the general form - the lambert term, the specular, the fresnel wash, the
+        // edge darkening - exists to make a facetted body read as a cut solid. On a cube six pixels
+        // wide they only add colour the material does not have.
+        col = base;
+    } else {
+        col = base * lambert + spec + tint * fresnel * 0.35 + vec3(1.0) * cracks * 0.8;
+        col *= edgeDark * 0.4 + 0.6;
+    }
     fragColor = vec4(col, alpha * opacity * keep) * ColorModulator;
     if (fragColor.a <= 0.01) {
         discard;

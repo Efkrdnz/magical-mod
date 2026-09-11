@@ -67,7 +67,7 @@ public final class FxBudget {
     }
 
     /** Cubes every voxel field on screen shares in one frame, at three quads each. */
-    private static final int VOXEL_FRAME_CAP = 1600;
+    private static final int VOXEL_FRAME_CAP = 2400;
 
     /**
      * Claims part of the shared voxel allowance, returning how many the caller may actually draw.

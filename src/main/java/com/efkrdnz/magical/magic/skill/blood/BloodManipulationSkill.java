@@ -63,11 +63,12 @@ import net.minecraft.world.phys.AABB;
  */
 public final class BloodManipulationSkill implements SkillModule {
 
-    /** How tall the blood stands off its plane. */
-    public static final float WALL_HEIGHT = 1.1F;
-
-    /** Half-thickness across the path. Small: a drawn line should read as a blade, not a wall. */
-    public static final float THICKNESS = 0.14F;
+    /**
+     * Half-thickness across the path. Small: a drawn line should read as a blade, not a wall - and
+     * the expansion now fills this band with lanes of cubes rather than scattering one somewhere
+     * inside it, so a wide band is a wide band rather than a sparser one.
+     */
+    public static final float THICKNESS = 0.08F;
 
     /** Ticks the outermost part of the shape takes to form, before the speed stat scales it. */
     public static final float BASE_FORM_TICKS = 9.0F;
@@ -115,7 +116,12 @@ public final class BloodManipulationSkill implements SkillModule {
                     return CastResult.FAILED;
                 }
 
-                double pitch = BloodShapeRules.voxelPitch(arcLength, WALL_HEIGHT, clipped.size());
+                // Signed: which way the blood stands off the drawn plane is the spread slider's
+                // second job, and the caster's own height is what its ends are measured against.
+                float wallHeight = (float) BloodShapeRules.wallHeightBlocks(
+                        shape.spreadPercent(), player.getBbHeight());
+                double pitch = BloodShapeRules.voxelPitch(arcLength, wallHeight, THICKNESS,
+                        clipped.size());
                 List<double[]> spine = new ArrayList<>(clipped.size());
                 for (double[] line : clipped) {
                     spine.add(BloodShapeGeometry.resample(line, pitch));
@@ -128,13 +134,13 @@ public final class BloodManipulationSkill implements SkillModule {
                 BloodFieldData data = BloodFieldData.of(spine,
                         (float) BloodShapeRules.heightOffsetBlocks(shape.heightPercent(),
                                 player.getBbHeight()),
-                        WALL_HEIGHT, THICKNESS, (float) pitch,
+                        wallHeight, THICKNESS, (float) pitch,
                         BloodShapeGeometry.readingYaw(shape, player.getYRot()),
                         BloodShapeGeometry.readingPitch(shape, player.getXRot()),
                         formTicks, shape.flags(), player.getId());
 
                 SpellEffectEntity field = SpellEffectEntity.spawn(ctx, ctx.feet(), life,
-                        data.reach() + WALL_HEIGHT, ctx.look());
+                        data.reach() + Math.abs(wallHeight), ctx.look());
                 field.setSyncedData(data.encode());
                 field.setPhase(SpellEffectEntity.PHASE_ACTIVE);
                 ctx.level().playSound(null, player.blockPosition(), SoundEvents.HONEY_BLOCK_SLIDE,

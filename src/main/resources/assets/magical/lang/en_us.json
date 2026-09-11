@@ -222,6 +222,7 @@
   "screen.magical.blood_shape.title": "Blood Shapes",
   "screen.magical.blood_shape.slot": "Shape %s",
   "screen.magical.blood_shape.height": "Height Offset",
+  "screen.magical.blood_shape.spread": "Vertical Spread",
   "screen.magical.blood_shape.track_yaw": "Turn with view",
   "screen.magical.blood_shape.track_pitch": "Tilt with view",
   "screen.magical.blood_shape.keep_rotating": "Keep following",

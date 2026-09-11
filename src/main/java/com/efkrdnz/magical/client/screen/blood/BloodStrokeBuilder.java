@@ -156,8 +156,8 @@ public final class BloodStrokeBuilder {
      * The finished shape. {@link BloodShape#of} re-applies every cap, so this stays honest even
      * though the builder already respects them.
      */
-    public BloodShape toShape(int heightPercent, int flags) {
-        return BloodShape.of(strokes, heightPercent, flags);
+    public BloodShape toShape(int heightPercent, int spreadPercent, int flags) {
+        return BloodShape.of(strokes, heightPercent, spreadPercent, flags);
     }
 
     private static double length(double[] line) {
