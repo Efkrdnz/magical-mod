@@ -8,6 +8,7 @@ import java.util.UUID;
 
 import com.efkrdnz.magical.entity.ForgeEffectEntity;
 import com.efkrdnz.magical.forge.strike.ForgeStrikeMath;
+import com.efkrdnz.magical.magic.DarkService;
 import com.efkrdnz.magical.magic.MagicDamageService;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.registry.MagicalAttachments;
@@ -54,7 +55,45 @@ public final class ForgeRiderService {
     /** How hard a rime gale hauls its target back toward the smith. */
     private static final double RIME_GALE_PULL = 0.35;
 
+    /** How much harder blood bites a target that is already most of the way down. */
+    private static final float BLOOD_BITE = 0.45f;
+
+    /**
+     * Share of the damage dealt that blood returns as health, before the wound scaling.
+     *
+     * <p>Deliberately a share rather than the flat number radiant heals: weapons now reach three
+     * figures, and a flat heal would be noise beside them. Capped hard below, because the player
+     * has twenty health and no plan to have more.
+     */
+    private static final float BLOOD_DRAW = 0.04f;
+    private static final float BLOOD_DRAW_PER_GRADE = 0.01f;
+    private static final float BLOOD_CAP = 1.0f;
+    private static final float BLOOD_CAP_PER_GRADE = 0.5f;
+
+    /** Corruption's ceiling: at a fully corrupt wielder the blade deals this much again. */
+    private static final float CORRUPTION_MAX_BONUS = 0.60f;
+
+    /** What one swing writes onto the wielder's ledger. Small - it is paid every proc. */
+    private static final int CORRUPTION_TAKEN = 1;
+
+    /** Health the wielder gives up per martyr proc, and the barrier each point buys back. */
+    private static final float MARTYR_TOLL = 1.0f;
+    private static final int MARTYR_BARRIER = 3;
+    private static final int MARTYR_BARRIER_PER_GRADE = 2;
+
+    /** Below this the toll is not taken: a martyr blade must never be the thing that kills you. */
+    private static final float MARTYR_FLOOR = 2.0f;
+
+    /** How much deeper a clot freezes a target that is already most of the way down. */
+    private static final float CLOT_DEPTH = 1.5f;
+
     private ForgeRiderService() {}
+
+    /** How far through its health the target already is, 0 at full and 1 at the point of death. */
+    private static float missingFraction(LivingEntity target) {
+        float max = target.getMaxHealth();
+        return max <= 0.0f ? 0.0f : Math.clamp(1.0f - target.getHealth() / max, 0.0f, 1.0f);
+    }
 
     /**
      * The multiplier applied to a hit before it is dealt, for the states an element feeds on:
@@ -67,6 +106,9 @@ public final class ForgeRiderService {
             case FROST -> target.getTicksFrozen() > 0 ? FROST_SYNERGY : 1.0f;
             case GALE -> target.onGround() ? 1.0f : GALE_SYNERGY;
             case STORM, VOID, RADIANT, VENOM, TERRA -> 1.0f;
+            // The one element that feeds on the wound rather than on a status. Nothing has to be
+            // applied first for it to pay off, which is what makes it worth a weapon's whole theme.
+            case BLOOD -> 1.0f + BLOOD_BITE * missingFraction(target);
             // Dark feeds on what it already did: a target it has blinded is one it hits harder.
             case DARK -> target.hasEffect(MobEffects.DARKNESS) || target.hasEffect(MobEffects.BLINDNESS)
                     ? DARK_SYNERGY : 1.0f;
@@ -80,6 +122,12 @@ public final class ForgeRiderService {
             case HAILSTORM -> target.getTicksFrozen() > 0 ? FROST_SYNERGY : 1.0f;
             case BLIGHT, VERDIGRIS -> target.hasEffect(MobEffects.POISON) ? FROST_SYNERGY : 1.0f;
             case ECLIPSE -> 1.0f;
+            // The blood compounds all keep the parent's appetite for a wound, so a blood weapon
+            // fused into one still gets worse for the target the longer the fight runs.
+            case CORRUPTION -> Math.max(1.0f + BLOOD_BITE * missingFraction(target),
+                    target.hasEffect(MobEffects.DARKNESS) || target.hasEffect(MobEffects.BLINDNESS)
+                            ? DARK_SYNERGY : 1.0f);
+            case MARTYR, CLOT -> 1.0f + BLOOD_BITE * missingFraction(target);
         };
     }
 
@@ -99,6 +147,7 @@ public final class ForgeRiderService {
             case TERRA -> terra(level, owner, target, ctx, grade);
             case GALE -> gale(owner, target, grade);
             case DARK -> dark(owner, target, grade);
+            case BLOOD -> blood(owner, target, grade, ctx);
             case BLACK_FLAME -> blackFlame(owner, target, grade);
             case EXPLOSION -> explosion(level, owner, target, ctx, grade);
             case RIME_GALE -> rimeGale(owner, target, grade);
@@ -124,6 +173,9 @@ public final class ForgeRiderService {
                 venom(owner, target, grade);
                 terra(level, owner, target, ctx, grade);
             }
+            case CORRUPTION -> corruption(owner, target, grade, ctx);
+            case MARTYR -> martyr(owner, target, grade);
+            case CLOT -> clot(owner, target, grade);
         }
     }
 
@@ -258,6 +310,27 @@ public final class ForgeRiderService {
     }
 
     /**
+     * Draws the wound. Heals a share of what was dealt, scaled by how badly the target was already
+     * hurt, and stops the target regenerating out of it.
+     *
+     * <p>Distinct from the LEECH modifier on purpose: leech returns a flat share of every hit and is
+     * capped per press, while this returns almost nothing off a healthy target and a great deal off
+     * a dying one. Stacking both is allowed and is meant to be strong on a finisher.
+     */
+    private static void blood(LivingEntity owner, LivingEntity target, int grade, StrikeContext ctx) {
+        if (!ForgeTargeting.canAffect(owner, target)) {
+            return;
+        }
+        float missing = missingFraction(target);
+        float share = (BLOOD_DRAW + BLOOD_DRAW_PER_GRADE * grade) * (0.5f + missing);
+        float healed = Math.min(BLOOD_CAP + BLOOD_CAP_PER_GRADE * grade, ctx.dealtDamage() * share);
+        if (healed > 0.0f) {
+            owner.heal(healed);
+        }
+        target.removeEffect(MobEffects.REGENERATION);
+    }
+
+    /**
      * fire + void. A burn that fire resistance and water do not stop, plus the rot of the void, and
      * no regeneration to grow the damage back.
      */
@@ -266,6 +339,65 @@ public final class ForgeRiderService {
      * The blindness is the tell and the setup at once: it is what {@link #preHitScale} feeds on, so
      * a dark blade that keeps connecting keeps getting worse for whatever it is hitting.
      */
+    /**
+     * blood + dark. Dark's whole rider, plus a share of the blow again scaled by how much
+     * Corruption the wielder is already carrying - and one more point of it for having swung.
+     *
+     * <p>This is the only forge element that costs its wielder something outside the fight. It uses
+     * {@link DarkService#corrupt} rather than writing the number itself so the demon's resistance,
+     * the waiver and the threshold shriek all still apply, exactly as they do for a dark cast.
+     */
+    private static void corruption(LivingEntity owner, LivingEntity target, int grade, StrikeContext ctx) {
+        dark(owner, target, grade);
+        if (!(owner instanceof ServerPlayer player)) {
+            // A mob has no ledger to write to, so it gets the dark rider and nothing more. Giving
+            // it the damage bonus for free would make the fusion strictly better in its hands.
+            return;
+        }
+        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+        float bonus = ctx.dealtDamage() * CORRUPTION_MAX_BONUS * state.corruptionFraction();
+        if (bonus > 0.0f) {
+            MagicDamageService.hurt(target, ForgeDamageTypes.magic(owner), bonus, ForgeIds.id("forge_strike"));
+        }
+        DarkService.corrupt(player, state, CORRUPTION_TAKEN);
+        state.sync(player);
+    }
+
+    /**
+     * blood + radiant. Blood given rather than taken: the wielder spends their own health and is
+     * paid back in barrier, which is worth more of it than the health was.
+     *
+     * <p>The floor is load-bearing. The player is pinned at twenty health and barrier is where
+     * endurance actually lives, so a weapon that trades one for the other must never be able to
+     * finish the trade by killing them.
+     */
+    private static void martyr(LivingEntity owner, LivingEntity target, int grade) {
+        radiant(owner, target, grade);
+        if (!(owner instanceof ServerPlayer player) || player.getHealth() - MARTYR_TOLL < MARTYR_FLOOR) {
+            return;
+        }
+        // setHealth rather than hurt: this is a price the wielder agreed to by carrying the blade,
+        // not damage, so it takes no invulnerability frames and no death message of its own.
+        player.setHealth(player.getHealth() - MARTYR_TOLL);
+        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+        state.addBarrier(MARTYR_BARRIER + MARTYR_BARRIER_PER_GRADE * grade);
+        state.sync(player);
+    }
+
+    /**
+     * blood + frost. The wound freezes shut: nothing is drawn back to the wielder, and the target
+     * seizes harder the more of it has already been opened.
+     */
+    private static void clot(LivingEntity owner, LivingEntity target, int grade) {
+        frost(owner, target, grade);
+        if (!ForgeTargeting.canAffect(owner, target)) {
+            return;
+        }
+        float depth = 1.0f + CLOT_DEPTH * missingFraction(target);
+        target.setTicksFrozen(Math.round(target.getTicksFrozen() * depth));
+        target.removeEffect(MobEffects.REGENERATION);
+    }
+
     private static void dark(LivingEntity owner, LivingEntity target, int grade) {
         if (!ForgeTargeting.canAffect(owner, target)) {
             return;

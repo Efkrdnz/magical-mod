@@ -10,6 +10,7 @@ import com.efkrdnz.magical.magic.menu.GreedVaultMenu;
 import com.efkrdnz.magical.magic.menu.MagicPyramidMenu;
 import com.efkrdnz.magical.magic.menu.SpaceArsenalStorageMenu;
 import com.efkrdnz.magical.magic.menu.SpaceWalkerMenu;
+import com.efkrdnz.magical.magic.menu.TrainingDummyMenu;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.inventory.MenuType;
 import net.neoforged.bus.api.IEventBus;
@@ -42,6 +43,11 @@ public final class MagicalMenus {
 
     public static final DeferredHolder<MenuType<?>, MenuType<BlacksmithForgeMenu>> BLACKSMITH_FORGE =
             MENUS.register("blacksmith_forge", () -> new MenuType<>(BlacksmithForgeMenu::new, net.minecraft.world.flag.FeatureFlags.DEFAULT_FLAGS));
+
+    public static final DeferredHolder<MenuType<?>, MenuType<TrainingDummyMenu>> TRAINING_DUMMY =
+            MENUS.register("training_dummy", () -> new MenuType<>(
+                    (net.neoforged.neoforge.network.IContainerFactory<TrainingDummyMenu>) TrainingDummyMenu::new,
+                    net.minecraft.world.flag.FeatureFlags.DEFAULT_FLAGS));
 
     private MagicalMenus() {}
 

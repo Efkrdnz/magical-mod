@@ -64,10 +64,10 @@ public final class MagicCounterService {
 
         PlayerMagicState state = defender.getData(MagicalAttachments.MAGIC_STATE);
         if (isValidGluttonyCounter(state)) {
-            int safeWindowTicks = Math.max(3, windowTicks);
+            int safeWindowTicks = Math.max(threat.minimumCounterWindowTicks(), windowTicks);
             long deadline = now + safeWindowTicks;
             ACTIVE_PROMPTS.put(defenderId, new CounterPrompt(threatId, threat.counterSkillId(), MagicPassiveContent.SIN_GLUTTONY.id(), deadline, clashPosition));
-            MagicalNetwork.sendCounterPrompt(defender, threatId, threat.counterSkillId(), MagicPassiveContent.SIN_GLUTTONY.id(), deadline, safeWindowTicks, threat.counterNameKey());
+            MagicalNetwork.sendCounterPrompt(defender, threatId, threat.counterSkillId(), MagicPassiveContent.SIN_GLUTTONY.id(), deadline, threat.counterDisplayWindowTicks(safeWindowTicks), threat.counterNameKey());
             return true;
         }
 
@@ -77,10 +77,60 @@ public final class MagicCounterService {
         }
 
         MagicSkillDefinition counterSkill = counter.get();
-        int safeWindowTicks = Math.max(3, windowTicks);
+        int safeWindowTicks = Math.max(threat.minimumCounterWindowTicks(), windowTicks);
         long deadline = now + safeWindowTicks;
         ACTIVE_PROMPTS.put(defenderId, new CounterPrompt(threatId, threat.counterSkillId(), counterSkill.id(), deadline, clashPosition));
-        MagicalNetwork.sendCounterPrompt(defender, threatId, threat.counterSkillId(), counterSkill.id(), deadline, safeWindowTicks, threat.counterNameKey());
+        MagicalNetwork.sendCounterPrompt(defender, threatId, threat.counterSkillId(), counterSkill.id(), deadline, threat.counterDisplayWindowTicks(safeWindowTicks), threat.counterNameKey());
+        return true;
+    }
+
+    /** Whether a Gluttony-only window would prompt this player at all, before anything is spawned. */
+    public static boolean canDevour(ServerPlayer defender) {
+        return isValidGluttonyCounter(defender.getData(MagicalAttachments.MAGIC_STATE));
+    }
+
+    /**
+     * Prompts only a player whose Gluttony is enabled and off cooldown, and never falls back.
+     *
+     * <p>For the attacks that are meant to be dodged. {@link #offerCounter} would happily find some
+     * skill with a favourable attribute, and {@link #offerForcedCounter} would accept the key from
+     * anyone at all, and either of those turns a movement check into a reaction check. Gluttony is
+     * the one answer allowed here, it costs a sixteen-second cooldown, and when it is not available
+     * there is no prompt - which is the point: the attack has to be stepped out of.
+     *
+     * <p>Returns false rather than offering anything else, so a caller cannot accidentally chain it
+     * into a softer prompt the way the ordinary window does.
+     */
+    public static boolean offerGluttonyCounter(ServerPlayer defender, CounterableSkillThreat threat,
+            Vec3 clashPosition, int windowTicks) {
+        if (!(defender.level() instanceof ServerLevel level) || !threat.canBeCounteredBy(defender)) {
+            return false;
+        }
+        int threatId = threat.counterThreatId();
+        UUID defenderId = defender.getUUID();
+        long now = level.getGameTime();
+        CounterPrompt active = ACTIVE_PROMPTS.get(defenderId);
+        if (active != null && active.threatId == threatId) {
+            if (now <= active.deadlineTick) {
+                return true;
+            }
+            clearPrompt(defender, threatId);
+            return false;
+        }
+        if (resolvedThreats(defenderId).contains(threatId)) {
+            return false;
+        }
+        PlayerMagicState state = defender.getData(MagicalAttachments.MAGIC_STATE);
+        if (!isValidGluttonyCounter(state)) {
+            return false;
+        }
+        int safeWindowTicks = Math.max(threat.minimumCounterWindowTicks(), windowTicks);
+        long deadline = now + safeWindowTicks;
+        ACTIVE_PROMPTS.put(defenderId, new CounterPrompt(threatId, threat.counterSkillId(),
+                MagicPassiveContent.SIN_GLUTTONY.id(), deadline, clashPosition));
+        MagicalNetwork.sendCounterPrompt(defender, threatId, threat.counterSkillId(),
+                MagicPassiveContent.SIN_GLUTTONY.id(), deadline,
+                threat.counterDisplayWindowTicks(safeWindowTicks), threat.counterNameKey());
         return true;
     }
 
@@ -115,12 +165,12 @@ public final class MagicCounterService {
         if (resolvedThreats(defenderId).contains(threatId)) {
             return false;
         }
-        int safeWindowTicks = Math.max(3, windowTicks);
+        int safeWindowTicks = Math.max(threat.minimumCounterWindowTicks(), windowTicks);
         long deadline = now + safeWindowTicks;
         ACTIVE_PROMPTS.put(defenderId,
                 new CounterPrompt(threatId, threat.counterSkillId(), FORCED_COUNTER, deadline, clashPosition));
         MagicalNetwork.sendCounterPrompt(defender, threatId, threat.counterSkillId(), FORCED_COUNTER,
-                deadline, safeWindowTicks, threat.counterNameKey());
+                deadline, threat.counterDisplayWindowTicks(safeWindowTicks), threat.counterNameKey());
         return true;
     }
 
@@ -266,11 +316,6 @@ public final class MagicCounterService {
      * shake, and a camera hold - the same trick every fighting game uses to say "that connected".
      */
     private static void celebrateParry(ServerPlayer defender, int counterColor, CounterableSkillThreat threat) {
-        if (threat.counterOwner() instanceof com.efkrdnz.magical.boss.unwaking.UnwakingGodEntity) {
-            MagicalNetwork.playFirstPersonEffect(defender, FirstPersonEffectPayload.impact(counterColor, 8, 0.15F, 0, 0, 0, 0)
-                    .withOverlay(FxKinds.Overlay.SHOCK_RING.id(), 12, FirstPersonEffectPayload.OMNI));
-            return;
-        }
         MagicalNetwork.playFirstPersonEffect(defender,
                 FirstPersonEffectPayload.impact(counterColor, PARRY_OVERLAY_TICKS, PARRY_OVERLAY_ALPHA,
                                 PARRY_SHAKE_TICKS, PARRY_SHAKE, PARRY_FREEZE_TICKS, PARRY_FOV_KICK)

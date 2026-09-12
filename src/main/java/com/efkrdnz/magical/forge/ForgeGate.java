@@ -4,9 +4,11 @@ import java.util.Optional;
 
 import com.efkrdnz.magical.forge.chain.ForgeError;
 import com.efkrdnz.magical.forge.fusion.ForgeFusion;
+import com.efkrdnz.magical.forge.glyph.ForgeVocabulary;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * Whether a smith is allowed the fusion they drew.
@@ -38,6 +40,20 @@ public final class ForgeGate {
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * Whether the weapon in the slot has anywhere to put {@code glyphId}.
+     *
+     * <p>The same predicate the codex filters its list with, so what the player can see is exactly
+     * what the forge will take - the shape {@code checkFusion} already established for the fusion
+     * gate. One of the two drifting from the other is how a list ends up offering a rune the server
+     * then refuses.
+     */
+    public static Optional<ForgeError> checkVocabulary(String glyphId, ItemStack weapon) {
+        return ForgeVocabulary.allows(glyphId, weapon)
+                ? Optional.empty()
+                : Optional.of(ForgeError.GLYPH_NOT_IN_VOCABULARY);
     }
 
     /** The fusion an already-resolved element id came from, if it came from one at all. */

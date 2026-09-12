@@ -22,6 +22,9 @@ public final class ForgeModifiers {
     public static final ModifierDefinition BRAND;
     public static final ModifierDefinition SHATTER;
     public static final ModifierDefinition GUARD;
+    public static final ModifierDefinition CHORUS;
+    public static final ModifierDefinition TITHE;
+    public static final ModifierDefinition CARRY;
 
     static {
         Map<ResourceLocation, ModifierDefinition> map = new LinkedHashMap<>();
@@ -35,6 +38,17 @@ public final class ForgeModifiers {
         BRAND = register(map, new ModifierDefinition(ForgeIds.id("brand"), ForgeModifierKind.BRAND, 0.15f, 9, -6));
         SHATTER = register(map, new ModifierDefinition(ForgeIds.id("shatter"), ForgeModifierKind.SHATTER, 0.30f, 9, -6));
         GUARD = register(map, new ModifierDefinition(ForgeIds.id("guard"), ForgeModifierKind.GUARD, 0.30f, 8, 2));
+        // The strike repeats itself once for every other body already struck this combo, at a share
+        // of its damage. Costly in mana and the least stable rune in the set: it is the only one
+        // whose output grows with how many things are in the room.
+        CHORUS = register(map, new ModifierDefinition(ForgeIds.id("chorus"), ForgeModifierKind.CHORUS, 0.35f, 12, -12));
+        // Pays in barrier rather than mana, which is why its mana cost is almost nothing. The one
+        // rune that spends the resource the player defends with.
+        TITHE = register(map, new ModifierDefinition(ForgeIds.id("tithe"), ForgeModifierKind.TITHE, 0.50f, 4, -6));
+        // A share of what each strike lands is banked and added flat to the next link of the chain,
+        // so force rolls forward instead of resetting - which rewards finishing a combo rather than
+        // opening a new one. Capped, because the bank feeds off damage that already includes it.
+        CARRY = register(map, new ModifierDefinition(ForgeIds.id("carry"), ForgeModifierKind.CARRY, 0.25f, 7, -5));
         BY_ID = Collections.unmodifiableMap(map);
     }
 

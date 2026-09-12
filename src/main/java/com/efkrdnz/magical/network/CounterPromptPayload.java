@@ -11,7 +11,10 @@ public record CounterPromptPayload(
         ResourceLocation incomingSkillId,
         ResourceLocation counterSkillId,
         long deadlineTick,
-        int windowTicks) implements CustomPacketPayload {
+        int windowTicks, String incomingNameKey) implements CustomPacketPayload {
+    public CounterPromptPayload(int threatId, ResourceLocation incomingSkillId, ResourceLocation counterSkillId, long deadlineTick, int windowTicks) {
+        this(threatId,incomingSkillId,counterSkillId,deadlineTick,windowTicks,"");
+    }
     public static final Type<CounterPromptPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "counter_prompt"));
 
@@ -23,13 +26,14 @@ public record CounterPromptPayload(
                         ResourceLocation.STREAM_CODEC.encode(buf, payload.counterSkillId);
                         buf.writeLong(payload.deadlineTick);
                         buf.writeInt(payload.windowTicks);
+                        buf.writeUtf(payload.incomingNameKey,128);
                     },
                     buf -> new CounterPromptPayload(
                             buf.readInt(),
                             ResourceLocation.STREAM_CODEC.decode(buf),
                             ResourceLocation.STREAM_CODEC.decode(buf),
                             buf.readLong(),
-                            buf.readInt()));
+                            buf.readInt(),buf.readUtf(128)));
 
     @Override
     public Type<? extends CustomPacketPayload> type() {

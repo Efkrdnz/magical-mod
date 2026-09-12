@@ -181,11 +181,15 @@ public final class BlacksmithForgeScreen extends AbstractContainerScreen<Blacksm
 
     private void drawRightColumn(GuiGraphics graphics, int mouseX, int mouseY) {
         if (codexOpen) {
+            // The codex lists what the weapon in the slot can actually take, so swapping weapons
+            // changes the list rather than leaving the player to find out by drawing.
+            codex.setWeapon(menu.weaponStack());
             codex.render(graphics, font, leftPos + RIGHT_X, topPos + RIGHT_TOP, leftPos + RIGHT_RIGHT,
                     topPos + CODEX_BOTTOM, topPos + CODEX_LIST_BOTTOM, mouseX, mouseY);
         } else {
             preview.render(graphics, font, leftPos + RIGHT_X, topPos + RIGHT_TOP, leftPos + RIGHT_RIGHT,
-                    topPos + PREVIEW_BOTTOM, builder.recognizedChain(), ClientMagicState.get().maxMana());
+                    topPos + PREVIEW_BOTTOM, builder.recognizedChain(), menu.weaponStack(),
+                    ClientMagicState.get().maxMana());
         }
         // The flash must stay visible whether or not the codex panel is open; both panels clear y 176.
         flash.render(graphics, font, leftPos + RIGHT_X, topPos + FLASH_Y, RIGHT_RIGHT - RIGHT_X);

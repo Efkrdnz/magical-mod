@@ -18,6 +18,7 @@ import com.efkrdnz.magical.forge.StrikeImpact;
 import java.util.Optional;
 
 import com.efkrdnz.magical.forge.StrikeLoadout;
+import com.efkrdnz.magical.forge.WeaponClass;
 import com.efkrdnz.magical.forge.ForgePayloadService;
 import com.efkrdnz.magical.forge.chain.Payload;
 import com.efkrdnz.magical.forge.chain.TriggerKind;
@@ -96,9 +97,10 @@ public final class ForgeStrikeEntity extends Entity {
     }
 
     public static ForgeStrikeEntity spawn(ServerLevel level, ServerPlayer owner, StrikeSpec spec, ForgedWeapon weapon,
-            ElementDefinition element, FormDefinition form, Vec3 origin, Vec3 direction, boolean echo) {
+            ElementDefinition element, FormDefinition form, Vec3 origin, Vec3 direction, boolean echo,
+            WeaponClass archetype) {
         return spawn(level, owner, spec, weapon, element, form, origin, direction, echo,
-                ForgeComboService.primaryTargetId(owner));
+                ForgeComboService.primaryTargetId(owner), archetype);
     }
 
     /**
@@ -111,15 +113,15 @@ public final class ForgeStrikeEntity extends Entity {
      */
     public static ForgeStrikeEntity spawn(ServerLevel level, ServerPlayer owner, StrikeSpec spec, ForgedWeapon weapon,
             ElementDefinition element, FormDefinition form, Vec3 origin, Vec3 direction, boolean echo,
-            int primaryTargetId) {
+            int primaryTargetId, WeaponClass archetype) {
         return spawn(level, owner, spec, weapon, element, form, origin, direction, echo, primaryTargetId,
-                Optional.empty());
+                archetype, Optional.empty());
     }
 
     /** As above, carrying a nested step to fire when its trigger comes due. */
     public static ForgeStrikeEntity spawn(ServerLevel level, ServerPlayer owner, StrikeSpec spec, ForgedWeapon weapon,
             ElementDefinition element, FormDefinition form, Vec3 origin, Vec3 direction, boolean echo,
-            int primaryTargetId, Optional<Payload> payload) {
+            int primaryTargetId, WeaponClass archetype, Optional<Payload> payload) {
         ForgeStrikeEntity strike = new ForgeStrikeEntity(MagicalEntities.FORGE_STRIKE.get(), level);
         Vec3 dir = direction.lengthSqr() < 1.0E-6 ? new Vec3(0.0, 0.0, 1.0) : direction.normalize();
         strike.setPos(origin.x, origin.y, origin.z);
@@ -127,7 +129,8 @@ public final class ForgeStrikeEntity extends Entity {
         // The primary target is snapshotted now: the combo state advances the moment this press
         // resolves, which clears it, and an anchored strike does not collect until the next tick.
         strike.loadout = StrikeLoadout.of(spec, weapon, element, form,
-                (float) owner.getAttributeValue(Attributes.ATTACK_DAMAGE), echo, primaryTargetId, payload);
+                (float) owner.getAttributeValue(Attributes.ATTACK_DAMAGE), echo, primaryTargetId, archetype,
+                payload);
         strike.entityData.set(FORM_ORDINAL, spec.family().ordinal());
         strike.entityData.set(PRIMARY, element.primaryColor());
         strike.entityData.set(SECONDARY, element.secondaryColor());

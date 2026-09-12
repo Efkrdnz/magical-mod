@@ -3,6 +3,8 @@ package com.efkrdnz.magical.client;
 import com.efkrdnz.magical.network.ChronosEnvironmentPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
+import com.efkrdnz.magical.boss.unwaking.UnwakingPhase;
+import com.efkrdnz.magical.magic.ChronosEnvironmentService;
 
 /**
  * Client-side state for Chronos End's boss-fight environment effects. Each effect eases
@@ -40,6 +42,15 @@ public final class ChronosClientEnvironment {
 
     /** Current eased level of an effect, 0..1. {@code worldTime} is unwrapped game time + partial tick. */
     public static float level(int effect, double worldTime) {
+        if (ClientUnwakingEncounter.ownsDomain()) {
+            var assault=ClientUnwakingEncounter.assault(); long now=ClientUnwakingEncounter.estimatedTick();
+            if(assault.active(now)) {
+                if(effect==ChronosEnvironmentService.EFFECT_TIME_FREEZE) return assault.locked(now)?1:0;
+                if(effect==ChronosEnvironmentService.EFFECT_CLOCKS_ONLY) return assault.passage(now)==com.efkrdnz.magical.boss.unwaking.UnwakingAssaultState.Passage.CLOCK?assault.effect(now):0;
+            }
+            return com.efkrdnz.magical.boss.unwaking.UnwakingPresentation.level(effect, ClientUnwakingEncounter.phase(),
+                    ClientUnwakingEncounter.phaseAge(), ClientUnwakingEncounter.hazards(), ClientUnwakingEncounter.estimatedTick(), ClientUnwakingEncounter.quietAmount());
+        }
         if (effect < 0 || effect >= EFFECT_COUNT) {
             return 0.0F;
         }
@@ -53,10 +64,15 @@ public final class ChronosClientEnvironment {
     }
 
     public static float strength(int effect) {
+        if (ClientUnwakingEncounter.ownsDomain()) return effect == ChronosEnvironmentService.EFFECT_COLOR_PALETTE ? ChronosEnvironmentService.PALETTE_BLACK_WHITE : 1;
         if (effect < 0 || effect >= EFFECT_COUNT || STATES[effect] == null) {
             return 1.0F;
         }
         return STATES[effect].strength;
+    }
+
+    public static float inversionMix() {
+        return ClientUnwakingEncounter.ownsDomain() ? ClientUnwakingEncounter.inversion() : -1;
     }
 
     private static final class EffectState {

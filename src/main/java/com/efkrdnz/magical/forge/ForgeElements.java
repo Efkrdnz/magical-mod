@@ -21,6 +21,7 @@ public final class ForgeElements {
     public static final ElementDefinition TERRA;
     public static final ElementDefinition GALE;
     public static final ElementDefinition DARK;
+    public static final ElementDefinition BLOOD;
 
     // Compound elements. No glyph draws these; the grammar fuses a pair into one.
     public static final ElementDefinition BLACK_FLAME;
@@ -32,6 +33,9 @@ public final class ForgeElements {
     public static final ElementDefinition ECLIPSE;
     public static final ElementDefinition BLIGHT;
     public static final ElementDefinition VERDIGRIS;
+    public static final ElementDefinition CORRUPTION;
+    public static final ElementDefinition MARTYR;
+    public static final ElementDefinition CLOT;
 
     static {
         Map<ResourceLocation, ElementDefinition> map = new LinkedHashMap<>();
@@ -55,6 +59,10 @@ public final class ForgeElements {
         // read apart at a glance on a blade and in the glyph list.
         DARK = register(map, new ElementDefinition(
                 ForgeIds.id("dark"), ForgeElementKind.DARK, 0x3A1F52, 0x7E52A6, 0x120A1C, 0.55f));
+        // Arterial red against dark's bruise-purple and fire's orange, so the three warm elements
+        // stay apart on a blade at a glance.
+        BLOOD = register(map, new ElementDefinition(
+                ForgeIds.id("blood"), ForgeElementKind.BLOOD, 0xC21E32, 0x6E0B18, 0xFF5A6E, 0.65f));
         BLACK_FLAME = register(map, new ElementDefinition(
                 ForgeIds.id("black_flame"), ForgeElementKind.BLACK_FLAME, 0x2A0B3D, 0x8A2BE2, 0xFF4FD8, 0.70f));
         EXPLOSION = register(map, new ElementDefinition(
@@ -73,6 +81,15 @@ public final class ForgeElements {
                 ForgeIds.id("blight"), ForgeElementKind.BLIGHT, 0x5A7A2A, 0x2A0A4A, 0xB8FF6A, 0.70f));
         VERDIGRIS = register(map, new ElementDefinition(
                 ForgeIds.id("verdigris"), ForgeElementKind.VERDIGRIS, 0x4AA88A, 0x2E7A1C, 0xC8FFD8, 0.65f));
+        // The blood compounds. Each takes blood's red somewhere else so the three never read as
+        // one another mid-swing: corruption toward dark's bruise, martyr toward radiant's gold,
+        // clot toward the brown-black of blood that has stopped moving.
+        CORRUPTION = register(map, new ElementDefinition(
+                ForgeIds.id("corruption"), ForgeElementKind.CORRUPTION, 0x8A1E52, 0x3A0B2A, 0xE05A9A, 0.60f));
+        MARTYR = register(map, new ElementDefinition(
+                ForgeIds.id("martyr"), ForgeElementKind.MARTYR, 0xFF8A7A, 0xFFE9A0, 0xC21E32, 0.60f));
+        CLOT = register(map, new ElementDefinition(
+                ForgeIds.id("clot"), ForgeElementKind.CLOT, 0x7A2028, 0x3A1014, 0xC9D8E8, 0.60f));
         BY_ID = Collections.unmodifiableMap(map);
     }
 

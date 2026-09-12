@@ -32,6 +32,20 @@ public final class MagicPassiveContent {
     public static final MagicPassiveDefinition MANA_FLIGHT = register("mana_flight", false, 1, 0.0F, 0, 0, 0x7FEFD4);
     public static final MagicPassiveDefinition BARRIER_CONVERSION = register("barrier_conversion", false, 5, 0.0F, 0, 0, 0x4AC7FF, 2, 16000);
     public static final MagicPassiveDefinition VAULT_TAP = register("vault_tap", false, 1, 0.0F, 0, 0, 0xD7F75B, 3, 50000);
+    /**
+     * The endurance line. Every level widens the barrier pool and makes each point of it stop more
+     * than a point of damage.
+     *
+     * <p>Not to be confused with BARRIER_CONVERSION above, which spends barrier <em>as</em> mana.
+     * This one is what barrier is for: the player is pinned at twenty health and always will be, so
+     * everything that would otherwise have been "more health" has to arrive here instead.
+     *
+     * <p>{@code reductionPerLevel} stays zero deliberately. That field feeds
+     * {@code PlayerMagicState.passiveReduction}, which cuts <em>all</em> incoming damage; this
+     * passive's reduction only applies to what the barrier is actually soaking, and lives in
+     * {@code absorbDamage} instead.
+     */
+    public static final MagicPassiveDefinition ENDURANCE = register("endurance", false, 8, 0.0F, 0, 0, 0x4AC7FF, 2, 12000);
     public static final MagicPassiveDefinition SIN_PRIDE = register("sin_pride", false, 1, 0.0F, 0, 0, 0xFFD166);
     public static final MagicPassiveDefinition SIN_GREED = register("sin_greed", false, 1, 0.0F, 0, 0, 0xD7F75B);
     public static final MagicPassiveDefinition SIN_LUST = register("sin_lust", false, 1, 0.0F, 0, 0, 0xFF6FAE);

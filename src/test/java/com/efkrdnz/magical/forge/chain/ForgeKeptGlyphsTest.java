@@ -155,7 +155,7 @@ class ForgeKeptGlyphsTest {
                 kept("high", GlyphCategory.GRADE),
                 drawn("crude", GlyphCategory.GRADE),
                 kept("fire", GlyphCategory.ELEMENT),
-                kept("slash", GlyphCategory.FORM)).chain());
+                kept("slash", GlyphCategory.FORM)).chain(), ForgeChainGrammar.ANY_GLYPH);
 
         assertEquals(ForgeError.DUPLICATE_GRADE, ((ForgeValidation.Invalid) validation).error());
     }
@@ -167,7 +167,7 @@ class ForgeKeptGlyphsTest {
                 drawn("crude", GlyphCategory.GRADE),
                 kept("fire", GlyphCategory.ELEMENT),
                 kept("slash", GlyphCategory.FORM),
-                kept("cleave", GlyphCategory.FORM)).chain());
+                kept("cleave", GlyphCategory.FORM)).chain(), ForgeChainGrammar.ANY_GLYPH);
 
         assertEquals(ForgeError.TOO_MANY_FORMS, ((ForgeValidation.Invalid) validation).error());
     }
@@ -220,6 +220,6 @@ class ForgeKeptGlyphsTest {
     }
 
     private static ForgeRecipe recipeOf(ForgeKeptGlyphs.Resolution resolution) {
-        return ((ForgeValidation.Valid) ForgeChainGrammar.validate(resolution.chain())).recipe();
+        return ((ForgeValidation.Valid) ForgeChainGrammar.validate(resolution.chain(), ForgeChainGrammar.ANY_GLYPH)).recipe();
     }
 }

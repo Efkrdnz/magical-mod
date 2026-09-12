@@ -52,7 +52,20 @@ public enum ForgeFusion {
     BLIGHT("void", "venom", "blight", null, List.of()),
 
     /** Poison worked into the ground, so the ground itself is poison. */
-    VERDIGRIS("venom", "terra", "verdigris", null, List.of());
+    VERDIGRIS("venom", "terra", "verdigris", null, List.of()),
+
+    /**
+     * Blood worked through with dark. The second gated fusion, and gated on the school rather than
+     * on a class: Corruption is the dark school's own currency, and a blade that writes it onto its
+     * wielder should only be forgeable by someone who already knows what that debt is.
+     */
+    CORRUPTION("blood", "dark", "corruption", null, List.of("long_debt")),
+
+    /** Blood given rather than taken: the wielder pays health and is paid back in barrier. */
+    MARTYR("blood", "radiant", "martyr", null, List.of()),
+
+    /** Blood and cold. The wound closes instead of running, and nothing comes back out of it. */
+    CLOT("blood", "frost", "clot", null, List.of());
 
     private final String first;
     private final String second;

@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.magic.status;
 
+import com.efkrdnz.magical.boss.unwaking.UnwakingCapabilities;
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.network.MagicalNetwork;
 import com.efkrdnz.magical.network.StatusSyncPayload;
@@ -55,6 +56,7 @@ public final class MagicStatusService {
         if (target.level().isClientSide()) {
             return;
         }
+        if (UnwakingCapabilities.rejectsStatus(target, status)) return;
         // Null Field blanks the mod's own statuses outright; Building Tolerance only shortens them.
         if (com.efkrdnz.magical.magic.passive.ArcanePassives.blocksStatus(target)) {
             return;

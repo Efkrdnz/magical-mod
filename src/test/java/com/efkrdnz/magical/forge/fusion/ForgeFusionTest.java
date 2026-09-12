@@ -13,9 +13,14 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
+import net.minecraft.SharedConstants;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.Bootstrap;
+
 import org.junit.jupiter.api.Test;
 
 import com.efkrdnz.magical.forge.ForgeElementKind;
+import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.forge.glyph.ForgeGlyphLibrary;
 import com.efkrdnz.magical.forge.glyph.GlyphCategory;
 import com.efkrdnz.magical.forge.glyph.GlyphTemplate;
@@ -90,6 +95,27 @@ class ForgeFusionTest {
             pairs.add(String.join("+", sorted));
         }
         assertEquals(pairs.size(), new HashSet<>(pairs).size(), "two fusions claim the same pair");
+    }
+
+    /**
+     * A gate naming a skill that does not exist is unforgeable and silent about it - the grammar
+     * refuses the fusion forever and nothing anywhere says why. Caught exactly that while adding
+     * CORRUPTION, which first named a skill that had never been written.
+     */
+    @Test
+    void everyGateNamesASkillThatExists() {
+        SharedConstants.tryDetectVersion();
+        Bootstrap.bootStrap();
+        Set<String> paths = new HashSet<>();
+        for (ResourceLocation id : MagicContent.orderedSkillIds()) {
+            paths.add(id.getPath());
+        }
+        for (ForgeFusion fusion : ForgeFusion.values()) {
+            for (String required : fusion.requiredSkills()) {
+                assertTrue(paths.contains(required),
+                        fusion + " is gated on " + required + ", which is not a skill in the game");
+            }
+        }
     }
 
     @Test

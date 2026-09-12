@@ -3,7 +3,7 @@ package com.efkrdnz.magical.forge;
 /**
  * Every element a forged weapon can carry.
  *
- * <p>The first nine are drawn directly. The rest are compounds: two element runes fused in the
+ * <p>The first ten are drawn directly. The rest are compounds: two element runes fused in the
  * grammar into one element, so that everything below the grammar still deals with a single kind.
  * Adding one here is deliberately noisy - the exhaustive switches in the rider, the impact style
  * and the accent colour all stop compiling until the new element is given behaviour and a look.
@@ -19,6 +19,13 @@ public enum ForgeElementKind {
      * half of BLACK_FLAME now that black flames are fire + dark rather than fire + void.
      */
     FIRE, FROST, STORM, VOID, RADIANT, VENOM, TERRA, GALE, DARK,
+
+    /**
+     * Drawn, not fused, and unrelated to MagicSchool.BLOOD in the same way DARK is unrelated to
+     * MagicSchool.DARK. It is the only element that pays the wielder back: a share of what it deals
+     * returns as health, and it bites deeper the worse the target already is.
+     */
+    BLOOD,
 
     /** fire + dark: a burn that resistance and water cannot put out, and that stops healing. */
     BLACK_FLAME,
@@ -45,7 +52,16 @@ public enum ForgeElementKind {
     BLIGHT,
 
     /** venom + terra: poisoned ground that keeps poisoning. */
-    VERDIGRIS;
+    VERDIGRIS,
+
+    /** blood + dark: hits harder the more Corruption the wielder carries, and adds to it. */
+    CORRUPTION,
+
+    /** blood + radiant: the wielder spends their own health and gets barrier back for it. */
+    MARTYR,
+
+    /** blood + frost: the wound freezes shut - no draw for the wielder, and nothing flows. */
+    CLOT;
 
     /** Whether this element was fused rather than drawn. */
     public boolean isCompound() {

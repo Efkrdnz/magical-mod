@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.magic;
 
+import com.efkrdnz.magical.boss.unwaking.UnwakingCapabilities;
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.entity.SpacePocketPortalEntity;
 import com.efkrdnz.magical.entity.SpacePocketRoomEffectEntity;
@@ -34,6 +35,7 @@ public final class SpacePocketService {
     private SpacePocketService() {}
 
     public static boolean cast(ServerPlayer player, PlayerMagicState state) {
+        if (UnwakingCapabilities.refuseTravel(player, POCKET_DIMENSION)) return false;
         if (!state.hasAuthority(AuthorityContent.SPACE) || !state.hasUnlocked(MagicContent.POCKET_DIMENSION.id())) {
             player.displayClientMessage(Component.translatable("message.magical.authority_required"), true);
             return false;
@@ -84,6 +86,7 @@ public final class SpacePocketService {
         if (targetLevel == null) {
             return;
         }
+        if (UnwakingCapabilities.refuseTravel(player, targetLevel.dimension())) return;
         teleportPlayer(player, targetLevel, targetPosition, targetYaw, targetPitch);
         targetLevel.playSound(null, targetPosition.x, targetPosition.y, targetPosition.z, SoundEvents.PORTAL_TRAVEL, SoundSource.PLAYERS, 0.5F, 0.48F);
     }

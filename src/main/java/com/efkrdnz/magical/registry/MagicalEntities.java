@@ -31,6 +31,8 @@ import com.efkrdnz.magical.entity.SpaceSummonEntity;
 import com.efkrdnz.magical.entity.SpaceSubspaceEntity;
 import com.efkrdnz.magical.entity.SpellEntityVisibility;
 import com.efkrdnz.magical.entity.TowerAuraEntity;
+import com.efkrdnz.magical.entity.TrainingDummyEntity;
+import com.efkrdnz.magical.entity.TrainingThreatEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -42,6 +44,11 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 public final class MagicalEntities {
     private static final DeferredRegister<EntityType<?>> ENTITY_TYPES = DeferredRegister.create(Registries.ENTITY_TYPE, MagicalMod.MODID);
+
+    public static final DeferredHolder<EntityType<?>, EntityType<com.efkrdnz.magical.boss.unwaking.UnwakingGodEntity>> UNWAKING_GOD = ENTITY_TYPES.register(
+            "unwaking_god", () -> EntityType.Builder.<com.efkrdnz.magical.boss.unwaking.UnwakingGodEntity>of(
+                            com.efkrdnz.magical.boss.unwaking.UnwakingGodEntity::new, MobCategory.CREATURE)
+                    .sized(0.6F, 1.8F).clientTrackingRange(10).updateInterval(1).build(key("unwaking_god")));
 
     public static final DeferredHolder<EntityType<?>, EntityType<MagicOpponentEntity>> MAGIC_OPPONENT = ENTITY_TYPES.register(
             "magic_opponent",
@@ -350,6 +357,25 @@ public final class MagicalEntities {
                     .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
                     .updateInterval(1)
                     .build(key("flare_triangle")));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<com.efkrdnz.magical.boss.unwaking.UnwakingCounterThreatEntity>> UNWAKING_COUNTER = ENTITY_TYPES.register(
+            "unwaking_counter", () -> EntityType.Builder.<com.efkrdnz.magical.boss.unwaking.UnwakingCounterThreatEntity>of(com.efkrdnz.magical.boss.unwaking.UnwakingCounterThreatEntity::new, MobCategory.MISC)
+                    .sized(0.1F, 0.1F).clientTrackingRange(4).updateInterval(20).noSave().build(key("unwaking_counter")));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<TrainingDummyEntity>> TRAINING_DUMMY = ENTITY_TYPES.register(
+            "training_dummy",
+            () -> EntityType.Builder.<TrainingDummyEntity>of(TrainingDummyEntity::new, MobCategory.MISC)
+                    .sized(0.7F, 1.95F)
+                    .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
+                    .updateInterval(2)
+                    .build(key("training_dummy")));
+
+    // One window per cast, so it never saves and never needs to be seen: the prompt is the HUD's.
+    public static final DeferredHolder<EntityType<?>, EntityType<TrainingThreatEntity>> TRAINING_THREAT = ENTITY_TYPES.register(
+            "training_threat",
+            () -> EntityType.Builder.<TrainingThreatEntity>of(TrainingThreatEntity::new, MobCategory.MISC)
+                    .sized(0.1F, 0.1F).clientTrackingRange(4).updateInterval(20).noSave()
+                    .build(key("training_threat")));
 
     public static void register(IEventBus modEventBus) {
         ENTITY_TYPES.register(modEventBus);

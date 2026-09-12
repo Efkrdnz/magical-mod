@@ -3,6 +3,8 @@ package com.efkrdnz.magical.forge;
 import java.util.Optional;
 
 import com.efkrdnz.magical.forge.chain.ForgeMaterial;
+import com.efkrdnz.magical.forge.weapon.WeaponDefinition;
+import com.efkrdnz.magical.item.MagicalWeaponItem;
 
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -30,17 +32,30 @@ public final class ForgeMaterials {
     private ForgeMaterials() {}
 
     public static ForgeMaterial detect(ItemStack stack) {
-        return detectByTag(stack)
+        return catalogue(stack).map(WeaponDefinition::gradeCap)
+                .or(() -> detectByTag(stack))
                 .or(() -> detectByRepairable(stack))
                 .or(() -> detectByPrefix(stack))
                 .orElse(ForgeMaterial.UNKNOWN);
     }
 
     public static boolean isForgeable(ItemStack stack) {
-        return stack.is(FORGEABLE) || stack.getItem() instanceof SwordItem || stack.getItem() instanceof AxeItem;
+        return stack.getItem() instanceof MagicalWeaponItem
+                || stack.is(FORGEABLE) || stack.getItem() instanceof SwordItem || stack.getItem() instanceof AxeItem;
     }
 
+    /**
+     * The archetype, which decides reach, knockback, recovery and half the glyph vocabulary.
+     *
+     * <p>A catalogue weapon declares its own rather than being guessed at from item tags, which is
+     * the only way a scythe and a greatsword can be told apart at all - both are built on vanilla's
+     * sword properties, so both are in {@code ItemTags.SWORDS}.
+     */
     public static Optional<WeaponClass> weaponClass(ItemStack stack) {
+        Optional<WeaponDefinition> catalogue = catalogue(stack);
+        if (catalogue.isPresent()) {
+            return catalogue.map(WeaponDefinition::archetype);
+        }
         if (stack.is(ItemTags.AXES) || stack.getItem() instanceof AxeItem) {
             return Optional.of(WeaponClass.AXE);
         }
@@ -48,6 +63,13 @@ public final class ForgeMaterials {
             return Optional.of(WeaponClass.SWORD);
         }
         return Optional.empty();
+    }
+
+    /** The catalogue row behind a stack, or empty for a vanilla weapon. */
+    public static Optional<WeaponDefinition> catalogue(ItemStack stack) {
+        return stack.getItem() instanceof MagicalWeaponItem weapon
+                ? Optional.of(weapon.definition())
+                : Optional.empty();
     }
 
     private static Optional<ForgeMaterial> detectByTag(ItemStack stack) {

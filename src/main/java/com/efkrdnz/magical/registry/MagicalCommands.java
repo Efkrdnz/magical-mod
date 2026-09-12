@@ -52,7 +52,7 @@ public final class MagicalCommands {
         @SubscribeEvent
         public static void onRegisterChronosCommands(RegisterCommandsEvent event) {
             LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal("chronosfx")
-                    .requires(source -> source.hasPermission(2))
+                    .requires(source -> source.hasPermission(2) && !com.efkrdnz.magical.boss.unwaking.UnwakingEncounterService.get(source.getServer()).reserved())
                     .then(chronosEffectBranch("skycut", com.efkrdnz.magical.magic.ChronosEnvironmentService.EFFECT_SKY_CUT))
                     .then(chronosEffectBranch("shift", com.efkrdnz.magical.magic.ChronosEnvironmentService.EFFECT_THEME_SHIFT))
                     .then(chronosEffectBranch("pulse", com.efkrdnz.magical.magic.ChronosEnvironmentService.EFFECT_PULSE_STORM))

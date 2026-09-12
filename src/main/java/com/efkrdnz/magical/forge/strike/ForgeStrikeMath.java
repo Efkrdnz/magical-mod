@@ -91,6 +91,46 @@ public final class ForgeStrikeMath {
         return stacks <= 0 ? 1f : rung(stacks, 1.30f, 1.45f, 1.55f);
     }
 
+    /**
+     * The share of the blow CHORUS repeats for each <em>other</em> body this press has already
+     * opened, and the most bodies it will count.
+     *
+     * <p>The cap is the whole reason it is safe on a spin. Without it a 360-degree form into a mob
+     * farm multiplies by the crowd, and the rune stops being "hits harder in a fight" and becomes
+     * "delete everything standing together".
+     */
+    public static float chorusFraction(ModifierStack mods) {
+        return rung(mods.stacks(ForgeModifierKind.CHORUS), 0.35f, 0.50f, 0.50f);
+    }
+
+    public static int chorusMaxEchoes(ModifierStack mods) {
+        return rung(mods.stacks(ForgeModifierKind.CHORUS), 3, 5, 5);
+    }
+
+    /** Barrier TITHE spends on a press, and the damage multiplier that buys. */
+    public static int titheCost(ModifierStack mods) {
+        return rung(mods.stacks(ForgeModifierKind.TITHE), 4, 7, 9);
+    }
+
+    public static float titheBonus(ModifierStack mods) {
+        return rung(mods.stacks(ForgeModifierKind.TITHE), 1.50f, 1.75f, 1.90f);
+    }
+
+    /**
+     * The share of a strike's damage CARRY banks into the next link of the chain, and the ceiling
+     * on what the bank may add.
+     *
+     * <p>The cap breaks the feedback loop: each strike banks off the damage it dealt, which already
+     * includes the last bank, so an uncapped CARRY compounds without limit over a long chain.
+     */
+    public static float carryFraction(ModifierStack mods) {
+        return rung(mods.stacks(ForgeModifierKind.CARRY), 0.25f, 0.35f, 0.40f);
+    }
+
+    public static float carryCap(ModifierStack mods) {
+        return rung(mods.stacks(ForgeModifierKind.CARRY), 0.60f, 0.85f, 1.00f);
+    }
+
     /** Most brand stacks a target may carry. */
     public static int brandMaxStacks(ModifierStack mods) {
         int stacks = mods.stacks(ForgeModifierKind.BRAND);

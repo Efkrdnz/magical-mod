@@ -2,6 +2,7 @@ package com.efkrdnz.magical.forge;
 
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.classes.MagicalClasses;
+import com.efkrdnz.magical.forge.glyph.ForgeVocabulary;
 import com.efkrdnz.magical.forge.chain.ForgeChainGrammar;
 import com.efkrdnz.magical.forge.chain.ForgeError;
 import com.efkrdnz.magical.forge.fusion.ForgeFusion;
@@ -160,7 +161,8 @@ public final class BlacksmithForgeService {
         if (chain.failure().isPresent()) {
             return chain.failure().get();
         }
-        ForgeValidation validation = ForgeChainGrammar.validate(chain.glyphs());
+        ForgeValidation validation = ForgeChainGrammar.validate(chain.glyphs(),
+                ForgeVocabulary.forWeapon(weapon));
         if (validation instanceof ForgeValidation.Invalid invalid) {
             return ForgeResultPayload.fail(invalid.error(), invalid.argument());
         }

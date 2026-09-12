@@ -62,6 +62,8 @@ public final class InstanceManager {
      * @return the new instance, or null if the archetype's dimension is missing or its grid is full
      */
     public static TowerInstance allocate(MinecraftServer server, TowerArchetype archetype, UUID owner) {
+        if (archetype.dimension().equals(com.efkrdnz.magical.magic.ChronosDimensionService.CHRONOS_DIMENSION)
+                && com.efkrdnz.magical.boss.unwaking.UnwakingEncounterService.get(server).reserved()) return null;
         ServerLevel level = server.getLevel(archetype.dimension());
         if (level == null) {
             MagicalMod.LOGGER.warn("Tower archetype {} has no loaded dimension {}",

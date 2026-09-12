@@ -109,6 +109,7 @@ public final class ArcanumHareSkill implements SkillModule {
                 }
                 SkillTargets.hurt(level, owner, victim, entity.damage(), entity.definition(), true);
             }
+            if (com.efkrdnz.magical.boss.unwaking.UnwakingCapabilities.controlled(victim)) return;
             int base = Math.max(20, entity.duration());
             int life = Math.round(base * Mth.clamp(120.0F / Math.max(1.0F, victim.getMaxHealth()), 0.3F, 1.0F));
             PolymorphShellEntity shell = PolymorphShellEntity.create(level, entity.definition(), owner, victim, life, entity.seed());

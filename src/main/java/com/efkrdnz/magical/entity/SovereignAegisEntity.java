@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.entity;
 
+import com.efkrdnz.magical.boss.unwaking.UnwakingCapabilities;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
 import com.efkrdnz.magical.magic.PlayerMagicState;
@@ -164,6 +165,7 @@ public final class SovereignAegisEntity extends Entity {
     }
 
     public static boolean isSealed(Entity entity) {
+        if (UnwakingCapabilities.controlled(entity)) return false;
         if (entity == null || !(entity.level() instanceof ServerLevel level)) {
             return false;
         }
@@ -300,6 +302,7 @@ public final class SovereignAegisEntity extends Entity {
                 discard();
                 return;
             }
+            if (UnwakingCapabilities.controlled(target)) { discard(); return; }
             markTargetPersistent(living);
             captureSealedMobAiState(living);
             suppressSealedTargetAi(living);

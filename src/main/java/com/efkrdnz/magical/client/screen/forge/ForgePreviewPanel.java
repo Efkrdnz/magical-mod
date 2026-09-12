@@ -13,6 +13,7 @@ import com.efkrdnz.magical.forge.ForgedWeapons;
 import com.efkrdnz.magical.forge.chain.ForgeChainGrammar;
 import com.efkrdnz.magical.forge.chain.ForgeError;
 import com.efkrdnz.magical.forge.fusion.ForgeFusion;
+import com.efkrdnz.magical.forge.glyph.ForgeVocabulary;
 import com.efkrdnz.magical.forge.chain.ForgeGrade;
 import com.efkrdnz.magical.forge.chain.ForgeMaterial;
 import com.efkrdnz.magical.forge.chain.ForgeRecipe;
@@ -55,14 +56,15 @@ public final class ForgePreviewPanel {
 
     /** Draws the panel body between the given corners. */
     public void render(GuiGraphics graphics, Font font, int x0, int y0, int x1, int y1,
-            List<RecognizedGlyph> chain, int maxMana) {
+            List<RecognizedGlyph> chain, ItemStack weapon, int maxMana) {
         MagicalGuiStyle.panel(graphics, x0, y0, x1, y1, MagicalGuiStyle.ACCENT_GOLD);
         MagicalGuiStyle.sectionLabel(graphics, font, x0 + PADDING, y0 + PADDING,
                 Component.translatable("screen.magical.forge_preview"), MagicalGuiStyle.ACCENT_GOLD);
         int textX = x0 + PADDING;
         int textY = y0 + PADDING + 16;
         int width = x1 - x0 - PADDING * 2;
-        ForgeValidation validation = chain.isEmpty() ? null : ForgeChainGrammar.validate(chain);
+        ForgeValidation validation = chain.isEmpty() ? null
+                : ForgeChainGrammar.validate(chain, ForgeVocabulary.forWeapon(weapon));
         if (!(validation instanceof ForgeValidation.Valid valid)) {
             drawWrapped(graphics, font, emptyOrError(validation), textX, textY, width, MagicalGuiStyle.TEXT_MUTED);
             return;
@@ -167,7 +169,7 @@ public final class ForgePreviewPanel {
         if (!state.hasClass(MagicalClasses.BLACKSMITH)) {
             return failure(ForgeError.CLASS_REQUIRED);
         }
-        ForgeValidation validation = ForgeChainGrammar.validate(chain);
+        ForgeValidation validation = ForgeChainGrammar.validate(chain, ForgeVocabulary.forWeapon(weapon));
         if (validation instanceof ForgeValidation.Invalid invalid) {
             return failure(invalid.error(), invalid.argument());
         }

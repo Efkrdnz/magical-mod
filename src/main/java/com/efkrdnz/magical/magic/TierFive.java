@@ -105,6 +105,7 @@ public final class TierFive {
      * owning and an apex defence worth timing.
      */
     public static boolean piercesProtection(DamageSource source) {
+        if (source instanceof com.efkrdnz.magical.boss.unwaking.UnwakingDamageSource encounter) return encounter.attack().powerTier() >= APEX_TIER;
         return is(skillOf(source));
     }
 }

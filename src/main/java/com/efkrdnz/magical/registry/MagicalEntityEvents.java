@@ -12,7 +12,9 @@ public final class MagicalEntityEvents {
 
     @SubscribeEvent
     public static void registerAttributes(EntityAttributeCreationEvent event) {
+        event.put(MagicalEntities.UNWAKING_GOD.get(), com.efkrdnz.magical.boss.unwaking.UnwakingGodEntity.createAttributes().build());
         event.put(MagicalEntities.MAGIC_OPPONENT.get(), MagicOpponentEntity.createAttributes().build());
+        event.put(MagicalEntities.TRAINING_DUMMY.get(), com.efkrdnz.magical.entity.TrainingDummyEntity.createAttributes().build());
         event.put(MagicalEntities.EFFIGY.get(), com.efkrdnz.magical.entity.fx.EffigyEntity.createAttributes().build());
         event.put(MagicalEntities.SPIRIT_WOLF.get(), com.efkrdnz.magical.entity.fx.SpiritWolfEntity.createAttributes().build());
         event.put(MagicalEntities.POLYMORPH_SHELL.get(), com.efkrdnz.magical.entity.fx.PolymorphShellEntity.createAttributes().build());

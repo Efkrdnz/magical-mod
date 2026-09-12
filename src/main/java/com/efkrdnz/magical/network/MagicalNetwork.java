@@ -24,7 +24,17 @@ public final class MagicalNetwork {
     private MagicalNetwork() {}
 
     public static void registerPayloads(RegisterPayloadHandlersEvent event) {
-        event.registrar("2")
+        event.registrar("9")
+                .playToClient(UnwakingSnapshotPayload.TYPE, UnwakingSnapshotPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> handleClientPayload(payload)))
+                .playToServer(UnwakingGuardPayload.TYPE, UnwakingGuardPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> {
+                            if (context.player() instanceof ServerPlayer player) com.efkrdnz.magical.boss.unwaking.UnwakingEncounterService.get(player.server).guard(player, payload);
+                        }))
+                .playToServer(UnwakingReadyPayload.TYPE, UnwakingReadyPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> {
+                            if (context.player() instanceof ServerPlayer player) com.efkrdnz.magical.boss.unwaking.UnwakingEncounterService.get(player.server).readyForDomain(player, payload);
+                        }))
                 .playToClient(ArcanePlayerDataPayload.TYPE, ArcanePlayerDataPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToClient(PlayerMagicStatePayload.TYPE, PlayerMagicStatePayload.STREAM_CODEC, (payload, context) ->
@@ -242,6 +252,10 @@ public final class MagicalNetwork {
 
     public static void sendCounterPrompt(ServerPlayer player, int threatId, ResourceLocation incomingSkillId, ResourceLocation counterSkillId, long deadlineTick, int windowTicks) {
         PacketDistributor.sendToPlayer(player, new CounterPromptPayload(threatId, incomingSkillId, counterSkillId, deadlineTick, windowTicks));
+    }
+
+    public static void sendCounterPrompt(ServerPlayer player, int threatId, ResourceLocation incomingSkillId, ResourceLocation counterSkillId, long deadlineTick, int windowTicks, String incomingNameKey) {
+        PacketDistributor.sendToPlayer(player, new CounterPromptPayload(threatId, incomingSkillId, counterSkillId, deadlineTick, windowTicks, incomingNameKey));
     }
 
     public static void sendCounterClear(ServerPlayer player, int threatId) {

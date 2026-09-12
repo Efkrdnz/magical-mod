@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.magic;
 
+import com.efkrdnz.magical.boss.unwaking.UnwakingCapabilities;
 import com.efkrdnz.magical.magic.menu.SpaceWalkerMenu;
 import com.efkrdnz.magical.entity.SpacePocketPortalEntity;
 import com.efkrdnz.magical.network.MagicalNetwork;
@@ -48,6 +49,7 @@ public final class SpaceWalkerService {
     }
 
     public static void blink(ServerPlayer player) {
+        if(UnwakingCapabilities.refuseMovement(player)) return;
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
         if (!state.hasUnlocked(MagicContent.SPACE_WALKER.id())) {
             player.displayClientMessage(Component.translatable("message.magical.skill_locked"), true);
@@ -160,6 +162,7 @@ public final class SpaceWalkerService {
     }
 
     private static void teleport(ServerPlayer player, PlayerMagicState state, Vec3 requested, double maxRange) {
+        if(UnwakingCapabilities.refuseMovement(player)) return;
         double distance = player.position().distanceTo(requested);
         if (distance > maxRange) {
             player.displayClientMessage(Component.translatable("message.magical.space_walker_too_far"), true);
@@ -189,6 +192,7 @@ public final class SpaceWalkerService {
     }
 
     private static void teleportExact(ServerPlayer player, PlayerMagicState state, ResourceKey<Level> dimension, Vec3 destination) {
+        if (UnwakingCapabilities.refuseTravel(player, dimension)) return;
         ServerLevel targetLevel = player.server.getLevel(dimension);
         if (targetLevel == null || !validExactDestination(targetLevel, destination)) {
             player.displayClientMessage(Component.translatable("message.magical.space_walker_invalid_dimension"), true);
@@ -214,6 +218,7 @@ public final class SpaceWalkerService {
     }
 
     private static void createPortal(ServerPlayer player, PlayerMagicState state, ResourceKey<Level> dimension, Vec3 destination) {
+        if (UnwakingCapabilities.refuseTravel(player, dimension)) return;
         ServerLevel targetLevel = player.server.getLevel(dimension);
         if (targetLevel == null || !validExactDestination(targetLevel, destination)) {
             player.displayClientMessage(Component.translatable("message.magical.space_walker_invalid_dimension"), true);

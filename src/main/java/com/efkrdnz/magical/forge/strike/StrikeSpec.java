@@ -27,6 +27,16 @@ public record StrikeSpec(FormFamily family, boolean heavy, boolean finisher, int
                 chargeFraction);
     }
 
+    /**
+     * This strike at a damage worked out elsewhere, for the one thing that adds rather than scales:
+     * CARRY hands the next link a flat amount banked out of the last one.
+     */
+    public StrikeSpec withDamage(float newDamage) {
+        return newDamage == damage ? this : new StrikeSpec(family, heavy, finisher, comboIndex, newDamage, reach,
+                halfWidth, arcDegrees, speed, lifeTicks, knockback, critChance, recoveryTicks, mods,
+                chargeFraction);
+    }
+
     /** The delayed echo repeat of this strike: scaled-down damage, echo itself cannot re-echo. */
     public StrikeSpec asEcho() {
         return new StrikeSpec(family, heavy, finisher, comboIndex, damage * ForgeStrikeMath.ECHO_SCALE, reach,

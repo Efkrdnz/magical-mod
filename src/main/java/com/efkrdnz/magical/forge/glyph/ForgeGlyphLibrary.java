@@ -109,6 +109,10 @@ public final class ForgeGlyphLibrary {
         put(map, template("dark", GlyphCategory.ELEMENT,
                 poly(.12f, .18f, .88f, .18f, .50f, .92f, .12f, .18f),
                 line(.26f, .52f, .74f, .52f)));
+        put(map, template("blood", GlyphCategory.ELEMENT,
+                arc(.26f, .22f, .16f, 180f, 360f),
+                arc(.50f, .52f, .13f, 180f, 360f),
+                arc(.74f, .82f, .10f, 180f, 360f)));
     }
 
     private static void putForms(Map<String, GlyphTemplate> map) {
@@ -127,6 +131,24 @@ public final class ForgeGlyphLibrary {
                 line(.10f, .70f, .30f, .30f),
                 line(.40f, .70f, .60f, .30f),
                 line(.70f, .70f, .90f, .30f)));
+        // Spear and dagger: a shaft with a closed head, where thrust's head is an open chevron.
+        put(map, template("lunge", GlyphCategory.FORM,
+                line(.06f, .18f, .94f, .78f),
+                line(.56f, .90f, .94f, .78f),
+                line(.78f, .40f, .94f, .78f)));
+        // Scythe: the blade opens left off a shaft, the mirror of echo's right-opening arcs.
+        put(map, template("reap", GlyphCategory.FORM,
+                line(.64f, .08f, .64f, .92f),
+                arc(.64f, .50f, .42f, 90f, 270f)));
+        // Claws: a fishhook. The only glyph in the set that ends in a curl.
+        put(map, template("hook", GlyphCategory.FORM,
+                line(.34f, .06f, .34f, .54f),
+                arc(.50f, .54f, .16f, 180f, 360f),
+                line(.66f, .54f, .66f, .30f)));
+        // Greatsword: two chevrons driven down a stem, against rising's single chevron driven up.
+        put(map, template("plunge", GlyphCategory.FORM,
+                poly(.04f, .10f, .24f, .40f, .44f, .10f),
+                poly(.44f, .44f, .70f, .90f, .96f, .44f)));
     }
 
     private static void putTempers(Map<String, GlyphTemplate> map) {
@@ -139,6 +161,26 @@ public final class ForgeGlyphLibrary {
                 line(.50f, .14f, .50f, .86f)));
         put(map, template("swift", GlyphCategory.TEMPER,
                 poly(.08f, .55f, .35f, .90f, .92f, .10f)));
+        // Dagger: speed lines behind a head. Haste is chevrons alone; the rails are the difference.
+        put(map, template("rush", GlyphCategory.TEMPER,
+                line(.06f, .24f, .94f, .24f),
+                line(.32f, .50f, .94f, .50f),
+                line(.58f, .76f, .94f, .76f)));
+        // Greatsword: mass hung under a crossbeam.
+        put(map, template("heft", GlyphCategory.TEMPER,
+                line(.10f, .14f, .90f, .14f),
+                line(.50f, .14f, .50f, .66f),
+                poly(.22f, .66f, .78f, .66f, .78f, .92f, .22f, .92f, .22f, .66f)));
+        // Spear: the only spiral in the set, so it can never be confused with anything.
+        put(map, template("coil", GlyphCategory.TEMPER,
+                spiral(.40f, .40f, .09f, .33f, 1.5f),
+                line(.60f, .68f, .96f, .94f)));
+        // Claws: one stroke that forks at both ends - each strike lands twice.
+        put(map, template("split", GlyphCategory.TEMPER,
+                line(.18f, .16f, .18f, .84f),
+                line(.40f, .16f, .40f, .84f),
+                line(.10f, .50f, .84f, .50f),
+                poly(.70f, .34f, .90f, .50f, .70f, .66f)));
     }
 
     private static void putModifiers(Map<String, GlyphTemplate> map) {
@@ -165,6 +207,20 @@ public final class ForgeGlyphLibrary {
                 line(.50f, .92f, .50f, .50f),
                 poly(.15f, .08f, .50f, .50f, .85f, .08f)));
         put(map, template("guard", GlyphCategory.MODIFIER, arc(.50f, .62f, .40f, 180f, 360f)));
+        // Chorus: three voices stacked, each answering the one above.
+        put(map, template("chorus", GlyphCategory.MODIFIER,
+                poly(.18f, .30f, .50f, .12f, .82f, .30f),
+                poly(.18f, .56f, .50f, .38f, .82f, .56f),
+                poly(.18f, .82f, .50f, .64f, .82f, .82f)));
+        // Tithe: something poured into a vessel. It is the rune that spends what defends you.
+        put(map, template("tithe", GlyphCategory.MODIFIER,
+                line(.20f, .06f, .20f, .32f),
+                line(.40f, .12f, .40f, .36f),
+                poly(.08f, .46f, .20f, .90f, .76f, .90f, .94f, .52f)));
+        // Carry: force stepping up out of one strike and into the next.
+        put(map, template("carry", GlyphCategory.MODIFIER,
+                poly(.06f, .84f, .46f, .84f, .46f, .44f, .90f, .44f),
+                poly(.74f, .28f, .92f, .44f, .74f, .60f)));
 
         // Operators. A stem that splits: one press, several forms.
         put(map, template("fork", GlyphCategory.OPERATOR,

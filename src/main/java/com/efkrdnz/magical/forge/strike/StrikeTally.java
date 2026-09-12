@@ -17,6 +17,8 @@ public final class StrikeTally {
     private int impacts;
     private int passImpacts;
     private boolean primaryCorrectionSpent;
+    private boolean titheSettled;
+    private boolean tithePaid;
 
     /** Counts one landed hit and returns the running total for this strike. */
     public int noteImpact() {
@@ -63,6 +65,27 @@ public final class StrikeTally {
     /** How many times this body has been touched so far, without counting another. */
     public int touches(UUID target) {
         return touches.getOrDefault(target, 0);
+    }
+
+    /** How many separate bodies this strike has opened, however many times it touched each. */
+    public int distinctTargets() {
+        return touches.size();
+    }
+
+    /**
+     * Whether TITHE's barrier has been paid for this press, asking the supplier at most once.
+     *
+     * <p>A press is one purchase, not one per body: a spin into six mobs must not empty the bar six
+     * times over. Every later impact of the same press reads back what the first one settled, so a
+     * press that could not afford it stays unbought for its whole life rather than paying partway
+     * through when the bar happens to refill.
+     */
+    public boolean payTithe(java.util.function.BooleanSupplier charge) {
+        if (!titheSettled) {
+            titheSettled = true;
+            tithePaid = charge.getAsBoolean();
+        }
+        return tithePaid;
     }
 
     public float leechHealed() {

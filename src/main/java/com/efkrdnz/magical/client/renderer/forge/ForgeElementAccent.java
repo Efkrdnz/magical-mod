@@ -54,6 +54,9 @@ public final class ForgeElementAccent {
             case GALE -> new Accent(1.0f, false, Ornament.TWIN);
             // Darker than void, and broken rather than whole: the wake comes apart behind the blow.
             case DARK -> new Accent(0.50f, true, Ornament.SEGMENTS);
+            // Venom already drips; blood drips heavier and does not glow, so it reads as weight
+            // coming off the edge rather than as something caustic clinging to it.
+            case BLOOD -> new Accent(0.80f, false, Ornament.DRIPS);
             // Compounds read as the parent they most look like, darkened or brightened.
             case BLACK_FLAME -> new Accent(0.45f, true, Ornament.NONE);
             case EXPLOSION -> new Accent(1.0f, false, Ornament.BLOOM);
@@ -64,6 +67,11 @@ public final class ForgeElementAccent {
             case ECLIPSE -> new Accent(0.6f, true, Ornament.BLOOM);
             case BLIGHT -> new Accent(0.85f, false, Ornament.DRIPS);
             case VERDIGRIS -> new Accent(1.0f, false, Ornament.DRIPS);
+            // Corruption inherits dark's broken wake as well as blood's drips; martyr keeps
+            // radiant's bloom; clot does not run, so it sheds shards instead of drops.
+            case CORRUPTION -> new Accent(0.65f, true, Ornament.DRIPS);
+            case MARTYR -> new Accent(1.0f, false, Ornament.BLOOM);
+            case CLOT -> new Accent(0.75f, false, Ornament.SHARDS);
         };
     }
 

@@ -79,6 +79,10 @@ public final class MagicalRenderTypes {
             ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "core/rendertype_forge_impact"),
             DefaultVertexFormat.POSITION_TEX_COLOR,
             ShaderDefines.EMPTY);
+    private static final ShaderProgram MAGICAL_TOOLTIP_PROGRAM = new ShaderProgram(
+            ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "core/rendertype_magical_tooltip"),
+            DefaultVertexFormat.POSITION_TEX_COLOR,
+            ShaderDefines.EMPTY);
     private static RenderType singularityLens;
     private static RenderType eventHorizonField;
     private static RenderType stellarGlow;
@@ -97,6 +101,7 @@ public final class MagicalRenderTypes {
     private static RenderType fusionBeam;
     private static RenderType forgeEdge;
     private static RenderType forgeImpact;
+    private static RenderType magicalTooltip;
 
     private MagicalRenderTypes() {}
 
@@ -118,6 +123,7 @@ public final class MagicalRenderTypes {
         event.registerShader(FUSION_BEAM_PROGRAM);
         event.registerShader(FORGE_EDGE_PROGRAM);
         event.registerShader(FORGE_IMPACT_PROGRAM);
+        event.registerShader(MAGICAL_TOOLTIP_PROGRAM);
     }
 
     public static RenderType singularityLens() {
@@ -274,6 +280,13 @@ public final class MagicalRenderTypes {
         }
         return towerAura;
     }
+
+    private static final RenderType UNWAKING_SURFACE = RenderType.create("magical_unwaking_surface",
+            DefaultVertexFormat.POSITION_COLOR,VertexFormat.Mode.QUADS,16384,false,true,
+            RenderType.CompositeState.builder().setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
+                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY).setCullState(RenderStateShard.NO_CULL)
+                    .setWriteMaskState(RenderStateShard.COLOR_WRITE).createCompositeState(false));
+    public static RenderType unwakingSurface() { return UNWAKING_SURFACE; }
 
     public static RenderType chrono() {
         if (chrono == null) {
@@ -519,5 +532,37 @@ public final class MagicalRenderTypes {
                     state);
         }
         return whiteHoleWave;
+    }
+
+    /**
+     * The panel behind a magical weapon's tooltip.
+     *
+     * <p>Drawn into the same buffer source {@code GuiGraphics} holds, during
+     * {@code RenderTooltipEvent.Pre}, and flushed there and then - vanilla paints its own background
+     * over this spot a few lines later, so the order matters more than the depth does.
+     *
+     * <p>No depth write, because the frame sprite and every line of text land on top of it at a
+     * higher z and must not have to fight a depth value this panel left behind.
+     */
+    public static RenderType magicalTooltip() {
+        if (magicalTooltip == null) {
+            RenderType.CompositeState state = RenderType.CompositeState.builder()
+                    .setShaderState(new RenderStateShard.ShaderStateShard(MAGICAL_TOOLTIP_PROGRAM))
+                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
+                    .setCullState(RenderStateShard.NO_CULL)
+                    .setLightmapState(RenderStateShard.NO_LIGHTMAP)
+                    .setOverlayState(RenderStateShard.NO_OVERLAY)
+                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
+                    .createCompositeState(false);
+            magicalTooltip = RenderType.create(
+                    "magical_tooltip",
+                    DefaultVertexFormat.POSITION_TEX_COLOR,
+                    VertexFormat.Mode.QUADS,
+                    256,
+                    false,
+                    false,
+                    state);
+        }
+        return magicalTooltip;
     }
 }

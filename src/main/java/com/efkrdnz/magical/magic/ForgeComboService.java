@@ -102,7 +102,8 @@ public final class ForgeComboService {
     /** Ticks a forked press adds to its recovery for each form past the first. */
     private static final int FORK_RECOVERY_PER_EXTRA = 4;
 
-    private record PendingEcho(UUID owner, long fireTick, StrikeSpec spec, ForgedWeapon weapon, Vec3 origin,
+    private record PendingEcho(UUID owner, long fireTick, StrikeSpec spec, ForgedWeapon weapon,
+            WeaponClass archetype, Vec3 origin,
             Vec3 direction, ResourceLocation elementId, ResourceLocation formId) {}
 
     private record Guard(long untilTick, float reduction) {}
@@ -115,6 +116,14 @@ public final class ForgeComboService {
     private static final Map<UUID, Long> LAST_CHARGE_BEGIN = new HashMap<>();
     /** Tick each player's standing charge guard was armed on; removed once the charge is spent. */
     private static final Map<UUID, Long> CHARGE_GUARD_ARMED_AT = new HashMap<>();
+
+    /**
+     * What CARRY banked out of the last strike, waiting for the next link of the chain.
+     *
+     * <p>Lives here rather than on ComboState because it has to survive the state being replaced,
+     * and dies with {@link #reset} like everything else the player was holding.
+     */
+    private static final Map<UUID, Float> CARRY_BANK = new HashMap<>();
 
     private ForgeComboService() {}
 
@@ -138,7 +147,27 @@ public final class ForgeComboService {
         HIT_GUARDS.remove(id);
         LAST_CHARGE_BEGIN.remove(id);
         CHARGE_GUARD_ARMED_AT.remove(id);
+        CARRY_BANK.remove(id);
         ECHOES.removeIf(echo -> echo.owner().equals(id));
+    }
+
+    /**
+     * Banks a share of a strike for the next link of the chain. Called once per body the strike
+     * opened, so the bank is the best single blow of the press rather than their sum - a spin
+     * through six mobs must not hand the next strike six times the force.
+     */
+    public static void noteCarry(ServerPlayer player, float amount, float cap) {
+        if (amount <= 0.0f) {
+            return;
+        }
+        UUID id = player.getUUID();
+        CARRY_BANK.merge(id, Math.min(cap, amount), Math::max);
+    }
+
+    /** Takes the bank, leaving it empty: force carried forward is spent by the strike that gets it. */
+    private static float spendCarry(ServerPlayer player) {
+        Float banked = CARRY_BANK.remove(player.getUUID());
+        return banked == null ? 0.0f : banked;
     }
 
     private static void fireDueEchoes(MinecraftServer server, long now) {
@@ -168,7 +197,7 @@ public final class ForgeComboService {
             return;
         }
         ForgeStrikeEntity.spawn(level, owner, echo.spec().asEcho(), echo.weapon(), element.get(), form.get(),
-                echo.origin(), echo.direction(), true);
+                echo.origin(), echo.direction(), true, echo.archetype());
     }
 
     private static void dropOfflinePlayers(MinecraftServer server) {
@@ -286,18 +315,23 @@ public final class ForgeComboService {
         if (forms.isEmpty()) {
             return;
         }
+        WeaponClass archetype = ForgeMaterials.weaponClass(stack).orElse(WeaponClass.SWORD);
         float forkScale = ForgeStrikeMath.forkScale(forms.size());
+        // Taken before the loop, so a fork spends one bank between its members rather than one each.
+        // A chain that resets - a lapsed window, a weapon swap - reaches reset() and loses it.
+        float carried = state.index() == 0 ? 0.0f : spendCarry(player);
         List<StrikeSpec> specs = new ArrayList<>(forms.size());
         for (FormDefinition member : forms) {
-            specs.add(resolve(player, weapon, element.get(), member, step, stack, state, index, heavy,
-                    chargeFraction).withDamageScale(forkScale));
+            StrikeSpec spec = resolve(player, weapon, element.get(), member, step, stack, state, index, heavy,
+                    chargeFraction);
+            specs.add(spec.withDamage(spec.damage() * forkScale + carried * forkScale));
         }
         // Stored before the vanilla hit so notePrimaryHit has a state to write the target into.
         STATES.put(player.getUUID(), state);
         if (whiff) {
             snapVanillaHit(player, specs.get(0).reach());
         }
-        launch(level, player, weapon, element.get(), forms, specs, step.payload(),
+        launch(level, player, weapon, archetype, element.get(), forms, specs, step.payload(),
                 STATES.getOrDefault(player.getUUID(), state), now);
     }
 
@@ -317,9 +351,9 @@ public final class ForgeComboService {
         return slowest + FORK_RECOVERY_PER_EXTRA * (specs.size() - 1);
     }
 
-    private static void launch(ServerLevel level, ServerPlayer player, ForgedWeapon weapon, ElementDefinition element,
-            List<FormDefinition> forms, List<StrikeSpec> specs, Optional<Payload> payload, ComboState state,
-            long now) {
+    private static void launch(ServerLevel level, ServerPlayer player, ForgedWeapon weapon,
+            WeaponClass archetype, ElementDefinition element, List<FormDefinition> forms,
+            List<StrikeSpec> specs, Optional<Payload> payload, ComboState state, long now) {
         Vec3 look = lookOf(player);
         StrikeSpec spec = specs.get(0);
         int primary = primaryTargetId(player);
@@ -328,7 +362,7 @@ public final class ForgeComboService {
             Vec3 origin = originFor(player, member.family(), look, member.reach());
             // Only the lead strike claims the single vanilla hit this press came with.
             ForgeStrikeEntity.spawn(level, player, member, weapon, element, forms.get(i), origin, look, false,
-                    i == 0 ? primary : StrikeLoadout.NO_PRIMARY_TARGET, payload);
+                    i == 0 ? primary : StrikeLoadout.NO_PRIMARY_TARGET, archetype, payload);
         }
         Vec3 origin = originFor(player, spec.family(), look, spec.reach());
         ForgeSounds.play(level, player, spec.family());
@@ -339,7 +373,7 @@ public final class ForgeComboService {
         if (spec.has(ForgeModifierKind.GUARD)) {
             putGuard(HIT_GUARDS, player.getUUID(), now + GUARD_HIT_TICKS, GUARD_HIT_REDUCTION, now);
         }
-        scheduleEcho(player, spec, weapon, element, forms.get(0), origin, look, now);
+        scheduleEcho(player, spec, weapon, archetype, element, forms.get(0), origin, look, now);
         syncCombo(player, advanced, element, now);
     }
 
@@ -482,11 +516,13 @@ public final class ForgeComboService {
     }
 
     private static void scheduleEcho(ServerPlayer player, StrikeSpec spec, ForgedWeapon weapon,
-            ElementDefinition element, FormDefinition form, Vec3 origin, Vec3 direction, long now) {
+            WeaponClass archetype, ElementDefinition element, FormDefinition form, Vec3 origin,
+            Vec3 direction, long now) {
         if (!spec.has(ForgeModifierKind.ECHO) || !ForgeStrikeMath.echoAllowed(spec.family(), spec.heavy())) {
             return;
         }
-        ECHOES.add(new PendingEcho(player.getUUID(), now + ForgeStrikeMath.ECHO_DELAY_TICKS, spec, weapon, origin,
+        ECHOES.add(new PendingEcho(player.getUUID(), now + ForgeStrikeMath.ECHO_DELAY_TICKS, spec, weapon,
+                archetype, origin,
                 direction, element.id(), form.id()));
     }
 

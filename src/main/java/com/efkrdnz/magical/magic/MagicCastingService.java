@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.magic;
 
+import com.efkrdnz.magical.boss.unwaking.UnwakingCapabilities;
 import com.efkrdnz.magical.entity.DivineDividerWaveEntity;
 import com.efkrdnz.magical.entity.FlareTriangleEntity;
 import com.efkrdnz.magical.entity.AbyssalDischargeEntity;
@@ -93,6 +94,7 @@ public final class MagicCastingService {
             player.displayClientMessage(Component.translatable("message.magical.sanctuary_blocks_offense"), true);
             return;
         }
+        if (isPerfectSealSubSkill(subSkill) && UnwakingCapabilities.refuseControl(player, findLookedAtLiving(player, 32.0D + stats.size() * 2.0D))) return;
         if (!MagicSinService.spendManaForSkill(player, state, stats.manaCost())) {
             player.displayClientMessage(Component.translatable("message.magical.not_enough_mana"), true);
             return;
@@ -298,6 +300,7 @@ public final class MagicCastingService {
             return;
         }
 
+        if (java.util.Set.of("iron_charge", "transposition").contains(skillId.getPath()) && UnwakingCapabilities.refuseMovement(player)) return;
         if (state.isSkillOnCooldown(skillId)) {
             player.displayClientMessage(Component.translatable("message.magical.skill_cooling"), true);
             return;
@@ -352,12 +355,14 @@ public final class MagicCastingService {
             player.displayClientMessage(Component.translatable("message.magical.sanctuary_blocks_offense"), true);
             return;
         }
+        com.efkrdnz.magical.magic.cast.AimResolver.Result aim = com.efkrdnz.magical.magic.cast.AimResolver.resolve(
+                player.serverLevel(), player, player.getLookAngle(), handler.aimRange(), handler.aimTolerance(), handler.aimDropsToGround(), 8, null);
+        if (java.util.Set.of("arcane_exile", "arcane_snap", "puppet_sigil", "polymorph").contains(definition.id().getPath())
+                && UnwakingCapabilities.refuseControl(player, aim.living())) return;
         if (!MagicSinService.spendManaForSkill(player, state, stats.manaCost())) {
             player.displayClientMessage(Component.translatable("message.magical.not_enough_mana"), true);
             return;
         }
-        com.efkrdnz.magical.magic.cast.AimResolver.Result aim = com.efkrdnz.magical.magic.cast.AimResolver.resolve(
-                player.serverLevel(), player, player.getLookAngle(), handler.aimRange(), handler.aimTolerance(), handler.aimDropsToGround(), 8, null);
         com.efkrdnz.magical.magic.cast.CastContext ctx = com.efkrdnz.magical.magic.cast.CastContext.forPlayer(player, state, definition, stats, sneak, slot, profile, aim, seed);
         com.efkrdnz.magical.magic.visual.SpellFx.windup(player, definition, aim.point(), player.getLookAngle(), sneak);
         com.efkrdnz.magical.magic.cast.CastResult result;

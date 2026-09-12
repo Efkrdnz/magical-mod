@@ -18,6 +18,11 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 public final class MagicalBlocks {
     private static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(MagicalMod.MODID);
 
+    public static final DeferredBlock<com.efkrdnz.magical.boss.unwaking.UnwakingShrineBlock> UNWAKING_SHRINE = BLOCKS.registerBlock(
+            "unwaking_shrine", com.efkrdnz.magical.boss.unwaking.UnwakingShrineBlock::new,
+            BlockBehaviour.Properties.of().setId(ResourceKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "unwaking_shrine")))
+                    .strength(4.0F, 1200.0F).sound(SoundType.STONE).lightLevel(state -> 3));
+
     public static final DeferredBlock<AstralStepSlabBlock> ASTRAL_STEP_SLAB = BLOCKS.registerBlock(
             "astral_step_slab",
             AstralStepSlabBlock::new,

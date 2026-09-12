@@ -36,12 +36,12 @@ class ForgeChainGrammarTest {
     }
 
     private static ForgeRecipe validRecipe(List<RecognizedGlyph> glyphs) {
-        ForgeValidation validation = ForgeChainGrammar.validate(glyphs);
+        ForgeValidation validation = ForgeChainGrammar.validate(glyphs, ForgeChainGrammar.ANY_GLYPH);
         return assertInstanceOf(ForgeValidation.Valid.class, validation).recipe();
     }
 
     private static ForgeValidation.Invalid invalid(List<RecognizedGlyph> glyphs) {
-        return assertInstanceOf(ForgeValidation.Invalid.class, ForgeChainGrammar.validate(glyphs));
+        return assertInstanceOf(ForgeValidation.Invalid.class, ForgeChainGrammar.validate(glyphs, ForgeChainGrammar.ANY_GLYPH));
     }
 
     @Test

@@ -1,0 +1,14 @@
+{
+  "display": {
+    "icon": { "id": "minecraft:amethyst_shard" },
+    "title": { "translate": "advancement.magical.unwaking.title" },
+    "description": { "translate": "advancement.magical.unwaking.description" },
+    "background": "minecraft:textures/gui/advancements/backgrounds/end.png",
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "criteria": { "survived": { "trigger": "minecraft:impossible" } },
+  "requirements": [["survived"]]
+}

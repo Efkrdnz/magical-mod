@@ -44,12 +44,14 @@ public final class ForgePayloadService {
         if (form.isEmpty()) {
             return;
         }
+        // The carrier's own archetype rather than a hardcoded sword: a payload thrown off a
+        // greatsword should keep the greatsword's reach and recovery, not a sword's.
         StrikeSpec spec = ForgeStrikeMath.resolve(form.get().stats(), temperOf(carrier.weapon()),
-                WeaponClass.SWORD, step.mods().without(ForgeModifierKind.ECHO), carrier.weapon().grade(),
+                carrier.archetype(), step.mods().without(ForgeModifierKind.ECHO), carrier.weapon().grade(),
                 carrier.weapon().quality(), carrier.weaponAttack(), false, 0f, false, carrier.comboIndex(),
                 carrier.element().kind()).withDamageScale(PAYLOAD_SCALE);
         ForgeStrikeEntity.spawn(level, owner, spec, carrier.weapon(), carrier.element(), form.get(),
-                position, direction, false, StrikeLoadout.NO_PRIMARY_TARGET);
+                position, direction, false, StrikeLoadout.NO_PRIMARY_TARGET, carrier.archetype());
     }
 
     private static com.efkrdnz.magical.forge.strike.TemperStats temperOf(ForgedWeapon weapon) {

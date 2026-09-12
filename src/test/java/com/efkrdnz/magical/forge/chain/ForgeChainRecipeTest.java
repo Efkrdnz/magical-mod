@@ -27,7 +27,7 @@ class ForgeChainRecipeTest {
                     .orElseThrow(() -> new AssertionError("no glyph named " + id));
             glyphs.add(new RecognizedGlyph(id, template.category(), CLEAN));
         }
-        ForgeValidation validation = ForgeChainGrammar.validate(glyphs);
+        ForgeValidation validation = ForgeChainGrammar.validate(glyphs, ForgeChainGrammar.ANY_GLYPH);
         assertInstanceOf(ForgeValidation.Valid.class, validation,
                 () -> "chain was refused: " + validation);
         return ((ForgeValidation.Valid) validation).recipe();

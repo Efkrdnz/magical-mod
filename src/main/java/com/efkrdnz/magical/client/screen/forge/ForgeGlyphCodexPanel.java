@@ -5,6 +5,7 @@ import com.efkrdnz.magical.forge.art.ForgeArt;
 import com.efkrdnz.magical.forge.fusion.ForgeFusion;
 import com.efkrdnz.magical.forge.chain.ForgeGrade;
 import com.efkrdnz.magical.forge.glyph.ForgeGlyphLibrary;
+import com.efkrdnz.magical.forge.glyph.ForgeVocabulary;
 import com.efkrdnz.magical.forge.glyph.GlyphCategory;
 import com.efkrdnz.magical.forge.glyph.GlyphTemplate;
 import java.util.ArrayList;
@@ -14,6 +15,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * The in-screen glyph reference: one tab per category, one scrollable row per glyph with its
@@ -35,6 +37,19 @@ public final class ForgeGlyphCodexPanel {
 
     private int tab;
     private int scroll;
+
+    /**
+     * The weapon the rows are filtered against, refreshed from the menu every frame.
+     *
+     * <p>A field rather than a parameter because {@code rowAt} and {@code mouseScrolled} read the
+     * same list and a screen always renders before it takes input, so there is no frame where this
+     * is staler than what the player is looking at.
+     */
+    private ItemStack weapon = ItemStack.EMPTY;
+
+    public void setWeapon(ItemStack weapon) {
+        this.weapon = weapon == null ? ItemStack.EMPTY : weapon;
+    }
 
     private GlyphCategory category() {
         return TABS[tab];
@@ -232,10 +247,17 @@ public final class ForgeGlyphCodexPanel {
         return Math.max(1, (listBottom - (y0 + ROWS_TOP)) / ROW_HEIGHT);
     }
 
+    /**
+     * The glyphs of the open tab that this weapon can be inscribed with.
+     *
+     * <p>Filtered rather than greyed out: the point of an exclusive shape is that you do not know
+     * it exists until you hold the thing that knows it. A greyed row would advertise every secret
+     * in the catalogue to anyone who opened the codex with a stick.
+     */
     private List<GlyphTemplate> rows() {
         List<GlyphTemplate> rows = new ArrayList<>();
         for (GlyphTemplate template : ForgeGlyphLibrary.all()) {
-            if (template.category() == category()) {
+            if (template.category() == category() && ForgeVocabulary.allows(template.id(), weapon)) {
                 rows.add(template);
             }
         }

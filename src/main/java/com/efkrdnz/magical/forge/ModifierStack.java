@@ -20,8 +20,20 @@ public record ModifierStack(long packed) {
     /** No modifiers at all. */
     public static final ModifierStack EMPTY = new ModifierStack(0L);
 
-    private static final int BITS_PER_KIND = 4;
+    static final int BITS_PER_KIND = 4;
     private static final long KIND_MASK = 0xFL;
+
+    static {
+        // Java masks shift counts: `1L << 64` is `1L << 0`, not zero. A seventeenth modifier kind
+        // would therefore wrap silently onto ECHO's bits and corrupt every stack that carried it,
+        // with no error anywhere. Refuse to load instead.
+        int needed = ForgeModifierKind.values().length * BITS_PER_KIND;
+        if (needed > Long.SIZE) {
+            throw new IllegalStateException("ForgeModifierKind has outgrown ModifierStack: "
+                    + ForgeModifierKind.values().length + " kinds need " + needed
+                    + " bits, and a long has " + Long.SIZE);
+        }
+    }
 
     /**
      * Counts {@code kinds}, repeats included, clamping each kind to its own cap. Feeding this the

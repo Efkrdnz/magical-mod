@@ -10,6 +10,7 @@ import com.efkrdnz.magical.registry.MagicalDataComponents;
 import com.efkrdnz.magical.registry.MagicalEntities;
 import com.efkrdnz.magical.registry.MagicalItems;
 import com.efkrdnz.magical.registry.MagicalMenus;
+import com.efkrdnz.magical.registry.MagicalSounds;
 import com.efkrdnz.magical.network.MagicalNetwork;
 import com.mojang.logging.LogUtils;
 import org.slf4j.Logger;
@@ -33,6 +34,7 @@ public final class MagicalMod {
         MagicalMenus.register(modEventBus);
         MagicalCreativeTabs.register(modEventBus);
         MagicalCommands.register(modEventBus);
+        MagicalSounds.register(modEventBus);
         modEventBus.addListener(MagicalChunkTickets::registerTicketControllers);
         modEventBus.addListener(MagicalNetwork::registerPayloads);
         modEventBus.addListener(com.efkrdnz.magical.magic.visual.MagicVisualContent::onCommonSetup);

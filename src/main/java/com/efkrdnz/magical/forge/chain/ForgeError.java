@@ -54,7 +54,16 @@ public enum ForgeError {
     /** More operator runes than the grade holds. */
     TOO_MANY_OPERATORS,
     /** An operator with no form after it to act on. */
-    OPERATOR_NEEDS_FORM;
+    OPERATOR_NEEDS_FORM,
+
+    /**
+     * A shape this weapon has nowhere to put. The argument is the index of the offending glyph.
+     *
+     * <p>Refused at the grammar rather than at the recognizer on purpose: the drawing <em>was</em>
+     * a rune, and saying so is what tells the player to find the weapon it belongs on instead of
+     * redrawing a shape that was right the first time.
+     */
+    GLYPH_NOT_IN_VOCABULARY;
 
     /** Translation key of the message shown to the player. */
     public String langKey() {

@@ -7,6 +7,8 @@ import com.efkrdnz.magical.forge.strike.StrikeTally;
 import com.efkrdnz.magical.magic.ForgeComboService;
 import com.efkrdnz.magical.magic.ForgeFeedback;
 import com.efkrdnz.magical.magic.MagicDamageService;
+import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.registry.MagicalAttachments;
 
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -42,7 +44,7 @@ public final class StrikeImpact {
         // Read before anything this press does to the target, because the element rider that runs
         // a few lines below would otherwise satisfy its own Art's condition. See TargetState.
         StrikeContext.TargetState before = stateOf(target);
-        float dealt = resolveDamage(loadout, target, damageScale, now, random, tally);
+        float dealt = resolveDamage(loadout, ownerPlayer(owner), target, damageScale, now, random, tally);
         MagicDamageService.hurt(target, ForgeDamageTypes.strike(level, source, owner == null ? source : owner),
                 dealt, STRIKE_ID);
         pushBack(target, owner, loadout, direction);
@@ -71,9 +73,12 @@ public final class StrikeImpact {
      * consumes that correction, because a flurry pulse and a heavy slam's second ring come back
      * through here against the same body and there was only ever one vanilla hit to cancel.
      */
-    private static float resolveDamage(StrikeLoadout loadout, LivingEntity target, float damageScale, long now,
-            RandomSource random, StrikeTally tally) {
+    private static float resolveDamage(StrikeLoadout loadout, ServerPlayer owner, LivingEntity target,
+            float damageScale, long now, RandomSource random, StrikeTally tally) {
         float dealt = loadout.damage() * damageScale;
+        if (loadout.has(ForgeModifierKind.TITHE) && payTithe(owner, loadout, tally)) {
+            dealt *= ForgeStrikeMath.titheBonus(loadout.mods());
+        }
         if (loadout.critChance() > 0.0f && random.nextFloat() < loadout.critChance()) {
             dealt *= ForgeStrikeMath.CRIT_MULTIPLIER;
         }
@@ -95,6 +100,29 @@ public final class StrikeImpact {
                 : dealt;
     }
 
+    /**
+     * Spends the wielder's barrier for this press, once, and says whether it went through.
+     *
+     * <p>All or nothing on purpose. A partial payment would make the rune strongest exactly when
+     * the player is nearly out of barrier and least able to take a hit back, which is the opposite
+     * of the trade it is meant to be.
+     */
+    private static boolean payTithe(ServerPlayer owner, StrikeLoadout loadout, StrikeTally tally) {
+        if (owner == null) {
+            return false;
+        }
+        return tally.payTithe(() -> {
+            PlayerMagicState state = owner.getData(MagicalAttachments.MAGIC_STATE);
+            int cost = ForgeStrikeMath.titheCost(loadout.mods());
+            if (state.barrier() < cost) {
+                return false;
+            }
+            state.addBarrier(-cost);
+            state.sync(owner);
+            return true;
+        });
+    }
+
     private static void afterDamage(ServerLevel level, ServerPlayer owner, LivingEntity target,
             StrikeLoadout loadout, Vec3 direction, float dealt, long now, StrikeTally tally,
             StrikeContext.TargetState before) {
@@ -110,7 +138,8 @@ public final class StrikeImpact {
             if (touches == 1) {
                 ForgeRiderService.apply(level, owner, target, loadout.weapon(), loadout.element(), context);
             }
-            ForgeSpecials.lookup(loadout.element(), loadout.form())
+            ForgeSpecials.lookup(loadout.element(), loadout.form(), loadout.archetype(),
+                            loadout.weapon().temper().orElse(null))
                     .ifPresent(special -> special.apply(level, owner, target, loadout.weapon(), context));
             if (tally.impacts() == 1) {
                 ForgeFeedback.send(owner, loadout.family(), loadout.heavy(), loadout.element().primaryColor());
@@ -129,6 +158,19 @@ public final class StrikeImpact {
         }
         if (loadout.has(ForgeModifierKind.GUARD)) {
             ForgeComboService.noteGuardHit(owner, now);
+        }
+        if (loadout.has(ForgeModifierKind.CHORUS)) {
+            // Counts the bodies already open, not this one, so the first target of a press never
+            // sings: a chorus needs something to answer it.
+            int others = Math.min(ForgeStrikeMath.chorusMaxEchoes(loadout.mods()), tally.distinctTargets() - 1);
+            if (others > 0) {
+                MagicDamageService.hurt(target, ForgeDamageTypes.magic(owner),
+                        ForgeStrikeMath.chorusFraction(loadout.mods()) * others * dealt, STRIKE_ID);
+            }
+        }
+        if (loadout.has(ForgeModifierKind.CARRY) && !loadout.echo()) {
+            ForgeComboService.noteCarry(owner, ForgeStrikeMath.carryFraction(loadout.mods()) * dealt,
+                    ForgeStrikeMath.carryCap(loadout.mods()) * dealt);
         }
     }
 
@@ -198,6 +240,9 @@ public final class StrikeImpact {
             // Borrows the void implosion until dark earns a style of its own: a new
             // ForgeEffectStyle is a synced ordinal plus a renderer branch, which this does not need.
             case DARK -> ForgeEffectStyle.VOID_IMPLOSION;
+            // The drip is the right silhouette already; the call site tints it with blood's own
+            // palette, so it reads as red running rather than as green.
+            case BLOOD -> ForgeEffectStyle.VENOM_DRIP;
             // Compounds borrow the impact of the parent they read as, tinted by their own palette.
             case BLACK_FLAME -> ForgeEffectStyle.VOID_IMPLOSION;
             case EXPLOSION -> ForgeEffectStyle.FIRE_BLOOM;
@@ -206,6 +251,8 @@ public final class StrikeImpact {
             case MAGMA -> ForgeEffectStyle.TERRA_SHARDS;
             case ECLIPSE -> ForgeEffectStyle.RADIANT_CROSS;
             case BLIGHT, VERDIGRIS -> ForgeEffectStyle.VENOM_DRIP;
+            case CORRUPTION, CLOT -> ForgeEffectStyle.VENOM_DRIP;
+            case MARTYR -> ForgeEffectStyle.RADIANT_CROSS;
         };
     }
 }

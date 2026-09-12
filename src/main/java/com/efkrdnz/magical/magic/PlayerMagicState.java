@@ -201,9 +201,32 @@ public final class PlayerMagicState {
         return base - corruptionPenalty(base);
     }
 
+    /** Barrier added per level of the endurance passive, and the share of a blow it deflects. */
+    private static final int ENDURANCE_BARRIER_PER_LEVEL = 25;
+    private static final float ENDURANCE_REDUCTION_PER_LEVEL = 0.04F;
+    private static final float ENDURANCE_REDUCTION_CAP = 0.32F;
+
     public int maxBarrier() {
-        int base = MagicalConfig.MAX_BARRIER.get() + Math.max(0, maxBarrierBonus) + Math.max(0, classMaxBarrierBonus);
+        int base = MagicalConfig.MAX_BARRIER.get() + Math.max(0, maxBarrierBonus) + Math.max(0, classMaxBarrierBonus)
+                + ENDURANCE_BARRIER_PER_LEVEL * enduranceLevel();
         return base - corruptionPenalty(base);
+    }
+
+    /** Endurance only counts while it is switched on, like every other normal passive. */
+    private int enduranceLevel() {
+        return isPassiveEnabled(MagicPassiveContent.ENDURANCE.id())
+                ? passiveLevel(MagicPassiveContent.ENDURANCE.id())
+                : 0;
+    }
+
+    /**
+     * The share of an incoming blow the barrier deflects rather than absorbing.
+     *
+     * <p>Capped well below 1: at the ceiling a point of barrier stops about one and a half points
+     * of damage, which is a real reason to level it and still nothing like immunity.
+     */
+    public float barrierReduction() {
+        return Math.min(ENDURANCE_REDUCTION_CAP, ENDURANCE_REDUCTION_PER_LEVEL * enduranceLevel());
     }
 
     /**
@@ -1501,13 +1524,30 @@ public final class PlayerMagicState {
         return true;
     }
 
+    /**
+     * Runs an incoming blow through the barrier and returns what is left for the health bar.
+     *
+     * <p>The reduction applies to what the barrier actually soaks, not to the whole blow: a point
+     * of barrier stops more than a point of damage, and anything past what the barrier could cover
+     * arrives undiminished. Reducing the overflow too would mean a nearly empty barrier protected
+     * the player almost as well as a full one, which is the opposite of what a pool is for.
+     *
+     * <p>The player is pinned at twenty health by design, so this is the only place in the mod
+     * where levelling makes a hit land softer. It runs at step 9 of
+     * {@code MagicGameplayEvents.onIncomingDamage} - after the multiplicative passives and before
+     * vanilla armour - and that ordering is load-bearing.
+     */
     public float absorbDamage(float amount) {
         if (amount <= 0.0F || barrier <= 0) {
             return amount;
         }
-        float absorbed = Math.min(amount, barrier);
-        barrier -= Math.round(absorbed);
-        return amount - absorbed;
+        float factor = 1.0F - barrierReduction();
+        // How much raw damage this barrier can cover, which is more than its own size once the
+        // reduction is running. Guarded against a factor of zero even though the cap forbids it.
+        float coverable = factor <= 0.0F ? Float.MAX_VALUE : barrier / factor;
+        float covered = Math.min(amount, coverable);
+        barrier -= Math.round(covered * factor);
+        return amount - covered;
     }
 
     public void equip(int slot, ResourceLocation skillId) {

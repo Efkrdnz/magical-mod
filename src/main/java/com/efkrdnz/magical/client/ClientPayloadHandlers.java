@@ -11,6 +11,9 @@ import com.efkrdnz.magical.network.ForgeResultPayload;
 import com.efkrdnz.magical.network.PlayerMagicStatePayload;
 
 public final class ClientPayloadHandlers {
+    public static void handle(com.efkrdnz.magical.network.UnwakingSnapshotPayload payload) {
+        ClientUnwakingEncounter.handle(payload);
+    }
     private ClientPayloadHandlers() {}
 
     public static void handle(ArcanePlayerDataPayload payload) {

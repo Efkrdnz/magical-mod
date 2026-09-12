@@ -92,6 +92,7 @@ public final class MagicalClientEvents {
         event.register(MagicalMenus.CLASS_TREE.get(), com.efkrdnz.magical.client.screen.ClassTreeScreen::new);
         event.register(MagicalMenus.SPACE_ARSENAL_STORAGE.get(), SpaceArsenalStorageScreen::new);
         event.register(MagicalMenus.BLACKSMITH_FORGE.get(), BlacksmithForgeScreen::new);
+        event.register(MagicalMenus.TRAINING_DUMMY.get(), com.efkrdnz.magical.client.screen.TrainingDummyScreen::new);
     }
 
     @SubscribeEvent
@@ -143,7 +144,11 @@ public final class MagicalClientEvents {
 
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerEntityRenderer(MagicalEntities.UNWAKING_GOD.get(), com.efkrdnz.magical.client.renderer.UnwakingGodRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.UNWAKING_COUNTER.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);
         event.registerEntityRenderer(MagicalEntities.MAGIC_OPPONENT.get(), MagicOpponentRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.TRAINING_DUMMY.get(), com.efkrdnz.magical.client.renderer.TrainingDummyRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.TRAINING_THREAT.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);
         event.registerEntityRenderer(MagicalEntities.BLACK_FLAME_PROJECTILE.get(), BlackFlameProjectileRenderer::new);
         event.registerEntityRenderer(MagicalEntities.DIVINE_DIVIDER_WAVE.get(), DivineDividerWaveRenderer::new);
         event.registerEntityRenderer(MagicalEntities.FLARE_TRIANGLE.get(), FlareTriangleRenderer::new);
@@ -195,6 +200,7 @@ public final class MagicalClientEvents {
         @SubscribeEvent
         public static void onClientTick(ClientTickEvent.Post event) {
             Minecraft minecraft = Minecraft.getInstance();
+            ClientUnwakingEncounter.tick(minecraft);
             if (minecraft.player == null || minecraft.screen != null) {
                 ClientCounterPrompt.tickAndConsumeWheel(minecraft, false);
                 MagicWheelOverlay.tick(minecraft, false);
@@ -290,6 +296,7 @@ public final class MagicalClientEvents {
             MagicalHudOverlay.render(guiGraphics, minecraft, ClientMagicState.get());
             ForgeComboHud.render(guiGraphics, minecraft);
             ClientCounterPrompt.render(guiGraphics, minecraft);
+            ClientUnwakingEncounter.renderHud(guiGraphics, minecraft);
             SpaceManipulationOverlay.render(guiGraphics, minecraft);
             MagicWheelOverlay.render(guiGraphics, minecraft);
             SovereignAegisInput.render(guiGraphics, minecraft);

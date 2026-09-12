@@ -10,6 +10,7 @@ import com.efkrdnz.magical.forge.art.FireArts;
 import com.efkrdnz.magical.forge.art.ForgeArt;
 import com.efkrdnz.magical.forge.art.FrostArts;
 import com.efkrdnz.magical.forge.art.GaleArts;
+import com.efkrdnz.magical.forge.art.WeaponArts;
 import com.efkrdnz.magical.forge.art.RadiantArts;
 import com.efkrdnz.magical.forge.art.StormArts;
 import com.efkrdnz.magical.forge.art.TerraArts;
@@ -79,6 +80,14 @@ public final class ForgeSpecials {
         register(behaviour, ForgeArt.UPDRAFT, GaleArts::updraft);
         register(behaviour, ForgeArt.GALE_STEP, GaleArts::galeStep);
 
+        register(behaviour, ForgeArt.THOUSAND_CUTS, WeaponArts::thousandCuts);
+        register(behaviour, ForgeArt.CRIMSON_TITHE, WeaponArts::crimsonTithe);
+        register(behaviour, ForgeArt.HEARTSEEKER, WeaponArts::heartseeker);
+        register(behaviour, ForgeArt.RED_HARVEST, WeaponArts::redHarvest);
+        register(behaviour, ForgeArt.BREACH, WeaponArts::breach);
+        register(behaviour, ForgeArt.IMPALE, WeaponArts::impale);
+        register(behaviour, ForgeArt.RIBBONS, WeaponArts::ribbons);
+
         for (ForgeArt art : ForgeArt.values()) {
             if (!behaviour.containsKey(art)) {
                 throw new IllegalStateException("Art " + art + " (" + art.key() + ") has no behaviour bound");
@@ -94,6 +103,26 @@ public final class ForgeSpecials {
 
     public static Optional<StrikeSpecial> lookup(ElementDefinition element, FormDefinition form) {
         return element == null || form == null ? Optional.empty() : lookup(element.id(), form.id());
+    }
+
+    /**
+     * The Art a whole strike fires, given everything about the weapon that can key one.
+     *
+     * <p>{@code archetype} and {@code temper} may be null for a weapon that has neither, and an Art
+     * naming neither is found exactly as it was before they existed - which is why the older
+     * two-argument lookup above is still correct for the callers that only have a pair.
+     */
+    public static Optional<StrikeSpecial> lookup(ElementDefinition element, FormDefinition form,
+            WeaponClass archetype, ResourceLocation temper) {
+        if (form == null) {
+            return Optional.empty();
+        }
+        return ForgeArt.bestMatch(
+                        element == null ? null : element.id().getPath(),
+                        form.id().getPath(),
+                        archetype == null ? null : archetype.name(),
+                        temper == null ? null : temper.getPath())
+                .map(BEHAVIOUR::get);
     }
 
     public static Optional<StrikeSpecial> lookup(ResourceLocation element, ResourceLocation form) {
@@ -135,7 +164,7 @@ public final class ForgeSpecials {
         return Component.translatable(art.descriptionKey());
     }
 
-    /** How many Arts are wired up. Pinned against the 32-row table by {@code ForgeArtTest}. */
+    /** How many Arts are wired up. Pinned against the table itself by {@code ForgeArtTest}. */
     public static int size() {
         return BEHAVIOUR.size();
     }
@@ -148,11 +177,35 @@ public final class ForgeSpecials {
         }
     }
 
+    /**
+     * The element/form index, for the callers that only ever hold that pair.
+     *
+     * <p>Only the Arts a pair can actually identify go in - {@link ForgeArt#keyedOnPairAlone()}.
+     * An Art that also names a shape of weapon or a temper is not something an element and a form
+     * can settle, so no pair should answer with it, and
+     * {@link #lookup(ElementDefinition, FormDefinition, WeaponClass, ResourceLocation)} is where it
+     * is found instead. That keeps this index and {@code ForgeArt.of} answering the same question
+     * the same way, which matters because {@code ForgeStatPreview} gates on one and names with the
+     * other.
+     *
+     * <p>Filtering rather than keying on null is also what stops the whole class from breaking.
+     * {@code ForgeIds.id(null)} throws, and it throws from a class initialiser, which leaves the
+     * class permanently unusable and turns every later touch of it into an
+     * {@code ExceptionInInitializerError} a long way from here - in a tooltip, in a strike,
+     * anywhere. That is what shipped, and what {@code ForgeSpecialsLoadTest} now stands in front of.
+     */
     private static Map<Key, StrikeSpecial> buildKeyIndex(Map<ForgeArt, StrikeSpecial> behaviour) {
         Map<Key, StrikeSpecial> index = new HashMap<>();
         for (Map.Entry<ForgeArt, StrikeSpecial> entry : behaviour.entrySet()) {
             ForgeArt art = entry.getKey();
-            index.put(new Key(ForgeIds.id(art.element()), ForgeIds.id(art.form())), entry.getValue());
+            if (!art.keyedOnPairAlone()) {
+                continue;
+            }
+            Key key = new Key(ForgeIds.id(art.element()), ForgeIds.id(art.form()));
+            if (index.put(key, entry.getValue()) != null) {
+                throw new IllegalStateException("Two Arts share the element/form pair " + key
+                        + ", so the pair lookup can never reach one of them: " + art);
+            }
         }
         return Map.copyOf(index);
     }

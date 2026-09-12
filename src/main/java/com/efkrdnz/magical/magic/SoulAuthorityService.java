@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.magic;
 
+import com.efkrdnz.magical.boss.unwaking.UnwakingCapabilities;
 import com.efkrdnz.magical.entity.SoulBondEntity;
 import com.efkrdnz.magical.entity.SovereignAegisEntity;
 import com.efkrdnz.magical.registry.MagicalAttachments;
@@ -64,6 +65,7 @@ public final class SoulAuthorityService {
             return;
         }
         MagicSkillResolvedStats stats = MagicSinService.adjustStatsBeforeCast(player, state, subSkill.resolve(state.tuningFor(subSkill.id())));
+        if (UnwakingCapabilities.refuseControl(player, findTarget(player, 18.0D + stats.size() * 2.0D))) return;
         if (!MagicSinService.spendManaForSkill(player, state, stats.manaCost())) {
             player.displayClientMessage(Component.translatable("message.magical.not_enough_mana"), true);
             return;
@@ -117,6 +119,9 @@ public final class SoulAuthorityService {
             player.displayClientMessage(Component.translatable("message.magical.soul_valley_sealed"), true);
             return;
         }
+        if (UnwakingCapabilities.refuseControl(player, target)
+                || UnwakingCapabilities.refuseTravel(player, target.level().dimension())
+                || target instanceof ServerPlayer other && UnwakingCapabilities.refuseTravel(other, player.level().dimension())) return;
         int manaCost = switch (action) {
             case ACTION_SWAP -> 18;
             case ACTION_CALL -> 12;

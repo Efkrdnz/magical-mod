@@ -1,0 +1,11 @@
+{
+  "music.supreme_deity": {
+    "category": "music",
+    "sounds": [
+      {
+        "name": "magical:music/supreme_deity",
+        "stream": true
+      }
+    ]
+  }
+}

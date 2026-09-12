@@ -21,6 +21,7 @@ public final class ClientCounterPrompt {
     private static int threatId = -1;
     private static ResourceLocation incomingSkillId;
     private static ResourceLocation counterSkillId;
+    private static String incomingNameKey = "";
     private static int ticksLeft;
     private static int totalTicks;
     private static boolean wheelKeyWasDown;
@@ -31,6 +32,7 @@ public final class ClientCounterPrompt {
     public static void receive(CounterPromptPayload payload) {
         threatId = payload.threatId();
         incomingSkillId = payload.incomingSkillId();
+        incomingNameKey = payload.incomingNameKey();
         counterSkillId = payload.counterSkillId();
         totalTicks = Math.max(1, payload.windowTicks());
         ticksLeft = totalTicks;
@@ -97,13 +99,13 @@ public final class ClientCounterPrompt {
         float progress = Mth.clamp(ticksLeft / (float) Math.max(1, totalTicks), 0.0F, 1.0F);
         int width = 184;
         int left = centerX - width / 2;
-        guiGraphics.fill(left, y, left + width, y + 43, 0xE20B101C);
+        guiGraphics.fill(left, y, left + width, y + 52, 0xE20B101C);
         guiGraphics.fill(left + 4, y + 4, left + width - 4, y + 8, 0xFF000000 | incoming.color());
-        guiGraphics.fill(left + 4, y + 36, left + 4 + Math.round((width - 8) * progress), y + 39, 0xFF000000 | counterColor);
+        guiGraphics.fill(left + 4, y + 44, left + 4 + Math.round((width - 8) * progress), y + 48, 0xFF000000 | counterColor);
         guiGraphics.drawCenteredString(minecraft.font, Component.translatable("hud.magical.counter_title"), centerX, y + 12, 0xFFF8FCFF);
         String prompt = Component.translatable(
                 forced ? "hud.magical.counter_prompt_forced" : "hud.magical.counter_prompt",
-                counterName, Component.translatable(incoming.nameKey())).getString();
+                counterName, Component.translatable(incomingNameKey.isEmpty() ? incoming.nameKey() : incomingNameKey)).getString();
         guiGraphics.drawCenteredString(minecraft.font, minecraft.font.plainSubstrByWidth(prompt, width - 12), centerX, y + 23, counterColor);
         guiGraphics.drawCenteredString(minecraft.font, Component.translatable("hud.magical.counter_key"), centerX, y + 32, 0xFFE7D7A2);
     }
@@ -115,6 +117,7 @@ public final class ClientCounterPrompt {
     private static void clear() {
         threatId = -1;
         incomingSkillId = null;
+        incomingNameKey = "";
         counterSkillId = null;
         ticksLeft = 0;
         totalTicks = 0;

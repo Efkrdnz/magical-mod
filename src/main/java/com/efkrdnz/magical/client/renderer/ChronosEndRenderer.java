@@ -1,8 +1,10 @@
 package com.efkrdnz.magical.client.renderer;
 
 import com.efkrdnz.magical.client.ChronosClientEnvironment;
+import com.efkrdnz.magical.client.ClientUnwakingEncounter;
 import com.efkrdnz.magical.magic.ChronosDimensionService;
 import com.efkrdnz.magical.magic.ChronosEnvironmentService;
+import com.efkrdnz.magical.magic.ChronosSkyCutGeometry;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
@@ -51,8 +53,8 @@ public final class ChronosEndRenderer {
     // the wound hangs along -Z rotated CUT_ANCHOR_YAW about Y, raised and pulled in close
     // (both as fractions of the sky radius) so it looms enormous overhead.
     private static final float CUT_ANCHOR_YAW = 35.0F;
-    private static final float CUT_HEIGHT_RATIO = 0.16F;
-    private static final float CUT_DISTANCE_RATIO = 0.26F;
+    private static final float CUT_HEIGHT_RATIO = (float) ChronosSkyCutGeometry.HEIGHT;
+    private static final float CUT_DISTANCE_RATIO = (float) ChronosSkyCutGeometry.DISTANCE;
 
     /** Boss-driven theme shift (gold/orange -> blue/purple), applied to every vertex. */
     private static float themeShiftLevel;
@@ -69,6 +71,7 @@ public final class ChronosEndRenderer {
     private static final int[] SHIFT_SCRATCH = new int[3];
     /** Animation clock that the time-freeze effect can slow to a crawl. */
     private static double visualClock;
+    private static float encounterInversion = -1;
     private static double lastWorldTime = Double.NaN;
 
     private ChronosEndRenderer() {}
@@ -97,16 +100,22 @@ public final class ChronosEndRenderer {
         float clocksOnly = ChronosClientEnvironment.level(ChronosEnvironmentService.EFFECT_CLOCKS_ONLY, worldTime);
         paletteLevel = ChronosClientEnvironment.level(ChronosEnvironmentService.EFFECT_COLOR_PALETTE, worldTime);
         paletteId = Math.round(ChronosClientEnvironment.strength(ChronosEnvironmentService.EFFECT_COLOR_PALETTE));
+        encounterInversion = ChronosClientEnvironment.inversionMix();
 
         // Time freeze slows the shared animation clock to a near-standstill.
         double delta = Double.isNaN(lastWorldTime) ? 0.0D : Mth.clamp(worldTime - lastWorldTime, 0.0D, 5.0D);
         lastWorldTime = worldTime;
-        visualClock += delta * (1.0D - freeze * 0.985D);
+        visualClock += delta * (1.0D - freeze * (ClientUnwakingEncounter.ownsDomain() ? 1 : 0.985D));
+        // Freeze procedural geometry and the four scenery shaders on the same clock.
+        // The global render uniform is restored after this batch; combat/player time is untouched.
+        if (ClientUnwakingEncounter.ownsDomain()) com.mojang.blaze3d.systems.RenderSystem.setShaderGameTime((long) visualClock, (float) (visualClock % 1));
+        try {
         float time = (float) (visualClock % 240000.0D);
 
         setThemeShift(themeShift);
         float stormThrob = 1.0F + beat(time) * 0.35F * pulseStorm;
 
+        globalAlphaScale = 1;
         // Sky follows the camera's zone, cross-fading at the zone edge.
         Zone cameraZone = zoneAt(camera.x, camera.z);
         Style skyStyle = styleFor(cameraZone.theme(), time);
@@ -115,12 +124,17 @@ public final class ChronosEndRenderer {
         int[] skyInner = lerpColor(GILDED_SKY_INNER, skyStyle.skyInner(), blend);
         float skyRadius = Math.max(96.0F, minecraft.options.renderDistance().get() * 16.0F * 0.7F);
         paletteScenery = true;
-        renderTimeSky(poseStack, consumer, time, skyRadius, skyOuter, skyInner);
+        if (ClientUnwakingEncounter.ownsDomain()) {
+            buffer.endBatch(MagicalRenderTypes.chrono());
+            UnwakingOpenRenderer.sky(poseStack, buffer, skyRadius, encounterInversion);
+            consumer = buffer.getBuffer(MagicalRenderTypes.chrono());
+        } else renderTimeSky(poseStack, consumer, time, skyRadius, skyOuter, skyInner);
         paletteScenery = false;
         // Dying stars ride the sky shell but are colored as shapes, so they follow the
         // theme shift, the camera zone, and any palette override along with the monuments.
         int[] starMain = lerpColor(GILDED_PRIMARY, skyStyle.primary(), blend);
         int[] starHighlight = lerpColor(GILDED_HIGHLIGHT, skyStyle.highlight(), blend);
+        globalAlphaScale = ClientUnwakingEncounter.scenery();
         renderSkyStars(poseStack, consumer, time, skyRadius * 0.94F, starMain, starHighlight);
         // The sky cut, vortex, and freeze clock each have their own shader, so flush the sky shell
         // first, draw those discs on top of it in their own batches, then resume the shared chrono batch.
@@ -136,7 +150,7 @@ public final class ChronosEndRenderer {
                 renderSkyVortex(poseStack, vortexConsumer, time, skyRadius, vortex);
                 buffer.endBatch(MagicalRenderTypes.chronoVortex());
             }
-            if (freeze > 0.01F) {
+            if (freeze > 0.01F && !ClientUnwakingEncounter.ownsDomain()) {
                 VertexConsumer clockConsumer = buffer.getBuffer(MagicalRenderTypes.chronoClock());
                 renderFreezeClock(poseStack, clockConsumer, time, skyRadius, freeze);
                 buffer.endBatch(MagicalRenderTypes.chronoClock());
@@ -152,8 +166,8 @@ public final class ChronosEndRenderer {
         float vanish = Mth.clamp(cutOpen * 2.0F, 0.0F, 1.0F)
                 * (1.0F - Mth.clamp((themeShift - 0.5F) * 4.0F, 0.0F, 1.0F));
         float presence = 1.0F - vanish;
-        if (presence > 0.01F) {
-            globalAlphaScale = presence;
+        if (presence * ClientUnwakingEncounter.scenery() > 0.01F) {
+            globalAlphaScale = presence * ClientUnwakingEncounter.scenery();
             renderLastClock(poseStack, consumer, camera, time);
 
             boolean resonanceView = cameraZone.theme() == THEME_RESONANCE && cameraZone.blend() > 0.4F;
@@ -168,6 +182,9 @@ public final class ChronosEndRenderer {
         }
         buffer.endBatch(MagicalRenderTypes.chrono());
         setThemeShift(0.0F);
+        } finally {
+            if (ClientUnwakingEncounter.ownsDomain()) com.mojang.blaze3d.systems.RenderSystem.setShaderGameTime(minecraft.level.getGameTime(), event.getPartialTick().getGameTimeDeltaPartialTick(false));
+        }
     }
 
     private static void renderCell(PoseStack poseStack, VertexConsumer consumer, Vec3 camera, float time, int cellX, int cellZ, boolean riftView, float stormThrob, float clocksOnly) {
@@ -233,6 +250,7 @@ public final class ChronosEndRenderer {
      * from the camera-angles event so it applies to the actual view.
      */
     public static void applyCutShake(ViewportEvent.ComputeCameraAngles event) {
+        if (ClientUnwakingEncounter.ownsDomain()) return;
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null
                 || !minecraft.level.dimension().equals(ChronosDimensionService.CHRONOS_DIMENSION)) {
@@ -288,10 +306,10 @@ public final class ChronosEndRenderer {
         poseStack.mulPose(Axis.YP.rotationDegrees(CUT_ANCHOR_YAW));
         poseStack.translate(0.0D, skyRadius * CUT_HEIGHT_RATIO, -skyRadius * CUT_DISTANCE_RATIO);
         // Roll the whole quad so the tear runs diagonally instead of straight up and down.
-        poseStack.mulPose(Axis.ZP.rotationDegrees(35.0F));
+        poseStack.mulPose(Axis.ZP.rotation((float) ChronosSkyCutGeometry.ROLL));
         Matrix4f matrix = poseStack.last().pose();
-        float halfW = skyRadius * 0.75F;
-        float halfH = skyRadius * 0.80F;
+        float halfW = skyRadius * (float) ChronosSkyCutGeometry.HALF_WIDTH;
+        float halfH = skyRadius * (float) ChronosSkyCutGeometry.HALF_HEIGHT;
         int alpha = Math.round(255.0F * Mth.clamp(level, 0.0F, 1.0F));
         // One tall vertical quad facing the player. The shader carves the wound, the waving lips, the
         // aura, and the abyss behind it, and leaves the rest of the quad transparent; the vertex color
@@ -445,6 +463,7 @@ public final class ChronosEndRenderer {
     // --- Zones: scattered visual biomes on a coarse grid ---
 
     private static Zone zoneAt(double x, double z) {
+        if (ClientUnwakingEncounter.ownsDomain()) return Zone.DEFAULT;
         int zoneX = Mth.floor(x / ZONE_CELL);
         int zoneZ = Mth.floor(z / ZONE_CELL);
         long seed = hash(zoneX * 7349L + 13L, zoneZ * 9151L + 71L);
@@ -571,6 +590,7 @@ public final class ChronosEndRenderer {
      * so the white palettes thicken them as the palette blends in.
      */
     private static int sceneryAlpha(int base) {
+        if (encounterInversion >= 0) return Math.round(Mth.lerp(encounterInversion * paletteLevel, base, 255));
         boolean whiteScenery = paletteId == ChronosEnvironmentService.PALETTE_WHITE_BLACK
                 || paletteId == ChronosEnvironmentService.PALETTE_WHITE_GOLD;
         if (paletteLevel <= 0.0F || !whiteScenery) {
@@ -621,7 +641,7 @@ public final class ChronosEndRenderer {
 
     private static void renderLastClock(PoseStack poseStack, VertexConsumer consumer, Vec3 camera, float time) {
         poseStack.pushPose();
-        poseStack.translate(0.5D - camera.x, 140.0D - camera.y, 0.5D - camera.z);
+        poseStack.translate(0.5D - camera.x, (ClientUnwakingEncounter.ownsDomain() ? 80.0D : 140.0D) - camera.y, 0.5D - camera.z);
         poseStack.mulPose(Axis.YP.rotationDegrees(time * 0.045F));
         Matrix4f matrix = poseStack.last().pose();
 
@@ -1010,6 +1030,13 @@ public final class ChronosEndRenderer {
                     case ChronosEnvironmentService.PALETTE_WHITE_GOLD -> { tr = 255.0F * body; tg = 198.0F * body; tb = 64.0F * body; }
                     default -> { tr = 8.0F + 30.0F * lum; tg = 8.0F + 30.0F * lum; tb = 12.0F + 34.0F * lum; } // ink shapes
                 }
+            }
+            float inversion = encounterInversion;
+            if (inversion >= 0) {
+                float bright = 255 * (0.55F + 0.45F * lum), ink = 8 + 30 * lum;
+                tr = paletteScenery ? 242 * inversion : Mth.lerp(inversion, bright, ink);
+                tg = tr;
+                tb = paletteScenery ? 244 * inversion : Mth.lerp(inversion, bright, 12 + 34 * lum);
             }
             r = Mth.clamp(Math.round(Mth.lerp(paletteLevel, r, tr)), 0, 255);
             g = Mth.clamp(Math.round(Mth.lerp(paletteLevel, g, tg)), 0, 255);

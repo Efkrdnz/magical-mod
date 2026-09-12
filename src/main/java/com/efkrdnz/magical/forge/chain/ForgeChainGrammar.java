@@ -9,12 +9,22 @@ import java.util.Map;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Turns a drawn chain of recognized glyphs into a {@link ForgeRecipe}, or into the first rule it
  * breaks. The client uses it for live feedback and the server re-runs it as the authority.
  */
 public final class ForgeChainGrammar {
+
+    /**
+     * A vocabulary that refuses nothing, for the callers that have no weapon to check against.
+     *
+     * <p>The vocabulary arrives as a predicate over glyph ids rather than as the weapon itself so
+     * this class stays free of Minecraft types - which is what lets the whole grammar be pinned by
+     * a plain unit test with no bootstrap. {@code ForgeVocabulary.forWeapon} builds the real one.
+     */
+    public static final Predicate<String> ANY_GLYPH = id -> true;
 
     /** Modifier that only makes sense on a projectile form. */
     public static final String SEEKING_MODIFIER = "seeking";
@@ -26,9 +36,16 @@ public final class ForgeChainGrammar {
     }
 
     /** Validates {@code glyphs} in draw order; the first broken rule wins. */
-    public static ForgeValidation validate(List<RecognizedGlyph> glyphs) {
+    public static ForgeValidation validate(List<RecognizedGlyph> glyphs, Predicate<String> vocabulary) {
         if (glyphs.size() > ForgeRules.MAX_GLYPHS) {
             return invalid(ForgeError.BAD_PAYLOAD, ForgeRules.MAX_GLYPHS);
+        }
+        // Before any structural rule, because "this weapon cannot take that shape" is the more
+        // useful answer than "you have too many forms" about a chain that was never legal here.
+        for (int index = 0; index < glyphs.size(); index++) {
+            if (!vocabulary.test(glyphs.get(index).id())) {
+                return invalid(ForgeError.GLYPH_NOT_IN_VOCABULARY, index);
+            }
         }
         List<Integer> grades = indicesOf(glyphs, GlyphCategory.GRADE);
         ForgeValidation single = requireExactlyOne(

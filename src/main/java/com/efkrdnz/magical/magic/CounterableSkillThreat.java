@@ -16,6 +16,19 @@ public interface CounterableSkillThreat {
 
     Entity counterOwner();
 
+    default int counterTier() {
+        MagicSkillDefinition incoming = MagicContent.get(counterSkillId());
+        return incoming == null ? 0 : incoming.tier();
+    }
+
+    /** Optional display label for a boss strike that borrows a spell's attribute identity. */
+    default String counterNameKey() { return ""; }
+
+    /** Validate response-time requirements before spending resources; offering a prompt ignores aim. */
+    default boolean validateCounterResponse(ServerPlayer defender) { return true; }
+    default int minimumCounterWindowTicks() { return 3; }
+    default int counterDisplayWindowTicks(int serverWindow) { return serverWindow; }
+
     default int counterThreatId() {
         return counterEntity().getId();
     }

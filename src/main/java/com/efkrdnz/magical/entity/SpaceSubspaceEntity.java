@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.entity;
 
+import com.efkrdnz.magical.boss.unwaking.UnwakingCapabilities;
 import com.efkrdnz.magical.magic.SpaceRuleCategory;
 import com.efkrdnz.magical.magic.SpaceRuleOperation;
 import com.efkrdnz.magical.magic.SpaceTargetGroup;
@@ -400,6 +401,7 @@ public final class SpaceSubspaceEntity extends Entity {
     }
 
     private void applyTimeFlow(LivingEntity owner, Entity entity) {
+        if (UnwakingCapabilities.controlled(entity)) return;
         SpaceRuleOperation operation = operation(entityData.get(TIME_FLOW_OPERATION));
         if (operation == null || !matchesTarget(owner, entity, target(entityData.get(TIME_FLOW_TARGET)))) {
             return;
@@ -729,6 +731,7 @@ public final class SpaceSubspaceEntity extends Entity {
      * subspace stays free to move through.
      */
     private void applyBoundary(LivingEntity owner, Entity entity) {
+        if (UnwakingCapabilities.controlled(entity)) return;
         SpaceRuleOperation operation = operation(entityData.get(BOUNDARY_OPERATION));
         if (operation == null || !matchesTarget(owner, entity, target(entityData.get(BOUNDARY_TARGET)))) {
             return;
