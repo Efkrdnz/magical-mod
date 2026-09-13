@@ -108,6 +108,18 @@ class HudShaderAssetsTest {
         for (int i = 0; i < classes.size(); i++) {
             assertEquals(HudKind.WIDTH_CLASSES[i], classes.get(i), 0.0001F, "width class " + i);
         }
+
+        // The rule flash's timeline: the CPU eases the plate and the text on these fractions, the
+        // shader plays the mark on the same ones. Both sides declare them; they have to agree.
+        Matcher flash = Pattern.compile("const float FLASH_([A-Z_]+) = ([0-9.]+);").matcher(fragment);
+        Map<String, Float> timeline = new HashMap<>();
+        while (flash.find()) {
+            timeline.put(flash.group(1), Float.parseFloat(flash.group(2)));
+        }
+        assertEquals(Map.of("POP_END", HudKind.FLASH_POP_END, "MARK_END", HudKind.FLASH_MARK_END, "OUT_START", HudKind.FLASH_OUT_START), timeline,
+                "the flash timeline differs between HudKind and the shader");
+        assertTrue(HudKind.FLASH_POP_END < HudKind.FLASH_MARK_END && HudKind.FLASH_MARK_END < HudKind.FLASH_OUT_START && HudKind.FLASH_OUT_START < 1.0F,
+                "the flash phases are out of order");
     }
 
     /**

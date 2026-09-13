@@ -7,5 +7,50 @@
         "stream": true
       }
     ]
+  },
+  "rule.stamp": {
+    "category": "player",
+    "subtitle": "subtitles.magical.rule_flash",
+    "sounds": [ { "name": "magical:rule/stamp" } ]
+  },
+  "rule.raise": {
+    "category": "player",
+    "subtitle": "subtitles.magical.rule_flash",
+    "sounds": [ { "name": "magical:rule/raise" } ]
+  },
+  "rule.lower": {
+    "category": "player",
+    "subtitle": "subtitles.magical.rule_flash",
+    "sounds": [ { "name": "magical:rule/lower" } ]
+  },
+  "rule.zero": {
+    "category": "player",
+    "subtitle": "subtitles.magical.rule_flash",
+    "sounds": [ { "name": "magical:rule/zero" } ]
+  },
+  "rule.flip": {
+    "category": "player",
+    "subtitle": "subtitles.magical.rule_flash",
+    "sounds": [ { "name": "magical:rule/flip" } ]
+  },
+  "rule.lock": {
+    "category": "player",
+    "subtitle": "subtitles.magical.rule_flash",
+    "sounds": [ { "name": "magical:rule/lock" } ]
+  },
+  "rule.surge": {
+    "category": "player",
+    "subtitle": "subtitles.magical.rule_flash",
+    "sounds": [ { "name": "magical:rule/surge" } ]
+  },
+  "rule.aim": {
+    "category": "player",
+    "subtitle": "subtitles.magical.rule_flash",
+    "sounds": [ { "name": "magical:rule/aim" } ]
+  },
+  "rule.restore": {
+    "category": "player",
+    "subtitle": "subtitles.magical.rule_flash",
+    "sounds": [ { "name": "magical:rule/restore" } ]
   }
 }

@@ -21,6 +21,13 @@ public interface HudText {
         draw(text, centreX - width / 2, y, argb);
     }
 
+    /**
+     * A string scaled about its own top-left corner, which lands at (x, y) in GUI units. The two
+     * axes scale separately so a symbol can squash; keep both positive, since the text render type
+     * culls back faces and a mirrored string does not draw.
+     */
+    void drawScaled(FormattedCharSequence text, float x, float y, float scaleX, float scaleY, int argb);
+
     int draws();
 
     /** The real one: draws through the GUI's deferred text batch, after the sigil quads. */
@@ -44,6 +51,16 @@ public interface HudText {
         }
 
         @Override
+        public void drawScaled(FormattedCharSequence text, float x, float y, float scaleX, float scaleY, int argb) {
+            graphics.pose().pushPose();
+            graphics.pose().translate(x, y, 0.0F);
+            graphics.pose().scale(scaleX, scaleY, 1.0F);
+            graphics.drawString(font, text, 0.0F, 0.0F, argb, true);
+            graphics.pose().popPose();
+            draws++;
+        }
+
+        @Override
         public int draws() {
             return draws;
         }
@@ -55,6 +72,11 @@ public interface HudText {
 
         @Override
         public void draw(FormattedCharSequence text, int x, int y, int argb) {
+            draws++;
+        }
+
+        @Override
+        public void drawScaled(FormattedCharSequence text, float x, float y, float scaleX, float scaleY, int argb) {
             draws++;
         }
 

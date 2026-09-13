@@ -41,6 +41,8 @@ public final class MagicalNetwork {
                         context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToClient(FirstPersonEffectPayload.TYPE, FirstPersonEffectPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> handleClientPayload(payload)))
+                .playToClient(SpaceRuleAppliedPayload.TYPE, SpaceRuleAppliedPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToClient(CounterPromptPayload.TYPE, CounterPromptPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToClient(CounterClearPayload.TYPE, CounterClearPayload.STREAM_CODEC, (payload, context) ->
@@ -240,6 +242,11 @@ public final class MagicalNetwork {
     }
 
     public static void sendStatusSync(ServerPlayer player, StatusSyncPayload payload) {
+        PacketDistributor.sendToPlayer(player, payload);
+    }
+
+    /** Only after the rule is live on the subspace: the client draws a formula for it. */
+    public static void sendSpaceRuleApplied(ServerPlayer player, SpaceRuleAppliedPayload payload) {
         PacketDistributor.sendToPlayer(player, payload);
     }
 

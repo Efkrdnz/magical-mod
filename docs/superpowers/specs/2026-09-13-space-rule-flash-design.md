@@ -11,7 +11,7 @@ Approved 2026-09-13. The implementation plan lives with the session; this is the
    text size: `F = m·g`. The symbol `g` is drawn in the change kind's colour; the rest is white.
 3. Behind the symbol one `RULE_MARK` shader quad plays the kind's mark: rays climb, a strike draws,
    brackets close, the ring bursts, an arrow sweeps in, etc. The symbol itself moves by kind
-   (lifts, sinks, mirrors, overshoots, fades to a "0", drains back to white).
+   (lifts, sinks, turns over, overshoots, fades to a "0", drains back to white).
 4. One caption line under the plate, muted, unscaled: `Gravity · Increase · Except User`.
 5. A faint full-screen wash from the existing `fp_overlay` shader (bloom rays, vignette, glitch,
    prism ring, hex pulse, shock ring, tunnel, flash), 6-14 ticks, alpha <= 0.35.
@@ -48,7 +48,7 @@ are drawn by the shader instead.
 | RAISE | INCREASE_GRAVITY, ACCELERATE, DENSE_AIR, CRUSH_PRESSURE, WEIGH_DOWN, HASTEN_TIME, DESTABILIZE_ENTROPY, STICKY, REPEL_BOUNDARY, INTENSIFY_COLLISION (10) | lifts 3px | five rays climb through the glyph box, up-arrow above | BLOOM_RAYS 40, 12, 0.22 | two rising notes |
 | LOWER | DECREASE_GRAVITY, DECELERATE, THIN_AIR, EXPAND_PRESSURE, LIGHTEN_MASS, SLOW_TIME, STABILIZE_ENTROPY, SLIPPERY, ATTRACT_BOUNDARY (9) | sinks 3px | RAISE mirrored in y, down-arrow below | VIGNETTE 63, 12, 0.28 | two falling notes |
 | ZERO | REMOVE_GRAVITY, STOP, REMOVE_ACCELERATION, VACUUM, STASIS_TIME, DISABLE_COLLISION (6) | alpha 1 -> 0.15 while a `0` label fades in on the same spot | strike draws left to right across the glyph, then ember speckles, small ∅ badge | STATIC_GLITCH 30, 8, 0.18 | click + power-down sweep |
-| FLIP | REVERSE_GRAVITY, REVERSE_ACCELERATION, BURST_PRESSURE, WRAP_BOUNDARY, RICOCHET_COLLISION (5) | x-scale cos(t·π): 1 -> -1, stays mirrored | mirror-plane hairline at x=0 pulsing, ⇄ double arrow below | PRISM_RING 40, 12, 0.25 | reversed swell |
+| FLIP | REVERSE_GRAVITY, REVERSE_ACCELERATION, BURST_PRESSURE, WRAP_BOUNDARY, RICOCHET_COLLISION (5) | x-scale |cos(t·π)|: squashes to a hairline and grows back, landing upright (the text render type culls a mirrored glyph) | mirror-plane hairline at x=0 pulsing, ⇄ double arrow below | PRISM_RING 40, 12, 0.25 | reversed swell |
 | LOCK | CONTROL_GRAVITY, UNIFORM_MOTION, DRAG_LOCK, NORMALIZE_MASS, NORMALIZE_TIME, NORMALIZE_FRICTION, SEAL_BOUNDARY, SELECTIVE_COLLISION (8) | none | `[` `]` slide in from the quad edges to hug the glyph, faint hex lattice inside once landed | HEX_PULSE 35, 12, 0.20 | metallic latch |
 | SURGE | IMPLODE_PRESSURE, ANCHOR_MASS, CHAOTIC_MOTION (3) | scale 1 -> 1.8 -> 1.1 | shock ring expands from the glyph box, eight rays, residual pulse | SHOCK_RING 63, 14, 0.35 + shake 6 ticks 0.6 + fovKick 4 | sub boom |
 | AIM | PULL_NORTH (0), PULL_SOUTH (1), ORBIT (2), CONVERGE (3) — the number is the `variant` | none | arrow sweeps in (rotates from +90° while fading in): up / down / ¾-arc with head / four inward arrows | TUNNEL 20, 10, 0.15 | sonar ping |
@@ -179,7 +179,7 @@ via `tSlow`. Per kind (`paramB & 7`):
 plate scale `= 0.72 + 0.28 * easeOutBack(pop)` applied to the plate rect about its centre (CPU
 geometry, no pose); formula text drawn through `pose` translate/scale about the plate centre for
 the pop, then the symbol's own transform: RAISE/LOWER `dy = ∓3 * easeOut(mark)`; SURGE
-`s = 1 + 0.8*sin(mark*π) + 0.1*mark`; FLIP `sx = cos(mark*π)` about the symbol centre; ZERO symbol
+`s = 1 + 0.8*sin(mark*π) + 0.1*mark`; FLIP `sx = |cos(mark*π)|` about the symbol centre (never negative: the text render type culls a mirrored glyph); ZERO symbol
 alpha `1 - 0.85*mark`, `0` label alpha `mark`; RESTORE colour `HudPalette.lift(tint, mark)`.
 Caption alpha `0.85 * alpha`. Text is drawn after the `drawSpecial` block so it lands on the
 quads (same as `SigilRenderer`).

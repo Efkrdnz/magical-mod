@@ -1,6 +1,8 @@
 package com.efkrdnz.magical.magic;
 
 import com.efkrdnz.magical.entity.SpaceSubspaceEntity;
+import com.efkrdnz.magical.network.MagicalNetwork;
+import com.efkrdnz.magical.network.SpaceRuleAppliedPayload;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -90,8 +92,9 @@ public final class SpaceAuthorityService {
         subspace.applyRule(category, operation, targetGroup);
         state.setSkillCooldown(MagicContent.MANIPULATE_SPACE.id(), stats.cooldownTicks());
         state.sync(player);
-        player.level().playSound(null, player.blockPosition(), operation.clear() ? SoundEvents.AMETHYST_BLOCK_BREAK : SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.55F, operation.clear() ? 0.75F : 1.35F);
-        player.displayClientMessage(Component.translatable("message.magical.space_rule_applied", Component.translatable(category.translationKey()), Component.translatable(operation.translationKey())), true);
+        // Bystanders keep the chime; the caster hears the flash's own cue instead.
+        player.level().playSound(player, player.blockPosition(), operation.clear() ? SoundEvents.AMETHYST_BLOCK_BREAK : SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.55F, operation.clear() ? 0.75F : 1.35F);
+        MagicalNetwork.sendSpaceRuleApplied(player, new SpaceRuleAppliedPayload(category.ordinal(), operation.ordinal(), targetGroup.ordinal()));
     }
 
     public static SpaceSubspaceEntity activeSubspace(ServerPlayer player, PlayerMagicState state) {

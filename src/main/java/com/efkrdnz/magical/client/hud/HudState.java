@@ -217,6 +217,7 @@ public final class HudState {
             }
             long now = minecraft.level.getGameTime();
             HudAnnouncer.tick(now);
+            RuleFlash.tick(now);
             noteFinishedCooldowns(now);
             if (dirty || environmentChanged(minecraft) || stateChanged()) {
                 rebuild(minecraft, now);
@@ -237,6 +238,7 @@ public final class HudState {
         statusVersion = -1;
         announcerVersion = -1;
         HudAnnouncer.reset();
+        RuleFlash.reset();
         sinVisibleMask = 0;
         chargeVisible = false;
         for (int i = 0; i < SINS.length; i++) {

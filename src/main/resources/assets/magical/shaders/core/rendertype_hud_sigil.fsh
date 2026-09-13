@@ -35,10 +35,18 @@ const int CHIP = 6;
 const int PLATE = 7;
 const int LINE = 8;
 const int ANNOUNCE = 9;
+const int RULE_MARK = 10;
 
 // Where a ring's outer edge sits, as a fraction of the quad's half-size. The margin outside it is
 // room for the hot head and the ready flash. HudBatch sizes ring quads by the same constant.
 const float RING_OUTER = 0.88;
+
+// The rule flash's timeline, as fractions of its lifetime; HudKind declares the same three and a
+// test keeps them equal. The plate pops in until POP_END, the mark plays until MARK_END, and
+// everything dissolves from OUT_START.
+const float FLASH_POP_END = 0.10;
+const float FLASH_MARK_END = 0.28;
+const float FLASH_OUT_START = 0.72;
 
 // Ring width classes, as fractions of the quad's half-size (paramB & 7 for RING_METER).
 float widthClass(int c) {
@@ -98,6 +106,129 @@ vec2 rotate(vec2 v, float a) {
     float c = cos(a);
     float s = sin(a);
     return vec2(c * v.x - s * v.y, s * v.x + c * v.y);
+}
+
+// ---- the rule flash's marks: strokes built from segments -------------------------------------
+
+float seg(vec2 p, vec2 a, vec2 b, float w) {
+    return strokeAA(sdSegment(p, a, b), w);
+}
+
+// A stem from a to b with a two-stroke head at b, `h` long.
+float arrow(vec2 p, vec2 a, vec2 b, float w, float h) {
+    vec2 d = normalize(b - a);
+    vec2 n = vec2(-d.y, d.x);
+    float s = seg(p, a, b, w);
+    s = max(s, seg(p, b, b - d * h + n * h, w));
+    return max(s, seg(p, b, b - d * h - n * h, w));
+}
+
+// A square bracket standing at x, its serifs pointing `dir` (+1 right, -1 left), gh+0.12 tall.
+float bracket(vec2 p, float x, float dir, float gh, float w) {
+    float top = -gh - 0.12;
+    float bottom = gh + 0.12;
+    float s = seg(p, vec2(x, top), vec2(x, bottom), w);
+    s = max(s, seg(p, vec2(x, top), vec2(x + dir * 0.12, top), w));
+    return max(s, seg(p, vec2(x, bottom), vec2(x + dir * 0.12, bottom), w));
+}
+
+// The hex lattice of the first-person HEX_PULSE overlay, at the caller's scale.
+float hexLattice(vec2 hp) {
+    vec2 rr = vec2(1.0, 1.7320508);
+    vec2 hh = rr * 0.5;
+    vec2 ca = mod(hp, rr) - hh;
+    vec2 cb = mod(hp - hh, rr) - hh;
+    vec2 gv = dot(ca, ca) < dot(cb, cb) ? ca : cb;
+    float e = 0.5 - max(dot(abs(gv), normalize(vec2(1.0, 1.7320508))), abs(gv.x));
+    return 1.0 - smoothstep(0.0, 0.06, e);
+}
+
+// The mark behind the changed symbol of a rule flash. The quad is centred on the symbol, forty
+// GUI px wide; the symbol's box is gw half-wide (from count) and gh half-tall. Every kind plays
+// on `mk`, the mark's own window of the timeline, and erodes on `outp`.
+void ruleMark(int change, int variant, float gw, float mk, float outp, vec2 p, float r, float seed, float tSlow,
+        inout float stroke, inout float halo) {
+    float gh = 0.4;
+    float w = 0.035;
+    float box = sdBox(p, vec2(gw, gh));
+    float inBox = step(box, 0.0);
+    if (change == 0 || change == 1) {
+        // RAISE / LOWER: rays climb (or fall) through the symbol, an arrow points the way.
+        vec2 q = change == 1 ? vec2(p.x, -p.y) : p;
+        float reach = mix(gh, -1.0, mk);
+        // Thin and dim through the glyph box, so the glyph drawn over them still reads.
+        for (int i = 0; i < 5; i++) {
+            float fi = float(i);
+            float x = mix(-gw, gw, (fi + 0.5) / 5.0) + 0.06 * (magicHash(seed * 7.0 + fi) - 0.5);
+            float top = reach + 0.25 * magicHash(fi + seed);
+            stroke += seg(q, vec2(x, gh + 0.05), vec2(x, top), 0.016) * mix(0.55, 0.3, inBox);
+        }
+        stroke += arrow(q, vec2(0.0, -gh - 0.2), vec2(0.0, -gh - 0.62), w, 0.12) * mk;
+        // An outline glow along the box's edge, not a fill over the glyph.
+        halo += smoothstep(0.3, 0.0, abs(box)) * mk * 0.4;
+    } else if (change == 2) {
+        // ZERO: a strike draws across the symbol, then it burns, and a null badge stamps beside it.
+        float strike = strokeAA(p.y - 0.02 * p.x, 0.045) * step(p.x, mix(-gw - 0.15, gw + 0.15, mk)) * step(-gw - 0.15, p.x);
+        stroke += strike;
+        halo += step(0.6, mk) * step(0.88, nz(Sampler0, p * 3.0 + seed * 3.0)) * inBox * 1.2;
+        vec2 c = vec2(gw + 0.32, -gh - 0.22);
+        float badge = strokeAA(length(p - c) - 0.11, 0.028) + seg(p, c + vec2(-0.14, 0.14), c + vec2(0.14, -0.14), 0.028);
+        stroke += badge * smoothstep(0.5, 1.0, mk);
+    } else if (change == 3) {
+        // FLIP: a mirror plane flares through the symbol, a two-way arrow sits under it.
+        halo += strokeAA(p.x, 0.03) * step(abs(p.y), gh + 0.15) * sin(mk * MAGIC_PI) * 1.5;
+        float y = gh + 0.32;
+        stroke += (arrow(p, vec2(-0.05, y - 0.06), vec2(-gw - 0.1, y - 0.06), w, 0.1)
+                + arrow(p, vec2(0.05, y + 0.06), vec2(gw + 0.1, y + 0.06), w, 0.1)) * mk;
+    } else if (change == 4) {
+        // LOCK: brackets slide in from the edges and a lattice settles over the symbol.
+        float x = mix(1.0, gw + 0.18, easeInOut(mk));
+        stroke += bracket(p, -x, 1.0, gh, w) + bracket(p, x, -1.0, gh, w);
+        if (mk >= 0.999) {
+            stroke += hexLattice(p * 5.0) * inBox * 0.25;
+        }
+    } else if (change == 5) {
+        // SURGE: a shock ring bursts out of the symbol's box behind rays, then a slow pulse remains.
+        float ring = exp(-pow((r - mix(gw, 1.3, mk)) / 0.08, 2.0)) * (1.0 - mk * 0.6);
+        float rays = pow(abs(sin(atan(p.y, p.x) * 4.0)), 12.0) * (1.0 - r) * (1.0 - mk);
+        halo += ring * 1.4 + rays + (1.0 - r) * 0.25 * (0.5 + 0.5 * sin(tSlow * 2.0)) * mk;
+    } else if (change == 6) {
+        // AIM: the direction sweeps in - north, south, round, or inward from all four sides.
+        float ease = easeInOut(mk);
+        vec2 q = rotate(p, (1.0 - ease) * MAGIC_PI * 0.5);
+        float mark = 0.0;
+        if (variant == 0) {
+            mark = arrow(q, vec2(0.0, -gh - 0.15), vec2(0.0, -gh - 0.6), w, 0.12);
+        } else if (variant == 1) {
+            mark = arrow(q, vec2(0.0, gh + 0.15), vec2(0.0, gh + 0.6), w, 0.12);
+        } else if (variant == 2) {
+            float ang = angle01(q);
+            mark = band(r, 0.85, 0.06) * step(ang, 0.75) * step(0.05, ang);
+            vec2 tip = vec2(-0.82, 0.0);
+            mark = max(mark, seg(q, tip, tip + vec2(-0.11, 0.13), w));
+            mark = max(mark, seg(q, tip, tip + vec2(0.11, 0.13), w));
+        } else {
+            mark = arrow(foldAngle(q, 4.0), vec2(0.88, 0.0), vec2(0.55, 0.0), w, 0.1);
+        }
+        stroke += mark * mk;
+    } else {
+        // RESTORE: a ring clears outward and a return badge stamps beside the symbol.
+        float ring = exp(-pow((r - mix(gw, 1.2, mk)) / 0.06, 2.0)) * (1.0 - mk);
+        halo += ring * 1.2 + (1.0 - mk) * 0.4 * (1.0 - smoothstep(0.0, 0.3, max(box, 0.0)));
+        vec2 c = vec2(gw + 0.32, -gh - 0.22);
+        vec2 d = p - c;
+        float arc = strokeAA(length(d) - 0.13, 0.028) * step(0.15, angle01(d));
+        vec2 top = c + vec2(0.0, -0.13);
+        float head = seg(p, top, top + vec2(-0.09, -0.08), w) + seg(p, top, top + vec2(-0.09, 0.08), w);
+        stroke += (arc + head) * smoothstep(0.4, 1.0, mk);
+    }
+    if (outp > 0.0) {
+        // Erode into glow, the way an announcement dissolves; what goes flares as it goes.
+        float keep = step(outp * 1.05, nz(Sampler0, p * 1.5 + seed * 5.0));
+        float gone = (1.0 - keep) * stroke;
+        stroke *= keep;
+        halo = (halo + gone * 2.0) * (1.0 - outp);
+    }
 }
 
 // Premultiplied output. `body` is painted OVER with `coverage`; `glowCol * glow` is ADDED.
@@ -347,6 +478,11 @@ void main() {
         float core = 1.0 - smoothstep(0.35, 1.0, abs(p.y));
         stroke = core * ends * drawn * dash;
         halo = core * ends * drawn * 0.25;
+    } else if (kind == RULE_MARK) {
+        bool still = (mode & 2) != 0;
+        float mk = still ? 1.0 : clamp((phase - FLASH_POP_END) / (FLASH_MARK_END - FLASH_POP_END), 0.0, 1.0);
+        float outp = clamp((phase - FLASH_OUT_START) / (1.0 - FLASH_OUT_START), 0.0, 1.0);
+        ruleMark(paramB & 7, paramB >> 3, max(float(count) / 40.0, 0.12), mk, outp, p, r, seed, tSlow, stroke, halo);
     }
 
     vec3 hot = hotOf(tint);

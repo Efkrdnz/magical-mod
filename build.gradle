@@ -60,20 +60,24 @@ neoForge {
 
             // Dev conveniences, both off unless asked for on the command line:
             //   ./gradlew runClient -PquickPlay="New World"   joins that world straight from launch
-            //   ./gradlew runClient -PautoScreenshot=200      saves a screenshot 200 ticks after joining
+            //   ./gradlew runClient -PautoScreenshot=200      saves a screenshot 200 ticks after joining (a comma list: one at each)
             if (project.hasProperty('quickPlay')) {
                 programArguments.addAll('--quickPlaySingleplayer', project.property('quickPlay').toString())
             }
             if (project.hasProperty('autoScreenshot')) {
                 systemProperty 'magical.autoScreenshot', project.property('autoScreenshot').toString()
             }
-            //   ./gradlew runClient -PautoCommands="magical unlockall;magical hud corruption 60"   run these 40 ticks in
+            //   ./gradlew runClient -PautoCommands="magical unlockall;120:magical hud corruption 60"   run these 40 ticks in, or at the tick a prefix names
             if (project.hasProperty('autoCommands')) {
                 systemProperty 'magical.autoCommands', project.property('autoCommands').toString()
             }
             //   ./gradlew runClient -PautoScreenshot=300 -PautoHold=cast_slot_2   hold that key for the last 60 ticks before the capture
             if (project.hasProperty('autoHold')) {
                 systemProperty 'magical.autoHold', project.property('autoHold').toString()
+            }
+            //   ./gradlew runClient -PautoScreenshot=52,112 -PautoExit   the game closes itself 20 ticks after the last capture
+            if (project.hasProperty('autoExit')) {
+                systemProperty 'magical.autoExit', 'true'
             }
         }
 

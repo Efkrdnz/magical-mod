@@ -45,6 +45,8 @@ import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 public final class HudLayers {
     public static final ResourceLocation FIRST_PERSON = id("first_person");
     public static final ResourceLocation SIGIL = id("sigil");
+    /** The formula that pops when a space rule lands; over the sigil, under the dials that close as it fires. */
+    public static final ResourceLocation RULE_FLASH = id("rule_flash");
     public static final ResourceLocation ENCOUNTER = id("encounter");
     public static final ResourceLocation SELECTOR = id("selector");
 
@@ -58,7 +60,8 @@ public final class HudLayers {
     public static void registerGuiLayers(RegisterGuiLayersEvent event) {
         event.registerAbove(VanillaGuiLayers.CAMERA_OVERLAYS, FIRST_PERSON, FirstPersonEffects::renderLayer);
         event.registerAbove(VanillaGuiLayers.BOSS_OVERLAY, SIGIL, gated("magical_hud_sigil", HudLayers::renderSigil));
-        event.registerAbove(SIGIL, ENCOUNTER, gated("magical_hud_encounter", HudLayers::renderEncounter));
+        event.registerAbove(SIGIL, RULE_FLASH, gated("magical_hud_rule_flash", RuleFlashRenderer::render));
+        event.registerAbove(RULE_FLASH, ENCOUNTER, gated("magical_hud_encounter", HudLayers::renderEncounter));
         event.registerAbove(ENCOUNTER, SELECTOR, gated("magical_hud_selector", HudLayers::renderSelector));
     }
 
@@ -86,11 +89,13 @@ public final class HudLayers {
         @SubscribeEvent
         public static void onLoggingIn(ClientPlayerNetworkEvent.LoggingIn event) {
             HudAnnouncer.reset();
+            RuleFlash.reset();
         }
 
         @SubscribeEvent
         public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
             HudAnnouncer.reset();
+            RuleFlash.reset();
             HudState.markDirty();
         }
     }

@@ -24,10 +24,25 @@ public enum HudKind {
     /** A hairline: count = dashes (0 solid), phase = drawn fraction. */
     LINE(8),
     /** An announcement emblem with the ink-on / dissolve lifecycle in phase. */
-    ANNOUNCE(9);
+    ANNOUNCE(9),
+    /**
+     * The rule flash's mark behind the changed symbol: count = the symbol's width at twice the
+     * text size in GUI px (the quad is forty wide), paramB = SpaceRuleChange id | aim variant << 3,
+     * phase = the flash's lifetime fraction, MODE_ALT = reduced motion (marks drawn settled).
+     */
+    RULE_MARK(10);
 
     /** Where a ring's outer edge sits, as a fraction of its quad's half-size. Mirrors the shader. */
     public static final float RING_OUTER = 0.88F;
+
+    /**
+     * The rule flash's timeline as fractions of its lifetime: the plate pops in until POP_END, the
+     * mark plays until MARK_END, everything dissolves from OUT_START. The shader declares the same
+     * three numbers; {@code HudShaderAssetsTest} keeps them equal.
+     */
+    public static final float FLASH_POP_END = 0.10F;
+    public static final float FLASH_MARK_END = 0.28F;
+    public static final float FLASH_OUT_START = 0.72F;
 
     /** Ring widths the shader can draw, as fractions of the quad's half-size, by class index. */
     public static final float[] WIDTH_CLASSES = {0.03F, 0.06F, 0.10F, 0.16F, 0.20F, 0.26F, 0.32F, 0.40F};

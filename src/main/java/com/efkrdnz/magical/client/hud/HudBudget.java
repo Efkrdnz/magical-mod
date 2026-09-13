@@ -9,6 +9,10 @@ public final class HudBudget {
     public static final int MAX_QUADS = 120;
     /** The steady state: rings, the core, four cards with spokes and tags, the caption plate. */
     public static final int IDLE_QUADS = 24;
+    /** The rule flash while it is live: its plate, the mark and the caption plate, with headroom. */
+    public static final int FLASH_QUADS = 6;
+    /** The rule flash's strings: the formula in three pieces, a zero over a struck symbol, the caption. */
+    public static final int FLASH_TEXT_DRAWS = 5;
 
     private HudBudget() {}
 }

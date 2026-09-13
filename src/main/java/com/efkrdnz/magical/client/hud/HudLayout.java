@@ -222,6 +222,16 @@ public final class HudLayout {
     public static final int UNWAKING_CUE_DY = 46;
     public static final int UNWAKING_CUE_W = 240;
 
+    /**
+     * The rule flash: a formula plate this far above the crosshair, two text rows tall for the
+     * formula at twice the text size, with a caption row under it. Like a totem pop it is the same
+     * size at every HUD scale and ignores the anchor.
+     */
+    public static final int RULE_FLASH_DY = 52;
+    public static final int RULE_FLASH_PAD = 5;
+    public static final int RULE_FLASH_MAX_W = 220;
+    public static final int RULE_FLASH_CAPTION_GAP = 3;
+
     private final int guiWidth;
     private final int guiHeight;
     private final HudAnchor anchor;
@@ -524,6 +534,19 @@ public final class HudLayout {
         return new Rect("unwaking cue", centreX() - UNWAKING_CUE_W / 2, centreY() + UNWAKING_CUE_DY, UNWAKING_CUE_W, TEXT_H);
     }
 
+    /** The rule flash's plate, hugging a formula {@code contentWidth} wide (already at its drawn size). */
+    public Rect ruleFlashPlate(int contentWidth) {
+        int w = Math.min(RULE_FLASH_MAX_W, Math.max(0, contentWidth)) + 2 * RULE_FLASH_PAD;
+        int h = 2 * TEXT_H + 2 * RULE_FLASH_PAD;
+        return new Rect("rule flash plate", centreX() - w / 2, centreY() - RULE_FLASH_DY - h / 2, w, h);
+    }
+
+    /** The caption under the flash's plate: category, operation and target in one muted row. */
+    public Rect ruleFlashCaption() {
+        Rect plate = ruleFlashPlate(RULE_FLASH_MAX_W);
+        return new Rect("rule flash caption", centreX() - RULE_FLASH_MAX_W / 2, plate.bottom() + RULE_FLASH_CAPTION_GAP, RULE_FLASH_MAX_W, TEXT_H);
+    }
+
     // ---- for the overlap sweep ------------------------------------------------------------------
 
     /** Every shape the totem draws in the given state, for {@code HudLayoutTest}. */
@@ -563,6 +586,8 @@ public final class HudLayout {
             shapes.add(statusChip(i, statusChips));
         }
         shapes.add(unwakingCue());
+        shapes.add(ruleFlashPlate(RULE_FLASH_MAX_W));
+        shapes.add(ruleFlashCaption());
         return shapes;
     }
 }

@@ -19,13 +19,15 @@ class HudLangKeysTest {
 
     private static final List<String> RETIRED = List.of(
             "hud.magical.mana", "hud.magical.mana_vault", "hud.magical.barrier", "hud.magical.proficiency",
-            "hud.magical.wheel", "hud.magical.active", "hud.magical.no_preset");
+            "hud.magical.wheel", "hud.magical.active", "hud.magical.no_preset",
+            "message.magical.space_rule_applied");
 
     private static final List<String> PRESENT = List.of(
             "hud.magical.gauge.pride", "hud.magical.gauge.greed", "hud.magical.gauge.envy", "hud.magical.gauge.gluttony",
             "hud.magical.gauge.wrath", "hud.magical.gauge.sloth", "hud.magical.gauge.sloth_rested", "hud.magical.gauge.charge", "hud.magical.gauge.vault",
             "hud.magical.level_chip", "hud.magical.pool", "hud.magical.vault_chip",
-            "hud.magical.arcane_line", "hud.magical.corruption_next", "hud.magical.corruption_line", "hud.magical.vessel_line", "hud.magical.debug");
+            "hud.magical.arcane_line", "hud.magical.corruption_next", "hud.magical.corruption_line", "hud.magical.vessel_line", "hud.magical.debug",
+            "hud.magical.rule.caption");
 
     @Test
     void everyAnnouncementKindHasALine() throws IOException {

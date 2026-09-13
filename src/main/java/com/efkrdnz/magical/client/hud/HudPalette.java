@@ -1,7 +1,9 @@
 package com.efkrdnz.magical.client.hud;
 
 import com.efkrdnz.magical.client.screen.MagicalGuiStyle;
+import com.efkrdnz.magical.magic.AuthorityContent;
 import com.efkrdnz.magical.magic.MagicSchool;
+import com.efkrdnz.magical.magic.SpaceRuleChange;
 import com.efkrdnz.magical.magic.status.MagicStatus;
 import com.efkrdnz.magical.magic.visual.Palette;
 import com.efkrdnz.magical.magic.visual.SchoolMaterial;
@@ -79,6 +81,24 @@ public final class HudPalette {
             case DAZZLED -> SchoolMaterial.LIGHT.variantColor(1);
             case BRANDED, INFECTED, GAZE -> DANGER;
             default -> TEXT_MUTED;
+        };
+    }
+
+    /**
+     * The rule flash's tint for a kind of change: warm for more, cool for less, blood for gone,
+     * violet for reversed, steel for pinned, hot for a surge, green for a heading, and the
+     * Authority of Space's own light when a rule is cleared.
+     */
+    public static int change(SpaceRuleChange change) {
+        return switch (change) {
+            case RAISE -> 0xFFC76B;
+            case LOWER -> 0x5EC8FF;
+            case ZERO -> 0xFF5D6C;
+            case FLIP -> 0xC77DFF;
+            case LOCK -> 0x9FB6D9;
+            case SURGE -> 0xFF8A5B;
+            case AIM -> 0x7CFFB2;
+            case RESTORE -> AuthorityContent.AUTHORITY_OF_SPACE.color() & 0xFFFFFF;
         };
     }
 

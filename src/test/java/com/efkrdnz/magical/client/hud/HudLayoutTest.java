@@ -195,10 +195,36 @@ class HudLayoutTest {
         }
     }
 
+    /** The rule flash sits over the crosshair like a totem pop: fixed size, every anchor, never on the crosshair itself. */
+    @Test
+    void theRuleFlashSitsAboveTheCrosshairAtEveryScaleAndAnchor() {
+        for (HudAnchor anchor : HudAnchor.values()) {
+            for (float scale : SCALES) {
+                HudLayout layout = HudLayout.of(W, H, anchor, scale);
+                Rect plate = layout.ruleFlashPlate(HudLayout.RULE_FLASH_MAX_W);
+                Rect caption = layout.ruleFlashCaption();
+                String state = where(anchor, scale);
+                assertTrue(SCREEN.contains(plate), state + ": the flash plate leaves the screen: " + describe(plate));
+                assertTrue(SCREEN.contains(caption), state + ": the flash caption leaves the screen: " + describe(caption));
+                assertTrue(caption.bottom() <= layout.centreY() - 8, state + ": the caption crowds the crosshair: " + describe(caption));
+                assertTrue(plate.bottom() <= caption.y(), state + ": the caption sits inside the plate");
+                assertFalse(plate.overlaps(BOSS_BAR), state + ": the flash sits on the boss bar: " + describe(plate));
+                assertEquals(2 * HudLayout.TEXT_H + 2 * HudLayout.RULE_FLASH_PAD, plate.h(), state + ": the plate scales with the HUD");
+                assertEquals(HudLayout.of(W, H, HudAnchor.TOP_LEFT, 1.0F).ruleFlashPlate(HudLayout.RULE_FLASH_MAX_W), plate,
+                        state + ": the flash moved with the anchor or the scale");
+                Rect narrow = layout.ruleFlashPlate(60);
+                assertEquals(plate.centreX(), narrow.centreX(), state + ": a narrow formula is off centre");
+                assertTrue(narrow.w() < plate.w(), state + ": a narrow formula gets the widest plate");
+                assertTrue(plate.w() <= HudLayout.RULE_FLASH_MAX_W + 2 * HudLayout.RULE_FLASH_PAD, state + ": the plate ignores its cap");
+            }
+        }
+    }
+
     @Test
     void textBoxesNeverScale() {
         for (float scale : SCALES) {
             HudLayout layout = HudLayout.of(W, H, HudAnchor.TOP_LEFT, scale);
+            assertEquals(HudLayout.TEXT_H, layout.ruleFlashCaption().h());
             assertEquals(HudLayout.TEXT_H, layout.caption().h());
             assertEquals(HudLayout.TEXT_H, layout.captionLine(HudLayout.CAPTIONS_MAX - 1).h());
             assertEquals(HudLayout.TEXT_H, layout.keyTag(0, KEY_TEXT_W).h());

@@ -18,7 +18,11 @@ import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.MagicSkillTuning;
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.SpaceRuleCategory;
+import com.efkrdnz.magical.magic.SpaceRuleOperation;
+import com.efkrdnz.magical.magic.SpaceTargetGroup;
 import com.efkrdnz.magical.network.MagicalNetwork;
+import com.efkrdnz.magical.network.SpaceRuleAppliedPayload;
 import com.efkrdnz.magical.tower.DungeonTowerService;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -245,6 +249,13 @@ public final class MagicalCommands {
                     // Forces the states the HUD draws, so every ring, satellite and chip can be seen without
                     // playing the hours that earn them. Each ends in a sync so the client sees it at once.
                     .then(Commands.literal("hud")
+                            // The rule flash without a subspace: only the packet a landed rule sends, no state touched.
+                            .then(Commands.literal("rule")
+                                    .then(Commands.argument("category", StringArgumentType.word())
+                                            .then(Commands.argument("operation", StringArgumentType.word())
+                                                    .executes(context -> withPlayer(context.getSource(), player -> ruleFlash(context, player, SpaceTargetGroup.EVERYTHING_EXCEPT_USER.name())))
+                                                    .then(Commands.argument("target", StringArgumentType.word())
+                                                            .executes(context -> withPlayer(context.getSource(), player -> ruleFlash(context, player, StringArgumentType.getString(context, "target"))))))))
                             .then(Commands.literal("sin")
                                     .then(Commands.argument("sin", StringArgumentType.word())
                                             .then(Commands.argument("amount", IntegerArgumentType.integer(0))
@@ -767,6 +778,50 @@ public final class MagicalCommands {
         }
         com.efkrdnz.magical.magic.status.MagicStatusService.apply(player, status, IntegerArgumentType.getInteger(context, "ticks"), amplifier, 0.0F, MagicContent.STARTER_SKILL, player);
         return 1;
+    }
+
+    /** {@code hud rule}: names matched against the enums case-insensitively, the operation checked against its category. */
+    private static int ruleFlash(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context, ServerPlayer player, String targetName) {
+        SpaceRuleCategory category = byName(SpaceRuleCategory.values(), StringArgumentType.getString(context, "category"));
+        if (category == null) {
+            context.getSource().sendFailure(Component.literal("category: " + names(SpaceRuleCategory.values())));
+            return 0;
+        }
+        SpaceRuleOperation operation = byName(SpaceRuleOperation.values(), StringArgumentType.getString(context, "operation"));
+        if (operation == null || operation.category() != category) {
+            StringBuilder valid = new StringBuilder();
+            for (SpaceRuleOperation candidate : SpaceRuleOperation.values()) {
+                if (candidate.category() == category) {
+                    valid.append(valid.isEmpty() ? "" : ", ").append(candidate.name().toLowerCase(java.util.Locale.ROOT));
+                }
+            }
+            context.getSource().sendFailure(Component.literal(category.name().toLowerCase(java.util.Locale.ROOT) + " operation: " + valid));
+            return 0;
+        }
+        SpaceTargetGroup target = byName(SpaceTargetGroup.values(), targetName);
+        if (target == null) {
+            context.getSource().sendFailure(Component.literal("target: " + names(SpaceTargetGroup.values())));
+            return 0;
+        }
+        MagicalNetwork.sendSpaceRuleApplied(player, new SpaceRuleAppliedPayload(category.ordinal(), operation.ordinal(), target.ordinal()));
+        return 1;
+    }
+
+    private static <E extends Enum<E>> E byName(E[] values, String name) {
+        for (E value : values) {
+            if (value.name().equalsIgnoreCase(name)) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private static String names(Enum<?>[] values) {
+        StringBuilder out = new StringBuilder();
+        for (Enum<?> value : values) {
+            out.append(out.isEmpty() ? "" : ", ").append(value.name().toLowerCase(java.util.Locale.ROOT));
+        }
+        return out.toString();
     }
 
 }
