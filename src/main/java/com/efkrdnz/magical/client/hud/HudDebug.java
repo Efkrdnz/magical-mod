@@ -37,6 +37,9 @@ import org.slf4j.Logger;
  */
 @EventBusSubscriber(modid = MagicalMod.MODID, value = Dist.CLIENT)
 public final class HudDebug {
+    /** A screen the auto-closer must leave alone, because a capture is of it. */
+    public interface Captured {}
+
     private record Command(int tick, String text) {}
 
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -119,7 +122,7 @@ public final class HudDebug {
         if (COMMANDS.length > 0 && ticksInWorld >= CLOSE_SCREEN_AT_TICK && ticksInWorld % 10 == 0 && !allTaken) {
             if (minecraft.screen instanceof AbstractContainerScreen<?>) {
                 minecraft.player.closeContainer();
-            } else if (minecraft.screen != null) {
+            } else if (minecraft.screen != null && !(minecraft.screen instanceof Captured)) {
                 minecraft.setScreen(null);
             }
         }

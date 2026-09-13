@@ -14,6 +14,7 @@ import com.efkrdnz.magical.entity.ascendant.AscendantTier;
 import com.efkrdnz.magical.magic.AuthorityContent;
 import com.efkrdnz.magical.magic.MagicCodexService;
 import com.efkrdnz.magical.magic.MagicContent;
+import com.efkrdnz.magical.magic.MagicFusionService;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.MagicSkillTuning;
@@ -22,8 +23,10 @@ import com.efkrdnz.magical.magic.SpaceRuleCategory;
 import com.efkrdnz.magical.magic.SpaceRuleOperation;
 import com.efkrdnz.magical.magic.SpaceTargetGroup;
 import com.efkrdnz.magical.network.MagicalNetwork;
+import com.efkrdnz.magical.network.OpenSpellCreatorPayload;
 import com.efkrdnz.magical.network.SpaceRuleAppliedPayload;
 import com.efkrdnz.magical.tower.DungeonTowerService;
+import java.util.Optional;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -160,6 +163,41 @@ public final class MagicalCommands {
                                 MagicCodexService.open(player);
                                 return 1;
                             })))
+                    // A fresh magic state, so a capture or a test run starts from nothing without deleting the save.
+                    .then(Commands.literal("reset")
+                            .executes(context -> withPlayer(context.getSource(), player -> {
+                                player.setData(MagicalAttachments.MAGIC_STATE, new PlayerMagicState());
+                                player.getData(MagicalAttachments.MAGIC_STATE).sync(player);
+                                return 1;
+                            })))
+                    // The creator screen, optionally straight onto a tab or with a pair preloaded (for captures).
+                    .then(Commands.literal("creator")
+                            .executes(context -> withPlayer(context.getSource(), player -> openCreator(player, OpenSpellCreatorPayload.TAB_CREATE, null, null)))
+                            .then(Commands.literal("formulas")
+                                    .executes(context -> withPlayer(context.getSource(), player -> openCreator(player, OpenSpellCreatorPayload.TAB_FORMULAS, null, null))))
+                            .then(Commands.literal("create")
+                                    .executes(context -> withPlayer(context.getSource(), player -> openCreator(player, OpenSpellCreatorPayload.TAB_CREATE, null, null)))
+                                    .then(Commands.argument("first", StringArgumentType.word())
+                                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(MagicContent.commandIds(), builder))
+                                            .executes(context -> withPlayer(context.getSource(), player -> openCreator(player, OpenSpellCreatorPayload.TAB_CREATE,
+                                                    parseMagicId(StringArgumentType.getString(context, "first")), null)))
+                                            .then(Commands.argument("second", StringArgumentType.word())
+                                                    .suggests((context, builder) -> SharedSuggestionProvider.suggest(MagicContent.commandIds(), builder))
+                                                    .executes(context -> withPlayer(context.getSource(), player -> openCreator(player, OpenSpellCreatorPayload.TAB_CREATE,
+                                                            parseMagicId(StringArgumentType.getString(context, "first")),
+                                                            parseMagicId(StringArgumentType.getString(context, "second")))))))))
+                    // Fuse from the console: the same service call the Create button reaches.
+                    .then(Commands.literal("create")
+                            .then(Commands.argument("first", StringArgumentType.word())
+                                    .suggests((context, builder) -> SharedSuggestionProvider.suggest(MagicContent.commandIds(), builder))
+                                    .then(Commands.argument("second", StringArgumentType.word())
+                                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(MagicContent.commandIds(), builder))
+                                            .executes(context -> withPlayer(context.getSource(), player -> {
+                                                PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+                                                return MagicFusionService.create(player, data,
+                                                        parseMagicId(StringArgumentType.getString(context, "first")),
+                                                        parseMagicId(StringArgumentType.getString(context, "second"))) ? 1 : 0;
+                                            })))))
                     .then(Commands.literal("circle")
                             .executes(context -> withPlayer(context.getSource(), player -> {
                                 Vec3 look = player.getLookAngle().normalize();
@@ -757,6 +795,11 @@ public final class MagicalCommands {
             data.setBarrier(data.maxBarrier());
             data.clearCooldowns();
             data.sync(player);
+        }
+
+        private static int openCreator(ServerPlayer player, int tab, ResourceLocation first, ResourceLocation second) {
+            MagicalNetwork.sendOpenSpellCreator(player, new OpenSpellCreatorPayload(tab, Optional.ofNullable(first), Optional.ofNullable(second)));
+            return 1;
         }
 
         private static ResourceLocation parseClassId(String raw) {

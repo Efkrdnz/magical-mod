@@ -8,6 +8,7 @@ import com.efkrdnz.magical.magic.MagicBarrageService;
 import com.efkrdnz.magical.magic.MagicCounterService;
 import com.efkrdnz.magical.magic.MagicCastingService;
 import com.efkrdnz.magical.magic.MagicCodexService;
+import com.efkrdnz.magical.magic.MagicFusionService;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.SpaceAuthorityService;
@@ -43,6 +44,14 @@ public final class MagicalNetwork {
                         context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToClient(SpaceRuleAppliedPayload.TYPE, SpaceRuleAppliedPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> handleClientPayload(payload)))
+                .playToClient(OpenSpellCreatorPayload.TYPE, OpenSpellCreatorPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> handleClientPayload(payload)))
+                .playToServer(CreateSkillPayload.TYPE, CreateSkillPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> {
+                            if (context.player() instanceof ServerPlayer player) {
+                                MagicFusionService.create(player, player.getData(MagicalAttachments.MAGIC_STATE), payload.first(), payload.second());
+                            }
+                        }))
                 .playToClient(CounterPromptPayload.TYPE, CounterPromptPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToClient(CounterClearPayload.TYPE, CounterClearPayload.STREAM_CODEC, (payload, context) ->
@@ -248,6 +257,15 @@ public final class MagicalNetwork {
     /** Only after the rule is live on the subspace: the client draws a formula for it. */
     public static void sendSpaceRuleApplied(ServerPlayer player, SpaceRuleAppliedPayload payload) {
         PacketDistributor.sendToPlayer(player, payload);
+    }
+
+    /** Opens the creator screen on the client; the class check happens before this is called. */
+    public static void sendOpenSpellCreator(ServerPlayer player, OpenSpellCreatorPayload payload) {
+        PacketDistributor.sendToPlayer(player, payload);
+    }
+
+    public static void sendCreateSkill(ResourceLocation first, ResourceLocation second) {
+        PacketDistributor.sendToServer(new CreateSkillPayload(first, second));
     }
 
     public static void sendCastHold(int slot, boolean held) {

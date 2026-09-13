@@ -59,10 +59,10 @@ class HudAnnouncerTest {
         Announcement head = HudAnnouncer.head();
         assertNotNull(head);
         assertEquals(Kind.SKILL, head.kind());
-        assertTrue(gained.contains(head.id()), "announced something the player did not just gain: " + head.id());
+        assertEquals(MagicContent.GABRIEL.id(), head.id(), "the parent announces, not its wheel modes");
         assertEquals(10L, head.startTick());
         int queued = HudAnnouncer.queued().size();
-        assertEquals(Math.min(gained.size(), HudAnnouncer.QUEUE_CAP), queued);
+        assertEquals(1, queued, "the wheel modes ride on the parent and must not fill the queue");
 
         HudAnnouncer.observe(after, after.copy(), 11L);
         assertEquals(queued, HudAnnouncer.queued().size(), "an unchanged set announces nothing");
@@ -71,6 +71,25 @@ class HudAnnouncerTest {
         assertEquals(head, HudAnnouncer.head(), "still on screen a tick before its lifetime");
         HudAnnouncer.tick(10L + HudAnnouncer.LIFETIME_TICKS);
         assertTrue(HudAnnouncer.head() == null || !HudAnnouncer.head().equals(head), "gone at its lifetime");
+    }
+
+    @Test
+    void aCreatedSkillIsAnnouncedEvenWhenTheSetShrank() {
+        // A consuming fusion is two skills out and one in: the set gets smaller and still has news.
+        PlayerMagicState before = new PlayerMagicState();
+        before.unlock(MagicContent.CRUCIBLE.id());
+        before.unlock(MagicContent.CLEANSING_RAY.id());
+        HudAnnouncer.observe(null, before, 0L);
+        PlayerMagicState after = before.copy();
+        assertTrue(after.removeSkill(MagicContent.CRUCIBLE.id()));
+        assertTrue(after.removeSkill(MagicContent.CLEANSING_RAY.id()));
+        assertTrue(after.unlock(MagicContent.FALLEN_SUN.id()));
+        assertTrue(after.unlockedSkills().size() < before.unlockedSkills().size(), "the premise: the set shrank");
+        HudAnnouncer.observe(before, after, 30L);
+        Announcement head = HudAnnouncer.head();
+        assertNotNull(head, "a consuming fusion announced nothing");
+        assertEquals(Kind.SKILL, head.kind());
+        assertEquals(MagicContent.FALLEN_SUN.id(), head.id());
     }
 
     @Test

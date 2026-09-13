@@ -17,7 +17,8 @@ import numpy as np
 import soundfile as sf
 
 RATE = 24000
-OUT = os.path.join(os.path.dirname(__file__), "..", "src", "main", "resources", "assets", "magical", "sounds", "rule")
+SOUNDS = os.path.join(os.path.dirname(__file__), "..", "src", "main", "resources", "assets", "magical", "sounds")
+OUT = os.path.join(SOUNDS, "rule")
 PEAK = 0.5
 FADE_MS = 5.0
 RNG = np.random.default_rng(7)
@@ -154,6 +155,20 @@ def restore_cue():
     return out
 
 
+def creation_cue():
+    # A rising triad that blooms, a breath of air under it, a bell on top: something was made.
+    t = seconds(0.7)
+    out = np.zeros(len(t))
+    for i, f in enumerate((523.25, 783.99, 1046.5)):
+        start = int(RATE * 0.06 * i)
+        part = tone(t, f) * env_exp(t, 4.0)
+        out[start:] += part[: len(t) - start] * (0.8 - 0.15 * i)
+    breath = lowpass(noise(len(t)), 0.08) * env_swell(t, 0.2) * env_exp(t, 6.0) * 1.2
+    bell = tone(t, 2093.0) * env_exp(t, 7.0) * 0.22
+    bell = np.concatenate([np.zeros(int(RATE * 0.28)), bell])[: len(t)]
+    return mix(out, breath, bell)
+
+
 CUES = {
     "stamp": stamp,
     "raise": raise_cue,
@@ -166,11 +181,21 @@ CUES = {
     "restore": restore_cue,
 }
 
+# Cues outside the rule namespace, keyed by their path under sounds/.
+EXTRA = {
+    "creator/creation": creation_cue,
+}
+
 
 def main():
     os.makedirs(OUT, exist_ok=True)
     for name, make in CUES.items():
         path = os.path.join(OUT, name + ".ogg")
+        sf.write(path, finish(make()), RATE, format="OGG", subtype="VORBIS")
+        print(name, os.path.getsize(path), "bytes")
+    for name, make in EXTRA.items():
+        path = os.path.join(SOUNDS, *name.split("/")) + ".ogg"
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         sf.write(path, finish(make()), RATE, format="OGG", subtype="VORBIS")
         print(name, os.path.getsize(path), "bytes")
     return 0

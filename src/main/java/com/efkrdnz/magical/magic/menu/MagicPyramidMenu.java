@@ -3,7 +3,6 @@ package com.efkrdnz.magical.magic.menu;
 import com.efkrdnz.magical.classes.MagicalClassDefinition;
 import com.efkrdnz.magical.classes.MagicalClasses;
 import com.efkrdnz.magical.magic.MagicContent;
-import com.efkrdnz.magical.magic.MagicFusionService;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.MagicSkillTuningView;
@@ -16,16 +15,9 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
-import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
 public final class MagicPyramidMenu extends AbstractContainerMenu {
-    private static final int PLAYER_INV_X = 40;
-    private static final int PLAYER_INV_Y = 242;
-    private static final int HOTBAR_Y = 300;
-    private static final int PLAYER_INVENTORY_START = 0;
-    private static final int PLAYER_INVENTORY_END = PLAYER_INVENTORY_START + 36;
-
     public static final int BUTTON_TIER_BASE = 100;
     public static final int BUTTON_BELOW_TIER_BASE = 120;
     /**
@@ -53,7 +45,6 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
     // 1800-1999 is the aegis tune span; these two only work because their equality tests run
     // before that range test in clickMenuButton. Do not add more ids in that band.
     public static final int BUTTON_OPEN_CLASS_TREE = 1901;
-    public static final int BUTTON_FUSION_CREATE_BASE = MagicFusionService.BUTTON_BASE;
 
     private final Player player;
     private final PlayerMagicState state;
@@ -62,8 +53,6 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
     private int selectedSlot;
     private int editedLoadout;
     private int selectedClassIndex;
-    /** Sub-view the codex was opened into, synced so the client screen can jump straight there. */
-    private int pendingView;
     private final ContainerData data;
 
     public MagicPyramidMenu(int containerId, Inventory inventory) {
@@ -73,9 +62,6 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
         this.selectedTier = initialSelectedTier();
         this.selectedSkillIndex = firstUnlockedSkillIndexForTier(selectedTier);
         this.selectedSlot = 0;
-        this.pendingView = player instanceof net.minecraft.server.level.ServerPlayer serverPlayer
-                ? com.efkrdnz.magical.magic.MagicCodexService.claimPendingView(serverPlayer.getUUID()).ordinal()
-                : 0;
         this.data = new ContainerData() {
             @Override
             public int get(int index) {
@@ -85,7 +71,6 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
                     case 2 -> selectedSlot;
                     case 3 -> editedLoadout;
                     case 4 -> selectedClassIndex;
-                    case 5 -> pendingView;
                     default -> 0;
                 };
             }
@@ -98,7 +83,6 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
                     case 2 -> selectedSlot = value;
                     case 3 -> editedLoadout = value;
                     case 4 -> selectedClassIndex = value;
-                    case 5 -> pendingView = value;
                     default -> {
                     }
                 }
@@ -106,34 +90,17 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
 
             @Override
             public int getCount() {
-                return 6;
+                return 5;
             }
         };
         addDataSlots(data);
-        for (int row = 0; row < 3; row++) {
-            for (int column = 0; column < 9; column++) {
-                addSlot(new Slot(inventory, column + row * 9 + 9, PLAYER_INV_X + column * 18, PLAYER_INV_Y + row * 18));
-            }
-        }
-        for (int column = 0; column < 9; column++) {
-            addSlot(new Slot(inventory, column, PLAYER_INV_X + column * 18, HOTBAR_Y));
-        }
     }
 
-    /** The codex holds no slots of its own, so there is nowhere to shift-click an item to. */
+    /** The codex has no slots at all - not even the inventory - so there is nowhere to shift-click an item to. */
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
         return ItemStack.EMPTY;
     }
-
-    public int playerInventoryStart() {
-        return PLAYER_INVENTORY_START;
-    }
-
-    public int playerInventoryEnd() {
-        return PLAYER_INVENTORY_END;
-    }
-
 
     @Override
     public boolean stillValid(Player player) {
@@ -275,16 +242,6 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
             }
             return true;
         }
-        int fusionSkillCount = MagicContent.orderedSkillIds().size();
-        if (id >= BUTTON_FUSION_CREATE_BASE && id < BUTTON_FUSION_CREATE_BASE + fusionSkillCount * fusionSkillCount) {
-            if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
-                int encoded = id - BUTTON_FUSION_CREATE_BASE;
-                ResourceLocation firstInput = MagicContent.skillIdByIndex(encoded / fusionSkillCount);
-                ResourceLocation secondInput = MagicContent.skillIdByIndex(encoded % fusionSkillCount);
-                MagicFusionService.create(serverPlayer, state, firstInput, secondInput);
-            }
-            return true;
-        }
         if (id >= BUTTON_TUNE_BASE && id < BUTTON_TUNE_BASE + (MagicTuningStat.values().length * 10)) {
             ResourceLocation skillId = selectedSkillId();
             if (skillId == null) {
@@ -367,11 +324,6 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
 
     public int selectedSlot() {
         return data.get(2);
-    }
-
-    /** Sub-view requested when the codex was opened; the screen consumes this once on init. */
-    public int pendingView() {
-        return data.get(5);
     }
 
     public int selectedClassIndex() {

@@ -3,11 +3,12 @@ package com.efkrdnz.magical.client.screen;
 import com.efkrdnz.magical.client.ClientMagicState;
 import com.efkrdnz.magical.classes.MagicalClassDefinition;
 import com.efkrdnz.magical.classes.MagicalClasses;
+import com.efkrdnz.magical.client.screen.creator.SpellCreatorScreen;
+import com.efkrdnz.magical.network.OpenSpellCreatorPayload;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.MagicPassiveDefinition;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicLoadout;
-import com.efkrdnz.magical.magic.MagicFusionService;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
 import com.efkrdnz.magical.magic.MagicSkillTuning;
@@ -78,11 +79,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     /** Which loadout the field currently holds, so switching rows reloads it. */
     private int nameBoxLoadout = -1;
     private boolean classViewOpen;
-    private boolean spellCreatorOpen;
-    private ResourceLocation fusionFirstInput;
-    private ResourceLocation fusionSecondInput;
-    private int fusionPickingSlot = -1;
-    private int fusionInputScroll;
     private boolean passivesOpen;
     private boolean belowPyramidOpen;
 
@@ -90,7 +86,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         super(menu, inventory, title);
         imageWidth = 444;
         imageHeight = 340;
-        inventoryLabelY = 10000;
     }
 
     @Override
@@ -99,14 +94,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         titleLabelX = 12;
         titleLabelY = 10;
         belowPyramidOpen = menu.selectedTier() < 0;
-        // Paths of Power can ask the codex to open straight into a class-specific workshop.
-        switch (menu.pendingView()) {
-            case 2 -> {
-                spellCreatorOpen = true;
-                classViewOpen = false;
-            }
-            default -> { }
-        }
         // addWidget, not addRenderableWidget: this screen never calls super.render, so the field is
         // drawn by hand in the Loadouts branch and would be invisible everywhere else anyway.
         loadoutNameBox = new EditBox(font,
@@ -121,13 +108,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
 
     @Override
     protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
-        if (spellCreatorOpen) {
-            int left = leftPos;
-            int top = topPos;
-            MagicalGuiStyle.screenBackground(guiGraphics, left, top, left + imageWidth, top + imageHeight);
-            drawSpellCreator(guiGraphics);
-            return;
-        }
         if (wheelEditorOpen || classViewOpen || passivesOpen) {
             int left = leftPos;
             int top = topPos;
@@ -150,11 +130,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(guiGraphics, mouseX, mouseY, partialTick);
-        if (spellCreatorOpen) {
-            super.render(guiGraphics, mouseX, mouseY, partialTick);
-            renderTooltip(guiGraphics, mouseX, mouseY);
-            return;
-        }
         if (classViewOpen) {
             renderBg(guiGraphics, partialTick, mouseX, mouseY);
             drawClassView(guiGraphics);
@@ -188,7 +163,7 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
 
     @Override
     protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        if (wheelEditorOpen || classViewOpen || spellCreatorOpen || passivesOpen) {
+        if (wheelEditorOpen || classViewOpen || passivesOpen) {
             return;
         }
 
@@ -202,9 +177,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (spellCreatorOpen) {
-            return handleSpellCreatorClick(mouseX, mouseY);
-        }
         if (classViewOpen) {
             return handleClassViewClick(mouseX, mouseY);
         }
@@ -268,13 +240,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         }
         if (passivesOpen && inside(mouseX, mouseY, leftPos + WHEEL_EDITOR_X + 210, topPos + WHEEL_EDITOR_Y + 38, 180, curseListHeight())) {
             curseListScroll = clampScroll(curseListScroll - (int) Math.signum(scrollY), activeCurseCount(), visibleCurseRows());
-            return true;
-        }
-        if (spellCreatorOpen && inside(mouseX, mouseY, fusionListX(), fusionListY(), fusionListW(), fusionListH())) {
-            fusionInputScroll = clampScroll(fusionInputScroll - (int) Math.signum(scrollY), MagicFusionService.eligibleInputs(ClientMagicState.get()).size(), visibleFusionInputRows());
-            return true;
-        }
-        if (spellCreatorOpen) {
             return true;
         }
         if (passivesOpen) {
@@ -937,99 +902,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         MagicalGuiStyle.checkbox(guiGraphics, x, y, checked);
     }
 
-    private void drawSpellCreator(GuiGraphics guiGraphics) {
-        int left = leftPos + WHEEL_EDITOR_X;
-        int top = topPos + WHEEL_EDITOR_Y;
-        PlayerMagicState state = ClientMagicState.get();
-        MagicalGuiStyle.panel(guiGraphics, left, top, left + WHEEL_EDITOR_W, top + WHEEL_EDITOR_H, MagicalGuiStyle.ACCENT_VIOLET);
-        MagicalGuiStyle.sectionLabel(guiGraphics, font, left + 10, top + 8, Component.translatable("screen.magical.spell_creator"), 0xF4F8FF);
-        button(guiGraphics, left + WHEEL_EDITOR_W - 54, top + 6, 44, 16, 0xFF27354A, Component.translatable("screen.magical.back"));
-        MagicalGuiStyle.inset(guiGraphics, left + 12, top + 34, left + WHEEL_EDITOR_W - 12, top + 74);
-        drawWrapped(guiGraphics, Component.translatable("screen.magical.spell_creator_hint"), left + 22, top + 44, WHEEL_EDITOR_W - 44, 0xBFD7FF, 11);
-
-        int slotY = top + 86;
-        drawFusionSlot(guiGraphics, 0, left + 20, slotY, fusionFirstInput);
-        guiGraphics.drawCenteredString(font, Component.literal("+"), left + WHEEL_EDITOR_W / 2, slotY + 13, 0xF7D774);
-        drawFusionSlot(guiGraphics, 1, left + 216, slotY, fusionSecondInput);
-
-        int resultY = top + 130;
-        MagicalGuiStyle.inset(guiGraphics, left + 14, resultY, left + WHEEL_EDITOR_W - 14, resultY + 54);
-        MagicFusionService.FusionRecipe recipe = MagicFusionService.recipeFor(fusionFirstInput, fusionSecondInput);
-        if (fusionFirstInput == null || fusionSecondInput == null) {
-            guiGraphics.drawString(font, Component.translatable("screen.magical.fusion_incomplete"), left + 26, resultY + 10, 0x8292AB, false);
-            guiGraphics.drawString(font, Component.translatable("screen.magical.fusion_pick_hint"), left + 26, resultY + 26, 0xBFD7FF, false);
-        } else if (recipe == null) {
-            guiGraphics.drawString(font, Component.translatable("screen.magical.fusion_no_formula"), left + 26, resultY + 10, 0xD66A6A, false);
-            guiGraphics.drawString(font, Component.translatable("screen.magical.fusion_try_other_pair"), left + 26, resultY + 26, 0x8292AB, false);
-        } else {
-            MagicSkillDefinition output = MagicContent.get(recipe.outputSkill());
-            if (output == null) {
-                guiGraphics.drawString(font, Component.translatable("screen.magical.fusion_no_formula"), left + 26, resultY + 10, 0xD66A6A, false);
-                drawFusionPicker(guiGraphics, left, top);
-                return;
-            }
-            boolean owned = output != null && state.hasUnlocked(output.id());
-            boolean canCreate = MagicFusionService.canCreate(state, fusionFirstInput, fusionSecondInput);
-            int color = output == null ? 0x8292AB : output.color();
-            guiGraphics.fill(left + 14, resultY, left + 18, resultY + 54, 0xFF000000 | color);
-            guiGraphics.drawString(font, Component.translatable("screen.magical.fusion_output", Component.translatable(output.nameKey())), left + 26, resultY + 8, owned ? 0xA6E3A1 : 0xF7D774, false);
-            guiGraphics.drawString(font, recipe.lossWarning(), left + 26, resultY + 22, recipe.consumesFirstInput() || recipe.consumesSecondInput() ? 0xFFB86C : 0xBFD7FF, false);
-            guiGraphics.drawString(font, recipe.requirement(), left + 26, resultY + 36, canCreate || owned ? 0x8292AB : 0xD66A6A, false);
-            button(guiGraphics, left + WHEEL_EDITOR_W - 96, resultY + 18, 70, 18, owned ? 0xFF27354A : canCreate ? 0xFF6A3F84 : 0xFF4A2730, Component.translatable(owned ? "screen.magical.created" : "screen.magical.create"));
-        }
-
-        drawFusionPicker(guiGraphics, left, top);
-    }
-
-    private void drawFusionSlot(GuiGraphics guiGraphics, int slot, int x, int y, ResourceLocation skillId) {
-        boolean picking = fusionPickingSlot == slot;
-        guiGraphics.fill(x - 1, y - 1, x + 161, y + 33, picking ? MagicalGuiStyle.ACCENT_ARCANE : 0xFF060A12);
-        guiGraphics.fill(x, y, x + 160, y + 32, picking ? 0xFF315A74 : 0xFF1A2230);
-        guiGraphics.fillGradient(x + 2, y + 2, x + 158, y + 30, 0xFF0D1424, 0xFF101B2E);
-        guiGraphics.drawString(font, Component.translatable(slot == 0 ? "screen.magical.fusion_slot_one" : "screen.magical.fusion_slot_two"), x + 8, y + 5, 0xBFD7FF, false);
-        MagicSkillDefinition skill = MagicContent.get(skillId);
-        Component label = skill == null ? Component.translatable("screen.magical.fusion_empty_slot") : Component.translatable(skill.nameKey());
-        int color = skill == null ? 0x8292AB : skill.color();
-        guiGraphics.drawString(font, font.plainSubstrByWidth(label.getString(), 132), x + 8, y + 18, color, false);
-        if (skill != null) {
-            guiGraphics.drawString(font, Component.literal("x"), x + 146, y + 5, 0xD66A6A, false);
-        }
-    }
-
-    private void drawFusionPicker(GuiGraphics guiGraphics, int left, int top) {
-        List<MagicSkillDefinition> inputs = MagicFusionService.eligibleInputs(ClientMagicState.get());
-        int listX = left + 14;
-        int listY = top + 196;
-        int listW = WHEEL_EDITOR_W - 28;
-        int listH = 88;
-        MagicalGuiStyle.inset(guiGraphics, listX, listY - 18, listX + listW, listY + listH);
-        Component title = fusionPickingSlot >= 0
-                ? Component.translatable("screen.magical.fusion_select_slot", fusionPickingSlot + 1)
-                : Component.translatable("screen.magical.fusion_select_prompt");
-        guiGraphics.drawString(font, title, listX + 8, listY - 13, 0xBFD7FF, false);
-        if (inputs.isEmpty()) {
-            guiGraphics.drawCenteredString(font, Component.translatable("screen.magical.fusion_no_inputs"), listX + listW / 2, listY + 34, 0x8292AB);
-            return;
-        }
-        fusionInputScroll = clampScroll(fusionInputScroll, inputs.size(), visibleFusionInputRows());
-        guiGraphics.enableScissor(listX, listY, listX + listW - 8, listY + listH);
-        for (int row = 0; row < visibleFusionInputRows(); row++) {
-            int index = fusionInputScroll + row;
-            if (index >= inputs.size()) {
-                break;
-            }
-            MagicSkillDefinition skill = inputs.get(index);
-            int y = listY + row * 17;
-            boolean selected = skill.id().equals(fusionFirstInput) || skill.id().equals(fusionSecondInput);
-            MagicalGuiStyle.listRow(guiGraphics, listX + 4, y, listW - 18, 14, selected, 0xFF000000 | skill.color());
-            guiGraphics.drawString(font, font.plainSubstrByWidth(Component.translatable(skill.nameKey()).getString(), 180), listX + 12, y + 3, 0xF4F9FF, false);
-            guiGraphics.drawString(font, Component.translatable(skill.school().translationKey()), listX + 230, y + 3, skill.color(), false);
-            guiGraphics.drawString(font, Component.translatable("screen.magical.tier", skill.tier() + 1), listX + 306, y + 3, 0x8292AB, false);
-        }
-        guiGraphics.disableScissor();
-        drawScrollbar(guiGraphics, listX + listW - 8, listY, listH, inputs.size(), visibleFusionInputRows(), fusionInputScroll);
-    }
-
     private boolean handlePyramidClick(double mouseX, double mouseY) {
         int left = leftPos + 18;
         int top = topPos + 40;
@@ -1330,8 +1202,8 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
             return true;
         }
         if (clientState.hasClass(MagicalClasses.SPELL_CREATOR) && inside(mouseX, mouseY, left + 112, toolsY, 116, 18)) {
-            classViewOpen = false;
-            spellCreatorOpen = true;
+            // Its own screen now; it closes this menu itself on the way in.
+            SpellCreatorScreen.open(OpenSpellCreatorPayload.TAB_CREATE, null, null);
             return true;
         }
         int listX = left + 14;
@@ -1348,73 +1220,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
             return true;
         }
         // Rows are a read-only summary now; evolving lives in Paths of Power.
-        return true;
-    }
-
-    private boolean handleSpellCreatorClick(double mouseX, double mouseY) {
-        int left = leftPos + WHEEL_EDITOR_X;
-        int top = topPos + WHEEL_EDITOR_Y;
-        if (inside(mouseX, mouseY, left + WHEEL_EDITOR_W - 54, top + 6, 44, 16)) {
-            spellCreatorOpen = false;
-            classViewOpen = true;
-            fusionPickingSlot = -1;
-            return true;
-        }
-        int slotY = top + 86;
-        if (inside(mouseX, mouseY, left + 20, slotY, 160, 32)) {
-            if (fusionFirstInput != null && inside(mouseX, mouseY, left + 20 + 140, slotY, 20, 16)) {
-                fusionFirstInput = null;
-                if (fusionPickingSlot == 0) {
-                    fusionPickingSlot = -1;
-                }
-            } else {
-                fusionPickingSlot = 0;
-                fusionInputScroll = 0;
-            }
-            return true;
-        }
-        if (inside(mouseX, mouseY, left + 216, slotY, 160, 32)) {
-            if (fusionSecondInput != null && inside(mouseX, mouseY, left + 216 + 140, slotY, 20, 16)) {
-                fusionSecondInput = null;
-                if (fusionPickingSlot == 1) {
-                    fusionPickingSlot = -1;
-                }
-            } else {
-                fusionPickingSlot = 1;
-                fusionInputScroll = 0;
-            }
-            return true;
-        }
-        if (fusionPickingSlot >= 0 && inside(mouseX, mouseY, fusionListX(), fusionListY(), fusionListW(), fusionListH())) {
-            List<MagicSkillDefinition> inputs = MagicFusionService.eligibleInputs(ClientMagicState.get());
-            for (int row = 0; row < visibleFusionInputRows(); row++) {
-                int index = fusionInputScroll + row;
-                if (index >= inputs.size()) {
-                    break;
-                }
-                int rowY = fusionListY() + row * 17;
-                if (inside(mouseX, mouseY, fusionListX() + 4, rowY, fusionListW() - 14, 14)) {
-                    if (fusionPickingSlot == 0) {
-                        fusionFirstInput = inputs.get(index).id();
-                    } else {
-                        fusionSecondInput = inputs.get(index).id();
-                    }
-                    fusionPickingSlot = -1;
-                    return true;
-                }
-            }
-            return true;
-        }
-        MagicFusionService.FusionRecipe recipe = MagicFusionService.recipeFor(fusionFirstInput, fusionSecondInput);
-        if (recipe != null && inside(mouseX, mouseY, left + WHEEL_EDITOR_W - 96, top + 148, 70, 18)) {
-            if (MagicFusionService.canCreate(ClientMagicState.get(), fusionFirstInput, fusionSecondInput)) {
-                int buttonId = fusionCreateButtonId(fusionFirstInput, fusionSecondInput);
-                if (buttonId >= 0) {
-                    press(buttonId);
-                }
-                return true;
-            }
-        }
         return true;
     }
 
@@ -1658,36 +1463,6 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
 
     private int visibleCurseRows() {
         return curseListHeight() / 48;
-    }
-
-    private int visibleFusionInputRows() {
-        return fusionListH() / 17;
-    }
-
-    private int fusionListX() {
-        return leftPos + WHEEL_EDITOR_X + 14;
-    }
-
-    private int fusionListY() {
-        return topPos + WHEEL_EDITOR_Y + 196;
-    }
-
-    private int fusionListW() {
-        return WHEEL_EDITOR_W - 28;
-    }
-
-    private int fusionListH() {
-        return 88;
-    }
-
-    private int fusionCreateButtonId(ResourceLocation firstInput, ResourceLocation secondInput) {
-        int firstIndex = MagicContent.skillIndex(firstInput);
-        int secondIndex = MagicContent.skillIndex(secondInput);
-        int skillCount = MagicContent.orderedSkillIds().size();
-        if (firstIndex < 0 || secondIndex < 0) {
-            return -1;
-        }
-        return MagicPyramidMenu.BUTTON_FUSION_CREATE_BASE + firstIndex * skillCount + secondIndex;
     }
 
     private int curseListHeight() {

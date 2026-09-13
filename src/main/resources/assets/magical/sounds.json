@@ -1,4 +1,9 @@
 {
+  "creator.creation": {
+    "category": "player",
+    "subtitle": "subtitles.magical.creation",
+    "sounds": [ { "name": "magical:creator/creation" } ]
+  },
   "music.supreme_deity": {
     "category": "music",
     "sounds": [

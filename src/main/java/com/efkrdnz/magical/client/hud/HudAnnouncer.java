@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.client.hud;
 
 import com.efkrdnz.magical.classes.MagicalClassProgress;
+import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import java.util.ArrayDeque;
 import java.util.Collection;
@@ -45,14 +46,16 @@ public final class HudAnnouncer {
         changed(previous.raceId(), next.raceId(), Kind.RACE, now);
     }
 
+    /**
+     * A membership diff, not a size check: a consuming fusion is two skills out and one in, and the
+     * set that shrank still carries the news. Wheel modes ride on their parent and do not announce.
+     */
     private static void grew(Set<ResourceLocation> before, Set<ResourceLocation> after, Kind kind, long now) {
-        if (after.size() <= before.size()) {
-            return;
-        }
         for (ResourceLocation id : after) {
-            if (!before.contains(id)) {
-                push(kind, id, now);
+            if (before.contains(id) || kind == Kind.SKILL && MagicContent.isSubSkill(id)) {
+                continue;
             }
+            push(kind, id, now);
         }
     }
 

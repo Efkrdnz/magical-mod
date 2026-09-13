@@ -4,6 +4,8 @@ import com.efkrdnz.magical.classes.MagicalClassDefinition;
 import com.efkrdnz.magical.classes.MagicalClasses;
 import com.efkrdnz.magical.magic.MagicCodexService;
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.network.MagicalNetwork;
+import com.efkrdnz.magical.network.OpenSpellCreatorPayload;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import com.efkrdnz.magical.registry.MagicalMenus;
 import java.util.List;
@@ -61,8 +63,9 @@ public final class ClassTreeMenu extends AbstractContainerMenu {
             return true;
         }
         if (id == BUTTON_OPEN_SPELL_CREATOR) {
+            // The creator is a plain screen: the client closes this menu itself when it opens.
             if (state.hasClass(MagicalClasses.SPELL_CREATOR)) {
-                MagicCodexService.openAt(serverPlayer, MagicCodexService.View.SPELL_CREATOR);
+                MagicalNetwork.sendOpenSpellCreator(serverPlayer, OpenSpellCreatorPayload.create());
             }
             return true;
         }

@@ -20,7 +20,12 @@ class HudLangKeysTest {
     private static final List<String> RETIRED = List.of(
             "hud.magical.mana", "hud.magical.mana_vault", "hud.magical.barrier", "hud.magical.proficiency",
             "hud.magical.wheel", "hud.magical.active", "hud.magical.no_preset",
-            "message.magical.space_rule_applied");
+            "message.magical.space_rule_applied",
+            // The codex creator branch and its picker, replaced by the Spell Creator screen.
+            "screen.magical.spell_creator_hint", "screen.magical.fusion_slot_one", "screen.magical.fusion_slot_two",
+            "screen.magical.fusion_empty_slot", "screen.magical.fusion_incomplete", "screen.magical.fusion_pick_hint",
+            "screen.magical.fusion_no_formula", "screen.magical.fusion_try_other_pair", "screen.magical.fusion_select_prompt",
+            "screen.magical.fusion_select_slot", "screen.magical.fusion_no_inputs", "screen.magical.fusion_output");
 
     private static final List<String> PRESENT = List.of(
             "hud.magical.gauge.pride", "hud.magical.gauge.greed", "hud.magical.gauge.envy", "hud.magical.gauge.gluttony",

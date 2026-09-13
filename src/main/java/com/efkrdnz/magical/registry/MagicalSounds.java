@@ -29,6 +29,11 @@ public final class MagicalSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> RULE_AIM = rule("aim");
     public static final DeferredHolder<SoundEvent, SoundEvent> RULE_RESTORE = rule("restore");
 
+    /** The reveal on the creator screen when a fusion lands; on the UI channel like the rule cues. */
+    public static final DeferredHolder<SoundEvent, SoundEvent> CREATION =
+            SOUNDS.register("creator.creation", () -> SoundEvent.createVariableRangeEvent(
+                    ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "creator.creation")));
+
     /**
      * The Supreme Deity's theme, played for the domain half of the encounter.
      *

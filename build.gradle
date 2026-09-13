@@ -59,6 +59,11 @@ neoForge {
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
 
             // Dev conveniences, both off unless asked for on the command line:
+            //   ./gradlew runClient -PwindowSize=1280x720   a window a full-size screen fits in at GUI scale 2 (guiScale:2 in run/options.txt)
+            if (project.hasProperty('windowSize')) {
+                def size = project.property('windowSize').toString().toLowerCase().split('x')
+                programArguments.addAll('--width', size[0], '--height', size[1])
+            }
             //   ./gradlew runClient -PquickPlay="New World"   joins that world straight from launch
             //   ./gradlew runClient -PautoScreenshot=200      saves a screenshot 200 ticks after joining (a comma list: one at each)
             if (project.hasProperty('quickPlay')) {

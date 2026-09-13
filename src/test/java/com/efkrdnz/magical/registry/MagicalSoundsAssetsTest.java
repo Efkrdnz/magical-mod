@@ -70,6 +70,24 @@ class MagicalSoundsAssetsTest {
     }
 
     @Test
+    void theCreationCueIsWiredAndOnDisk() throws IOException {
+        JsonObject sounds = JsonParser.parseString(read(SOUNDS_JSON)).getAsJsonObject();
+        String path = MagicalSounds.CREATION.getId().getPath();
+        JsonObject entry = sounds.getAsJsonObject(path);
+        assertNotNull(entry, "sounds.json has no entry for " + path);
+        assertEquals("subtitles.magical.creation", entry.get("subtitle").getAsString());
+        assertTrue(read("/assets/magical/lang/en_us.json").contains("\"subtitles.magical.creation\""), "the creation subtitle is untranslated");
+        for (JsonElement sound : entry.getAsJsonArray("sounds")) {
+            String name = sound.getAsJsonObject().get("name").getAsString();
+            String file = "/assets/magical/sounds/" + name.substring("magical:".length()) + ".ogg";
+            try (InputStream in = MagicalSoundsAssetsTest.class.getResourceAsStream(file)) {
+                assertNotNull(in, path + " points at a missing file " + file);
+                assertTrue(in.readAllBytes().length > 1000, file + " is too small to be a cue");
+            }
+        }
+    }
+
+    @Test
     void everyRegisteredSoundHasAnEntry() throws IOException, IllegalAccessException {
         JsonObject sounds = JsonParser.parseString(read(SOUNDS_JSON)).getAsJsonObject();
         int holders = 0;

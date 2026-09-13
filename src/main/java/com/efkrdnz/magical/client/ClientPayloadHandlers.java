@@ -2,6 +2,7 @@ package com.efkrdnz.magical.client;
 
 import com.efkrdnz.magical.client.hud.HudState;
 import com.efkrdnz.magical.client.hud.RuleFlash;
+import com.efkrdnz.magical.client.screen.creator.SpellCreatorScreen;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.SpaceRuleCategory;
 import com.efkrdnz.magical.magic.SpaceRuleOperation;
@@ -13,6 +14,7 @@ import com.efkrdnz.magical.network.CooldownSyncPayload;
 import com.efkrdnz.magical.network.CounterClearPayload;
 import com.efkrdnz.magical.network.CounterPromptPayload;
 import com.efkrdnz.magical.network.FirstPersonEffectPayload;
+import com.efkrdnz.magical.network.OpenSpellCreatorPayload;
 import com.efkrdnz.magical.network.ForgeComboSyncPayload;
 import com.efkrdnz.magical.network.ForgeResultPayload;
 import com.efkrdnz.magical.network.PlayerMagicStatePayload;
@@ -39,6 +41,10 @@ public final class ClientPayloadHandlers {
 
     public static void handle(FirstPersonEffectPayload payload) {
         FirstPersonEffects.apply(payload);
+    }
+
+    public static void handle(OpenSpellCreatorPayload payload) {
+        SpellCreatorScreen.open(payload.tab(), payload.first().orElse(null), payload.second().orElse(null));
     }
 
     public static void handle(CounterPromptPayload payload) {
