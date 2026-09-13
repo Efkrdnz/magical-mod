@@ -57,6 +57,24 @@ neoForge {
 
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+
+            // Dev conveniences, both off unless asked for on the command line:
+            //   ./gradlew runClient -PquickPlay="New World"   joins that world straight from launch
+            //   ./gradlew runClient -PautoScreenshot=200      saves a screenshot 200 ticks after joining
+            if (project.hasProperty('quickPlay')) {
+                programArguments.addAll('--quickPlaySingleplayer', project.property('quickPlay').toString())
+            }
+            if (project.hasProperty('autoScreenshot')) {
+                systemProperty 'magical.autoScreenshot', project.property('autoScreenshot').toString()
+            }
+            //   ./gradlew runClient -PautoCommands="magical unlockall;magical hud corruption 60"   run these 40 ticks in
+            if (project.hasProperty('autoCommands')) {
+                systemProperty 'magical.autoCommands', project.property('autoCommands').toString()
+            }
+            //   ./gradlew runClient -PautoScreenshot=300 -PautoHold=cast_slot_2   hold that key for the last 60 ticks before the capture
+            if (project.hasProperty('autoHold')) {
+                systemProperty 'magical.autoHold', project.property('autoHold').toString()
+            }
         }
 
         server {

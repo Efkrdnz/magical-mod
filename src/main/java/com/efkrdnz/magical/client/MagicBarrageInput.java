@@ -73,6 +73,14 @@ public final class MagicBarrageInput {
         event.getPoseStack().popPose();
     }
 
+    /** How far the field has charged on a held slot, 0..1, continuous across the tick. */
+    public static float chargeFraction(int slot, float partialTick) {
+        if (slot < 0 || slot >= CHARGE_TICKS.length || !WAS_DOWN[slot] || CHARGE_TICKS[slot] <= 0) {
+            return 0.0F;
+        }
+        return Math.min(1.0F, (CHARGE_TICKS[slot] + partialTick) / (float) MagicBarrageService.MAX_CHARGE_TICKS);
+    }
+
     private static void resetSlot(int slot) {
         if (slot >= 0 && slot < WAS_DOWN.length) {
             WAS_DOWN[slot] = false;

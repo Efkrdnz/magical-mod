@@ -178,6 +178,7 @@ public final class MagicGameplayEvents {
                 player.sendSystemMessage(Component.translatable("message.magical.tuning_refunded", refunded));
             }
             state.sync(player);
+            state.syncAllCooldowns(player);
         }
     }
 
@@ -199,6 +200,7 @@ public final class MagicGameplayEvents {
             SpaceAuthorityService.closeAllDomains(player, state, false);
             ForgeComboService.reset(player);
             state.sync(player);
+            state.syncAllCooldowns(player);
         }
     }
 
@@ -209,6 +211,7 @@ public final class MagicGameplayEvents {
             SpaceAuthorityService.closeAllDomains(player, state, false);
             ForgeComboService.reset(player);
             state.sync(player);
+            state.syncAllCooldowns(player);
         }
     }
 

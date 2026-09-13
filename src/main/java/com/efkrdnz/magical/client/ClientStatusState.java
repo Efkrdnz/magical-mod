@@ -14,6 +14,13 @@ public final class ClientStatusState {
     private static float lockedYaw;
     private static float lockedPitch;
     private static boolean lockCaptured;
+    private static int version;
+
+    /** A visitor over the active statuses, so the HUD can read them without boxing or a list. */
+    @FunctionalInterface
+    public interface StatusVisitor {
+        void visit(MagicStatus status, int remainingTicks, int amplifier, float value);
+    }
 
     private ClientStatusState() {}
 
@@ -23,6 +30,7 @@ public final class ClientStatusState {
             return;
         }
         MagicStatus status = values[payload.status()];
+        version++;
         if (payload.ticks() <= 0) {
             ACTIVE.remove(status);
             VALUES.remove(status);
@@ -46,8 +54,37 @@ public final class ClientStatusState {
         return VALUES.getOrDefault(status, 0.0F);
     }
 
+    public static int remainingTicks(MagicStatus status) {
+        int[] entry = ACTIVE.get(status);
+        return entry == null ? 0 : Math.max(0, entry[0]);
+    }
+
+    public static int amplifier(MagicStatus status) {
+        int[] entry = ACTIVE.get(status);
+        return entry == null ? 0 : entry[1];
+    }
+
+    public static void forEachActive(StatusVisitor visitor) {
+        for (Map.Entry<MagicStatus, int[]> entry : ACTIVE.entrySet()) {
+            visitor.visit(entry.getKey(), entry.getValue()[0], entry.getValue()[1], VALUES.getOrDefault(entry.getKey(), 0.0F));
+        }
+    }
+
+    public static int activeCount() {
+        return ACTIVE.size();
+    }
+
+    /** Bumped when a status arrives, ends or is cleared; the HUD rebuilds its chips on it. */
+    public static int version() {
+        return version;
+    }
+
     public static void tick(Minecraft minecraft) {
+        int before = ACTIVE.size();
         ACTIVE.entrySet().removeIf(e -> --e.getValue()[0] <= 0);
+        if (ACTIVE.size() != before) {
+            version++;
+        }
         LocalPlayer player = minecraft.player;
         if (player == null) {
             lockCaptured = false;
@@ -71,5 +108,6 @@ public final class ClientStatusState {
         ACTIVE.clear();
         VALUES.clear();
         lockCaptured = false;
+        version++;
     }
 }

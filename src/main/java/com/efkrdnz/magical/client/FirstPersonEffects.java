@@ -7,6 +7,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.util.Mth;
@@ -88,13 +89,14 @@ public final class FirstPersonEffects {
         }
     }
 
-    public static void renderOverlay(GuiGraphics guiGraphics) {
+    /** The {@code magical:first_person} GUI layer. Not gated on hideGui: a hit flash survives F1. */
+    public static void renderLayer(GuiGraphics guiGraphics, DeltaTracker delta) {
         if (OVERLAYS.isEmpty()) {
             return;
         }
         int width = guiGraphics.guiWidth();
         int height = guiGraphics.guiHeight();
-        float partial = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
+        float partial = delta.getGameTimeDeltaPartialTick(false);
         int aspectSeed = Mth.clamp(Math.round(width / (float) Math.max(1, height) * 16.0F), 1, 63);
         guiGraphics.drawSpecial(buffers -> {
             VertexConsumer consumer = buffers.getBuffer(MagicalFxRenderTypes.fpOverlay());

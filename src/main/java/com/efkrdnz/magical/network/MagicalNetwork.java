@@ -67,6 +67,8 @@ public final class MagicalNetwork {
                         context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToClient(ForgeComboSyncPayload.TYPE, ForgeComboSyncPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> handleClientPayload(payload)))
+                .playToClient(CooldownSyncPayload.TYPE, CooldownSyncPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToServer(OpenForgePayload.TYPE, OpenForgePayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> {
                             if (context.player() instanceof ServerPlayer player) {
@@ -227,6 +229,10 @@ public final class MagicalNetwork {
     /** Send an already-serialised state. The tag is the caller's snapshot; it is not copied again. */
     public static void syncMagicState(ServerPlayer player, CompoundTag state) {
         PacketDistributor.sendToPlayer(player, new PlayerMagicStatePayload(state));
+    }
+
+    public static void sendCooldowns(ServerPlayer player, CooldownSyncPayload payload) {
+        PacketDistributor.sendToPlayer(player, payload);
     }
 
     public static void playFirstPersonEffect(ServerPlayer player, FirstPersonEffectPayload payload) {

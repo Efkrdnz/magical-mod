@@ -3,6 +3,8 @@ package com.efkrdnz.magical.client;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.network.ArcanePlayerDataPayload;
 import com.efkrdnz.magical.network.ChronosEnvironmentPayload;
+import com.efkrdnz.magical.client.hud.ClientCooldowns;
+import com.efkrdnz.magical.network.CooldownSyncPayload;
 import com.efkrdnz.magical.network.CounterClearPayload;
 import com.efkrdnz.magical.network.CounterPromptPayload;
 import com.efkrdnz.magical.network.FirstPersonEffectPayload;
@@ -21,9 +23,11 @@ public final class ClientPayloadHandlers {
     }
 
     public static void handle(PlayerMagicStatePayload payload) {
+        PlayerMagicState previous = ClientMagicState.get();
         ClientMagicState.set(payload.data() == null
                 ? new PlayerMagicState()
                 : PlayerMagicState.load(payload.data()));
+        com.efkrdnz.magical.client.hud.HudAnnouncer.observe(previous, ClientMagicState.get(), ClientMagicState.receivedAtTick());
     }
 
     public static void handle(FirstPersonEffectPayload payload) {
@@ -56,5 +60,9 @@ public final class ClientPayloadHandlers {
 
     public static void handle(ForgeComboSyncPayload payload) {
         ClientForgeCombo.accept(payload);
+    }
+
+    public static void handle(CooldownSyncPayload payload) {
+        ClientCooldowns.accept(payload);
     }
 }

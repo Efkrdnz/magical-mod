@@ -75,7 +75,7 @@ public final class SpaceOffenseInput {
             float angle = sliceCenter(i);
             int x = centerX + Math.round(Mth.cos(angle) * radius * 0.55F);
             int y = centerY + Math.round(Mth.sin(angle) * radius * 0.55F);
-            int cooldown = ClientMagicState.get().skillCooldown(MODES[i]);
+            int cooldown = com.efkrdnz.magical.client.hud.ClientCooldowns.remaining(MODES[i]);
             boolean selected = i == selectedMode;
             if (selected) {
                 drawSliceFill(guiGraphics, centerX, centerY, radius - 6, i, 0x663D93FF);

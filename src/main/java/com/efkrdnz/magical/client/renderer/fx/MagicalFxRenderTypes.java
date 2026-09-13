@@ -1,6 +1,8 @@
 package com.efkrdnz.magical.client.renderer.fx;
 
 import com.efkrdnz.magical.MagicalMod;
+import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import java.util.ArrayList;
@@ -33,7 +35,29 @@ public final class MagicalFxRenderTypes {
     private static final ShaderProgram SHARD_BODY = program("rendertype_shard_body");
     private static final ShaderProgram SMOKE_VEIL = program("rendertype_smoke_veil");
     private static final ShaderProgram FP_OVERLAY = program("rendertype_fp_overlay");
+    private static final ShaderProgram HUD_SIGIL = program("rendertype_hud_sigil");
 
+    /**
+     * ONE / ONE_MINUS_SRC_ALPHA over premultiplied colour. The HUD shader writes premultiplied
+     * output, so a fragment with alpha 0 is pure additive glow and one with alpha above 0 paints
+     * over what is under it - the lit rings and the inked plates share a single batch. Vanilla
+     * has no such shard: its additive shard is ONE / ONE and its translucent shard is straight
+     * alpha, and switching between them would mean two render types and two draws.
+     */
+    private static final RenderStateShard.TransparencyStateShard PREMULTIPLIED_TRANSPARENCY =
+            new RenderStateShard.TransparencyStateShard("magical_premultiplied", () -> {
+                RenderSystem.enableBlend();
+                RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
+                        GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
+            }, () -> {
+                RenderSystem.disableBlend();
+                RenderSystem.defaultBlendFunc();
+            });
+
+    /** 28 bytes a vertex, 112 a quad: 32 KiB is 292 quads, and the whole HUD at once is under 120. */
+    private static final int HUD_BUFFER_BYTES = 32768;
+
+    private static RenderType hudSigil;
     private static RenderType shardBody;
     private static RenderType surfaceField;
     private static RenderType groundMark;
@@ -68,6 +92,7 @@ public final class MagicalFxRenderTypes {
         event.registerShader(SHARD_BODY);
         event.registerShader(SMOKE_VEIL);
         event.registerShader(FP_OVERLAY);
+        event.registerShader(HUD_SIGIL);
     }
 
     /** Flush order: solids -> darkness -> glow. */
@@ -94,6 +119,8 @@ public final class MagicalFxRenderTypes {
         for (RenderType type : flushOrder()) {
             event.registerRenderBuffer(type);
         }
+        // GUI only. Not in flushOrder(): that is the world flush order TransientVisuals walks.
+        event.registerRenderBuffer(hudSigil());
     }
 
     private static RenderType.CompositeState.CompositeStateBuilder base(ShaderProgram program, boolean additive, boolean noiseOnly) {
@@ -233,6 +260,21 @@ public final class MagicalFxRenderTypes {
             fpOverlay = create("fp_overlay", base(FP_OVERLAY, false, true).setDepthTestState(RenderStateShard.NO_DEPTH_TEST), 1024, false);
         }
         return fpOverlay;
+    }
+
+    /**
+     * The whole magic HUD, one batch. No depth test so it never fights the layers under it, no
+     * depth write so the text drawn after it always lands on top.
+     */
+    public static RenderType hudSigil() {
+        if (hudSigil == null) {
+            hudSigil = create("hud_sigil",
+                    base(HUD_SIGIL, false, false)
+                            .setTransparencyState(PREMULTIPLIED_TRANSPARENCY)
+                            .setDepthTestState(RenderStateShard.NO_DEPTH_TEST),
+                    HUD_BUFFER_BYTES, false);
+        }
+        return hudSigil;
     }
 
     public static ShaderProgram smokeVeilProgram() {

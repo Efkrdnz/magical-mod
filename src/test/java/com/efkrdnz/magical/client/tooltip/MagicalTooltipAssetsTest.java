@@ -145,14 +145,22 @@ class MagicalTooltipAssetsTest {
         assertTrue(missing.isEmpty(), "language file is missing: " + missing);
     }
 
-    /** The tooltip package, plus the two files elsewhere that write lines into the same box. */
+    /** The tooltip and HUD packages, plus the files elsewhere that write lines into the same boxes. */
     private static List<Path> sources() throws IOException {
         Path root = sourceRoot();
         List<Path> sources = new ArrayList<>(List.of(
                 root.resolve("item/MagicalWeaponItem.java"),
-                root.resolve("registry/MagicalCreativeTabs.java")));
-        try (Stream<Path> tooltip = Files.list(root.resolve("client/tooltip"))) {
-            tooltip.filter(path -> path.toString().endsWith(".java")).forEach(sources::add);
+                root.resolve("registry/MagicalCreativeTabs.java"),
+                root.resolve("client/ClientUnwakingEncounter.java"),
+                root.resolve("client/SovereignAegisInput.java"),
+                root.resolve("client/BlackFlamesInput.java"),
+                root.resolve("client/SpaceOffenseInput.java"),
+                root.resolve("client/SoulVowInput.java"),
+                root.resolve("client/SpaceManipulationOverlay.java")));
+        for (String directory : new String[] {"client/tooltip", "client/hud"}) {
+            try (Stream<Path> files = Files.list(root.resolve(directory))) {
+                files.filter(path -> path.toString().endsWith(".java")).forEach(sources::add);
+            }
         }
         return sources;
     }

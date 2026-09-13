@@ -11,6 +11,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```powershell
 .\gradlew build                      # compile + assemble mod jar
 .\gradlew runClient                  # dev Minecraft client
+.\gradlew runClient -PquickPlay="New World" -PautoScreenshot=200   # join a world at launch; screenshot 200 ticks in
+.\gradlew runClient -PquickPlay="New World" -PautoScreenshot=300 -PautoCommands="magical unlockall;magical hud equip 1 gabriel" -PautoHold=cast_slot_2   # ... after commands at tick 40, holding X for the last 60 ticks
 .\gradlew runServer                  # dev dedicated server (--nogui)
 .\gradlew runData                    # run data generators → src/generated/resources/
 .\gradlew runGameTestServer          # run registered gametests headlessly
@@ -18,6 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 .\gradlew test --tests "com.efkrdnz.magical.SomeTest"  # single test class
 ```
 
+- On macOS/Linux use `./gradlew`; Gradle 9.2 needs a JDK ≤ 25 as `JAVA_HOME` (the Java 21 toolchain is auto-provisioned).
 - `src/main/templates/META-INF/neoforge.mods.toml` is a template; `${mod_id}` etc. are expanded from `gradle.properties`. Edit template + `gradle.properties`, never generated `mods.toml`.
 - `src/generated/resources/` is a resources source dir alongside `src/main/resources/`. Datagen output.
 
@@ -43,7 +46,7 @@ Game-bus handlers are `@EventBusSubscriber(modid = MODID)` annotated classes —
 
 ### Cast flow (keybind → render)
 
-1. **Client tick** — `MagicalClientEvents.Hud.onClientTick` polls `MagicalKeyMappings` (Z/X/C = 3 loadout slots, B = wheel, V = wheel-cast, K = codex). Hold/charge skills (Barrage, Subspace, Aegis, Black Flames, etc.) are intercepted by per-skill input handlers (`MagicBarrageInput`, `SpaceAuthorityInput`, `SovereignAegisInput`, etc.) before normal cast. Normal press sends a `CastLoadoutSlotPayload`.
+1. **Client tick** — `MagicalClientEvents.Hud.onClientTick` polls `MagicalKeyMappings` (Z/X/C/V = 4 loadout slots, B = loadout switcher / counter answer, K = codex, R = barrier refill). Hold/charge skills (Barrage, Subspace, Aegis, Black Flames, etc.) are intercepted by per-skill input handlers (`MagicBarrageInput`, `SpaceAuthorityInput`, `SovereignAegisInput`, etc.) before normal cast. Normal press sends a `CastLoadoutSlotPayload`.
 
 2. **Server dispatch** — `MagicalNetwork` routes payloads. `MagicCastingService.castResolved` checks cooldown/unlock/mana, then routes via an **`if`-ladder** (special skills first: Vault of Avarice, Subspace, Space Walker, Aegis, etc.), then a `switch` on `MagicSkillType` (`PROJECTILE`/`BURST`/`BARRIER`). That `if`-ladder is the real routing table — every skill with custom behavior has an explicit ID check.
 
@@ -79,6 +82,16 @@ All payload records in `network/` (24 payloads). `MagicalNetwork` registers them
 - Custom core shaders in `assets/magical/shaders/core/` (`.vsh`, `.fsh`, `.json`), registered via `RegisterShadersEvent` → `MagicalRenderTypes`.
 - Skills: unique mechanics first, visuals second.
 
+### HUD
+
+`client/hud/` — the in-game overlay, "the sigil": concentric ring meters (XP, mana, barrier, the charge halo) round a core that carries the numerals (level, mana, barrier, vault), a crown of sin satellites, a fan of cast cards on spokes with key tags and a seconds numeral while cooling, text readouts for the lit sins beyond the tags, captions under the fan, a reflection of the pools under a waterline for blood/dark mages, status chips under the crosshair, and announcements of what the player just gained. The hold overlays (sub-skill wheels, space dials, switcher, blood strip), the counter box and the combo readout are the original `GuiGraphics` code, untouched. Rules:
+- **Layers, not a render event.** `HudLayers` registers `magical:first_person` / `sigil` / `encounter` / `selector` on `RegisterGuiLayersEvent`; the sigil layer also calls the original combo and counter renderers, the selector layer the original hold overlays. Modded layers are not gated by `hideGui` (`Gui.java:265` wraps only vanilla's groups); `HudLayers.gated` does it.
+- **Tick builds, render reads.** `HudState.tick` (end of `Hud.onClientTick`, both branches) rebuilds an immutable `HudSnapshot` only when a version changed (`ClientMagicState`, `ClientCooldowns`, `ClientStatusState`, `HudAnnouncer`, keybinds, window, language, options). Renderers are pure functions of the snapshot + partial tick: no allocation, no `PlayerMagicState` calls, no registry lookups. Moving values are `HudTween`s; the only per-tick string is a cooling card's seconds, reshaped when the second changes.
+- **One batch.** Everything is a quad on `MagicalFxRenderTypes.hudSigil()` (`rendertype_hud_sigil.fsh`, ten kinds mirrored in `HudKind`) emitted through `HudBatch` inside one `drawSpecial`; text goes after it through `HudText` with vanilla's drop shadow. Never `GuiGraphics.fill` under `client/hud` — a test forbids it. `HudSnapshotBudgetTest` pins the quad count.
+- **Geometry in `HudLayout`, colours in `HudPalette`, glyphs in `HudGlyphs`.** `HudLayoutTest` sweeps every anchor × scale × state for overlap and fit at 480×270, and checks the core holds its numerals. A skill's icon is its cast circle's emblem; sins and statuses are stamps.
+- **Cooldowns** are not in the state blob; `CooldownSyncPayload` (dirty-set flushed from `PlayerMagicState.sync`/`tickServer`, full list on login/respawn/dimension change) feeds `ClientCooldowns`, which extrapolates. The original wheels read it too.
+- **Options** in `MagicalClientConfig` (`config/magical-client.toml`): anchor, scale, opacity, sins, statuses, compact, reducedMotion, hudDebug. `/magical hud …` forces every HUD state (sins, charge, gluttony, corruption, vessel, status, cooldown, equip, race); `-PautoHold` captures a hold overlay.
+
 ### Custom dimensions
 
 Three datapack dimensions under `data/magical/dimension{,_type}/`:
@@ -94,5 +107,6 @@ Three datapack dimensions under `data/magical/dimension{,_type}/`:
 4. Hold/charge/multi-mode → payload in `network/` + handler in `MagicalNetwork` + client input handler wired in `MagicalClientEvents.Hud.onClientTick`.
 5. Lang keys in `assets/magical/lang/en_us.json` (`skill.magical.<path>` + `.desc`).
 6. Class grant lists in `MagicalClasses` if class-rewarded. Passives in `MagicPassiveContent` if passive-gated.
+7. The HUD needs nothing: its card icon is the cast circle's emblem from the visual profile, and the cooldown sweep and seconds are automatic. Only a skill with no emblem needs a stamp in `client/hud/HudGlyphs`.
 
 Arcane content goes in `arcane/ArcaneContent` (rune/shape/modifier records) — separate flow, not the `magic/` system.

@@ -19,6 +19,12 @@ public final class ClientForgeCombo {
     private static int readyInTicks;
     private static int elementColor = UNKNOWN_COLOR;
     private static long updatedAtTick;
+    /**
+     * The window this chain started with, so the drain bar has something to drain from. Every sync
+     * reports a freshly opened window at its full duration, never a mid-window update, so the
+     * value at sync time is the peak.
+     */
+    private static int windowPeak;
 
     private ClientForgeCombo() {}
 
@@ -28,6 +34,7 @@ public final class ClientForgeCombo {
         windowTicksLeft = payload.windowTicksLeft();
         readyInTicks = payload.readyInTicks();
         elementColor = payload.elementColor();
+        windowPeak = payload.windowTicksLeft();
         updatedAtTick = currentTick();
     }
 
@@ -38,9 +45,7 @@ public final class ClientForgeCombo {
         readyInTicks = 0;
         elementColor = UNKNOWN_COLOR;
         updatedAtTick = 0L;
-        // The HUD remembers a window peak and a hold across frames; both are derived from what is
-        // being cleared here, so they have to go with it or the drain bar reopens partly drained.
-        ForgeComboHud.reset();
+        windowPeak = 0;
     }
 
     public static int comboIndex() {
@@ -61,6 +66,10 @@ public final class ClientForgeCombo {
 
     public static int elementColor() {
         return elementColor;
+    }
+
+    public static int windowPeak() {
+        return windowPeak;
     }
 
     /** Client game time of the last sync, so the HUD can age the pips out between packets. */

@@ -62,6 +62,14 @@ public final class SpaceAuthorityInput {
     }
 
     /** Abandon any charge in progress. Called when the player switches loadout. */
+    /** How far a subspace has charged on a held slot, 0..1, continuous across the tick. */
+    public static float chargeFraction(int slot, float partialTick) {
+        if (slot < 0 || slot >= CHARGE_TICKS.length || !WAS_DOWN[slot] || CHARGE_TICKS[slot] <= 0) {
+            return 0.0F;
+        }
+        return Math.min(1.0F, (CHARGE_TICKS[slot] + partialTick) / (float) SpaceAuthorityService.MAX_CHARGE_TICKS);
+    }
+
     public static void cancel() {
         java.util.Arrays.fill(WAS_DOWN, false);
         java.util.Arrays.fill(CHARGE_TICKS, 0);

@@ -41,5 +41,10 @@ public final class MagicalMod {
         modEventBus.addListener(com.efkrdnz.magical.magic.cast.MagicCastContent::onCommonSetup);
 
         modContainer.registerConfig(ModConfig.Type.COMMON, MagicalConfig.SPEC);
+        if (net.neoforged.fml.loading.FMLEnvironment.dist.isClient()) {
+            // The HUD options. Registered here and not in a client class so the file exists before
+            // any client code runs; the spec class itself references nothing client-side.
+            modContainer.registerConfig(ModConfig.Type.CLIENT, com.efkrdnz.magical.client.hud.MagicalClientConfig.SPEC, "magical-client.toml");
+        }
     }
 }

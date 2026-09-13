@@ -2,6 +2,7 @@
 
 #moj_import <magical:magic_common.glsl>
 #moj_import <magical:magic_frag.glsl>
+#moj_import <magical:magic_atlas.glsl>
 
 uniform sampler2D Sampler0; // noise atlas
 uniform sampler2D Sampler1; // sigil emblem SDF atlas (16x16 cells)
@@ -38,22 +39,6 @@ const int ORBIT_SEAL = 21;
 const int CORE = 22;
 const int EMBLEM = 23;
 
-// One atlas cell lookup: id 0..255, local coordinate q in -1..1.
-float atlasInk(int id, vec2 q, float aa) {
-    float cx = float(id & 15);
-    float cy = float(id >> 4);
-    vec2 uv = (vec2(cx, cy) + 0.5 + q * 0.42) / 16.0;
-    float d = texture(Sampler1, uv).r;
-    return smoothstep(0.5 - aa, 0.5 + aa, d);
-}
-
-float atlasGlow(int id, vec2 q) {
-    float cx = float(id & 15);
-    float cy = float(id >> 4);
-    vec2 uv = (vec2(cx, cy) + 0.5 + q * 0.42) / 16.0;
-    float d = texture(Sampler1, uv).r;
-    return smoothstep(0.15, 0.5, d) * 0.45;
-}
 
 // Rune cell: 3-5 pseudo-strokes chosen by hash, drawn in a -1..1 cell frame.
 float runeCell(vec2 q, float cellSeed) {
@@ -152,8 +137,8 @@ void main() {
         } else if (kind == STAMP_BAND) {
             float cell = fract(u * fc);
             vec2 q = vec2((cell - 0.5) * 2.4, v * 2.0 - 1.0);
-            ink = atlasInk(paramB, q, 0.06);
-            glow += atlasGlow(paramB, q);
+            ink = atlasInk(Sampler1, paramB, q, 0.06);
+            glow += atlasGlow(Sampler1, paramB, q);
         } else if (kind == ARC_SWEEP) {
             // phase is the fill fraction of a charge meter
             float filled = step(u, phase);
@@ -267,8 +252,8 @@ void main() {
             if (abs(q.x) > 1.0 || abs(q.y) > 1.0) {
                 discard;
             }
-            ink = atlasInk(id, q, 0.05);
-            glow += atlasGlow(id, q);
+            ink = atlasInk(Sampler1, id, q, 0.05);
+            glow += atlasGlow(Sampler1, id, q);
             ink *= smoothstep(0.0, 0.6, inkOn);
         }
     }

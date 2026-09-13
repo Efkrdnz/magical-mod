@@ -17,6 +17,11 @@ public final class GenericHoldInput {
 
     private GenericHoldInput() {}
 
+    /** Whether a holdable skill's key is down on this slot. */
+    public static boolean isHeld(int slot) {
+        return slot >= 0 && slot < HELD.length && HELD[slot];
+    }
+
     public static void tick(Minecraft minecraft) {
         var state = ClientMagicState.get();
         for (int slot = 0; slot < MagicalKeyMappings.CAST_SLOTS.length && slot < HELD.length; slot++) {

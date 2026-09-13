@@ -42,6 +42,10 @@ public final class ForgeComboInput {
      * {@link #charging}, never sends a release, and makes HEAVY's charge bonus inert.
      */
     private static int chargeThreshold = ForgeStrikeMath.BASE_CHARGE_THRESHOLD;
+    /** Whether the stack in hand is forged, answered once a tick so no frame has to parse its NBT. */
+    private static boolean forgedInHand;
+    /** Client tick the current attack hold began, negative while the key is up or mining. */
+    private static long holdStartTick = -1L;
 
     private ForgeComboInput() {}
 
@@ -84,7 +88,8 @@ public final class ForgeComboInput {
             reset();
             lastMainHand = mainHand.copy();
         }
-        if (!isForgedWeapon(mainHand)) {
+        forgedInHand = isForgedWeapon(mainHand);
+        if (!forgedInHand) {
             reset();
             chargeThreshold = ForgeStrikeMath.BASE_CHARGE_THRESHOLD;
             wasDown = down; // keep tracking the key so an unforged hold never reads as a fresh press
@@ -92,6 +97,16 @@ public final class ForgeComboInput {
         }
         chargeThreshold = thresholdOf(mainHand);
         boolean destroying = minecraft.gameMode != null && minecraft.gameMode.isDestroying();
+        // The wind-up the HUD telegraphs: how long the key has been held toward the charge
+        // threshold. ForgeStrikeMath.chargeFraction reads 0 for that whole stretch, which is
+        // exactly the part a player needs to see.
+        if (down && !destroying) {
+            if (holdStartTick < 0L || holdStartTick > clientTick) {
+                holdStartTick = clientTick;
+            }
+        } else {
+            holdStartTick = -1L;
+        }
         flushPress(destroying);
         accumulateHold(down, destroying);
         flushRelease(down);
@@ -102,6 +117,19 @@ public final class ForgeComboInput {
     /** How far into a heavy charge the wielder is, 0 when not charging. Feeds the HUD ring only. */
     public static float chargeFraction() {
         return charging ? ForgeStrikeMath.chargeFraction(heldTicks, chargeThreshold) : 0.0f;
+    }
+
+    /** How far a held attack key is toward the charge threshold, 0 while the key is up. */
+    public static float windupFraction(float partialTick) {
+        if (holdStartTick < 0L || chargeThreshold <= 0) {
+            return 0.0f;
+        }
+        return Math.max(0.0f, Math.min(1.0f, (clientTick - holdStartTick + partialTick) / chargeThreshold));
+    }
+
+    /** Whether the main hand held a forged weapon at the last tick. */
+    public static boolean forgedWeaponInHand() {
+        return forgedInHand;
     }
 
     /**
@@ -126,6 +154,7 @@ public final class ForgeComboInput {
         charging = false;
         heldTicks = 0;
         wasDown = false;
+        holdStartTick = -1L;
     }
 
     private static void flushPress(boolean destroying) {

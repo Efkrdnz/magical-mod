@@ -54,7 +54,6 @@ import com.efkrdnz.magical.registry.MagicalEntities;
 import com.efkrdnz.magical.registry.MagicalMenus;
 import java.util.List;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
@@ -73,7 +72,6 @@ import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.event.RegisterShadersEvent;
 import net.neoforged.neoforge.client.event.RegisterSpecialModelRendererEvent;
-import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.client.event.ViewportEvent;
 
@@ -213,12 +211,14 @@ public final class MagicalClientEvents {
                 // Still ticked with a screen open: it drops any pending press or running charge
                 // rather than firing it the moment the screen closes.
                 ForgeComboInput.tick(minecraft);
+                com.efkrdnz.magical.client.hud.HudState.tick(minecraft);
                 return;
             }
             FirstPersonEffects.tick(minecraft);
             com.efkrdnz.magical.client.fx.TransientVisuals.tick();
             com.efkrdnz.magical.client.fx.SpellParticles.tick();
             ClientStatusState.tick(minecraft);
+            com.efkrdnz.magical.client.hud.ClientCooldowns.tick(minecraft);
             GenericHoldInput.tick(minecraft);
             ForgeComboInput.tick(minecraft);
             for (int i = 0; i < MagicalKeyMappings.CAST_SLOTS.length; i++) {
@@ -279,31 +279,8 @@ public final class MagicalClientEvents {
             while (MagicalKeyMappings.REFILL_BARRIER.consumeClick()) {
                 MagicalNetwork.sendBarrierRefillRequest();
             }
-        }
-
-        @SubscribeEvent
-        public static void renderHud(RenderGuiEvent.Post event) {
-            Minecraft minecraft = Minecraft.getInstance();
-            if (minecraft.player == null) {
-                return;
-            }
-            GuiGraphics guiGraphics = event.getGuiGraphics();
-            FirstPersonEffects.renderOverlay(guiGraphics);
-            if (minecraft.options.hideGui) {
-                return;
-            }
-
-            MagicalHudOverlay.render(guiGraphics, minecraft, ClientMagicState.get());
-            ForgeComboHud.render(guiGraphics, minecraft);
-            ClientCounterPrompt.render(guiGraphics, minecraft);
-            ClientUnwakingEncounter.renderHud(guiGraphics, minecraft);
-            SpaceManipulationOverlay.render(guiGraphics, minecraft);
-            MagicWheelOverlay.render(guiGraphics, minecraft);
-            SovereignAegisInput.render(guiGraphics, minecraft);
-            BlackFlamesInput.render(guiGraphics, minecraft);
-            SpaceOffenseInput.render(guiGraphics, minecraft);
-            SoulVowInput.render(guiGraphics, minecraft);
-            BloodShapeInput.render(guiGraphics, minecraft);
+            // Last, after every input handler, so the snapshot sees this tick's charge and holds.
+            com.efkrdnz.magical.client.hud.HudState.tick(minecraft);
         }
 
         @SubscribeEvent

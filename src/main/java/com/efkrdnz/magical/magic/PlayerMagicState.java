@@ -158,6 +158,15 @@ public final class PlayerMagicState {
     private final Map<ResourceLocation, MagicSkillTuning> tuning = new LinkedHashMap<>();
     private final Map<ResourceLocation, MagicalClassProgress> classProgress = new LinkedHashMap<>();
     private final Map<ResourceLocation, Integer> skillCooldowns = new LinkedHashMap<>();
+    /** What each live cooldown started from. On the wire for the HUD's sweep, never saved. */
+    private final Map<ResourceLocation, Integer> cooldownTotals = new LinkedHashMap<>();
+    /**
+     * Cooldowns changed since the client last heard. Flushed from {@link #sync} and the end of
+     * {@link #tickServer}, so every one of the seventeen places that set a cooldown is covered
+     * without remembering a second call - including the one that clears them without syncing.
+     */
+    private transient final Set<ResourceLocation> pendingCooldownSync = new LinkedHashSet<>();
+    private transient boolean pendingCooldownReplaceAll;
     private final Map<ResourceLocation, Integer> cooldownEchoCounters = new LinkedHashMap<>();
     /**
      * Long-lived scratch values for class passives, keyed by the passive id that owns them: a kill
@@ -446,6 +455,11 @@ public final class PlayerMagicState {
 
     public int activeSubspaceEntityId() {
         return activeSubspaceEntityId;
+    }
+
+    /** Ticks left on the anchor sigil, for the HUD's chip; {@link #hasAnchorSigil()} is the flag. */
+    public int anchorSigilTicks() {
+        return Math.max(0, anchorSigilTicks);
     }
 
     public boolean hasAnchorSigil() {
@@ -1086,7 +1100,7 @@ public final class PlayerMagicState {
         }
         refreshLoadoutCooldownsFromSkills();
         tuning.remove(skillId);
-        skillCooldowns.remove(skillId);
+        setSkillCooldown(skillId, 0);
         cooldownEchoCounters.remove(skillId);
         envyProgress.remove(skillId);
         return true;
@@ -1645,16 +1659,48 @@ public final class PlayerMagicState {
         int cooldown = Math.max(0, ticks);
         if (cooldown == 0) {
             skillCooldowns.remove(skillId);
+            cooldownTotals.remove(skillId);
         } else {
             skillCooldowns.put(skillId, cooldown);
+            cooldownTotals.put(skillId, cooldown);
         }
         mirrorSkillCooldownToLoadout(skillId, cooldown);
+        pendingCooldownSync.add(skillId);
     }
 
     public void clearCooldowns() {
         skillCooldowns.clear();
+        cooldownTotals.clear();
         cooldownEchoCounters.clear();
         Arrays.fill(slotCooldowns, 0);
+        pendingCooldownSync.clear();
+        pendingCooldownReplaceAll = true;
+    }
+
+    /** The whole list, replacing whatever the client holds: login, respawn, a dimension change. */
+    public void syncAllCooldowns(ServerPlayer player) {
+        pendingCooldownReplaceAll = true;
+        flushCooldownSync(player);
+    }
+
+    private void flushCooldownSync(ServerPlayer player) {
+        if (!pendingCooldownReplaceAll && pendingCooldownSync.isEmpty()) {
+            return;
+        }
+        List<com.efkrdnz.magical.network.CooldownSyncPayload.Entry> entries = new ArrayList<>();
+        if (pendingCooldownReplaceAll) {
+            skillCooldowns.forEach((id, left) -> entries.add(new com.efkrdnz.magical.network.CooldownSyncPayload.Entry(
+                    id, left, cooldownTotals.getOrDefault(id, left))));
+        } else {
+            for (ResourceLocation id : pendingCooldownSync) {
+                int left = skillCooldowns.getOrDefault(id, 0);
+                entries.add(new com.efkrdnz.magical.network.CooldownSyncPayload.Entry(
+                        id, left, left == 0 ? 0 : cooldownTotals.getOrDefault(id, left)));
+            }
+        }
+        MagicalNetwork.sendCooldowns(player, new com.efkrdnz.magical.network.CooldownSyncPayload(pendingCooldownReplaceAll, entries));
+        pendingCooldownReplaceAll = false;
+        pendingCooldownSync.clear();
     }
 
     public boolean consumeCooldownEcho(ResourceLocation skillId) {
@@ -1734,7 +1780,8 @@ public final class PlayerMagicState {
         return player.getRandom().nextInt(100) < chance;
     }
 
-    private int envyRequired(MagicSkillDefinition definition) {
+    /** Envy progress a skill needs to awaken; the HUD draws the satellite's gauge against it. */
+    public int envyRequired(MagicSkillDefinition definition) {
         int tier = Math.max(0, definition.tier());
         return 80 + tier * tier * 80 + Math.max(0, definition.baseManaCost());
     }
@@ -1757,6 +1804,7 @@ public final class PlayerMagicState {
         if (!skillCooldowns.isEmpty()) {
             skillCooldowns.replaceAll((id, cooldown) -> Math.max(0, cooldown - 1));
             skillCooldowns.entrySet().removeIf(entry -> entry.getValue() <= 0);
+            cooldownTotals.keySet().retainAll(skillCooldowns.keySet());
             refreshLoadoutCooldownsFromSkills();
         }
         // Deliberately does not set changed: like the cooldowns above it, this counts down without
@@ -1823,6 +1871,8 @@ public final class PlayerMagicState {
         if (changed) {
             sync(player);
         }
+        // Catches the slow-tick clear that never syncs, and anything set from an entity tick.
+        flushCooldownSync(player);
         return changed;
     }
 
@@ -1893,6 +1943,7 @@ public final class PlayerMagicState {
         tuning.forEach((id, value) -> copy.tuning.put(id, value));
         classProgress.forEach((id, progress) -> copy.classProgress.put(id, progress.copy()));
         copy.skillCooldowns.putAll(skillCooldowns);
+        copy.cooldownTotals.putAll(cooldownTotals);
         copy.cooldownEchoCounters.putAll(cooldownEchoCounters);
         copy.passiveCounters.putAll(passiveCounters);
         copy.envyProgress.putAll(envyProgress);
@@ -1913,6 +1964,7 @@ public final class PlayerMagicState {
      * expensive, because it left every caller holding an object the attachment no longer used.
      */
     public void sync(ServerPlayer player) {
+        flushCooldownSync(player);
         if (player.getData(MagicalAttachments.MAGIC_STATE.get()) != this) {
             // Every caller in the tree reads the attachment before mutating it, so this is the rare
             // path: a state that is not the player's own still has to be installed before it is sent.

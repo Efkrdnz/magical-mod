@@ -242,6 +242,118 @@ public final class MagicalCommands {
                                         player.displayClientMessage(Component.translatable("message.magical.skill_removed", Component.translatable(definition.nameKey())), false);
                                         return 1;
                                     }))))
+                    // Forces the states the HUD draws, so every ring, satellite and chip can be seen without
+                    // playing the hours that earn them. Each ends in a sync so the client sees it at once.
+                    .then(Commands.literal("hud")
+                            .then(Commands.literal("sin")
+                                    .then(Commands.argument("sin", StringArgumentType.word())
+                                            .then(Commands.argument("amount", IntegerArgumentType.integer(0))
+                                                    .executes(context -> withPlayer(context.getSource(), player -> {
+                                                        PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+                                                        int amount = IntegerArgumentType.getInteger(context, "amount");
+                                                        switch (StringArgumentType.getString(context, "sin")) {
+                                                            case "pride" -> data.addPride(amount);
+                                                            case "wrath" -> data.addWrath(amount);
+                                                            case "greed" -> data.addGreedHoard(amount);
+                                                            case "sloth" -> data.addSlothStillness(amount);
+                                                            default -> {
+                                                                context.getSource().sendFailure(net.minecraft.network.chat.Component.literal("pride | wrath | greed | sloth"));
+                                                                return 0;
+                                                            }
+                                                        }
+                                                        data.sync(player);
+                                                        return 1;
+                                                    })))))
+                            .then(Commands.literal("charge")
+                                    .then(Commands.argument("level", IntegerArgumentType.integer(1, 5))
+                                            .then(Commands.argument("ticks", IntegerArgumentType.integer(1))
+                                                    .executes(context -> withPlayer(context.getSource(), player -> {
+                                                        PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+                                                        data.addManaCharge(IntegerArgumentType.getInteger(context, "level"), IntegerArgumentType.getInteger(context, "ticks"));
+                                                        data.sync(player);
+                                                        return 1;
+                                                    })))))
+                            .then(Commands.literal("gluttony")
+                                    .then(Commands.argument("ticks", IntegerArgumentType.integer(0))
+                                            .executes(context -> withPlayer(context.getSource(), player -> {
+                                                PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+                                                data.setGluttonyCooldown(IntegerArgumentType.getInteger(context, "ticks"));
+                                                data.sync(player);
+                                                return 1;
+                                            }))))
+                            .then(Commands.literal("corruption")
+                                    .then(Commands.argument("amount", IntegerArgumentType.integer(0, PlayerMagicState.MAX_CORRUPTION))
+                                            .executes(context -> withPlayer(context.getSource(), player -> {
+                                                PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+                                                data.setCorruption(IntegerArgumentType.getInteger(context, "amount"));
+                                                data.sync(player);
+                                                return 1;
+                                            }))))
+                            .then(Commands.literal("vessel")
+                                    .then(Commands.argument("amount", IntegerArgumentType.integer(0, PlayerMagicState.MAX_BLOOD_VESSEL))
+                                            .executes(context -> withPlayer(context.getSource(), player -> {
+                                                PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+                                                data.addBloodVessel(IntegerArgumentType.getInteger(context, "amount") - data.bloodVessel());
+                                                data.sync(player);
+                                                return 1;
+                                            }))))
+                            .then(Commands.literal("status")
+                                    .then(Commands.argument("status", StringArgumentType.word())
+                                            .then(Commands.argument("ticks", IntegerArgumentType.integer(0))
+                                                    .executes(context -> withPlayer(context.getSource(), player -> applyStatus(context, player, 0)))
+                                                    .then(Commands.argument("amplifier", IntegerArgumentType.integer(0, 15))
+                                                            .executes(context -> withPlayer(context.getSource(), player -> applyStatus(context, player, IntegerArgumentType.getInteger(context, "amplifier"))))))))
+                            .then(Commands.literal("anchor")
+                                    .then(Commands.argument("ticks", IntegerArgumentType.integer(0))
+                                            .executes(context -> withPlayer(context.getSource(), player -> {
+                                                PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+                                                data.setAnchorSigil(player.level().dimension().location().toString(), player.blockPosition(), IntegerArgumentType.getInteger(context, "ticks"));
+                                                data.sync(player);
+                                                return 1;
+                                            }))))
+                            .then(Commands.literal("equip")
+                                    .then(Commands.argument("slot", IntegerArgumentType.integer(0, MagicContent.LOADOUT_SIZE - 1))
+                                            .then(Commands.argument("id", StringArgumentType.word())
+                                                    .executes(context -> withPlayer(context.getSource(), player -> {
+                                                        ResourceLocation skillId = parseMagicId(StringArgumentType.getString(context, "id"));
+                                                        if (MagicContent.get(skillId) == null) {
+                                                            context.getSource().sendFailure(net.minecraft.network.chat.Component.literal("unknown skill " + skillId));
+                                                            return 0;
+                                                        }
+                                                        PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+                                                        data.unlock(skillId);
+                                                        if (!data.setLoadoutSlot(data.activeLoadoutIndex(), IntegerArgumentType.getInteger(context, "slot"), skillId)) {
+                                                            context.getSource().sendFailure(net.minecraft.network.chat.Component.literal("could not equip " + skillId));
+                                                            return 0;
+                                                        }
+                                                        data.sync(player);
+                                                        return 1;
+                                                    })))))
+                            .then(Commands.literal("race")
+                                    .then(Commands.argument("id", StringArgumentType.word())
+                                            .executes(context -> withPlayer(context.getSource(), player -> {
+                                                PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+                                                if (!data.chooseRace(parseMagicId(StringArgumentType.getString(context, "id")))) {
+                                                    context.getSource().sendFailure(net.minecraft.network.chat.Component.literal("unknown race, or one is already chosen"));
+                                                    return 0;
+                                                }
+                                                data.sync(player);
+                                                return 1;
+                                            }))))
+                            .then(Commands.literal("cooldown")
+                                    .then(Commands.argument("id", StringArgumentType.word())
+                                            .then(Commands.argument("ticks", IntegerArgumentType.integer(0))
+                                                    .executes(context -> withPlayer(context.getSource(), player -> {
+                                                        ResourceLocation skillId = parseMagicId(StringArgumentType.getString(context, "id"));
+                                                        if (MagicContent.get(skillId) == null) {
+                                                            context.getSource().sendFailure(net.minecraft.network.chat.Component.literal("unknown skill " + skillId));
+                                                            return 0;
+                                                        }
+                                                        PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+                                                        data.setSkillCooldown(skillId, IntegerArgumentType.getInteger(context, "ticks"));
+                                                        data.sync(player);
+                                                        return 1;
+                                                    }))))))
                     .then(Commands.literal("setmana")
                             .then(Commands.argument("amount", IntegerArgumentType.integer(0))
                                     .executes(context -> withPlayer(context.getSource(), player -> {
@@ -644,4 +756,17 @@ public final class MagicalCommands {
             return raw.contains(":") ? ResourceLocation.parse(raw) : ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, raw);
         }
     }
+    private static int applyStatus(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context, net.minecraft.server.level.ServerPlayer player, int amplifier) {
+        String name = StringArgumentType.getString(context, "status").toUpperCase(java.util.Locale.ROOT);
+        com.efkrdnz.magical.magic.status.MagicStatus status;
+        try {
+            status = com.efkrdnz.magical.magic.status.MagicStatus.valueOf(name);
+        } catch (IllegalArgumentException unknown) {
+            context.getSource().sendFailure(net.minecraft.network.chat.Component.literal("unknown status " + name));
+            return 0;
+        }
+        com.efkrdnz.magical.magic.status.MagicStatusService.apply(player, status, IntegerArgumentType.getInteger(context, "ticks"), amplifier, 0.0F, MagicContent.STARTER_SKILL, player);
+        return 1;
+    }
+
 }
