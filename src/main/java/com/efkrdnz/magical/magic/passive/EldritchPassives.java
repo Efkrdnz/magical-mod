@@ -6,6 +6,7 @@ import com.efkrdnz.magical.magic.MagicSchool;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.service.SkillTargets;
+import com.efkrdnz.magical.magic.skill.eldritch.GraspOfTheDeepSkill;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.resources.ResourceLocation;
@@ -63,9 +64,9 @@ public final class EldritchPassives implements ClassPassiveHandler {
         }
     }
 
-    /** The deep takes hold of what it has seen. Grasp of the Deep supplies the grasp (Task 8). */
+    /** The deep takes hold of what it has seen: a grasp under the caster, on the caster. */
     static void reachForTheCaster(ServerPlayer player, PlayerMagicState state) {
-        // Task 8 replaces this body with GraspOfTheDeepSkill.reachFor(player, state).
+        GraspOfTheDeepSkill.reachFor(player, state);
     }
 
     @Override
