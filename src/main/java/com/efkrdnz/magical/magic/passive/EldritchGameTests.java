@@ -200,4 +200,21 @@ public final class EldritchGameTests {
             helper.succeed();
         });
     }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100, batch = "eldritch_7")
+    public static void noticeCoolsAPointASlowTickForAMageWhoStaysQuiet(GameTestHelper helper) {
+        ServerPlayer player = eldritchMage(helper, STAND, MagicContent.TENDRIL_LASH.id());
+        state(player).setNotice(40);
+        // A fake player has no connection to tick it, so the test runs the slow tick the player
+        // tick would, at the cadence MagicGameplayEvents uses.
+        for (int tick = ClassPassiveEffects.SLOW_TICK_INTERVAL; tick < 45; tick += ClassPassiveEffects.SLOW_TICK_INTERVAL) {
+            int at = tick;
+            helper.runAtTickTime(at, () -> ClassPassiveEffects.slowTick(player, state(player)));
+        }
+        helper.runAtTickTime(45, () -> {
+            helper.assertTrue(state(player).notice() < 40, "notice must cool, still " + state(player).notice());
+            helper.assertTrue(state(player).notice() >= 34, "but not faster than a point a slow tick: " + state(player).notice());
+            helper.succeed();
+        });
+    }
 }
