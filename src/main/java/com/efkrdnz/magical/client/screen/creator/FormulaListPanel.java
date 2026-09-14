@@ -19,6 +19,7 @@ import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.hit;
 import com.efkrdnz.magical.classes.MagicalClassDefinition;
 import com.efkrdnz.magical.classes.MagicalClasses;
 import com.efkrdnz.magical.client.screen.CodexLayout.Rect;
+import com.efkrdnz.magical.client.screen.EmblemPainter;
 import com.efkrdnz.magical.client.screen.MagicalGuiStyle;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicFusionService;

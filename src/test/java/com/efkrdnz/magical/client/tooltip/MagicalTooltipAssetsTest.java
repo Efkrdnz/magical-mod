@@ -157,7 +157,7 @@ class MagicalTooltipAssetsTest {
                 root.resolve("client/SpaceOffenseInput.java"),
                 root.resolve("client/SoulVowInput.java"),
                 root.resolve("client/SpaceManipulationOverlay.java")));
-        for (String directory : new String[] {"client/tooltip", "client/hud", "client/screen/creator"}) {
+        for (String directory : new String[] {"client/tooltip", "client/hud", "client/screen", "client/screen/creator"}) {
             try (Stream<Path> files = Files.list(root.resolve(directory))) {
                 files.filter(path -> path.toString().endsWith(".java")).forEach(sources::add);
             }

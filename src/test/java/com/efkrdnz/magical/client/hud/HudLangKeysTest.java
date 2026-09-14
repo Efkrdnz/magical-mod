@@ -25,14 +25,18 @@ class HudLangKeysTest {
             "screen.magical.spell_creator_hint", "screen.magical.fusion_slot_one", "screen.magical.fusion_slot_two",
             "screen.magical.fusion_empty_slot", "screen.magical.fusion_incomplete", "screen.magical.fusion_pick_hint",
             "screen.magical.fusion_no_formula", "screen.magical.fusion_try_other_pair", "screen.magical.fusion_select_prompt",
-            "screen.magical.fusion_select_slot", "screen.magical.fusion_no_inputs", "screen.magical.fusion_output");
+            "screen.magical.fusion_select_slot", "screen.magical.fusion_no_inputs", "screen.magical.fusion_output",
+            // The codex title strip readout, replaced by the level chip and the XP bar.
+            "screen.magical.proficiency");
 
     private static final List<String> PRESENT = List.of(
             "hud.magical.gauge.pride", "hud.magical.gauge.greed", "hud.magical.gauge.envy", "hud.magical.gauge.gluttony",
             "hud.magical.gauge.wrath", "hud.magical.gauge.sloth", "hud.magical.gauge.sloth_rested", "hud.magical.gauge.charge", "hud.magical.gauge.vault",
             "hud.magical.level_chip", "hud.magical.pool", "hud.magical.vault_chip",
             "hud.magical.arcane_line", "hud.magical.corruption_next", "hud.magical.corruption_line", "hud.magical.vessel_line", "hud.magical.debug",
-            "hud.magical.rule.caption");
+            "hud.magical.rule.caption",
+            // The codex builds a skill kind line from the MagicSkillType name.
+            "skilltype.magical.projectile", "skilltype.magical.burst", "skilltype.magical.barrier");
 
     @Test
     void everyAnnouncementKindHasALine() throws IOException {

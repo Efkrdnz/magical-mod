@@ -1,4 +1,4 @@
-package com.efkrdnz.magical.client.screen.creator;
+package com.efkrdnz.magical.client.screen;
 
 import com.efkrdnz.magical.client.hud.HudBatch;
 import com.efkrdnz.magical.client.hud.HudGlyphs;
@@ -19,7 +19,7 @@ import net.minecraft.resources.ResourceLocation;
  * and everything drawn after lands over them, so a screen paints its chrome, flushes, then writes
  * its text. One instance per screen; nothing is allocated per frame once the looks are cached.
  */
-final class EmblemPainter implements Consumer<MultiBufferSource> {
+public final class EmblemPainter implements Consumer<MultiBufferSource> {
     private static final int CAPACITY = 64;
 
     private final HudBatch batch = new HudBatch();
@@ -33,18 +33,18 @@ final class EmblemPainter implements Consumer<MultiBufferSource> {
     private int count;
     private GuiGraphics graphics;
 
-    void begin(GuiGraphics graphics) {
+    public void begin(GuiGraphics graphics) {
         this.graphics = graphics;
         count = 0;
     }
 
     /** An emblem in its own tint. */
-    void add(ResourceLocation id, float cx, float cy, float half, float alpha) {
+    public void add(ResourceLocation id, float cx, float cy, float half, float alpha) {
         add(id, cx, cy, half, alpha, false);
     }
 
     /** {@code dim} draws it in the muted text grey: a missing ingredient, a result not yet within reach. */
-    void add(ResourceLocation id, float cx, float cy, float half, float alpha, boolean dim) {
+    public void add(ResourceLocation id, float cx, float cy, float half, float alpha, boolean dim) {
         if (id == null || count >= CAPACITY) {
             return;
         }
@@ -61,8 +61,13 @@ final class EmblemPainter implements Consumer<MultiBufferSource> {
         count++;
     }
 
+    /** The tint a skill's emblem is drawn with; never the raw skill colour, which for Black Flames is nearly black. */
+    public int tint(ResourceLocation id) {
+        return looks.computeIfAbsent(id, EmblemPainter::look)[1] & 0xFFFFFF;
+    }
+
     /** The one {@code drawSpecial} of the frame; a no-op when nothing was queued. */
-    void flush() {
+    public void flush() {
         if (count > 0 && graphics != null) {
             graphics.drawSpecial(this);
         }

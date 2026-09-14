@@ -31,6 +31,9 @@ import org.slf4j.Logger;
  *   <li>{@code -Dmagical.autoHold=cast_slot_2} ({@code -PautoHold=...}): holds that key mapping
  *       down from sixty ticks before the first screenshot until it is taken, so a hold overlay -
  *       a radial, the space dials, the switcher, the blood strip - can be captured.</li>
+ *   <li>{@code -Dmagical.autoClick=116:247,45;132:339,45} ({@code -PautoClick=...}): presses the
+ *       open screen at those GUI coordinates at those ticks, so a tab or a button can be walked
+ *       through in one launch; a screen that implements {@link Captured} is never auto-closed.</li>
  *   <li>{@code -Dmagical.autoExit=true} ({@code -PautoExit}): closes the game twenty ticks after
  *       the last screenshot, so a capture can run unattended.</li>
  * </ul>
@@ -49,10 +52,12 @@ public final class HudDebug {
     private static final int EXIT_AFTER_SCREENSHOT = 20;
     private static final int[] SCREENSHOT_TICKS = ticks(System.getProperty("magical.autoScreenshot", ""));
     private static final Command[] COMMANDS = commands(System.getProperty("magical.autoCommands", ""));
+    private static final Command[] CLICKS = commands(System.getProperty("magical.autoClick", ""));
     private static final String AUTO_HOLD = System.getProperty("magical.autoHold", "");
     private static final boolean AUTO_EXIT = Boolean.getBoolean("magical.autoExit");
 
     private static final boolean[] SENT = new boolean[COMMANDS.length];
+    private static final boolean[] CLICKED = new boolean[CLICKS.length];
     private static int ticksInWorld;
     private static int screenshotsTaken;
 
@@ -101,7 +106,7 @@ public final class HudDebug {
 
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Post event) {
-        if (SCREENSHOT_TICKS.length == 0 && COMMANDS.length == 0) {
+        if (SCREENSHOT_TICKS.length == 0 && COMMANDS.length == 0 && CLICKS.length == 0) {
             return;
         }
         Minecraft minecraft = Minecraft.getInstance();
@@ -117,12 +122,20 @@ public final class HudDebug {
                 minecraft.player.connection.sendCommand(COMMANDS[i].text());
             }
         }
+        for (int i = 0; i < CLICKS.length; i++) {
+            if (!CLICKED[i] && ticksInWorld >= CLICKS[i].tick()) {
+                CLICKED[i] = true;
+                click(minecraft, CLICKS[i].text());
+            }
+        }
         boolean allTaken = screenshotsTaken >= SCREENSHOT_TICKS.length;
         // The mod's onboarding opens a screen per unanswered choice; keep clearing them until the last capture.
         if (COMMANDS.length > 0 && ticksInWorld >= CLOSE_SCREEN_AT_TICK && ticksInWorld % 10 == 0 && !allTaken) {
-            if (minecraft.screen instanceof AbstractContainerScreen<?>) {
+            if (minecraft.screen instanceof Captured) {
+                // A capture is of it, container or not: leave it alone.
+            } else if (minecraft.screen instanceof AbstractContainerScreen<?>) {
                 minecraft.player.closeContainer();
-            } else if (minecraft.screen != null && !(minecraft.screen instanceof Captured)) {
+            } else if (minecraft.screen != null) {
                 minecraft.setScreen(null);
             }
         }
@@ -141,6 +154,24 @@ public final class HudDebug {
                 && ticksInWorld >= SCREENSHOT_TICKS[SCREENSHOT_TICKS.length - 1] + EXIT_AFTER_SCREENSHOT) {
             LOGGER.info("HUD auto-exit: every screenshot is taken");
             minecraft.stop();
+        }
+    }
+
+    /** {@code "x,y"} in GUI coordinates: a left press and release on whatever screen is open. */
+    private static void click(Minecraft minecraft, String at) {
+        String[] parts = at.split(",");
+        if (parts.length != 2 || minecraft.screen == null) {
+            LOGGER.warn("HUD auto-click: nothing to press at {} (screen {})", at, minecraft.screen);
+            return;
+        }
+        try {
+            double x = Double.parseDouble(parts[0].trim());
+            double y = Double.parseDouble(parts[1].trim());
+            LOGGER.info("HUD auto-click: {} on {}", at, minecraft.screen.getClass().getSimpleName());
+            minecraft.screen.mouseClicked(x, y, 0);
+            minecraft.screen.mouseReleased(x, y, 0);
+        } catch (NumberFormatException bad) {
+            LOGGER.warn("HUD auto-click: not a point: {}", at);
         }
     }
 

@@ -15,13 +15,9 @@ import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.ROW_S
 import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.SLOT_EMBLEM_HALF;
 import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.SLOT_TEXT_DX;
 import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.TAB_COUNT;
-import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.TAB_Y;
-import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.TITLE_W;
 import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.TOOLTIP_W;
 import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.back;
-import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.body;
 import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.clampScroll;
-import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.classChip;
 import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.createButton;
 import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.hit;
 import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.ingredientEmblem;
@@ -38,9 +34,7 @@ import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.slot;
 import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.slotAt;
 import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.slotClear;
 import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.slotEmblem;
-import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.tab;
 import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.tabAt;
-import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.title;
 import static com.efkrdnz.magical.client.screen.creator.SpellCreatorLayout.xpBar;
 
 import com.efkrdnz.magical.classes.MagicalClassDefinition;
@@ -50,7 +44,9 @@ import com.efkrdnz.magical.client.hud.HudDebug;
 import com.efkrdnz.magical.client.hud.HudPalette;
 import com.efkrdnz.magical.client.hud.MagicalClientConfig;
 import com.efkrdnz.magical.client.screen.CodexLayout.Rect;
+import com.efkrdnz.magical.client.screen.EmblemPainter;
 import com.efkrdnz.magical.client.screen.MagicalGuiStyle;
+import com.efkrdnz.magical.client.screen.ScreenChrome;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicFusionService;
 import com.efkrdnz.magical.magic.MagicFusionService.FormulaState;
@@ -89,7 +85,6 @@ import net.minecraft.util.FormattedCharSequence;
  */
 public final class SpellCreatorScreen extends Screen implements HudDebug.Captured {
     private static final int PENDING_TIMEOUT_TICKS = 60;
-    private static final int BACK_BASE = 0xFF27354A;
     private static final int DISABLED_BASE = 0xFF27354A;
     private static final int BLOCKED_BASE = 0xFF4A2730;
     private static final int CREATE_BASE = 0xFF6A3F84;
@@ -209,8 +204,7 @@ public final class SpellCreatorScreen extends Screen implements HudDebug.Capture
         emblems.begin(g);
         paintHeader(g, state, x0, y0);
         paintTabs(g, x0, y0);
-        Rect body = body();
-        MagicalGuiStyle.panel(g, x0 + body.x(), y0 + body.y(), x0 + body.right(), y0 + body.bottom(), accent(state));
+        ScreenChrome.paintBody(g, x0, y0, accent(state));
         if (tab == OpenSpellCreatorPayload.TAB_CREATE) {
             paintCreate(g, state, x0, y0, lx, ly, partial);
         } else {
@@ -237,27 +231,11 @@ public final class SpellCreatorScreen extends Screen implements HudDebug.Capture
     }
 
     private void paintHeader(GuiGraphics g, PlayerMagicState state, int x0, int y0) {
-        Rect chip = classChip();
-        MagicalGuiStyle.inset(g, x0 + chip.x(), y0 + chip.y(), x0 + chip.right(), y0 + chip.bottom());
-        g.fill(x0 + chip.x(), y0 + chip.y(), x0 + chip.x() + 2, y0 + chip.bottom(), accent(state));
-        Rect xp = xpBar();
-        MagicalGuiStyle.inset(g, x0 + xp.x(), y0 + xp.y(), x0 + xp.right(), y0 + xp.bottom());
-        int fill = Math.round((xp.w() - 2) * xpFraction(state));
-        if (fill > 0) {
-            g.fillGradient(x0 + xp.x() + 1, y0 + xp.y() + 1, x0 + xp.x() + 1 + fill, y0 + xp.bottom() - 1,
-                    MagicalGuiStyle.withAlpha(MagicalGuiStyle.ACCENT_GOLD, 0xAA), MagicalGuiStyle.withAlpha(MagicalGuiStyle.ACCENT_GOLD, 0x55));
-        }
-        Rect back = back();
-        MagicalGuiStyle.button(g, font, x0 + back.x(), y0 + back.y(), back.w(), back.h(), BACK_BASE,
-                Component.translatable("screen.magical.back"));
-        g.fill(x0 + 10, y0 + TAB_Y - 4, x0 + PANEL_W - 10, y0 + TAB_Y - 3, MagicalGuiStyle.withAlpha(accent(state), 0x3A));
+        ScreenChrome.paintHeader(g, font, x0, y0, accent(state), xpFraction(state), Component.translatable("screen.magical.back"));
     }
 
     private void paintTabs(GuiGraphics g, int x0, int y0) {
-        for (int index = 0; index < TAB_COUNT; index++) {
-            Rect rect = tab(index);
-            MagicalGuiStyle.listRow(g, x0 + rect.x(), y0 + rect.y(), rect.w(), rect.h(), index == tab, MagicalGuiStyle.ACCENT_ARCANE);
-        }
+        ScreenChrome.paintTabs(g, x0, y0, TAB_COUNT, tab);
     }
 
     private void paintCreate(GuiGraphics g, PlayerMagicState state, int x0, int y0, double lx, double ly, float partial) {
@@ -339,25 +317,13 @@ public final class SpellCreatorScreen extends Screen implements HudDebug.Capture
     }
 
     private void textHeader(GuiGraphics g, PlayerMagicState state, int x0, int y0) {
-        Rect titleRect = title();
-        g.drawString(font, font.plainSubstrByWidth(getTitle().getString(), TITLE_W), x0 + titleRect.x(), y0 + titleRect.y(),
-                MagicalGuiStyle.TEXT_PRIMARY, false);
-        Rect chip = classChip();
         boolean any = state.hasClass(MagicalClasses.SPELL_CREATOR);
-        g.drawCenteredString(font, font.plainSubstrByWidth(className(state).getString(), chip.w() - 8),
-                x0 + chip.x() + chip.w() / 2 + 1, y0 + chip.y() + 3, any ? accent(state) : MagicalGuiStyle.TEXT_MUTED);
-        Rect xp = xpBar();
-        g.drawCenteredString(font, font.plainSubstrByWidth(xpLabel(state).getString(), xp.w() - 6),
-                x0 + xp.x() + xp.w() / 2, y0 + xp.y() + 3, MagicalGuiStyle.TEXT_PRIMARY);
+        ScreenChrome.textHeader(g, font, x0, y0, getTitle(), className(state), any ? accent(state) : MagicalGuiStyle.TEXT_MUTED, xpLabel(state));
     }
 
     private void textTabs(GuiGraphics g, int x0, int y0) {
-        for (int index = 0; index < TAB_COUNT; index++) {
-            Rect rect = tab(index);
-            String label = Component.translatable(index == 0 ? "screen.magical.creator.tab.create" : "screen.magical.creator.tab.formulas").getString();
-            g.drawCenteredString(font, font.plainSubstrByWidth(label, rect.w() - 6), x0 + rect.x() + rect.w() / 2, y0 + rect.y() + 3,
-                    index == tab ? MagicalGuiStyle.TEXT_PRIMARY : MagicalGuiStyle.TEXT_MUTED);
-        }
+        ScreenChrome.textTabs(g, font, x0, y0, List.of(Component.translatable("screen.magical.creator.tab.create"),
+                Component.translatable("screen.magical.creator.tab.formulas")), tab);
     }
 
     private void textCreate(GuiGraphics g, PlayerMagicState state, int x0, int y0) {

@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.client.screen.creator;
 
 import com.efkrdnz.magical.client.screen.CodexLayout.Rect;
+import com.efkrdnz.magical.client.screen.ScreenChrome;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.util.Mth;
@@ -17,45 +18,45 @@ import net.minecraft.util.Mth;
  */
 public final class SpellCreatorLayout {
 
-    /** The codex footprint, so Back and forth does not move the frame. */
-    public static final int PANEL_W = 444;
-    public static final int PANEL_H = 340;
+    /** The frame is the shared chrome, so Back and forth to the codex moves nothing but the contents. */
+    public static final int PANEL_W = ScreenChrome.PANEL_W;
+    public static final int PANEL_H = ScreenChrome.PANEL_H;
 
     // ---- header ---------------------------------------------------------------------------------
 
-    public static final int TITLE_X = 12;
-    public static final int TITLE_Y = 8;
-    public static final int TITLE_W = 108;
-    public static final int TEXT_H = 10;
+    public static final int TITLE_X = ScreenChrome.TITLE_X;
+    public static final int TITLE_Y = ScreenChrome.TITLE_Y;
+    public static final int TITLE_W = ScreenChrome.TITLE_W;
+    public static final int TEXT_H = ScreenChrome.TEXT_H;
 
-    public static final int CHIP_X = 126;
-    public static final int CHIP_Y = 6;
-    public static final int CHIP_W = 110;
-    public static final int CHIP_H = 14;
+    public static final int CHIP_X = ScreenChrome.CHIP_X;
+    public static final int CHIP_Y = ScreenChrome.CHIP_Y;
+    public static final int CHIP_W = ScreenChrome.CHIP_W;
+    public static final int CHIP_H = ScreenChrome.CHIP_H;
 
-    public static final int XP_X = 242;
-    public static final int XP_Y = 6;
-    public static final int XP_W = 140;
-    public static final int XP_H = 14;
+    public static final int XP_X = ScreenChrome.XP_X;
+    public static final int XP_Y = ScreenChrome.XP_Y;
+    public static final int XP_W = ScreenChrome.XP_W;
+    public static final int XP_H = ScreenChrome.XP_H;
 
-    public static final int BACK_X = 390;
-    public static final int BACK_Y = 5;
-    public static final int BACK_W = 44;
-    public static final int BACK_H = 16;
+    public static final int BACK_X = ScreenChrome.CORNER_X;
+    public static final int BACK_Y = ScreenChrome.CORNER_Y;
+    public static final int BACK_W = ScreenChrome.CORNER_W;
+    public static final int BACK_H = ScreenChrome.CORNER_H;
 
     // ---- tabs and body --------------------------------------------------------------------------
 
     public static final int TAB_COUNT = 2;
-    public static final int TAB_X = 12;
-    public static final int TAB_Y = 28;
-    public static final int TAB_W = 90;
-    public static final int TAB_H = 14;
-    public static final int TAB_GAP = 2;
+    public static final int TAB_X = ScreenChrome.TAB_X;
+    public static final int TAB_Y = ScreenChrome.TAB_Y;
+    public static final int TAB_W = ScreenChrome.TAB_W;
+    public static final int TAB_H = ScreenChrome.TAB_H;
+    public static final int TAB_GAP = ScreenChrome.TAB_GAP;
 
-    public static final int BODY_X = 10;
-    public static final int BODY_Y = 44;
-    public static final int BODY_W = 424;
-    public static final int BODY_H = 284;
+    public static final int BODY_X = ScreenChrome.BODY_X;
+    public static final int BODY_Y = ScreenChrome.BODY_Y;
+    public static final int BODY_W = ScreenChrome.BODY_W;
+    public static final int BODY_H = ScreenChrome.BODY_H;
 
     // ---- the Create tab -------------------------------------------------------------------------
 

@@ -76,6 +76,10 @@ neoForge {
             if (project.hasProperty('autoCommands')) {
                 systemProperty 'magical.autoCommands', project.property('autoCommands').toString()
             }
+            //   ./gradlew runClient -PautoClick="116:247,45;132:339,45"   press the open screen at those GUI points at those ticks
+            if (project.hasProperty('autoClick')) {
+                systemProperty 'magical.autoClick', project.property('autoClick').toString()
+            }
             //   ./gradlew runClient -PautoScreenshot=300 -PautoHold=cast_slot_2   hold that key for the last 60 ticks before the capture
             if (project.hasProperty('autoHold')) {
                 systemProperty 'magical.autoHold', project.property('autoHold').toString()
