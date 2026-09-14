@@ -132,4 +132,17 @@ public final class EldritchGameTests {
             helper.succeed();
         });
     }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100, batch = BATCH)
+    public static void aLashStingsShovesAndHarriesWhatIsAhead(GameTestHelper helper) {
+        ServerPlayer player = eldritchMage(helper, STAND, MagicContent.TENDRIL_LASH.id());
+        Zombie zombie = victim(helper, player);
+        float health = zombie.getHealth();
+        helper.runAtTickTime(1, () -> MagicCastingService.castById(player, MagicContent.TENDRIL_LASH.id(), false));
+        helper.runAtTickTime(20, () -> {
+            helper.assertTrue(zombie.getHealth() < health, "the thing ahead is stung");
+            helper.assertTrue(MagicStatusService.has(zombie, MagicStatus.HARRIED), "and harried");
+            helper.succeed();
+        });
+    }
 }
