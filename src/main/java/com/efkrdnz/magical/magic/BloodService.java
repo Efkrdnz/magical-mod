@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.magic;
 
+import com.efkrdnz.magical.magic.blood.BloodPrices;
 import com.efkrdnz.magical.magic.passive.PassiveHooks;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
@@ -109,6 +110,28 @@ public final class BloodService {
         }
         float missing = 1.0F - Math.min(1.0F, Math.max(0.0F, caster.getHealth() / max));
         return 1.0F + missing * (MAX_POTENCY - 1.0F);
+    }
+
+    /**
+     * What a cast of this skill costs in blood with the points applied: its base price from
+     * {@link BloodPrices}, through {@link #scale}.
+     */
+    public static int cost(MagicSkillResolvedStats stats) {
+        return scale(stats, BloodPrices.base(stats.definition().id()));
+    }
+
+    /**
+     * A blood price with the points applied.
+     *
+     * <p>The factor is the one mana is billed at - points spent on the other stats raise it, Thrift
+     * lowers it, and it never goes below a quarter - so the budget pulls on blood exactly as it
+     * pulls on mana. A positive price never rounds away to nothing.
+     */
+    public static int scale(MagicSkillResolvedStats stats, int base) {
+        if (base <= 0) {
+            return 0;
+        }
+        return Math.max(1, Math.round(base * stats.costScale()));
     }
 
     private static boolean canSurvive(ServerPlayer player, float healthCost) {

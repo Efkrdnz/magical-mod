@@ -112,7 +112,8 @@ public final class BloodManipulationSkill implements SkillModule {
                 }
 
                 double arcLength = BloodShapeGeometry.arcLength(shape, halfExtent);
-                if (!BloodService.pay(player, state, BloodShapeRules.bloodCost(arcLength))) {
+                if (!BloodService.pay(player, state,
+                        BloodService.scale(ctx.stats(), BloodShapeRules.bloodCost(arcLength)))) {
                     return CastResult.FAILED;
                 }
 
@@ -163,9 +164,12 @@ public final class BloodManipulationSkill implements SkillModule {
             public TuningView tuning() {
                 // Reach rides on the size stat under its own label. A sixth tuning stat would widen
                 // the codex button bands past the loadout range and change the tuning save format;
-                // relabelling is what beam_radius and seal_reach already do.
-                return TuningView.NO_SPEED.labels(null, null,
-                        "screen.magical.tuning.blood_reach", null);
+                // relabelling is what beam_radius and seal_reach already do. Thrift is the fifth:
+                // it lowers the blood bill, which BloodService.scale reads off the same factor that
+                // would have lowered a mana cost.
+                return TuningView.NO_SPEED.labels("screen.magical.tuning.bite", null,
+                        "screen.magical.tuning.blood_reach", "screen.magical.tuning.linger",
+                        "screen.magical.tuning.thrift");
             }
         };
     }

@@ -12,10 +12,12 @@ import com.efkrdnz.magical.client.ClientMagicState;
 import com.efkrdnz.magical.client.hud.HudDebug;
 import com.efkrdnz.magical.client.screen.CodexLayout.Rect;
 import com.efkrdnz.magical.client.screen.creator.SpellCreatorScreen;
+import com.efkrdnz.magical.magic.BloodService;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicLoadout;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.MagicPassiveDefinition;
+import com.efkrdnz.magical.magic.MagicSchool;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
 import com.efkrdnz.magical.magic.MagicSkillTuning;
@@ -23,6 +25,7 @@ import com.efkrdnz.magical.magic.MagicSkillTuningView;
 import com.efkrdnz.magical.magic.MagicSkillType;
 import com.efkrdnz.magical.magic.MagicTuningStat;
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.blood.shape.BloodShapeRules;
 import com.efkrdnz.magical.magic.menu.MagicPyramidMenu;
 import com.efkrdnz.magical.network.MagicalNetwork;
 import com.efkrdnz.magical.network.OpenSpellCreatorPayload;
@@ -568,7 +571,7 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     }
 
     private void drawSkillStatLines(GuiGraphics g, MagicSkillDefinition skill, MagicSkillResolvedStats stats, int left, int top) {
-        String costs = "Mana " + stats.manaCost() + "  Cooldown " + stats.cooldownTicks();
+        String costs = costLine(skill, stats);
         if (MagicContent.VAULT_OF_AVARICE.id().equals(skill.id())) {
             g.drawString(font, Component.translatable("screen.magical.vault_utility_stats"), left, top, STAT_TEXT, false);
             return;
@@ -600,6 +603,20 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         }
         g.drawString(font, "Dmg " + format(stats.damage()) + "  Spd " + format(stats.speed()) + "  Size " + format(stats.size()), left, top, STAT_TEXT, false);
         g.drawString(font, costs, left, top + 13, STAT_TEXT, false);
+    }
+
+    /** "Mana N  Cooldown M" - or, for blood, the price in blood with the points applied. */
+    private static String costLine(MagicSkillDefinition skill, MagicSkillResolvedStats stats) {
+        String cooldown = "  Cooldown " + stats.cooldownTicks();
+        if (skill.school() != MagicSchool.BLOOD) {
+            return "Mana " + stats.manaCost() + cooldown;
+        }
+        if (MagicContent.BLOOD_MANIPULATION.id().equals(skill.id())) {
+            // Billed by the length drawn: the base, plus so much per block of it.
+            return "Blood " + BloodService.scale(stats, BloodShapeRules.BASE_COST) + " + "
+                    + BloodService.scale(stats, BloodShapeRules.COST_PER_BLOCK) + " per block" + cooldown;
+        }
+        return "Blood " + BloodService.cost(stats) + cooldown;
     }
 
     // ---- the detail geometry --------------------------------------------------------------------

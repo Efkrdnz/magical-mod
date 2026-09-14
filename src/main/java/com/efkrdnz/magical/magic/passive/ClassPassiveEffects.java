@@ -85,7 +85,8 @@ public final class ClassPassiveEffects {
                 Math.max(0, Math.round(stats.cooldownTicks() * adjustment.cooldown)),
                 stats.durationTicks(),
                 stats.knockback() * adjustment.knockback,
-                stats.barrierRestore());
+                stats.barrierRestore(),
+                stats.costScale());
     }
 
     /**

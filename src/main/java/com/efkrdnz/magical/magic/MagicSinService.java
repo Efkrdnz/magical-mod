@@ -62,7 +62,7 @@ public final class MagicSinService {
             cooldown = Math.max(8, Math.round(cooldown * (1.0F - stillness * 0.18F)));
         }
 
-        MagicSkillResolvedStats adjusted = new MagicSkillResolvedStats(stats.definition(), stats.tuning(), damage, stats.speed(), size, mana, cooldown, stats.durationTicks(), knockback, stats.barrierRestore());
+        MagicSkillResolvedStats adjusted = new MagicSkillResolvedStats(stats.definition(), stats.tuning(), damage, stats.speed(), size, mana, cooldown, stats.durationTicks(), knockback, stats.barrierRestore(), stats.costScale());
         return ClassPassiveEffects.adjustCast(player, state, adjusted);
     }
 

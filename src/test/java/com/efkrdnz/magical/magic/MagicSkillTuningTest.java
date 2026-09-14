@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import net.minecraft.SharedConstants;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.Bootstrap;
@@ -185,5 +186,38 @@ class MagicSkillTuningTest {
         assertEquals(55, maxedUnderOldRules.spent());
         assertFalse(maxedUnderOldRules.fitsIn(MagicSkillTuning.ABSOLUTE_MAX));
         assertTrue(MagicSkillTuning.DEFAULT.fitsIn(MagicSkillTuning.MAX));
+    }
+    @Test
+    void aSkillThatCostsNoManaStaysFreeWhateverThePoints() {
+        // Blood and Dark register at zero mana because they are billed in their own currency by
+        // their handlers - but resolve floored mana at four, so every one of their casts quietly
+        // cost four mana on top of the blood or the corruption.
+        MagicSkillDefinition blood = MagicContent.BLOOD_MANIPULATION;
+        assertEquals(0, blood.baseManaCost(), "the premise: blood registers at zero mana");
+        assertEquals(0, blood.resolve(MagicSkillTuning.DEFAULT).manaCost(), "the hidden four mana");
+        assertEquals(0, blood.resolve(new MagicSkillTuning(11, 0, 0, 0, 0)).manaCost(),
+                "points cannot conjure a mana cost either");
+        assertEquals(4, MagicContent.SPACE_WALKER.resolve(new MagicSkillTuning(0, 0, 0, 0, 11)).manaCost(),
+                "a skill that does cost mana keeps its floor of four");
+    }
+    @Test
+    void theCostScaleIsTheFactorManaIsBilledAt() {
+        // Blood reads this factor to price a cast in blood, so the two currencies feel the points
+        // the same way: investment makes a cast dearer, efficiency makes it cheaper, and neither
+        // can push it below a quarter of the base.
+        MagicSkillDefinition crucible = MagicContent.CRUCIBLE;
+        assertEquals(1.0F, crucible.resolve(MagicSkillTuning.DEFAULT).costScale(), 1.0E-5F);
+        assertEquals(1.0F + 3 * 0.14F, crucible.resolve(new MagicSkillTuning(3, 0, 0, 0, 0)).costScale(), 1.0E-5F,
+                "damage points raise it");
+        assertEquals(1.0F - 3 * 0.12F, crucible.resolve(new MagicSkillTuning(0, 0, 0, 0, 3)).costScale(), 1.0E-5F,
+                "efficiency lowers it");
+        assertEquals(0.25F, crucible.resolve(new MagicSkillTuning(-11, 0, -11, 0, 11)).costScale(), 1.0E-5F,
+                "the floor");
+        for (MagicSkillTuning tuning : List.of(MagicSkillTuning.DEFAULT, new MagicSkillTuning(2, 1, 0, 0, 0),
+                new MagicSkillTuning(0, 0, 0, 0, 5), new MagicSkillTuning(0, 0, 0, 0, 11))) {
+            MagicSkillResolvedStats stats = crucible.resolve(tuning);
+            assertEquals(Math.max(4, Math.round(crucible.baseManaCost() * stats.costScale())), stats.manaCost(),
+                    "mana is that factor applied to the base, at " + tuning);
+        }
     }
 }

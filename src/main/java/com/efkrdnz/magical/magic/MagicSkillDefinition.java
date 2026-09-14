@@ -79,11 +79,14 @@ public record MagicSkillDefinition(
         float size = Math.max(0.35F, baseSize * sizeScale);
         float manaScale = Math.max(0.0F, 1.0F + tuning.damage() * 0.14F + tuning.speed() * 0.11F + tuning.size() * 0.12F + tuning.duration() * 0.1F) * efficiencyScale;
         float cooldownScale = 1.0F + tuning.damage() * 0.12F + tuning.size() * 0.1F + tuning.duration() * 0.08F - tuning.speed() * 0.06F;
-        int manaCost = Math.max(4, Math.round(baseManaCost * Math.max(SCALE_FLOOR, manaScale)));
+        float costScale = Math.max(SCALE_FLOOR, manaScale);
+        // A base of zero stays zero. Blood and Dark register at zero because their handlers bill
+        // them in their own currency, and the floor of four was charging them mana on top.
+        int manaCost = baseManaCost <= 0 ? 0 : Math.max(4, Math.round(baseManaCost * costScale));
         int cooldown = Math.max(8, Math.round(baseCooldownTicks * Math.max(SCALE_FLOOR, cooldownScale)));
         int duration = Math.max(6, Math.round(baseDurationTicks * durationScale));
         int barrier = Math.max(0, Math.round(barrierRestore * (1.0F + tuning.efficiency() * 0.18F + tuning.size() * 0.1F)));
         float knockback = Math.max(0.0F, baseKnockback * (1.0F + tuning.damage() * 0.14F + tuning.size() * 0.1F));
-        return new MagicSkillResolvedStats(this, tuning, damage, speed, size, manaCost, cooldown, duration, knockback, barrier);
+        return new MagicSkillResolvedStats(this, tuning, damage, speed, size, manaCost, cooldown, duration, knockback, barrier, costScale);
     }
 }

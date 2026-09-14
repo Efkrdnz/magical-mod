@@ -189,7 +189,7 @@ public final class MagicSkillTuningView {
                     case SPEED -> view.speedLabelKey();
                     case SIZE -> view.sizeLabelKey();
                     case DURATION -> view.durationLabelKey();
-                    case EFFICIENCY -> null;
+                    case EFFICIENCY -> view.efficiencyLabelKey();
                 };
                 return custom != null ? custom : stat.translationKey();
             }

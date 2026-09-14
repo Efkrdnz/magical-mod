@@ -3,8 +3,10 @@ package com.efkrdnz.magical.client.screen.blood;
 import com.efkrdnz.magical.client.ClientMagicState;
 import com.efkrdnz.magical.client.screen.MagicalGuiStyle;
 import com.efkrdnz.magical.client.screen.forge.ForgeInk;
+import com.efkrdnz.magical.magic.BloodService;
 import com.efkrdnz.magical.magic.BloodShapeBook;
 import com.efkrdnz.magical.magic.MagicContent;
+import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.blood.shape.BloodShape;
 import com.efkrdnz.magical.magic.blood.shape.BloodShapeGeometry;
@@ -167,7 +169,7 @@ public class BloodShapeEditorScreen extends Screen {
         g.drawString(font, Component.translatable("screen.magical.blood_shape.drawn",
                 String.format("%.1f", drawn)), x, line + 12, MagicalGuiStyle.TEXT_MUTED, false);
         g.drawString(font, Component.translatable("screen.magical.blood_shape.cost",
-                BloodShapeRules.bloodCost(drawn)), x, line + 24, INK, false);
+                BloodService.scale(stats(), BloodShapeRules.bloodCost(drawn))), x, line + 24, INK, false);
 
     }
 
@@ -392,8 +394,12 @@ public class BloodShapeEditorScreen extends Screen {
      * at cast time from its own copy, so this is a preview rather than an authority.
      */
     private double halfExtent() {
-        return BloodShapeRules.halfExtentBlocks(MagicContent.BLOOD_MANIPULATION
-                .resolve(state().tuningFor(MagicContent.BLOOD_MANIPULATION.id())).size());
+        return BloodShapeRules.halfExtentBlocks(stats().size());
+    }
+
+    /** Blood Manipulation with the caster's own points applied: the numbers the server bills with. */
+    private static MagicSkillResolvedStats stats() {
+        return MagicContent.BLOOD_MANIPULATION.resolve(state().tuningFor(MagicContent.BLOOD_MANIPULATION.id()));
     }
 
     private static PlayerMagicState state() {
