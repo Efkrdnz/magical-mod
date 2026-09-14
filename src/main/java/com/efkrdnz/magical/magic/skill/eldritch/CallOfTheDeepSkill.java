@@ -91,11 +91,6 @@ public final class CallOfTheDeepSkill implements SkillModule {
             }
 
             @Override
-            public double aimTolerance() {
-                return 0.0D;
-            }
-
-            @Override
             public TuningView tuning() {
                 return TuningView.DEFAULT.labels("screen.magical.tuning.wrath", "screen.magical.tuning.cadence",
                         "screen.magical.tuning.reach", "screen.magical.tuning.call", "screen.magical.tuning.thrift");

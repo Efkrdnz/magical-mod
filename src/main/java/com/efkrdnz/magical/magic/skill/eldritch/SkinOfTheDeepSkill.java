@@ -86,11 +86,6 @@ public final class SkinOfTheDeepSkill implements SkillModule {
             }
 
             @Override
-            public double aimTolerance() {
-                return 0.0D;
-            }
-
-            @Override
             public TuningView tuning() {
                 return TuningView.NO_SPEED.labels("screen.magical.tuning.bite", null,
                         "screen.magical.tuning.wards", "screen.magical.tuning.wear", "screen.magical.tuning.thrift");

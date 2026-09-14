@@ -1,12 +1,19 @@
-"""Placeholder creatures for the eldritch kit: cubes in the school's teal with bright fronts, one file
-per asset in the contract, so the code can be seen moving before the real models exist.
+"""Placeholder creatures for the eldritch kit: cubes in the school teal with bright fronts and a glow
+layer that is transparent except where they glow, one file per asset in the contract, so the code can
+be seen moving before the real models exist.
 Run from the project root: python scripts/eldritch-placeholders.py"""
 import json, struct, zlib, os
 
 ROOT = os.path.join(os.path.dirname(__file__), "..", "src", "main", "resources", "assets", "magical")
 MODELS = os.path.join(ROOT, "models", "entity", "eldritch")
 TEXTURES = os.path.join(ROOT, "textures", "entity", "eldritch")
-INK, TEAL, BRIGHT, DARK, BLACK = (6, 50, 42), (47, 191, 158), (95, 239, 208), (26, 122, 102), (0, 0, 0)
+INK, TEAL, BRIGHT, DARK = (6, 50, 42), (47, 191, 158), (95, 239, 208), (26, 122, 102)
+# The glow layer is blended over the body, not added, so it is clear wherever the creature does not glow.
+CLEAR = (0, 0, 0, 0)
+
+
+def rgba(color):
+    return color if len(color) == 4 else color + (255,)
 
 
 def png(path, size, pixels):
@@ -19,7 +26,7 @@ def png(path, size, pixels):
 
 
 def canvas(size, rgb):
-    return [[rgb + (255,) for _ in range(size)] for _ in range(size)]
+    return [[rgba(rgb) for _ in range(size)] for _ in range(size)]
 
 
 def box_uv(pixels, u, v, w, h, d, body, front, edge):
@@ -27,7 +34,7 @@ def box_uv(pixels, u, v, w, h, d, body, front, edge):
     def fill(x0, y0, x1, y1, rgb):
         for y in range(y0, y1):
             for x in range(x0, x1):
-                pixels[y][x] = rgb + (255,)
+                pixels[y][x] = rgba(rgb)
     fill(u + d, v, u + d + 2 * w, v + d, body)
     fill(u, v + d, u + 2 * d + 2 * w, v + d + h, body)
     fill(u + d, v + d, u + d + w, v + d + h, front)
@@ -43,7 +50,7 @@ def write(name, size, bones, paint):
     with open(os.path.join(MODELS, name + ".geo.json"), "w", encoding="utf-8", newline="\n") as out:
         json.dump(geo, out, indent=2)
         out.write("\n")
-    body, glow = canvas(size, INK), canvas(size, BLACK)
+    body, glow = canvas(size, INK), canvas(size, CLEAR)
     paint(body, glow)
     png(os.path.join(TEXTURES, name + ".png"), size, body)
     png(os.path.join(TEXTURES, name + "_glow.png"), size, glow)
@@ -58,7 +65,7 @@ def tentacle():
     def paint(body, glow):
         for i in range(6):
             box_uv(body, 0, i * 8, 4, 4, 4, TEAL, BRIGHT, DARK)
-            box_uv(glow, 0, i * 8, 4, 4, 4, BLACK, BRIGHT if i >= 3 else BLACK, BLACK)
+            box_uv(glow, 0, i * 8, 4, 4, 4, CLEAR, BRIGHT if i >= 3 else CLEAR, CLEAR)
     write("tentacle", 64, bones, paint)
 
 
@@ -73,7 +80,7 @@ def eye():
         box_uv(body, 0, 24, 4, 4, 1, INK, INK, INK)
         box_uv(body, 0, 30, 12, 6, 1, TEAL, TEAL, DARK)
         box_uv(body, 0, 38, 12, 6, 1, TEAL, TEAL, DARK)
-        box_uv(glow, 0, 0, 12, 12, 12, BLACK, TEAL, BLACK)
+        box_uv(glow, 0, 0, 12, 12, 12, CLEAR, TEAL, CLEAR)
     write("eye", 64, bones, paint)
 
 
@@ -89,7 +96,7 @@ def maw():
         box_uv(body, 0, 0, 20, 3, 24, TEAL, BRIGHT, DARK)
         box_uv(body, 0, 28, 20, 3, 24, TEAL, BRIGHT, DARK)
         box_uv(body, 0, 60, 4, 3, 2, BRIGHT, BRIGHT, INK)
-        box_uv(glow, 0, 60, 4, 3, 2, BRIGHT, BRIGHT, BLACK)
+        box_uv(glow, 0, 60, 4, 3, 2, BRIGHT, BRIGHT, CLEAR)
     write("maw", 128, bones, paint)
 
 

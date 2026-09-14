@@ -58,7 +58,7 @@ public final class UnblinkingEyeSkill implements SkillModule {
     private static final int STING_INTERVAL = 40;
     private static final int REVEAL_TICKS = 12;
     /** How far back from a wall the eye hangs. */
-    private static final double WALL_GAP = 0.7D;
+    public static final double WALL_GAP = 0.7D;
     private static final String KEY_POTENCY = "potency";
 
     @Override
@@ -75,9 +75,15 @@ public final class UnblinkingEyeSkill implements SkillModule {
                     return CastResult.FAILED;
                 }
                 AimResolver.Result aim = ctx.aim();
-                Vec3 at = aim != null && aim.block() != null && aim.block().getType() == HitResult.Type.BLOCK
-                        ? aim.point().add(aim.normal().scale(WALL_GAP))
-                        : ctx.eye().add(ctx.look().scale(AIM_RANGE));
+                Vec3 at;
+                if (aim != null && aim.hitEntity()) {
+                    // Just off what it looks at, on the side of the caster.
+                    at = aim.point().add(aim.normal().scale(aim.entity().getBbWidth() / 2.0D + WALL_GAP));
+                } else if (aim != null && aim.hitBlock()) {
+                    at = aim.point().add(aim.normal().scale(WALL_GAP));
+                } else {
+                    at = ctx.eye().add(ctx.look().scale(AIM_RANGE));
+                }
                 float potency = EldritchService.potency(ctx.state());
                 EldritchService.notice(player, ctx.state(), EldritchService.cost(ctx.stats()));
                 EldritchConstructEntity eye = EldritchConstructEntity.spawn(ctx, EldritchConstructEntity.MODEL_EYE,
@@ -91,11 +97,6 @@ public final class UnblinkingEyeSkill implements SkillModule {
             @Override
             public double aimRange() {
                 return AIM_RANGE;
-            }
-
-            @Override
-            public double aimTolerance() {
-                return 0.0D;
             }
 
             @Override

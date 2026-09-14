@@ -9,6 +9,7 @@ import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
 import com.efkrdnz.magical.magic.MagicSkillTuning;
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.cast.AimResolver;
 import com.efkrdnz.magical.magic.cast.CastContext;
 import com.efkrdnz.magical.magic.cast.CastResult;
 import com.efkrdnz.magical.magic.cast.SkillCastHandler;
@@ -74,6 +75,12 @@ public final class HungeringMawSkill implements SkillModule {
                     return CastResult.FAILED;
                 }
                 Vec3 at = ctx.aim() != null ? ctx.aim().point() : ctx.feet().add(ctx.look().scale(4.0D));
+                if (ctx.aim() != null && ctx.aim().hitEntity()) {
+                    // Under the feet of what the caster looks at, on whatever ground is below them.
+                    Vec3 feet = ctx.aim().entity().position();
+                    Vec3 ground = AimResolver.groundBelow(ctx.level(), feet, 8);
+                    at = ground != null ? ground : feet;
+                }
                 float potency = EldritchService.potency(ctx.state());
                 int windup = Math.max(6, Math.round(BASE_WINDUP / Math.max(0.35F, ctx.stats().speed())));
                 EldritchService.notice(player, ctx.state(), EldritchService.cost(ctx.stats()));
@@ -92,11 +99,6 @@ public final class HungeringMawSkill implements SkillModule {
             @Override
             public double aimRange() {
                 return AIM_RANGE;
-            }
-
-            @Override
-            public double aimTolerance() {
-                return 0.0D;
             }
 
             @Override

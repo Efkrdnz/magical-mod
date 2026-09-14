@@ -13,6 +13,8 @@ import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import com.efkrdnz.magical.magic.skill.eldritch.GraspOfTheDeepSkill;
+import com.efkrdnz.magical.magic.skill.eldritch.UnblinkingEyeSkill;
 import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -73,17 +75,27 @@ public final class EldritchGameTests {
         player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
         // A player is invulnerable until their client reports the world loaded; a fake one never does.
         player.setClientLoaded(true);
-        Vec3 stand = helper.absoluteVec(Vec3.atBottomCenterOf(at));
+        // No client moves a fake player, so gravity never sets them down: put them on the floor,
+        // or every aim from their eyes runs three blocks too high.
+        Vec3 stand = onFloor(helper, at);
         player.teleportTo(stand.x, stand.y, stand.z);
         state(player).unlockAll(Set.of(skill));
         state(player).refillMana();
         return player;
     }
 
+    /** The floor under a template cell, absolute: a thing put there starts where it would land. */
+    private static Vec3 onFloor(GameTestHelper helper, BlockPos at) {
+        Vec3 above = helper.absoluteVec(Vec3.atBottomCenterOf(at));
+        Vec3 floor = com.efkrdnz.magical.magic.cast.AimResolver.groundBelow(helper.getLevel(), above, 8);
+        return floor != null ? floor : above;
+    }
+
     private static Zombie victim(GameTestHelper helper, ServerPlayer player) {
         // A husk: a zombie that does not burn in the daylight of the test world, so every drop of
-        // health in these tests is the work of a call.
-        Zombie zombie = helper.spawnWithNoFreeWill(EntityType.HUSK, VICTIM);
+        // health in these tests is the work of a call. On the floor from the start: a cell sits
+        // above it, and a victim still falling at the tick of the cast is aimed at where it was.
+        Zombie zombie = helper.spawnWithNoFreeWill(EntityType.HUSK, helper.relativeVec(onFloor(helper, VICTIM)));
         player.lookAt(EntityAnchorArgument.Anchor.EYES, zombie.getEyePosition());
         return zombie;
     }
@@ -96,7 +108,12 @@ public final class EldritchGameTests {
         float health = zombie.getHealth();
         helper.runAtTickTime(1, () -> MagicCastingService.castById(player, MagicContent.GRASP_OF_THE_DEEP.id(), false));
         helper.runAtTickTime(3, () -> {
-            helper.assertTrue(constructs(helper, player, MagicContent.GRASP_OF_THE_DEEP.id()).size() == 1, "one tentacle must erupt");
+            List<EldritchConstructEntity> tentacles = constructs(helper, player, MagicContent.GRASP_OF_THE_DEEP.id());
+            helper.assertTrue(tentacles.size() == 1, "one tentacle must erupt");
+            double gap = tentacles.get(0).position().subtract(zombie.position()).horizontalDistance();
+            double wanted = zombie.getBbWidth() / 2.0D + GraspOfTheDeepSkill.BESIDE_GAP;
+            helper.assertTrue(Math.abs(gap - wanted) < 0.1D && tentacles.get(0).getX() < zombie.getX(),
+                    "it erupts beside the victim on the side of the caster, not under it: " + gap);
             helper.assertTrue(state(player).notice() == 12, "a grasp draws twelve notice, got " + state(player).notice());
         });
         helper.runAtTickTime(30, () -> {
@@ -113,7 +130,12 @@ public final class EldritchGameTests {
         float health = zombie.getHealth();
         helper.runAtTickTime(1, () -> MagicCastingService.castById(player, MagicContent.UNBLINKING_EYE.id(), false));
         helper.runAtTickTime(12, () -> {
-            helper.assertTrue(constructs(helper, player, MagicContent.UNBLINKING_EYE.id()).size() == 1, "one eye must open");
+            List<EldritchConstructEntity> eyes = constructs(helper, player, MagicContent.UNBLINKING_EYE.id());
+            helper.assertTrue(eyes.size() == 1, "one eye must open");
+            double away = eyes.get(0).position().distanceTo(zombie.getBoundingBox().getCenter());
+            helper.assertTrue(!zombie.getBoundingBox().contains(eyes.get(0).position())
+                    && away >= zombie.getBbWidth() / 2.0D + UnblinkingEyeSkill.WALL_GAP - 0.05D && away <= 1.6D,
+                    "the eye hangs just off what it looks at, not inside it: " + away + " eye=" + eyes.get(0).position() + " husk=" + zombie.getBoundingBox().getCenter());
             helper.assertTrue(MagicStatusService.has(zombie, MagicStatus.REVEALED), "what the eye sees is revealed");
             helper.assertTrue(player.getUUID().equals(MagicStatusService.sourceOf(zombie, MagicStatus.REVEALED)), "to its owner");
         });
@@ -127,12 +149,13 @@ public final class EldritchGameTests {
     public static void jawsSnapOnWhatStandsInThem(GameTestHelper helper) {
         ServerPlayer player = eldritchMage(helper, STAND, MagicContent.HUNGERING_MAW.id());
         Zombie zombie = victim(helper, player);
-        player.lookAt(EntityAnchorArgument.Anchor.EYES, zombie.position());
         float health = zombie.getHealth();
         helper.runAtTickTime(1, () -> MagicCastingService.castById(player, MagicContent.HUNGERING_MAW.id(), false));
         helper.runAtTickTime(10, () -> {
             List<EldritchConstructEntity> maws = constructs(helper, player, MagicContent.HUNGERING_MAW.id());
             helper.assertTrue(maws.size() == 1, "jaws must open");
+            helper.assertTrue(maws.get(0).position().subtract(zombie.position()).horizontalDistance() < 0.1D,
+                    "the jaws open under what the caster looks at, not at the wall behind it");
             helper.assertTrue(maws.get(0).syncedData().getInt("snap") == 0, "and not snap before they are open");
             helper.assertTrue(zombie.getHealth() == health, "nothing bitten while opening");
         });

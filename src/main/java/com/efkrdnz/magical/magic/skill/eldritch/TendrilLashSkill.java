@@ -84,11 +84,6 @@ public final class TendrilLashSkill implements SkillModule {
             }
 
             @Override
-            public double aimTolerance() {
-                return 0.0D;
-            }
-
-            @Override
             public TuningView tuning() {
                 return TuningView.DEFAULT.labels("screen.magical.tuning.sting", "screen.magical.tuning.snap",
                         "screen.magical.tuning.length", "screen.magical.tuning.stagger", "screen.magical.tuning.thrift");

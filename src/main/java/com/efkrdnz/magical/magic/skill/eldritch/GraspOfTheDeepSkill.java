@@ -57,7 +57,7 @@ public final class GraspOfTheDeepSkill implements SkillModule {
     private static final int ROOT_TOP_UP = 15;
     private static final int REACH_HOLD_TICKS = 40;
     /** How far past the edge of a victim the tentacle erupts, toward the caster. */
-    private static final double BESIDE_GAP = 0.75D;
+    public static final double BESIDE_GAP = 0.75D;
     private static final String KEY_CRUSH = "crush";
     private static final String KEY_POTENCY = "potency";
 
@@ -87,11 +87,6 @@ public final class GraspOfTheDeepSkill implements SkillModule {
             @Override
             public double aimRange() {
                 return AIM_RANGE;
-            }
-
-            @Override
-            public double aimTolerance() {
-                return 0.0D;
             }
 
             @Override

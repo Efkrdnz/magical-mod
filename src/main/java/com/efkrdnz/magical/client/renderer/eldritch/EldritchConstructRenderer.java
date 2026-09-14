@@ -24,7 +24,8 @@ import net.minecraft.world.phys.Vec3;
  * <p>The frame is the vanilla entity frame (face the yaw, flip into model space) with no vertical
  * offset, so the geometry's ground is the entity's feet. The pose is written into the bones by
  * name from {@link EldritchPose}; a bone the model does not have is skipped. The body is drawn
- * translucent with the lifecycle alpha, then the glow layer full bright if the model has one.
+ * translucent with the lifecycle alpha, then the glow layer full bright over it: the eyes render
+ * type blends rather than adds, so a glow file is transparent wherever the creature does not glow.
  */
 public final class EldritchConstructRenderer extends ProfileRendererShell<EldritchConstructEntity> {
     private static final float SEGMENT_LENGTH = 4.0F;
@@ -67,6 +68,9 @@ public final class EldritchConstructRenderer extends ProfileRendererShell<Eldrit
     public void extractRenderState(EldritchConstructEntity entity, ProfileRendererShell.State base, float partialTick) {
         super.extractRenderState(entity, base, partialTick);
         State state = (State) base;
+        // The radius a construct carries is its reach, not the size of its FX: the silhouettes keep
+        // the sizes their profile wrote instead of growing to it the way a burst does.
+        state.radius = 0.0F;
         state.model = entity.model();
         state.anchor = entity.anchor();
         state.scale = entity.scale();
@@ -170,7 +174,7 @@ public final class EldritchConstructRenderer extends ProfileRendererShell<Eldrit
         }
     }
 
-    private static void tentacle(State state, GeoModelBaker.Baked baked, float age) {
+    static void tentacle(State state, GeoModelBaker.Baked baked, float age) {
         float[] pitch = new float[EldritchPose.SEGMENTS];
         boolean hasTarget = state.target != null && state.anchor != EldritchConstructEntity.ANCHOR_OWNER;
         float forward = 0.0F;
@@ -209,7 +213,7 @@ public final class EldritchConstructRenderer extends ProfileRendererShell<Eldrit
         return 1.3F * (float) Math.sin(t * Math.PI);
     }
 
-    private static void eye(State state, GeoModelBaker.Baked baked, float age) {
+    static void eye(State state, GeoModelBaker.Baked baked, float age) {
         ModelPart body = baked.part("body");
         if (body != null) {
             PartPose rest = body.getInitialPose();
@@ -232,7 +236,7 @@ public final class EldritchConstructRenderer extends ProfileRendererShell<Eldrit
         }
     }
 
-    private static void maw(State state, GeoModelBaker.Baked baked) {
+    static void maw(State state, GeoModelBaker.Baked baked) {
         float windup = state.data != null && state.data.contains("windup") ? state.data.getInt("windup") : 20.0F;
         float snapAt = state.data != null && state.data.contains("snap") ? state.data.getInt("snap") : 0.0F;
         float gape = EldritchPose.jaws(state.age, windup, snapAt) * EldritchPose.MAX_GAPE;
