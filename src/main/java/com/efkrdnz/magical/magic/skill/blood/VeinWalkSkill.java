@@ -79,7 +79,7 @@ public final class VeinWalkSkill implements SkillModule {
                 SpellEffectEntity.spawn(ctx, from.add(0.0D, 1.0D, 0.0D), 20, 0.9F, ctx.look());
                 player.teleportTo(to.x, to.y, to.z);
                 player.resetFallDistance();
-                BloodHarvestEntity.consumePool(player, to);
+                BloodHarvestEntity.landOn(player, to);
                 SpellEffectEntity.spawn(ctx, to.add(0.0D, 1.0D, 0.0D), 20, 0.9F, ctx.look());
                 player.serverLevel().playSound(null, player.blockPosition(),
                         SoundEvents.RESPAWN_ANCHOR_DEPLETE.value(), SoundSource.PLAYERS, 0.5F, 1.3F);

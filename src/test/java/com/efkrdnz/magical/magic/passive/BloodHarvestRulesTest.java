@@ -87,9 +87,54 @@ class BloodHarvestRulesTest {
         assertTrue(timing.dissolve() + timing.dissolveSpread() <= BloodHarvestRules.DRYING_TICKS,
                 "the pool would still be drying after its lifetime ran out");
         assertTrue(BloodHarvestRules.DRYING_TICKS < BloodHarvestRules.POOL_LIFETIME);
-        assertTrue(BloodHarvestRules.canLift(0));
-        assertTrue(BloodHarvestRules.canLift(BloodHarvestRules.POOL_LIFETIME - BloodHarvestRules.DRYING_TICKS - 1));
-        assertFalse(BloodHarvestRules.canLift(BloodHarvestRules.POOL_LIFETIME - BloodHarvestRules.DRYING_TICKS),
+        int life = BloodHarvestRules.POOL_LIFETIME;
+        assertTrue(BloodHarvestRules.canLift(0, life));
+        assertTrue(BloodHarvestRules.canLift(life - BloodHarvestRules.DRYING_TICKS - 1, life));
+        assertFalse(BloodHarvestRules.canLift(life - BloodHarvestRules.DRYING_TICKS, life),
                 "a pool that has begun to dry must not lift");
+    }
+    @Test
+    void clottingDoublesHowLongAPoolWaits() {
+        assertEquals(BloodHarvestRules.POOL_LIFETIME, BloodHarvestRules.lifetime(false));
+        assertEquals(2 * BloodHarvestRules.POOL_LIFETIME, BloodHarvestRules.lifetime(true),
+                "with Clotting, spilled blood dries half as fast");
+    }
+
+    @Test
+    void liftingReadsThePoolsOwnLife() {
+        // A pool owns its life now - Clotting stretches it, the Rite and the trace set theirs - so
+        // the lift deadline moves with it rather than sitting on the old constant.
+        assertTrue(BloodHarvestRules.canLift(0, 300));
+        assertFalse(BloodHarvestRules.canLift(290, 300), "a pool that has begun to dry must not lift");
+        assertTrue(BloodHarvestRules.canLift(295, 600), "the same age is fine in a longer life");
+        assertFalse(BloodHarvestRules.canLift(590, 600));
+    }
+
+    @Test
+    void onlyAHarvestPoolLiftsOnItsOwn() {
+        assertTrue(BloodHarvestRules.liftsOnItsOwn(BloodHarvestRules.KIND_HARVEST));
+        assertFalse(BloodHarvestRules.liftsOnItsOwn(BloodHarvestRules.KIND_BATTERY),
+                "a battery waits to be spent: by Coagulate, the Spear, or a Vein Walk landing on it");
+        assertFalse(BloodHarvestRules.liftsOnItsOwn(BloodHarvestRules.KIND_TRACE),
+                "a trace is only ever somewhere to step");
+    }
+
+    @Test
+    void aTraceIsSeenThoughItIsWorthNothing() {
+        assertTrue(BloodHarvestRules.cubes(BloodHarvestRules.KIND_TRACE, 0) > 1,
+                "a destination nobody can see is not a destination");
+        assertEquals(BloodHarvestRules.cubes(BloodHarvestRules.KIND_HARVEST, 12),
+                BloodHarvestRules.cubes(BloodHarvestRules.KIND_BATTERY, 12),
+                "a battery is drawn at the size of a harvest of the same worth");
+        assertEquals(BloodHarvestRules.cubes(12), BloodHarvestRules.cubes(BloodHarvestRules.KIND_HARVEST, 12));
+    }
+
+    @Test
+    void aVeinWalksStreamIsLongEnoughForEveryCubeToLand() {
+        // The vein reuses the harvest timeline, whose jitter and launch the minimum flight was sized
+        // for; a shorter stream would still be in the air when its entity is gone.
+        assertTrue(BloodHarvestRules.VEIN_FLIGHT_TICKS >= BloodHarvestRules.MIN_FLIGHT_TICKS);
+        assertTrue(BloodHarvestRules.FEED_GRACE_TICKS > 0,
+                "a fed pool waits a moment after its last drop before it may lift");
     }
 }

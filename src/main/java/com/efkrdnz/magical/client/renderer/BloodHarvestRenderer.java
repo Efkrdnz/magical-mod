@@ -54,6 +54,7 @@ public final class BloodHarvestRenderer extends EntityRenderer<BloodHarvestEntit
         state.phase = entity.phase();
         state.phaseAge = state.age - entity.phaseTick();
         state.flight = entity.flight();
+        state.life = entity.life();
         state.cubes = Math.min(STYLE.cap(), BloodHarvestRules.cubes(entity.worth()));
         state.seed = entity.seed();
 
@@ -141,7 +142,7 @@ public final class BloodHarvestRenderer extends EntityRenderer<BloodHarvestEntit
                 BloodHarvestMotion.wobble(STYLE, i, state.seed, state.age, grow * (1.0F - progress), position);
             } else {
                 BloodHarvestMotion.poolSpot(STYLE, i, state.seed, position);
-                erosion = BloodHarvestMotion.dryOut(timing, rank, state.age, BloodHarvestRules.POOL_LIFETIME);
+                erosion = BloodHarvestMotion.dryOut(timing, rank, state.age, state.life);
                 BloodHarvestMotion.wobble(STYLE, i, state.seed, state.age, grow, position);
             }
             float half = BloodHarvestMotion.halfExtent(STYLE, i, state.seed, grow, erosion, edge);
@@ -161,6 +162,7 @@ public final class BloodHarvestRenderer extends EntityRenderer<BloodHarvestEntit
         byte phase;
         float phaseAge;
         int flight;
+        int life;
         int cubes;
         int seed;
         Vec3 cameraOffset = Vec3.ZERO;
