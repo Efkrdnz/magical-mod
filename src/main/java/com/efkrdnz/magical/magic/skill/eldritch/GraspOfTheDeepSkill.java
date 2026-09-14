@@ -180,13 +180,9 @@ public final class GraspOfTheDeepSkill implements SkillModule {
                 }
             }
 
-            @Override
-            public void onExpire(SpellEffectEntity effect) {
-                LivingEntity held = effect.livingTarget();
-                if (held != null) {
-                    MagicStatusService.clear(held, MagicStatus.ROOTED);
-                }
-            }
+            // No clear on expiry: every hold is applied for exactly the ticks the grasp has left, so
+            // the root lapses with the tentacle, and a second grasp on the same victim (a pulse of
+            // the Call) is not wiped by the first one ending on the same tick.
         };
     }
 

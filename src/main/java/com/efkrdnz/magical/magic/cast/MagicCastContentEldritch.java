@@ -5,6 +5,7 @@ import com.efkrdnz.magical.magic.skill.eldritch.UnblinkingEyeSkill;
 import com.efkrdnz.magical.magic.skill.eldritch.HungeringMawSkill;
 import com.efkrdnz.magical.magic.skill.eldritch.TendrilLashSkill;
 import com.efkrdnz.magical.magic.skill.eldritch.SkinOfTheDeepSkill;
+import com.efkrdnz.magical.magic.skill.eldritch.CallOfTheDeepSkill;
 
 /** ELDRITCH, the -5 layer: six calls to the deep, paid in mana and in being noticed. */
 public final class MagicCastContentEldritch {
@@ -16,5 +17,6 @@ public final class MagicCastContentEldritch {
         new HungeringMawSkill().register();
         new TendrilLashSkill().register();
         new SkinOfTheDeepSkill().register();
+        new CallOfTheDeepSkill().register();
     }
 }

@@ -36,7 +36,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public final class EldritchGameTests {
 
     private static final String TEMPLATE = "unwaking_empty";
-    private static final String BATCH = "eldritch";
     private static final BlockPos STAND = new BlockPos(2, 2, 2);
     private static final BlockPos VICTIM = new BlockPos(4, 2, 2);
 
@@ -56,6 +55,14 @@ public final class EldritchGameTests {
      */
     private static ServerPlayer eldritchMage(GameTestHelper helper, BlockPos at, ResourceLocation skill) {
         var server = helper.getLevel().getServer();
+        // Fake players outlive their tests and stand in the neighbouring structures, well within
+        // a call's reach and as hostile as any other player. Each eldritch test runs in a batch of
+        // its own and starts by clearing the ones before it, so the only hostile is the victim.
+        for (ServerPlayer leftover : List.copyOf(helper.getLevel().players())) {
+            if (leftover.getGameProfile().getName().endsWith("-test")) {
+                server.getPlayerList().remove(leftover);
+            }
+        }
         var cookie = net.minecraft.server.network.CommonListenerCookie.createInitial(
                 new com.mojang.authlib.GameProfile(UUID.randomUUID(), "deep-test"), false);
         var player = new ServerPlayer(server, helper.getLevel(), cookie.gameProfile(), cookie.clientInformation());
@@ -81,7 +88,7 @@ public final class EldritchGameTests {
         return zombie;
     }
 
-    @GameTest(template = TEMPLATE, timeoutTicks = 120, batch = BATCH)
+    @GameTest(template = TEMPLATE, timeoutTicks = 120, batch = "eldritch_1")
     public static void aGraspRootsWhatItReachesAndCrushesIt(GameTestHelper helper) {
         ServerPlayer player = eldritchMage(helper, STAND, MagicContent.GRASP_OF_THE_DEEP.id());
         Zombie zombie = victim(helper, player);
@@ -99,7 +106,7 @@ public final class EldritchGameTests {
         });
     }
 
-    @GameTest(template = TEMPLATE, timeoutTicks = 120, batch = BATCH)
+    @GameTest(template = TEMPLATE, timeoutTicks = 120, batch = "eldritch_2")
     public static void anEyeRevealsWhatItSeesAndTheStareStings(GameTestHelper helper) {
         ServerPlayer player = eldritchMage(helper, STAND, MagicContent.UNBLINKING_EYE.id());
         Zombie zombie = victim(helper, player);
@@ -116,7 +123,7 @@ public final class EldritchGameTests {
         });
     }
 
-    @GameTest(template = TEMPLATE, timeoutTicks = 120, batch = BATCH)
+    @GameTest(template = TEMPLATE, timeoutTicks = 120, batch = "eldritch_3")
     public static void jawsSnapOnWhatStandsInThem(GameTestHelper helper) {
         ServerPlayer player = eldritchMage(helper, STAND, MagicContent.HUNGERING_MAW.id());
         Zombie zombie = victim(helper, player);
@@ -135,7 +142,7 @@ public final class EldritchGameTests {
         });
     }
 
-    @GameTest(template = TEMPLATE, timeoutTicks = 100, batch = BATCH)
+    @GameTest(template = TEMPLATE, timeoutTicks = 100, batch = "eldritch_4")
     public static void aLashStingsShovesAndHarriesWhatIsAhead(GameTestHelper helper) {
         ServerPlayer player = eldritchMage(helper, STAND, MagicContent.TENDRIL_LASH.id());
         Zombie zombie = victim(helper, player);
@@ -148,7 +155,7 @@ public final class EldritchGameTests {
         });
     }
 
-    @GameTest(template = TEMPLATE, timeoutTicks = 100, batch = BATCH)
+    @GameTest(template = TEMPLATE, timeoutTicks = 100, batch = "eldritch_5")
     public static void aWardTakesTheHitAndBitesBack(GameTestHelper helper) {
         ServerPlayer player = eldritchMage(helper, STAND, MagicContent.SKIN_OF_THE_DEEP.id());
         Zombie zombie = victim(helper, player);
@@ -162,6 +169,34 @@ public final class EldritchGameTests {
             helper.assertTrue(player.getHealth() == health, "a ward takes the hit, got " + player.getHealth() + " of " + health);
             helper.assertTrue(skins.get(0).extra() == 3, "and is spent, wards left " + skins.get(0).extra());
             helper.assertTrue(zombie.getHealth() < zombieHealth, "and bites what struck");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 140, batch = "eldritch_6")
+    public static void aHeldCallPulsesGraspsAndIsNoticed(GameTestHelper helper) {
+        ServerPlayer player = eldritchMage(helper, STAND, MagicContent.CALL_OF_THE_DEEP.id());
+        Zombie zombie = victim(helper, player);
+        state(player).setNotice(EldritchService.WATCHED_AT - 8);
+        HoldService.setHeld(player, 0, true);
+        helper.runAtTickTime(1, () -> MagicCastingService.castById(player, MagicContent.CALL_OF_THE_DEEP.id(), false));
+        helper.runAtTickTime(3, () -> helper.assertTrue(
+                constructs(helper, player, MagicContent.CALL_OF_THE_DEEP.id()).size() >= 1, "the eye must open"));
+        // A hold times out unless the key is seen again; the client re-sends it, so the test does.
+        for (int tick = 10; tick <= 60; tick += 10) {
+            int at = tick;
+            helper.runAtTickTime(at, () -> HoldService.setHeld(player, 0, true));
+        }
+        helper.runAtTickTime(70, () -> {
+            HoldService.setHeld(player, 0, true);
+            helper.assertTrue(MagicStatusService.has(zombie, MagicStatus.ROOTED), "a pulse must grasp the thing in reach");
+            helper.assertTrue(state(player).notice() >= EldritchService.WATCHED_AT, "two pulses past the rung: notice " + state(player).notice());
+        });
+        helper.runAtTickTime(75, () -> HoldService.setHeld(player, 0, false));
+        helper.runAtTickTime(95, () -> {
+            boolean eyeGone = constructs(helper, player, MagicContent.CALL_OF_THE_DEEP.id()).stream()
+                    .noneMatch(c -> EldritchConstructEntity.MODEL_EYE.equals(c.model()));
+            helper.assertTrue(eyeGone, "letting go ends the call");
             helper.succeed();
         });
     }
