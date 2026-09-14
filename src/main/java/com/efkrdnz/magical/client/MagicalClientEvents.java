@@ -141,6 +141,12 @@ public final class MagicalClientEvents {
     }
 
     @SubscribeEvent
+    public static void addReloadListeners(net.neoforged.neoforge.client.event.AddClientReloadListenersEvent event) {
+        event.addListener(com.efkrdnz.magical.client.model.eldritch.EldritchModels.KEY,
+                new com.efkrdnz.magical.client.model.eldritch.EldritchModels());
+    }
+
+    @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(MagicalEntities.UNWAKING_GOD.get(), com.efkrdnz.magical.client.renderer.UnwakingGodRenderer::new);
         event.registerEntityRenderer(MagicalEntities.UNWAKING_COUNTER.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);
@@ -177,6 +183,7 @@ public final class MagicalClientEvents {
         event.registerEntityRenderer(MagicalEntities.FORGE_ZONE.get(), ForgeZoneRenderer::new);
         event.registerEntityRenderer(MagicalEntities.SPELL_EFFECT.get(), com.efkrdnz.magical.client.renderer.fx.ProfileRendererShell::new);
         event.registerEntityRenderer(MagicalEntities.BLOOD_HARVEST.get(), com.efkrdnz.magical.client.renderer.BloodHarvestRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.ELDRITCH_CONSTRUCT.get(), com.efkrdnz.magical.client.renderer.eldritch.EldritchConstructRenderer::new);
         event.registerEntityRenderer(MagicalEntities.SOLID_CONSTRUCT.get(), com.efkrdnz.magical.client.renderer.fx.ProfileRendererShell::new);
         event.registerEntityRenderer(MagicalEntities.THROWN_SPELL.get(), com.efkrdnz.magical.client.renderer.fx.ProfileRendererShell::new);
         event.registerEntityRenderer(MagicalEntities.ROLLING_BODY.get(), com.efkrdnz.magical.client.renderer.fx.ProfileRendererShell::new);

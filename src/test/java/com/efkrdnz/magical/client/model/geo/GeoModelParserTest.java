@@ -99,4 +99,22 @@ class GeoModelParserTest {
                 {"minecraft:geometry": [{"description": {"identifier": "geometry.x"}, "bones": [{"pivot": [0, 0, 0]}]}]}
                 """));
     }
+
+    @Test
+    void theShippedPlaceholdersCarryTheBonesTheRendererNames() throws java.io.IOException {
+        java.util.Map<String, java.util.List<String>> named = java.util.Map.of(
+                "tentacle", java.util.List.of("root", "seg0", "seg1", "seg2", "seg3", "seg4", "seg5"),
+                "eye", java.util.List.of("root", "body", "pupil"),
+                "maw", java.util.List.of("root", "jaw_upper", "jaw_lower"));
+        for (var entry : named.entrySet()) {
+            String path = "/assets/magical/models/entity/eldritch/" + entry.getKey() + ".geo.json";
+            try (java.io.InputStream in = GeoModelParserTest.class.getResourceAsStream(path)) {
+                assertTrue(in != null, path + " is not shipped");
+                GeoModel model = GeoModelParser.parse(new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+                for (String bone : entry.getValue()) {
+                    assertTrue(model.bone(bone) != null, entry.getKey() + " lacks " + bone);
+                }
+            }
+        }
+    }
 }
