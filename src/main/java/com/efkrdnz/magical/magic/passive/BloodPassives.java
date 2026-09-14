@@ -1,33 +1,25 @@
 package com.efkrdnz.magical.magic.passive;
 
+import com.efkrdnz.magical.entity.BloodHarvestEntity;
 import com.efkrdnz.magical.magic.BloodService;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
-import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.blood.CrimsonTitheSkill;
 import com.efkrdnz.magical.magic.skill.blood.SecondHeartSkill;
 import com.efkrdnz.magical.magic.status.MagicStatus;
 import com.efkrdnz.magical.magic.status.MagicStatusService;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.phys.Vec3;
 
 /**
  * Blood magic's economy: where the Vessel fills from, what an open wound costs, and the three
@@ -37,32 +29,24 @@ import net.minecraft.world.phys.Vec3;
  * a wound suppress healing, are the school's baseline rules - they apply to anyone holding a blood
  * skill, gated on that rather than on owning a passive, because a school whose resource only works
  * once you have also unlocked the right passive is a school nobody can start playing.
+ *
+ * <p>The third baseline rule is the harvest: what a blood mage kills bleeds toward them. That one
+ * lives in {@link BloodHarvestEntity}, because the blood is a thing in the world - it waits, it is
+ * seen, Vein Walk steps along it - and a thing in the world is an entity, not a map in here.
  */
 public final class BloodPassives implements ClassPassiveHandler {
-
-    /** Blood left where something died, waiting to be walked over. Not persisted, by design. */
-    private record Mote(Vec3 pos, long spawnedTick) {}
-
-    /**
-     * Static because {@code VeinWalkSkill} reads the trail and this class owns it. Kept honest by
-     * {@link #forget(UUID)}, which the handler contract requires and a test enforces.
-     */
-    private static final Map<UUID, List<Mote>> MOTES = new HashMap<>();
-
-    private static final long MOTE_LIFETIME = 300L;
-    private static final double MOTE_PICKUP_RANGE = 1.6D;
-    private static final int MOTE_VESSEL = 12;
-    private static final int MAX_MOTES = 32;
 
     /** Vessel per point of damage landed on something living, for anyone holding a blood skill. */
     private static final float HARVEST_PER_DAMAGE = 0.25F;
 
     private static final float BLOODSCENT_THRESHOLD = 0.4F;
-    private static final double BLOODSCENT_RANGE = 20.0D;
     private static final float CLOTTING_WOUND_RELIEF = 0.5F;
     private static final int CLOTTING_TRICKLE = 1;
     private static final float OVERFLOW_THRESHOLD = 0.8F;
     private static final int OVERFLOW_BARRIER_PER_POINT = 1;
+
+    /** How far above where the body fell the blood pools, so it sits on the ground rather than in it. */
+    private static final double POOL_LIFT = 0.05D;
 
     @Override
     public Set<ResourceLocation> handled() {
@@ -114,21 +98,20 @@ public final class BloodPassives implements ClassPassiveHandler {
         }
     }
 
+    /**
+     * What a kill leaves: blood, pooled where the body fell, that comes to the killer when they are
+     * near. The Vessel fills when it lands, not here - see {@link BloodHarvestEntity}.
+     */
     @Override
     public void onKill(ServerPlayer player, PlayerMagicState state, LivingEntity victim, DamageSource source) {
         if (!BloodService.isBloodMage(state)) {
             return;
         }
-        // Bloodscent doubles the trail, which is also what makes Vein Walk worth building around.
+        // Bloodscent doubles the harvest, which is also what makes Vein Walk worth building around.
         int drops = ClassPassiveEffects.on(state, MagicPassiveContent.BLOODSCENT.id())
                 && MagicStatusService.has(victim, MagicStatus.REVEALED) ? 2 : 1;
-        List<Mote> trail = MOTES.computeIfAbsent(player.getUUID(), key -> new ArrayList<>());
-        for (int i = 0; i < drops; i++) {
-            trail.add(new Mote(victim.position(), player.serverLevel().getGameTime()));
-        }
-        while (trail.size() > MAX_MOTES) {
-            trail.remove(0);
-        }
+        BloodHarvestEntity.spawn(player.serverLevel(), player,
+                victim.position().add(0.0D, POOL_LIFT, 0.0D), BloodHarvestRules.yield(drops));
     }
 
     // ---- the three passives ---------------------------------------------------------------
@@ -150,9 +133,21 @@ public final class BloodPassives implements ClassPassiveHandler {
         if (!ClassPassiveEffects.on(state, MagicPassiveContent.VESSEL_OVERFLOWS.id())) {
             return 0;
         }
-        int threshold = Math.round(PlayerMagicState.MAX_BLOOD_VESSEL * OVERFLOW_THRESHOLD);
-        int surplus = state.bloodVessel() - threshold;
+        int surplus = overflowSurplus(state);
         return surplus > 0 ? surplus * OVERFLOW_BARRIER_PER_POINT : 0;
+    }
+
+    /**
+     * Whether the Vessel is past the line The Vessel Overflows spends from. The harvest asks this
+     * as its blood lands, to show the surplus spilling out rather than quietly becoming barrier.
+     */
+    public static boolean overflowing(PlayerMagicState state) {
+        return overflowSurplus(state) > 0;
+    }
+
+    private static int overflowSurplus(PlayerMagicState state) {
+        int threshold = Math.round(PlayerMagicState.MAX_BLOOD_VESSEL * OVERFLOW_THRESHOLD);
+        return state.bloodVessel() - threshold;
     }
 
     @Override
@@ -189,82 +184,29 @@ public final class BloodPassives implements ClassPassiveHandler {
         if (ClassPassiveEffects.on(state, MagicPassiveContent.BLOODSCENT.id())) {
             markTheWounded(player, state);
         }
-        tickMotes(player, state);
     }
 
-    /** Bloodscent: anything already bleeding is lit through walls, and worth double when it dies. */
+    /**
+     * Nothing to drop: the only per-player state this school keeps is its pooled blood, and that
+     * is in the world as {@link BloodHarvestEntity}, which notices for itself when its owner is
+     * gone. Declared all the same, because the handler contract is checked by name.
+     */
+    @Override
+    public void forget(UUID playerId) {
+    }
+
+    /**
+     * Bloodscent: anything already bleeding is lit through walls, and worth double when it dies.
+     * The range it sees is the range the harvest pulls from - what it can see, it can take.
+     */
     private void markTheWounded(ServerPlayer player, PlayerMagicState state) {
         for (LivingEntity prey : SkillTargets.hostilesWithin(player.serverLevel(), player,
-                player.position(), BLOODSCENT_RANGE)) {
+                player.position(), BloodHarvestRules.BLOODSCENT_PULL_RANGE)) {
             float max = prey.getMaxHealth();
             if (max > 0.0F && prey.getHealth() / max <= BLOODSCENT_THRESHOLD) {
                 MagicStatusService.apply(prey, MagicStatus.REVEALED, 40,
                         MagicPassiveContent.BLOODSCENT.id(), player);
             }
         }
-    }
-
-    private void tickMotes(ServerPlayer player, PlayerMagicState state) {
-        List<Mote> trail = MOTES.get(player.getUUID());
-        if (trail == null || trail.isEmpty()) {
-            return;
-        }
-        ServerLevel level = player.serverLevel();
-        long now = level.getGameTime();
-        Iterator<Mote> iterator = trail.iterator();
-        while (iterator.hasNext()) {
-            Mote mote = iterator.next();
-            if (now - mote.spawnedTick() > MOTE_LIFETIME) {
-                iterator.remove();
-                continue;
-            }
-            level.sendParticles(ParticleTypes.DAMAGE_INDICATOR, mote.pos().x, mote.pos().y + 0.3D,
-                    mote.pos().z, 1, 0.1D, 0.1D, 0.1D, 0.0D);
-            if (player.position().distanceTo(mote.pos()) <= MOTE_PICKUP_RANGE) {
-                iterator.remove();
-                state.addBloodVessel(MOTE_VESSEL);
-                state.sync(player);
-                level.playSound(null, player.blockPosition(), SoundEvents.HONEY_DRINK.value(),
-                        SoundSource.PLAYERS, 0.3F, 0.6F);
-            }
-        }
-    }
-
-    // ---- the trail, as Vein Walk sees it --------------------------------------------------
-
-    /** The furthest mote still within reach, which is where Vein Walk goes. */
-    public static Optional<Vec3> furthestMote(ServerPlayer player, double reach) {
-        List<Mote> trail = MOTES.get(player.getUUID());
-        if (trail == null || trail.isEmpty()) {
-            return Optional.empty();
-        }
-        long now = player.serverLevel().getGameTime();
-        Vec3 from = player.position();
-        Vec3 best = null;
-        double bestDistance = -1.0D;
-        for (Mote mote : trail) {
-            if (now - mote.spawnedTick() > MOTE_LIFETIME) {
-                continue;
-            }
-            double distance = from.distanceTo(mote.pos());
-            if (distance <= reach && distance > bestDistance) {
-                bestDistance = distance;
-                best = mote.pos();
-            }
-        }
-        return Optional.ofNullable(best);
-    }
-
-    /** Spends the mote Vein Walk arrived at, so one pool of blood is not an infinite shuttle. */
-    public static void consumeMote(ServerPlayer player, Vec3 at) {
-        List<Mote> trail = MOTES.get(player.getUUID());
-        if (trail != null) {
-            trail.removeIf(mote -> mote.pos().distanceToSqr(at) < 1.0E-4D);
-        }
-    }
-
-    @Override
-    public void forget(UUID playerId) {
-        MOTES.remove(playerId);
     }
 }

@@ -260,6 +260,15 @@ public final class MagicalEntities {
                     .updateInterval(1)
                     .build(key("spell_effect")));
 
+    /** The blood a blood mage's kill leaves, pooled at the corpse until it streams into them. */
+    public static final DeferredHolder<EntityType<?>, EntityType<com.efkrdnz.magical.entity.BloodHarvestEntity>> BLOOD_HARVEST = ENTITY_TYPES.register(
+            "blood_harvest",
+            () -> EntityType.Builder.<com.efkrdnz.magical.entity.BloodHarvestEntity>of(com.efkrdnz.magical.entity.BloodHarvestEntity::new, MobCategory.MISC)
+                    .sized(0.6F, 0.2F)
+                    .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
+                    .updateInterval(1)
+                    .build(key("blood_harvest")));
+
     public static final DeferredHolder<EntityType<?>, EntityType<com.efkrdnz.magical.entity.fx.SolidConstructEntity>> SOLID_CONSTRUCT = ENTITY_TYPES.register(
             "solid_construct",
             () -> EntityType.Builder.<com.efkrdnz.magical.entity.fx.SolidConstructEntity>of(com.efkrdnz.magical.entity.fx.SolidConstructEntity::new, MobCategory.MISC)

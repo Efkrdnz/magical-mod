@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.magic.skill.blood;
 
+import com.efkrdnz.magical.entity.BloodHarvestEntity;
 import com.efkrdnz.magical.entity.fx.SpellBehavior;
 import com.efkrdnz.magical.entity.fx.SpellEffectEntity;
 import com.efkrdnz.magical.magic.BloodService;
@@ -10,7 +11,6 @@ import com.efkrdnz.magical.magic.cast.CastResult;
 import com.efkrdnz.magical.magic.cast.MobCastProfile;
 import com.efkrdnz.magical.magic.cast.SkillCastHandler;
 import com.efkrdnz.magical.magic.cast.TuningView;
-import com.efkrdnz.magical.magic.passive.BloodPassives;
 import com.efkrdnz.magical.magic.skill.SkillModule;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
 import com.efkrdnz.magical.magic.visual.CircleScript;
@@ -64,7 +64,7 @@ public final class VeinWalkSkill implements SkillModule {
                 if (!(ctx.caster() instanceof ServerPlayer player)) {
                     return CastResult.FAILED;
                 }
-                Optional<Vec3> destination = BloodPassives.furthestMote(player, REACH);
+                Optional<Vec3> destination = BloodHarvestEntity.furthestPool(player, REACH);
                 if (destination.isEmpty()) {
                     player.displayClientMessage(Component.translatable("message.magical.no_blood_trail"), true);
                     // FAILED rather than a cooldown: the player pressed a button that could not have
@@ -79,7 +79,7 @@ public final class VeinWalkSkill implements SkillModule {
                 SpellEffectEntity.spawn(ctx, from.add(0.0D, 1.0D, 0.0D), 20, 0.9F, ctx.look());
                 player.teleportTo(to.x, to.y, to.z);
                 player.resetFallDistance();
-                BloodPassives.consumeMote(player, to);
+                BloodHarvestEntity.consumePool(player, to);
                 SpellEffectEntity.spawn(ctx, to.add(0.0D, 1.0D, 0.0D), 20, 0.9F, ctx.look());
                 player.serverLevel().playSound(null, player.blockPosition(),
                         SoundEvents.RESPAWN_ANCHOR_DEPLETE.value(), SoundSource.PLAYERS, 0.5F, 1.3F);

@@ -55,6 +55,26 @@ public record VoxelStyle(
             0.012F, 0.11F,
             2, 14);
 
+    /**
+     * The look of harvested blood: a pool at a corpse that lifts and streams into the player.
+     *
+     * <p>The timeline's words mean slightly different things here, because there is no synced
+     * shape and the server picks the flight. {@code launch} is the floor under one cube's flight
+     * once the jitter has been taken off the stream's; {@code jitter} is how ragged the front is;
+     * {@code materialise} is how long the pool takes to well up out of the corpse;
+     * {@code dissolve} is both how long a cube takes to shrink into the chest and how long the pool
+     * takes to dry, with {@code dissolveSpread} staggering the drying rim-first. {@code burstRadius}
+     * is the pool's radius. {@code BloodHarvestRules} pins the flight and drying windows these have
+     * to fit inside, and a test holds the two together.
+     */
+    public static final VoxelStyle HARVEST = new VoxelStyle(
+            FxKinds.Body.BLOOD, 0xF23B47,
+            1.0F, 96,
+            new Timeline(6.0F, 6.0F, 6.0F, 4.0F, 4.0F),
+            0.55F, 0.9F,
+            0.012F, 0.09F,
+            2, 14);
+
     /** How much of {@link #cap} a profile's budget class is allowed to spend. */
     private static final float[] BUDGET_SCALE = {0.30F, 0.50F, 0.75F, 1.00F};
 

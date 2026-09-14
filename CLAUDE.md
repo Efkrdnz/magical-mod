@@ -72,6 +72,10 @@ All payload records in `network/` (24 payloads). `MagicalNetwork` registers them
 
 `magic/MagicPassiveContent.java` — 8 normal passives (Mana Skin, Heat/Poison/Magic Resistance, Mana Flight, etc.) + 7 sin passives + 7 curses + 1 mana leak curse. Normal passives have a disable checkbox. Curses have no checkbox — require a Dispel action with conditions. Passives appear in a separate tab in the Magic Codex.
 
+### Blood harvest
+
+A blood mage's kill spawns `entity/BloodHarvestEntity` at the corpse (never saved to disk). It pools, lifts once the owner is within `BloodHarvestRules.pullRange` (12 blocks; Bloodscent's full 20), streams into the chest over `flightTicks(distance)` and credits the Vessel **on landing**; with The Vessel Overflows on and the Vessel past 4/5 it plays a 10-tick burst first. The entity is the only record of pooled blood - Vein Walk reads `furthestPool`/`consumePool` on it. Drawn by `client/renderer/BloodHarvestRenderer` through the field's `VoxelEmitter` on `shardBody()` with `VoxelStyle.HARVEST`; the motion is the pure `BloodHarvestMotion`, whose lift seam and landing-before-payout invariant are pinned by tests. `/magical blood harvest [amount]` spills a pool six blocks ahead for `-PautoCommands` captures. Design: `docs/superpowers/specs/2026-09-13-blood-harvest-design.md`.
+
 ### Sin system
 
 `magic/MagicSinService.java` — 7 deadly sins track player behavior (Pride from full-barrier casts, Wrath from taking damage, Greed from hoarding, Sloth from idling, etc.). Sin passives boost stats when gauge is high. Sin curses impose penalties if sin gauge reaches max. Accumulated in `PlayerMagicState`.

@@ -140,6 +140,13 @@ public final class MagicalCommands {
             */
             LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal("magical")
                     .requires(source -> source.hasPermission(2))
+                    .then(Commands.literal("blood")
+                            .then(Commands.literal("harvest")
+                                    .executes(context -> withPlayer(context.getSource(), player ->
+                                            spillBlood(player, com.efkrdnz.magical.magic.passive.BloodHarvestRules.VESSEL_PER_DROP)))
+                                    .then(Commands.argument("amount", IntegerArgumentType.integer(1, PlayerMagicState.MAX_BLOOD_VESSEL))
+                                            .executes(context -> withPlayer(context.getSource(), player ->
+                                                    spillBlood(player, IntegerArgumentType.getInteger(context, "amount")))))))
                     .then(Commands.literal("unlockstarter")
                             .executes(context -> withPlayer(context.getSource(), player -> {
                                 PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
@@ -722,6 +729,17 @@ public final class MagicalCommands {
 
         private static int withPlayer(CommandSourceStack source, java.util.function.ToIntFunction<ServerPlayer> action) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
             return action.applyAsInt(source.getPlayerOrException());
+        }
+
+        /**
+         * Testing shortcut: spills a pool of harvestable blood six blocks ahead, as a kill would, so
+         * the harvest can be watched and screenshotted without staging one.
+         */
+        private static int spillBlood(ServerPlayer player, int amount) {
+            Vec3 look = player.getLookAngle();
+            Vec3 ahead = player.position().add(look.x * 6.0D, 0.05D, look.z * 6.0D);
+            com.efkrdnz.magical.entity.BloodHarvestEntity.spawn(player.serverLevel(), player, ahead, amount);
+            return 1;
         }
 
         /** Enough XP to take every node of a tree many times over, for testing. */
