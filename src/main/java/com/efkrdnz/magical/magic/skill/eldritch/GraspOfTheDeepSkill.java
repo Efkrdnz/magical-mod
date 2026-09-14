@@ -36,6 +36,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 
@@ -55,6 +56,8 @@ public final class GraspOfTheDeepSkill implements SkillModule {
     private static final int BASE_CRUSH_INTERVAL = 20;
     private static final int ROOT_TOP_UP = 15;
     private static final int REACH_HOLD_TICKS = 40;
+    /** How far past the edge of a victim the tentacle erupts, toward the caster. */
+    private static final double BESIDE_GAP = 0.75D;
     private static final String KEY_CRUSH = "crush";
     private static final String KEY_POTENCY = "potency";
 
@@ -72,6 +75,9 @@ public final class GraspOfTheDeepSkill implements SkillModule {
                     return CastResult.FAILED;
                 }
                 Vec3 at = ctx.aim() != null ? ctx.aim().point() : ctx.feet().add(ctx.look().scale(4.0D));
+                if (ctx.aim() != null && ctx.aim().entity() != null) {
+                    at = beside(ctx.aim().entity(), ctx.caster().position());
+                }
                 float potency = EldritchService.potency(ctx.state());
                 EldritchService.notice(player, ctx.state(), EldritchService.cost(ctx.stats()));
                 grasp(ctx.level(), null, ctx, at, null, ctx.duration() + FORM_TICKS, potency);
@@ -122,13 +128,24 @@ public final class GraspOfTheDeepSkill implements SkillModule {
         return tentacle;
     }
 
-    /** The deep reaches for the mage it has Noticed: a grasp under their own feet, on them. */
+    /**
+     * A point a step past the edge of a victim toward whoever is casting, on the ground, so the
+     * tentacle wraps the victim rather than standing inside it.
+     */
+    public static Vec3 beside(Entity victim, Vec3 from) {
+        Vec3 toward = new Vec3(from.x - victim.getX(), 0.0D, from.z - victim.getZ());
+        toward = toward.lengthSqr() > 1.0E-6D ? toward.normalize() : new Vec3(1.0D, 0.0D, 0.0D);
+        return victim.position().add(toward.scale(victim.getBbWidth() / 2.0D + BESIDE_GAP));
+    }
+
+    /** The deep reaches for the mage it has Noticed: a grasp erupting just ahead of them, on them. */
     public static void reachFor(ServerPlayer player, PlayerMagicState state) {
         MagicSkillResolvedStats stats = MagicContent.GRASP_OF_THE_DEEP.resolve(MagicSkillTuning.DEFAULT);
+        Vec3 at = beside(player, player.position().add(player.getLookAngle().scale(4.0D)));
         SpellEffectEntity template = SpellEffectEntity.create(player.serverLevel(), MagicContent.GRASP_OF_THE_DEEP, stats, null,
-                player.position(), REACH_HOLD_TICKS, 1.0F, player.getLookAngle(), player.tickCount & 63);
+                at, REACH_HOLD_TICKS, 1.0F, player.getLookAngle(), player.tickCount & 63);
         EldritchConstructEntity tentacle = EldritchConstructEntity.spawnChild(template, EldritchConstructEntity.MODEL_TENTACLE,
-                EldritchConstructEntity.ANCHOR_GROUND, player.position(), REACH_HOLD_TICKS + FORM_TICKS, 1.0F, 1.2F, player.getLookAngle());
+                EldritchConstructEntity.ANCHOR_GROUND, at, REACH_HOLD_TICKS + FORM_TICKS, 1.0F, 1.2F, player.getLookAngle());
         tentacle.serverData().putFloat(KEY_POTENCY, EldritchService.potency(state));
         take(tentacle, player);
         player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.SCULK_BLOCK_SPREAD, SoundSource.PLAYERS, 1.2F, 0.4F);

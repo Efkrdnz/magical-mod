@@ -1,4 +1,4 @@
-"""Placeholder creatures for the eldritch kit: cubes in the school's teal over ink, one file
+"""Placeholder creatures for the eldritch kit: cubes in the school's teal with bright fronts, one file
 per asset in the contract, so the code can be seen moving before the real models exist.
 Run from the project root: python scripts/eldritch-placeholders.py"""
 import json, struct, zlib, os
@@ -57,7 +57,7 @@ def tentacle():
                       "cubes": [{"origin": [-half, i * 4, -half], "size": [2 * half, 4, 2 * half], "uv": [0, i * 8]}]})
     def paint(body, glow):
         for i in range(6):
-            box_uv(body, 0, i * 8, 4, 4, 4, DARK, TEAL, INK)
+            box_uv(body, 0, i * 8, 4, 4, 4, TEAL, BRIGHT, DARK)
             box_uv(glow, 0, i * 8, 4, 4, 4, BLACK, BRIGHT if i >= 3 else BLACK, BLACK)
     write("tentacle", 64, bones, paint)
 
@@ -69,10 +69,10 @@ def eye():
              {"name": "lid_upper", "parent": "body", "pivot": [0, 14, -6], "rotation": [-100, 0, 0], "cubes": [{"origin": [-6, 8, -7], "size": [12, 6, 1], "uv": [0, 30]}]},
              {"name": "lid_lower", "parent": "body", "pivot": [0, 2, -6], "rotation": [100, 0, 0], "cubes": [{"origin": [-6, 2, -7], "size": [12, 6, 1], "uv": [0, 38]}]}]
     def paint(body, glow):
-        box_uv(body, 0, 0, 12, 12, 12, DARK, BRIGHT, INK)
+        box_uv(body, 0, 0, 12, 12, 12, TEAL, BRIGHT, DARK)
         box_uv(body, 0, 24, 4, 4, 1, INK, INK, INK)
-        box_uv(body, 0, 30, 12, 6, 1, DARK, DARK, INK)
-        box_uv(body, 0, 38, 12, 6, 1, DARK, DARK, INK)
+        box_uv(body, 0, 30, 12, 6, 1, TEAL, TEAL, DARK)
+        box_uv(body, 0, 38, 12, 6, 1, TEAL, TEAL, DARK)
         box_uv(glow, 0, 0, 12, 12, 12, BLACK, TEAL, BLACK)
     write("eye", 64, bones, paint)
 
@@ -86,8 +86,8 @@ def maw():
               "cubes": [{"origin": [-10, 3, -18], "size": [20, 3, 24], "uv": [0, 28]},
                         {"origin": [-2, 0, -16], "size": [4, 3, 2], "uv": [0, 60]}]}]
     def paint(body, glow):
-        box_uv(body, 0, 0, 20, 3, 24, DARK, TEAL, INK)
-        box_uv(body, 0, 28, 20, 3, 24, DARK, TEAL, INK)
+        box_uv(body, 0, 0, 20, 3, 24, TEAL, BRIGHT, DARK)
+        box_uv(body, 0, 28, 20, 3, 24, TEAL, BRIGHT, DARK)
         box_uv(body, 0, 60, 4, 3, 2, BRIGHT, BRIGHT, INK)
         box_uv(glow, 0, 60, 4, 3, 2, BRIGHT, BRIGHT, BLACK)
     write("maw", 128, bones, paint)

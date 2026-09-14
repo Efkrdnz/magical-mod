@@ -35,6 +35,9 @@ public final class EldritchConstructRenderer extends ProfileRendererShell<Eldrit
     /** How far the wards on a back sit from the spine, in blocks. */
     private static final double WARD_BACK = 0.3D;
     private static final float WARD_SPREAD_DEGREES = 28.0F;
+    /** Where Tendril Lash grows from: the right shoulder. */
+    private static final double SHOULDER_SIDE = 0.4D;
+    private static final double SHOULDER_HEIGHT = 1.3D;
     private static final String[] SEGMENT_BONES = {"seg0", "seg1", "seg2", "seg3", "seg4", "seg5"};
 
     public EldritchConstructRenderer(EntityRendererProvider.Context context) {
@@ -71,9 +74,12 @@ public final class EldritchConstructRenderer extends ProfileRendererShell<Eldrit
         Vec3 pos = entity.getPosition(partialTick);
         Entity owner = entity.owner();
         Minecraft minecraft = Minecraft.getInstance();
+        // Only the wards on the back hide from their wearer: a lash from the shoulder is meant to be seen.
         state.hiddenFromWearer = state.anchor == EldritchConstructEntity.ANCHOR_OWNER && owner == minecraft.player
+                && EldritchConstructEntity.MODEL_TENTACLE.equals(state.model) && state.extra > 0
                 && minecraft.options.getCameraType().isFirstPerson();
-        state.ownerOffset = owner != null ? owner.getPosition(partialTick).subtract(pos) : Vec3.ZERO;
+        // Follow the owner between ticks, keeping whatever height the construct holds above them.
+        state.ownerOffset = owner != null ? owner.getPosition(partialTick).add(0.0D, pos.y - owner.getY(), 0.0D).subtract(pos) : Vec3.ZERO;
         state.ownerYaw = owner instanceof LivingEntity living ? Mth.rotLerp(partialTick, living.yBodyRotO, living.yBodyRot) : 0.0F;
         Entity target = entity.target();
         Vec3 anchorPos = state.anchor == EldritchConstructEntity.ANCHOR_OWNER ? pos.add(state.ownerOffset) : pos;
@@ -113,6 +119,11 @@ public final class EldritchConstructRenderer extends ProfileRendererShell<Eldrit
         }
         if (EldritchConstructEntity.MODEL_TENTACLE.equals(state.model) && state.anchor == EldritchConstructEntity.ANCHOR_OWNER && state.extra > 0) {
             wards(state, entry, pose, buffers, packedLight, alpha);
+        } else if (EldritchConstructEntity.MODEL_TENTACLE.equals(state.model) && state.anchor == EldritchConstructEntity.ANCHOR_OWNER) {
+            // Tendril Lash: from the right shoulder, whipping ahead.
+            double facing = Math.toRadians(state.ownerYaw);
+            pose.translate(-Math.cos(facing) * SHOULDER_SIDE, SHOULDER_HEIGHT, -Math.sin(facing) * SHOULDER_SIDE);
+            creature(state, entry, pose, buffers, packedLight, alpha, state.yaw, state.scale, 0);
         } else {
             creature(state, entry, pose, buffers, packedLight, alpha, state.yaw, state.scale, 0);
         }

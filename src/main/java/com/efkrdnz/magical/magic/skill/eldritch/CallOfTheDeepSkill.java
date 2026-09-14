@@ -148,7 +148,7 @@ public final class CallOfTheDeepSkill implements SkillModule {
                 LivingEntity chosen = hostiles.get(player.getRandom().nextInt(hostiles.size()));
                 construct.setTarget(chosen);
                 float potency = construct.serverData().contains(KEY_POTENCY) ? construct.serverData().getFloat(KEY_POTENCY) : 1.0F;
-                GraspOfTheDeepSkill.grasp(player.serverLevel(), construct, null, chosen.position(), chosen, GRASP_TICKS, potency);
+                GraspOfTheDeepSkill.grasp(player.serverLevel(), construct, null, GraspOfTheDeepSkill.beside(chosen, player.position()), chosen, GRASP_TICKS, potency);
             }
 
             // No clear on expiry, as in Grasp of the Deep: the hold is applied for the grasp's whole
