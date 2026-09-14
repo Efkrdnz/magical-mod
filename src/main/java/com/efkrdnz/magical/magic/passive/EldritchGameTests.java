@@ -72,7 +72,9 @@ public final class EldritchGameTests {
     }
 
     private static Zombie victim(GameTestHelper helper, ServerPlayer player) {
-        Zombie zombie = helper.spawnWithNoFreeWill(EntityType.ZOMBIE, VICTIM);
+        // A husk: a zombie that does not burn in the daylight of the test world, so every drop of
+        // health in these tests is the work of a call.
+        Zombie zombie = helper.spawnWithNoFreeWill(EntityType.HUSK, VICTIM);
         player.lookAt(EntityAnchorArgument.Anchor.EYES, zombie.getEyePosition());
         return zombie;
     }
@@ -108,6 +110,25 @@ public final class EldritchGameTests {
         });
         helper.runAtTickTime(50, () -> {
             helper.assertTrue(zombie.getHealth() < health, "the stare stings");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 120, batch = BATCH)
+    public static void jawsSnapOnWhatStandsInThem(GameTestHelper helper) {
+        ServerPlayer player = eldritchMage(helper, STAND, MagicContent.HUNGERING_MAW.id());
+        Zombie zombie = victim(helper, player);
+        player.lookAt(EntityAnchorArgument.Anchor.EYES, zombie.position());
+        float health = zombie.getHealth();
+        helper.runAtTickTime(1, () -> MagicCastingService.castById(player, MagicContent.HUNGERING_MAW.id(), false));
+        helper.runAtTickTime(10, () -> {
+            List<EldritchConstructEntity> maws = constructs(helper, player, MagicContent.HUNGERING_MAW.id());
+            helper.assertTrue(maws.size() == 1, "jaws must open");
+            helper.assertTrue(maws.get(0).syncedData().getInt("snap") == 0, "and not snap before they are open");
+            helper.assertTrue(zombie.getHealth() == health, "nothing bitten while opening");
+        });
+        helper.runAtTickTime(40, () -> {
+            helper.assertTrue(zombie.getHealth() < health, "the jaws must snap on what stands in them");
             helper.succeed();
         });
     }
