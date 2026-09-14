@@ -269,6 +269,15 @@ public final class MagicalEntities {
                     .updateInterval(1)
                     .build(key("blood_harvest")));
 
+    /** A piece of the deep an eldritch mage called up: a tentacle, an eye or a maw. */
+    public static final DeferredHolder<EntityType<?>, EntityType<com.efkrdnz.magical.entity.fx.EldritchConstructEntity>> ELDRITCH_CONSTRUCT = ENTITY_TYPES.register(
+            "eldritch_construct",
+            () -> EntityType.Builder.<com.efkrdnz.magical.entity.fx.EldritchConstructEntity>of(com.efkrdnz.magical.entity.fx.EldritchConstructEntity::new, MobCategory.MISC)
+                    .sized(0.6F, 1.5F)
+                    .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
+                    .updateInterval(1)
+                    .build(key("eldritch_construct")));
+
     public static final DeferredHolder<EntityType<?>, EntityType<com.efkrdnz.magical.entity.fx.SolidConstructEntity>> SOLID_CONSTRUCT = ENTITY_TYPES.register(
             "solid_construct",
             () -> EntityType.Builder.<com.efkrdnz.magical.entity.fx.SolidConstructEntity>of(com.efkrdnz.magical.entity.fx.SolidConstructEntity::new, MobCategory.MISC)
