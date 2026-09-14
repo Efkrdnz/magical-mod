@@ -93,7 +93,15 @@ public enum EmblemId {
     CUT_THREAD,
     // and the Light mark that answers them
     CHALICE,
-    SPLATTER;
+    SPLATTER,
+    // ELDRITCH. A curling tendril with suckers, an eye that has no lids, a ring of fangs, a whip
+    // mid-crack, three rows of scales, and a call rising out of the deep.
+    TENDRIL,
+    LIDLESS_EYE,
+    FANGED_MAW,
+    LASH,
+    SCALES,
+    DEEP_CALL;
 
     public static final int FIRST_CELL = 32;
 
