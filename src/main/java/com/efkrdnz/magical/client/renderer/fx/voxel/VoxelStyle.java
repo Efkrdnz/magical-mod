@@ -31,7 +31,14 @@ public record VoxelStyle(
         float idleAmp,
         float idleHz,
         int shaderCount,
-        int shaderParamB) {
+        int shaderParamB,
+        boolean worn) {
+
+    /*
+     * worn: the field is on the body of its owner - a shell - and is not drawn for that owner in
+     * first person, where it would sit across their own view for as long as it stands. Everyone
+     * else sees it; so does the wearer from behind.
+     */
 
     /**
      * Every duration in ticks.
@@ -53,7 +60,8 @@ public record VoxelStyle(
             new Timeline(7.0F, 2.0F, 2.5F, 9.0F, 6.0F),
             0.55F, 1.1F,
             0.012F, 0.11F,
-            2, 14);
+            2, 14,
+            false);
 
     /**
      * The look of harvested blood: a pool at a corpse that lifts and streams into the player.
@@ -73,7 +81,8 @@ public record VoxelStyle(
             new Timeline(6.0F, 6.0F, 6.0F, 4.0F, 4.0F),
             0.55F, 0.9F,
             0.012F, 0.09F,
-            2, 14);
+            2, 14,
+            false);
 
     /**
      * The look of a Crimson Spear: a short straight field that gathers at the hand in a handful of
@@ -86,7 +95,8 @@ public record VoxelStyle(
             new Timeline(4.0F, 1.0F, 2.0F, 5.0F, 3.0F),
             0.25F, 0.15F,
             0.006F, 0.13F,
-            2, 14);
+            2, 14,
+            false);
 
     /**
      * The look of Coagulate: a ring of blood that sets slowly round the caster and stands. Its
@@ -100,7 +110,8 @@ public record VoxelStyle(
             new Timeline(8.0F, 4.0F, 5.0F, 10.0F, 6.0F),
             0.45F, 0.5F,
             0.008F, 0.07F,
-            2, 14);
+            2, 14,
+            true);
 
     /** How much of {@link #cap} a profile's budget class is allowed to spend. */
     private static final float[] BUDGET_SCALE = {0.30F, 0.50F, 0.75F, 1.00F};

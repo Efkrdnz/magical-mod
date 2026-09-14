@@ -84,6 +84,10 @@ neoForge {
             if (project.hasProperty('autoHold')) {
                 systemProperty 'magical.autoHold', project.property('autoHold').toString()
             }
+            //   ./gradlew runClient -PautoCamera=third_back   watch the player from behind for the whole launch (first, third_back, third_front)
+            if (project.hasProperty('autoCamera')) {
+                systemProperty 'magical.autoCamera', project.property('autoCamera').toString()
+            }
             //   ./gradlew runClient -PautoScreenshot=52,112 -PautoExit   the game closes itself 20 ticks after the last capture
             if (project.hasProperty('autoExit')) {
                 systemProperty 'magical.autoExit', 'true'

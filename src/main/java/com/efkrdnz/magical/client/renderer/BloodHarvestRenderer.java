@@ -10,6 +10,7 @@ import com.efkrdnz.magical.client.renderer.fx.voxel.VoxelMotion;
 import com.efkrdnz.magical.client.renderer.fx.voxel.VoxelStyle;
 import com.efkrdnz.magical.entity.BloodHarvestEntity;
 import com.efkrdnz.magical.magic.blood.shape.BloodShapeGeometry;
+import com.efkrdnz.magical.magic.passive.BloodBleedBirths;
 import com.efkrdnz.magical.magic.passive.BloodHarvestRules;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -69,7 +70,7 @@ public final class BloodHarvestRenderer extends EntityRenderer<BloodHarvestEntit
                 ? BloodHarvestRules.VEIN_CUBES : BloodHarvestRules.cubes(state.kind, entity.worth()));
         state.seed = entity.seed();
         state.feedTicks = entity.feedTicks();
-        state.feedEnd = entity.feedEnd();
+        state.births = entity.births();
 
         Vec3 origin = entity.getPosition(partialTick);
         Vec3 camera = entityRenderDispatcher.camera.getPosition();
@@ -178,10 +179,10 @@ public final class BloodHarvestRenderer extends EntityRenderer<BloodHarvestEntit
                 erosion = BloodHarvestMotion.entering(timing, progress, cubeFlight);
                 grow = 1.0F;
             } else if (fed) {
-                // Drop by drop out of the body that bleeds. The schedule is over the style's cap
-                // rather than the pool's current worth, so a drop's birth never moves once set.
-                float bornAt = BloodBleedMotion.bornAt(i, STYLE.cap(), state.feedTicks);
-                if (!BloodBleedMotion.born(bornAt, state.age, state.feedEnd)) {
+                // Drop by drop out of the body that bleeds, each at the bite that shed it. The
+                // birth is the client's own memory of the feed, so it never moves once set.
+                float bornAt = state.births.bornAt(i);
+                if (!BloodBleedMotion.born(bornAt, state.age)) {
                     continue;
                 }
                 float fall = BloodBleedMotion.fallProgress(bornAt, state.age);
@@ -222,7 +223,8 @@ public final class BloodHarvestRenderer extends EntityRenderer<BloodHarvestEntit
         int cubes;
         int seed;
         int feedTicks;
-        float feedEnd;
+        /** When each drop of a fed pool left the body, as this client saw it. */
+        BloodBleedBirths births;
         Vec3 cameraOffset = Vec3.ZERO;
         double distanceSqr;
         /** The owner's chest relative to the pool, or null while the owner is not tracked. */

@@ -9,10 +9,10 @@ import org.junit.jupiter.api.Test;
 /**
  * Blood leaving a body for the ground: the harvest flight run backwards.
  *
- * <p>A fed pool is drawn drop by drop as the drops are born, each falling from the body that
- * bleeds to its own spot in the disc. What is pinned is the seam at the far end - a drop lands
- * exactly where the pooled branch would draw it, at full size - and that no drop is born before
- * its turn, after the feed has stopped, or all at once.
+ * <p>A fed pool is drawn drop by drop as the drops are born (when is {@code BloodBleedBirths}'s
+ * business), each falling from the body that bleeds to its own spot in the disc. What is pinned
+ * is the seam at the far end - a drop lands exactly where the pooled branch would draw it, at
+ * full size - and that no drop is drawn before its birth.
  */
 class BloodBleedMotionTest {
 
@@ -34,27 +34,11 @@ class BloodBleedMotionTest {
     }
 
     @Test
-    void dropsAreBornInOrderAndSpreadOverTheWholeFeed() {
-        int cubes = 96;
-        float feed = 140.0F;
-        float previous = -1.0F;
-        for (int i = 0; i < cubes; i++) {
-            float born = BloodBleedMotion.bornAt(i, cubes, feed);
-            assertTrue(born >= previous, "drop " + i + " is born before drop " + (i - 1));
-            assertTrue(born >= 0.0F && born < feed, "drop " + i + " is born at " + born + ", outside the feed");
-            previous = born;
-        }
-        assertEquals(0.0F, BloodBleedMotion.bornAt(0, cubes, feed), "the first drop falls at once");
-        assertTrue(BloodBleedMotion.bornAt(cubes - 1, cubes, feed) > feed * 0.9F,
-                "the last drop is born near the end, not bunched at the start");
-    }
-
-    @Test
-    void noDropIsBornBeforeItsTurnOrAfterTheFeedStopped() {
-        assertFalse(BloodBleedMotion.born(50.0F, 49.0F, Float.MAX_VALUE), "its turn has not come");
-        assertTrue(BloodBleedMotion.born(50.0F, 50.0F, Float.MAX_VALUE));
-        assertTrue(BloodBleedMotion.born(50.0F, 100.0F, 60.0F), "born before the feed stopped");
-        assertFalse(BloodBleedMotion.born(50.0F, 100.0F, 40.0F), "the feed stopped before its turn: never born");
+    void noDropIsDrawnBeforeItsBirth() {
+        assertFalse(BloodBleedMotion.born(50.0F, 49.0F), "its turn has not come");
+        assertTrue(BloodBleedMotion.born(50.0F, 50.0F));
+        assertTrue(BloodBleedMotion.born(Float.NEGATIVE_INFINITY, 0.0F), "what was there at first sight has landed");
+        assertFalse(BloodBleedMotion.born(Float.POSITIVE_INFINITY, 1.0E9F), "what was never shed is never drawn");
     }
 
     @Test

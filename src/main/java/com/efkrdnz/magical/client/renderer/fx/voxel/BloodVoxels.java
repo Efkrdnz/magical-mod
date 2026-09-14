@@ -65,6 +65,9 @@ public final class BloodVoxels {
         // carries its blood with it, and nothing of the caster is looked up.
         boolean onOwner = source.anchor() == BloodFieldData.ANCHOR_OWNER;
         Entity owner = onOwner ? ownerOf(source.ownerId()) : null;
+        if (style.worn() && owner != null && hiddenFromItsWearer(owner)) {
+            return 0;
+        }
         float yaw = source.baseYaw();
         float pitch = source.basePitch();
         if (source.keepRotating() && owner instanceof LivingEntity living) {
@@ -149,6 +152,12 @@ public final class BloodVoxels {
         int quads = emitter.faces();
         FxBudget.countQuads(quads);
         return quads;
+    }
+
+    /** A field worn on the body is not drawn for the body wearing it while it looks out of its own eyes. */
+    private static boolean hiddenFromItsWearer(Entity owner) {
+        Minecraft minecraft = Minecraft.getInstance();
+        return owner == minecraft.player && minecraft.options.getCameraType().isFirstPerson();
     }
 
     private static Entity ownerOf(int id) {

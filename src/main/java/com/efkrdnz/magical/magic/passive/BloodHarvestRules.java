@@ -70,6 +70,9 @@ public final class BloodHarvestRules {
     /** Cubes drawn per point of Vessel, so a richer pool is visibly a bigger one. */
     public static final int CUBES_PER_POINT = 4;
 
+    /** The most cubes a pool is ever drawn with: VoxelStyle.HARVEST's cap, which the server cannot read. */
+    public static final int MAX_CUBES = 96;
+
     private BloodHarvestRules() {
     }
 

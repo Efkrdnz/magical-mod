@@ -2,6 +2,7 @@ package com.efkrdnz.magical.entity;
 
 import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.passive.BloodBleedBirths;
 import com.efkrdnz.magical.magic.passive.BloodHarvestRules;
 import com.efkrdnz.magical.magic.passive.BloodPassives;
 import com.efkrdnz.magical.magic.passive.ClassPassiveEffects;
@@ -85,6 +86,9 @@ public final class BloodHarvestEntity extends Entity {
         super(type, level);
         noPhysics = true;
     }
+
+    /** Client only: when each drop left the body. Never synced, never saved. */
+    private final BloodBleedBirths births = new BloodBleedBirths();
 
     // ---- spawning -----------------------------------------------------------------------------
 
@@ -256,6 +260,11 @@ public final class BloodHarvestEntity extends Entity {
     @Override
     public void tick() {
         super.tick();
+        if (level().isClientSide) {
+            // The client's own memory of the feed: whichever cubes are new this tick fall now.
+            births.observe(BloodHarvestRules.cubes(kind(), worth()), tickCount, feeding());
+            return;
+        }
         if (!(level() instanceof ServerLevel level)) {
             return;
         }
@@ -417,6 +426,11 @@ public final class BloodHarvestEntity extends Entity {
 
     public boolean fed() {
         return feedTicks() > 0;
+    }
+
+    /** When each drop of a fed pool left the body, as this client saw it. Read by the renderer. */
+    public BloodBleedBirths births() {
+        return births;
     }
 
     public boolean feeding() {

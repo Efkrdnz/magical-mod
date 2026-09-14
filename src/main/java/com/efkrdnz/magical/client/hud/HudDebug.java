@@ -6,6 +6,8 @@ import com.mojang.logging.LogUtils;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import net.minecraft.client.CameraType;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
@@ -28,12 +30,17 @@ import org.slf4j.Logger;
  *   <li>{@code -Dmagical.autoScreenshot=N[,M...]} ({@code -PautoScreenshot=...}): saves a
  *       screenshot N ticks after the player is in a world, and one more at each further tick
  *       listed.</li>
- *   <li>{@code -Dmagical.autoHold=cast_slot_2} ({@code -PautoHold=...}): holds that key mapping
- *       down from sixty ticks before the first screenshot until it is taken, so a hold overlay -
- *       a radial, the space dials, the switcher, the blood strip - can be captured.</li>
+ *   <li>{@code -Dmagical.autoHold=cast_slot_2} ({@code -PautoHold=...}): presses that key mapping
+ *       as a real key is pressed - one click, then held down - from sixty ticks before the first
+ *       screenshot until it is taken, so a hold overlay (a radial, the space dials, the switcher,
+ *       the blood strip) or a held skill (a Blood Rite) can be captured.</li>
  *   <li>{@code -Dmagical.autoClick=116:247,45;132:339,45} ({@code -PautoClick=...}): presses the
  *       open screen at those GUI coordinates at those ticks, so a tab or a button can be walked
  *       through in one launch; a screen that implements {@link Captured} is never auto-closed.</li>
+ *   <li>{@code -Dmagical.autoCamera=third_back} ({@code -PautoCamera=...}): switches to that
+ *       perspective ({@code first}, {@code third_back} or {@code third_front}) as soon as the
+ *       player is in a world, so an effect worn on the body - a shell, a vein, a rite - can be
+ *       captured from outside it.</li>
  *   <li>{@code -Dmagical.autoExit=true} ({@code -PautoExit}): closes the game twenty ticks after
  *       the last screenshot, so a capture can run unattended.</li>
  * </ul>
@@ -54,12 +61,15 @@ public final class HudDebug {
     private static final Command[] COMMANDS = commands(System.getProperty("magical.autoCommands", ""));
     private static final Command[] CLICKS = commands(System.getProperty("magical.autoClick", ""));
     private static final String AUTO_HOLD = System.getProperty("magical.autoHold", "");
+    private static final String AUTO_CAMERA = System.getProperty("magical.autoCamera", "");
     private static final boolean AUTO_EXIT = Boolean.getBoolean("magical.autoExit");
 
     private static final boolean[] SENT = new boolean[COMMANDS.length];
     private static final boolean[] CLICKED = new boolean[CLICKS.length];
     private static int ticksInWorld;
     private static int screenshotsTaken;
+    private static boolean cameraSet;
+    private static boolean holding;
 
     private HudDebug() {}
 
@@ -85,6 +95,22 @@ public final class HudDebug {
         return out;
     }
 
+    /** {@code first}, {@code third_back} or {@code third_front}; anything else is logged and ignored. */
+    private static void camera(Minecraft minecraft, String name) {
+        CameraType type = switch (name.trim().toLowerCase(Locale.ROOT)) {
+            case "first" -> CameraType.FIRST_PERSON;
+            case "third_back" -> CameraType.THIRD_PERSON_BACK;
+            case "third_front" -> CameraType.THIRD_PERSON_FRONT;
+            default -> null;
+        };
+        if (type == null) {
+            LOGGER.warn("HUD auto-camera: not a perspective: {}", name);
+            return;
+        }
+        LOGGER.info("HUD auto-camera: {}", type);
+        minecraft.options.setCameraType(type);
+    }
+
     /** {@code "a;120:b"}: each command at the tick its prefix names, or the default tick without one. */
     private static Command[] commands(String property) {
         List<Command> commands = new ArrayList<>();
@@ -106,7 +132,7 @@ public final class HudDebug {
 
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Post event) {
-        if (SCREENSHOT_TICKS.length == 0 && COMMANDS.length == 0 && CLICKS.length == 0) {
+        if (SCREENSHOT_TICKS.length == 0 && COMMANDS.length == 0 && CLICKS.length == 0 && AUTO_CAMERA.isEmpty()) {
             return;
         }
         Minecraft minecraft = Minecraft.getInstance();
@@ -115,6 +141,10 @@ public final class HudDebug {
             return;
         }
         ticksInWorld++;
+        if (!cameraSet && !AUTO_CAMERA.isEmpty()) {
+            cameraSet = true;
+            camera(minecraft, AUTO_CAMERA);
+        }
         for (int i = 0; i < COMMANDS.length; i++) {
             if (!SENT[i] && ticksInWorld >= COMMANDS[i].tick()) {
                 SENT[i] = true;
@@ -139,10 +169,19 @@ public final class HudDebug {
                 minecraft.setScreen(null);
             }
         }
-        if (!AUTO_HOLD.isEmpty() && screenshotsTaken == 0 && SCREENSHOT_TICKS.length > 0 && ticksInWorld >= SCREENSHOT_TICKS[0] - HOLD_BEFORE_SCREENSHOT) {
+        if (!AUTO_HOLD.isEmpty() && SCREENSHOT_TICKS.length > 0) {
             KeyMapping held = heldMapping();
-            if (held != null) {
+            boolean hold = screenshotsTaken == 0 && ticksInWorld >= SCREENSHOT_TICKS[0] - HOLD_BEFORE_SCREENSHOT;
+            if (held != null && hold) {
+                if (!holding) {
+                    // The click a real press gives, so the slot casts; the polling below only sees isDown.
+                    holding = true;
+                    KeyMapping.click(held.getKey());
+                }
                 held.setDown(true);
+            } else if (held != null && holding) {
+                holding = false;
+                held.setDown(false);
             }
         }
         if (!allTaken && ticksInWorld >= SCREENSHOT_TICKS[screenshotsTaken]) {

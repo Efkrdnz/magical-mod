@@ -19,14 +19,9 @@ public final class BloodBleedMotion {
     private BloodBleedMotion() {
     }
 
-    /** The tick drop {@code index} of {@code cubes} leaves the body: evenly over the planned feed. */
-    public static float bornAt(int index, int cubes, float feedTicks) {
-        return Math.max(0.0F, feedTicks) * index / Math.max(1, cubes);
-    }
-
-    /** Whether the drop has been born by {@code age}, given that the feed stopped at {@code feedEnd}. */
-    public static boolean born(float bornAt, float age, float feedEnd) {
-        return bornAt <= age && bornAt <= feedEnd;
+    /** Whether a drop born at {@code bornAt} (see {@code BloodBleedBirths}) has left the body by {@code age}. */
+    public static boolean born(float bornAt, float age) {
+        return bornAt <= age;
     }
 
     /** Fall progress in 0..1: nothing before birth, landed after {@link #FALL_TICKS}. */
