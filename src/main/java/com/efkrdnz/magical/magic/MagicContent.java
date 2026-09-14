@@ -79,14 +79,14 @@ public final class MagicContent {
     public static final MagicSkillDefinition SEVER_THE_THREAD = register("sever_the_thread", MagicSchool.DARK, MagicSkillType.PROJECTILE, -2, 0, 2.0F, 1.9F, 0.7F, 0, 200, 60, 0.0F, 0, 0x9B6FD4, MagicAttribute.DARK);
 
     public static final MagicSkillDefinition VAULT_OF_AVARICE = register("vault_of_avarice", MagicSchool.VOID, MagicSkillType.BURST, -4, 0, 0.0F, 0.0F, 1.0F, 0, 0, 20, 0.0F, 0, 0xD7F75B, MagicAttribute.DARK);
-    public static final MagicSkillDefinition CREATE_SUBSPACE = register("create_subspace", MagicSchool.ARCANE, MagicSkillType.BURST, -5, 0, 0.0F, 0.0F, 1.0F, 22, 40, 20, 0.0F, 0, 0x88DFFF, MagicAttribute.ARCANE);
-    public static final MagicSkillDefinition MANIPULATE_SPACE = register("manipulate_space", MagicSchool.ARCANE, MagicSkillType.BURST, -5, 0, 0.0F, 0.0F, 1.0F, 8, 8, 20, 0.0F, 0, 0xA9ECFF, MagicAttribute.ARCANE);
-    public static final MagicSkillDefinition POCKET_DIMENSION = register("pocket_dimension", MagicSchool.SPATIAL, MagicSkillType.BURST, -5, 0, 0.0F, 0.0F, 1.0F, 36, 180, 20, 0.0F, 0, 0x5DA8FF, MagicAttribute.SPATIAL);
-    public static final MagicSkillDefinition SPATIAL_ARSENAL = register("spatial_arsenal", MagicSchool.SPATIAL, MagicSkillType.BURST, -5, 0, 0.0F, 0.0F, 1.0F, 18, 80, 20, 0.0F, 0, 0x6ABEFF, MagicAttribute.SPATIAL);
-    public static final MagicSkillDefinition SINGULARITY = register("singularity", MagicSchool.SPATIAL, MagicSkillType.BURST, -5, 0, 32.0F, 0.82F, 2.0F, 84, 900, 160, 1.2F, 0, 0x050714, MagicAttribute.SPATIAL);
-    public static final MagicSkillDefinition DIMENSIONAL_GUILLOTINE = register("dimensional_guillotine", MagicSchool.SPATIAL, MagicSkillType.BURST, -5, 0, 42.0F, 1.0F, 2.3F, 72, 520, 42, 1.4F, 0, 0x82E8FF, MagicAttribute.SPATIAL);
-    public static final MagicSkillDefinition SOUL_VOW = register("soul_vow", MagicSchool.SOUL, MagicSkillType.BURST, -5, 0, 0.0F, 0.0F, 1.0F, 18, 80, 20, 0.0F, 0, 0xD8F0FF, MagicAttribute.SOUL);
-    public static final MagicSkillDefinition SOUL_VALLEY = register("soul_valley", MagicSchool.SOUL, MagicSkillType.BURST, -5, 0, 0.0F, 0.0F, 1.0F, 74, 1600, 20, 0.0F, 0, 0xD8F0FF, MagicAttribute.SOUL);
+    public static final MagicSkillDefinition CREATE_SUBSPACE = register("create_subspace", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 22, 40, 20, 0.0F, 0, 0x88DFFF, MagicAttribute.ARCANE);
+    public static final MagicSkillDefinition MANIPULATE_SPACE = register("manipulate_space", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 8, 8, 20, 0.0F, 0, 0xA9ECFF, MagicAttribute.ARCANE);
+    public static final MagicSkillDefinition POCKET_DIMENSION = register("pocket_dimension", MagicSchool.SPATIAL, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 36, 180, 20, 0.0F, 0, 0x5DA8FF, MagicAttribute.SPATIAL);
+    public static final MagicSkillDefinition SPATIAL_ARSENAL = register("spatial_arsenal", MagicSchool.SPATIAL, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 18, 80, 20, 0.0F, 0, 0x6ABEFF, MagicAttribute.SPATIAL);
+    public static final MagicSkillDefinition SINGULARITY = register("singularity", MagicSchool.SPATIAL, MagicSkillType.BURST, -6, 0, 32.0F, 0.82F, 2.0F, 84, 900, 160, 1.2F, 0, 0x050714, MagicAttribute.SPATIAL);
+    public static final MagicSkillDefinition DIMENSIONAL_GUILLOTINE = register("dimensional_guillotine", MagicSchool.SPATIAL, MagicSkillType.BURST, -6, 0, 42.0F, 1.0F, 2.3F, 72, 520, 42, 1.4F, 0, 0x82E8FF, MagicAttribute.SPATIAL);
+    public static final MagicSkillDefinition SOUL_VOW = register("soul_vow", MagicSchool.SOUL, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 18, 80, 20, 0.0F, 0, 0xD8F0FF, MagicAttribute.SOUL);
+    public static final MagicSkillDefinition SOUL_VALLEY = register("soul_valley", MagicSchool.SOUL, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 74, 1600, 20, 0.0F, 0, 0xD8F0FF, MagicAttribute.SOUL);
 
     // --- Fusion outputs (Spell Creator / Magic Originator combination spells) ---
     // Created skills: not random-rewardable, not usable as fusion inputs. They fall through the
@@ -317,11 +317,20 @@ public final class MagicContent {
     }
 
     public static int maxTier() {
-        return SKILLS.values().stream().filter(skill -> !isAuthoritySkill(skill.id())).mapToInt(MagicSkillDefinition::tier).max().orElse(0);
+        return SKILLS.values().stream().filter(MagicContent::hasOwnRow).mapToInt(MagicSkillDefinition::tier).max().orElse(0);
     }
 
     public static int minTier() {
-        return SKILLS.values().stream().filter(skill -> !isAuthoritySkill(skill.id())).mapToInt(MagicSkillDefinition::tier).min().orElse(0);
+        return SKILLS.values().stream().filter(MagicContent::hasOwnRow).mapToInt(MagicSkillDefinition::tier).min().orElse(0);
+    }
+
+    /**
+     * True for a skill the pyramid gives a row of its own. The Authority family is drawn as one
+     * row of its own below every school, and a sub-skill rides its parent, so neither widens the
+     * span of rows: counting them used to push the deepest row past the last school layer.
+     */
+    private static boolean hasOwnRow(MagicSkillDefinition skill) {
+        return !isAuthoritySkill(skill.id()) && !isSubSkill(skill.id());
     }
 
     public static boolean isAuthoritySkill(ResourceLocation skillId) {

@@ -67,8 +67,9 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     private static final int KEY_KP_ENTER = 335;
     private static final int DEFAULT_BELOW_TIER_COUNT = 3;
     /** Layers -1..-4 have school names; -5 is Authority and carries its own label. */
-    private static final int NAMED_BELOW_LAYERS = 4;
-    private static final int AUTHORITY_TIER = -5;
+    private static final int NAMED_BELOW_LAYERS = 5;
+    /** One number, shared with the menu, or the row the screen draws and the row it selects drift apart. */
+    private static final int AUTHORITY_TIER = MagicPyramidMenu.AUTHORITY_TIER;
     private static final int LINE_H = 11;
     private static final int DETAIL_SCROLL_STEP = 12;
     private static final int TUNING_ROW_H = 18;
@@ -1616,10 +1617,10 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
 
     /**
      * The rows below the line are named, not numbered - one layer, one school, one price - so the
-     * pyramid reads as four kinds of forbidden magic rather than four negative integers.
+     * pyramid reads as five kinds of forbidden magic rather than five negative integers.
      *
-     * <p>-5 never reaches here; it has its own authority label. Anything deeper than the four named
-     * layers falls back to the old signed number, so a future row can never render a raw key.
+     * <p>The authority row never reaches here; it has its own label. Anything deeper than the five
+     * named layers falls back to the old signed number, so a future row can never render a raw key.
      */
     private static Component negativeTierLabel(int tier) {
         int layer = -tier;
@@ -1670,7 +1671,7 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
 
     private static int belowTierCount() {
         int count = Math.max(DEFAULT_BELOW_TIER_COUNT, -Math.min(MagicContent.minTier(), -1));
-        return tierHasOwnedSkill(AUTHORITY_TIER) ? Math.max(count, 5) : count;
+        return tierHasOwnedSkill(AUTHORITY_TIER) ? Math.max(count, -AUTHORITY_TIER) : count;
     }
 
     // ---- drawing helpers ------------------------------------------------------------------------

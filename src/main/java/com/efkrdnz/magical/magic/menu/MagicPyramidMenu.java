@@ -20,6 +20,8 @@ import net.minecraft.world.item.ItemStack;
 public final class MagicPyramidMenu extends AbstractContainerMenu {
     public static final int BUTTON_TIER_BASE = 100;
     public static final int BUTTON_BELOW_TIER_BASE = 120;
+    /** The Authority row: its own layer below every school, not a forbidden school of its own. */
+    public static final int AUTHORITY_TIER = -6;
     /**
      * The skill list is the one band whose width is the size of the roster, so it is the one band
      * that grows every time content is added. It sits above every fixed control for that reason -
@@ -385,7 +387,8 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
 
     private int belowTierCount() {
         int count = Math.max(3, -Math.min(MagicContent.minTier(), -1));
-        return tierHasUnlockedSkill(-5) ? Math.max(count, 5) : count;
+        // The authority row sits one layer below the deepest school, and only when it is owned.
+        return tierHasUnlockedSkill(AUTHORITY_TIER) ? Math.max(count, -AUTHORITY_TIER) : count;
     }
 
     private void clampEditedLoadout() {
