@@ -1,7 +1,8 @@
 # The eldritch kit: modelled constructs, coded motion
 
 **Date:** 2026-09-14
-**Status:** approved by delegation 2026-09-14. The user asked for the plan to be made without
+**Status:** implemented 2026-09-15 (see the implementation notes at the end). Approved by
+delegation 2026-09-14. The user asked for the plan to be made without
 them ("Make a plan yourself for set of eldrich skills ... make everything else except the models
 part") and for the list of assets they will model. Every open question below was decided the same
 way the blood kit's were: the recommended option was taken.
@@ -71,8 +72,9 @@ they are for any effect, and then draws the model on top:
 2. the pose from `EldritchPose` (below), written into the baked `ModelPart`s by bone name;
 3. the body on `RenderType.entityTranslucent(texture)` with the alpha of the lifecycle: nothing
    before it forms, opaque while it stands, fading through the last quarter;
-4. the glow layer, if the texture exists, on `RenderType.eyes(glow)`: full bright, additive, the
-   bioluminescence.
+4. the glow layer, if the texture exists, on `RenderType.eyes(glow)`: full bright, blended over
+   the body (the eyes render type is translucent in 1.21.4, not additive), so the file is
+   transparent wherever the creature does not glow: the bioluminescence.
 
 Materialise and dissolve are pose as well as alpha: a construct grows out of its anchor along the
 chain (segments extend one after another over the form ticks) and sinks back the same way at the
@@ -126,8 +128,9 @@ classes:
 All three: Blockbench, **Bedrock Entity** project, exported as Bedrock geometry, **Box UV**,
 texture size declared in the file (64x64 is plenty; 128x128 if the tentacle needs it), one PNG
 each, optional glow PNG with the same layout where only the parts that should shine are painted
-(black elsewhere). Units are the usual sixteenth of a block; the ground is y = 0; the front is the
-north (-Z) face in Blockbench.
+and everything else is fully transparent (an opaque black pixel there paints the body black;
+`EldritchGlowTexturesTest` holds the shipped placeholders to this). Units are the usual sixteenth
+of a block; the ground is y = 0; the front is the north (-Z) face in Blockbench.
 
 | Asset | Path | Bones (parent) | Rest pose | Drawn at |
 |---|---|---|---|---|
@@ -227,11 +230,28 @@ which already exists, as does the school's sculk shriek cast cue.
   `EldritchSchoolTest` (six actives on tier -5 with attribute ELDRITCH, two passives, every one
   wired, commandable, translated), `VisualProfilesTest` unchanged and green, the lang key test.
 - Game tests (`EldritchGameTests`, template `unwaking_empty`, everything inside relative 0..4):
-  a grasp roots a zombie and crushes it; an eye reveals what it sees; a maw snaps when stepped on;
+  a grasp erupts beside the victim on the side of the caster, roots it and crushes it; an eye hangs
+  just off what it looks at and reveals it; a maw opens under what the caster looks at and snaps;
   a lash harries the thing in front; the skin takes a hit and loses a ward; a held call pulses and
-  raises Notice past Watched; Notice decays for an eldritch mage.
+  raises Notice past Watched; Notice decays for an eldritch mage. Victims are husks (a zombie burns
+  in the daylight of the test world); each test runs in a batch of its own and starts by removing
+  the fake players left by the ones before; a fake player is set client-loaded, since a player is
+  invulnerable until their client reports the world loaded.
 - Captures with the placeholder models: first person aimed at a golem (grasp, eye, maw, lash);
   third person from behind (the skin, the call held).
+
+## Implementation notes (2026-09-15)
+
+- The aim resolver skips the entity search when the tolerance is zero, so a handler that returns
+  zero never sees what the caster looks at: the ray runs on to the wall or the ground behind it.
+  The six handlers keep the default tolerance; the grasp erupts `beside()` a struck entity toward
+  the caster, the eye hangs half a width plus the wall gap off it, the maw opens under its feet.
+- The call eye keeps its height above the owner between ticks; the lash grows from the right
+  shoulder; the wards hide from their wearer in first person, the lash does not.
+- A construct carries its reach as its radius; the renderer zeroes the FX radius so the profile
+  silhouettes keep their written sizes instead of growing to it as a burst would.
+- Placeholders are teal cubes with bright fronts (`scripts/eldritch-placeholders.py`); their glow
+  layers are transparent except the glowing pixels.
 
 ## Primordial, later
 
