@@ -27,7 +27,10 @@ class HudLangKeysTest {
             "screen.magical.fusion_no_formula", "screen.magical.fusion_try_other_pair", "screen.magical.fusion_select_prompt",
             "screen.magical.fusion_select_slot", "screen.magical.fusion_no_inputs", "screen.magical.fusion_output",
             // The codex title strip readout, replaced by the level chip and the XP bar.
-            "screen.magical.proficiency");
+            "screen.magical.proficiency",
+            // The five blood actives the kit replaced, and the one message only one of them printed.
+            "skill.magical.crimson_tithe", "skill.magical.hemorrhage", "skill.magical.scarlet_lance",
+            "skill.magical.second_heart", "skill.magical.exsanguinate", "message.magical.second_heart_already");
 
     private static final List<String> PRESENT = List.of(
             "hud.magical.gauge.pride", "hud.magical.gauge.greed", "hud.magical.gauge.envy", "hud.magical.gauge.gluttony",

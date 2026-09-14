@@ -42,16 +42,24 @@ public final class MagicContent {
     public static final MagicSkillDefinition ABYSSAL_DISCHARGE = register("abyssal_discharge", MagicSchool.DARK, MagicSkillType.BURST, -2, 0, 18.5F, 0.0F, 4.7F, 58, 260, 38, 0.55F, 0, 0x341052, MagicAttribute.DARK);
 
     // BLOOD, layer -1. Every one of these costs zero mana on purpose: they are billed in blood by
-    // their own handler through BloodService, and a mana cost here would charge the player twice.
-    public static final MagicSkillDefinition CRIMSON_TITHE = register("crimson_tithe", MagicSchool.BLOOD, MagicSkillType.BURST, -1, 0, 0.0F, 0.0F, 1.0F, 0, 320, 200, 0.0F, 0, 0xC4122B);
-    public static final MagicSkillDefinition HEMORRHAGE = register("hemorrhage", MagicSchool.BLOOD, MagicSkillType.BURST, -1, 0, 6.0F, 0.0F, 5.0F, 0, 180, 140, 0.1F, 0, 0xA8142E);
-    public static final MagicSkillDefinition SCARLET_LANCE = register("scarlet_lance", MagicSchool.BLOOD, MagicSkillType.PROJECTILE, -1, 0, 15.0F, 1.7F, 1.0F, 0, 140, 60, 0.45F, 0, 0xE8425E);
-    public static final MagicSkillDefinition SECOND_HEART = register("second_heart", MagicSchool.BLOOD, MagicSkillType.BARRIER, -1, 0, 0.0F, 0.0F, 1.2F, 0, 700, 400, 0.0F, 0, 0x8A0B1E);
-    public static final MagicSkillDefinition VEIN_WALK = register("vein_walk", MagicSchool.BLOOD, MagicSkillType.BURST, -1, 0, 0.0F, 0.0F, 1.0F, 0, 160, 20, 0.0F, 0, 0xD62839);
-    public static final MagicSkillDefinition EXSANGUINATE = register("exsanguinate", MagicSchool.BLOOD, MagicSkillType.BURST, -1, 0, 4.0F, 0.0F, 1.0F, 0, 240, 80, 0.0F, 0, 0x6E0B1A);
-    // Size is the reach of the drawing canvas in blocks rather than a radius, relabelled through the
-    // handler's tuning view. Duration is the life of the formed field, which the speed stat shortens.
+    // their own handler through BloodService, from the base prices in BloodPrices, and a mana cost
+    // here would charge the player twice. The points scale the blood price through the same factor
+    // they scale mana by. Each relabels the stats it shows through its handler's tuning view.
+    // Size is the reach of the drawing canvas in blocks rather than a radius. Duration is the life
+    // of the formed field, which the speed stat shortens.
     public static final MagicSkillDefinition BLOOD_MANIPULATION = register("blood_manipulation", MagicSchool.BLOOD, MagicSkillType.BURST, -1, 0, 9.0F, 1.0F, 6.0F, 0, 120, 60, 0.15F, 0, 0xB01732);
+    // Size is Reach (24 blocks at one), duration is Return (how long the trace left at the origin
+    // waits), speed is Haste and only lowers the cooldown, which resolve already does.
+    public static final MagicSkillDefinition VEIN_WALK = register("vein_walk", MagicSchool.BLOOD, MagicSkillType.BURST, -1, 0, 0.0F, 1.0F, 1.0F, 0, 160, 100, 0.0F, 0, 0xD62839);
+    // Damage is Bite per pulse, size is Reach (20 blocks at one), duration is Linger.
+    public static final MagicSkillDefinition OPEN_VEIN = register("open_vein", MagicSchool.BLOOD, MagicSkillType.BURST, -1, 0, 6.0F, 0.0F, 1.0F, 0, 180, 140, 0.0F, 0, 0xA8142E);
+    // Speed is Flow (the flight), size is Mass (length, hit radius and the pool it leaves).
+    public static final MagicSkillDefinition CRIMSON_SPEAR = register("crimson_spear", MagicSchool.BLOOD, MagicSkillType.PROJECTILE, -1, 0, 15.0F, 1.7F, 1.0F, 0, 140, 60, 0.45F, 0, 0xE8425E);
+    // Speed is Draw (8 blocks at one), size is Shell (barrier per blood), duration is Set.
+    public static final MagicSkillDefinition COAGULATE = register("coagulate", MagicSchool.BLOOD, MagicSkillType.BURST, -1, 0, 0.0F, 1.0F, 1.0F, 0, 700, 400, 0.0F, 0, 0x8A0B1E);
+    // Speed is Flow (how often a heart is poured), size is Reach (4 blocks at one), duration is
+    // Linger (how long the pool waits).
+    public static final MagicSkillDefinition BLOOD_RITE = register("blood_rite", MagicSchool.BLOOD, MagicSkillType.BURST, -1, 0, 0.0F, 1.0F, 1.0F, 0, 320, 300, 0.0F, 0, 0xC4122B);
 
     // DARK, layer -2, joining black_flames and abyssal_discharge above. Zero mana again, for the
     // opposite reason to Blood's: these cost nothing at the moment of casting. DarkService writes

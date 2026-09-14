@@ -25,6 +25,7 @@ import com.efkrdnz.magical.magic.MagicSkillTuningView;
 import com.efkrdnz.magical.magic.MagicSkillType;
 import com.efkrdnz.magical.magic.MagicTuningStat;
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.blood.BloodPrices;
 import com.efkrdnz.magical.magic.blood.shape.BloodShapeRules;
 import com.efkrdnz.magical.magic.menu.MagicPyramidMenu;
 import com.efkrdnz.magical.network.MagicalNetwork;
@@ -615,6 +616,11 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
             // Billed by the length drawn: the base, plus so much per block of it.
             return "Blood " + BloodService.scale(stats, BloodShapeRules.BASE_COST) + " + "
                     + BloodService.scale(stats, BloodShapeRules.COST_PER_BLOCK) + " per block" + cooldown;
+        }
+        if (MagicContent.BLOOD_RITE.id().equals(skill.id())) {
+            // Paid in hearts, not blood: the price is what one heart pours, and Thrift raises it.
+            return "A heart per pulse, " + Math.max(1, Math.round(BloodPrices.base(skill.id()) / stats.costScale()))
+                    + " blood each" + cooldown;
         }
         return "Blood " + BloodService.cost(stats) + cooldown;
     }

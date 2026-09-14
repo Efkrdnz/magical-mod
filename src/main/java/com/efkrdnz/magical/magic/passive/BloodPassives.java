@@ -6,17 +6,13 @@ import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.service.SkillTargets;
-import com.efkrdnz.magical.magic.skill.blood.CrimsonTitheSkill;
-import com.efkrdnz.magical.magic.skill.blood.SecondHeartSkill;
+import com.efkrdnz.magical.magic.skill.blood.CoagulateSkill;
 import com.efkrdnz.magical.magic.status.MagicStatus;
 import com.efkrdnz.magical.magic.status.MagicStatusService;
 import java.util.Set;
 import java.util.UUID;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -32,7 +28,9 @@ import net.minecraft.world.entity.LivingEntity;
  *
  * <p>The third baseline rule is the harvest: what a blood mage kills bleeds toward them. That one
  * lives in {@link BloodHarvestEntity}, because the blood is a thing in the world - it waits, it is
- * seen, Vein Walk steps along it - and a thing in the world is an entity, not a map in here.
+ * seen, Vein Walk steps along it - and a thing in the world is an entity, not a map in here. The
+ * passives reach into it by number: Bloodscent doubles the drop and widens the pull, Clotting
+ * makes pooled blood dry half as fast (see {@code BloodHarvestRules.lifetime}).
  */
 public final class BloodPassives implements ClassPassiveHandler {
 
@@ -61,37 +59,23 @@ public final class BloodPassives implements ClassPassiveHandler {
     @Override
     public float outgoingSpellDamage(ServerPlayer player, PlayerMagicState state, LivingEntity target,
             ResourceLocation skillId, float amount) {
-        harvest(player, state, amount, true);
+        harvest(player, state, amount);
         return amount;
     }
 
     @Override
     public void onMeleeHit(ServerPlayer player, PlayerMagicState state, Entity target) {
         if (target instanceof LivingEntity) {
-            harvest(player, state, 2.0F, true);
+            harvest(player, state, 2.0F);
         }
     }
 
-    @Override
-    public float incomingDamage(ServerPlayer player, PlayerMagicState state, DamageSource source, float amount) {
-        // Crimson Tithe pays out more for blood taken than for blood dealt. That is the pact: the
-        // fastest way to fill the Vessel is to stand in the fight and be hit.
-        harvest(player, state, amount, false);
-        return amount;
-    }
-
-    private void harvest(ServerPlayer player, PlayerMagicState state, float amount, boolean dealt) {
+    /** A little of every wound you deal is yours. Being hit pays nothing: that is what the Rite is for. */
+    private void harvest(ServerPlayer player, PlayerMagicState state, float amount) {
         if (amount <= 0.0F || !BloodService.isBloodMage(state)) {
             return;
         }
-        float share = HARVEST_PER_DAMAGE;
-        if (state.passiveCounter(MagicContent.CRIMSON_TITHE.id()) > 0) {
-            share += dealt ? CrimsonTitheSkill.HARVEST_DEALT : CrimsonTitheSkill.HARVEST_TAKEN;
-        } else if (!dealt) {
-            // Without the tithe running, being hit is simply being hit.
-            return;
-        }
-        int gained = Math.round(amount * share);
+        int gained = Math.round(amount * HARVEST_PER_DAMAGE);
         if (gained > 0) {
             state.addBloodVessel(gained);
             state.sync(player);
@@ -130,11 +114,14 @@ public final class BloodPassives implements ClassPassiveHandler {
 
     @Override
     public int bonusMaxBarrier(ServerPlayer player, PlayerMagicState state) {
-        if (!ClassPassiveEffects.on(state, MagicPassiveContent.VESSEL_OVERFLOWS.id())) {
-            return 0;
+        // A Coagulate shell stands above the barrier: the cap rises by what is left of it, which
+        // the ring keeps in this skill's counter for as long as it stands.
+        int bonus = Math.max(0, state.passiveCounter(MagicContent.COAGULATE.id()));
+        if (ClassPassiveEffects.on(state, MagicPassiveContent.VESSEL_OVERFLOWS.id())) {
+            int surplus = overflowSurplus(state);
+            bonus += surplus > 0 ? surplus * OVERFLOW_BARRIER_PER_POINT : 0;
         }
-        int surplus = overflowSurplus(state);
-        return surplus > 0 ? surplus * OVERFLOW_BARRIER_PER_POINT : 0;
+        return bonus;
     }
 
     /**
@@ -151,21 +138,6 @@ public final class BloodPassives implements ClassPassiveHandler {
     }
 
     @Override
-    public boolean cheatDeath(ServerPlayer player, PlayerMagicState state, DamageSource source, float amount) {
-        int reserve = state.passiveCounter(MagicContent.SECOND_HEART.id());
-        if (reserve <= 0) {
-            return false;
-        }
-        state.setPassiveCounter(MagicContent.SECOND_HEART.id(), 0);
-        player.setHealth(reserve / (float) SecondHeartSkill.RESERVE_SCALE);
-        player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.RESPAWN_ANCHOR_CHARGE,
-                SoundSource.PLAYERS, 0.8F, 0.6F);
-        PassiveHooks.puff(player, ParticleTypes.DAMAGE_INDICATOR, 24, 0.5D);
-        state.sync(player);
-        return true;
-    }
-
-    @Override
     public void slowTick(ServerPlayer player, PlayerMagicState state) {
         if (!BloodService.isBloodMage(state)) {
             return;
@@ -173,16 +145,16 @@ public final class BloodPassives implements ClassPassiveHandler {
         for (int i = 0; i < ClassPassiveEffects.SLOW_TICK_INTERVAL; i++) {
             state.tickOpenWound();
         }
-        int tithe = state.passiveCounter(MagicContent.CRIMSON_TITHE.id());
-        if (tithe > 0) {
-            state.setPassiveCounter(MagicContent.CRIMSON_TITHE.id(),
-                    Math.max(0, tithe - ClassPassiveEffects.SLOW_TICK_INTERVAL));
-        }
         if (ClassPassiveEffects.on(state, MagicPassiveContent.CLOTTING.id()) && state.openWoundTicks() <= 0) {
             state.addBloodVessel(CLOTTING_TRICKLE);
         }
         if (ClassPassiveEffects.on(state, MagicPassiveContent.BLOODSCENT.id())) {
             markTheWounded(player, state);
+        }
+        if (state.passiveCounter(MagicContent.COAGULATE.id()) > 0 && !CoagulateSkill.shellStanding(player)) {
+            // The ring went without saying so - a reload, a dimension change - and the cap it was
+            // holding up goes with it.
+            state.setPassiveCounter(MagicContent.COAGULATE.id(), 0);
         }
     }
 
@@ -196,8 +168,9 @@ public final class BloodPassives implements ClassPassiveHandler {
     }
 
     /**
-     * Bloodscent: anything already bleeding is lit through walls, and worth double when it dies.
-     * The range it sees is the range the harvest pulls from - what it can see, it can take.
+     * Bloodscent: anything already bleeding is lit through walls, worth double when it dies, and
+     * sheds half again as much under an Open Vein. The range it sees is the range the harvest
+     * pulls from - what it can see, it can take.
      */
     private void markTheWounded(ServerPlayer player, PlayerMagicState state) {
         for (LivingEntity prey : SkillTargets.hostilesWithin(player.serverLevel(), player,

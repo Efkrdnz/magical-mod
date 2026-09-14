@@ -207,10 +207,21 @@ public final class ClassPassiveEffects {
 
     /** Runs the periodic effects and refreshes the derived pool bonuses in one pass. */
     public static void slowTick(ServerPlayer player, PlayerMagicState state) {
+        for (ClassPassiveHandler handler : HANDLERS) {
+            handler.slowTick(player, state);
+        }
+        refreshPoolBonuses(player, state);
+    }
+
+    /**
+     * Re-sums the max mana and max barrier the passives grant. The slow tick does this on its own;
+     * a skill that just changed one of them (a Coagulate shell going up or wearing down) calls it
+     * so the new cap is in force before the next thing it does.
+     */
+    public static void refreshPoolBonuses(ServerPlayer player, PlayerMagicState state) {
         int mana = 0;
         int barrier = 0;
         for (ClassPassiveHandler handler : HANDLERS) {
-            handler.slowTick(player, state);
             mana += handler.bonusMaxMana(player, state);
             barrier += handler.bonusMaxBarrier(player, state);
         }
