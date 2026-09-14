@@ -139,6 +139,13 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
         }
         if (id >= BUTTON_SLOT_BASE && id < BUTTON_SLOT_BASE + MagicContent.LOADOUT_SIZE) {
             selectedSlot = id - BUTTON_SLOT_BASE;
+            // Pointing at a card points at its skill too, so the detail panel and the points below
+            // it follow the key the player is about to change. An empty card only moves the cursor.
+            MagicSkillDefinition bound = skillForSlot(state, selectedSlot);
+            if (bound != null) {
+                selectedTier = bound.tier();
+                selectedSkillIndex = MagicContent.skillIndex(bound.id());
+            }
             return true;
         }
         if (id == BUTTON_EQUIP_SELECTED) {
@@ -350,6 +357,22 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
         ResourceLocation skillId = MagicContent.skillIdByIndex(selectedSkillIndex);
         MagicSkillDefinition definition = MagicContent.get(skillId);
         return definition != null && definition.tier() == selectedTier ? skillId : null;
+    }
+
+    /**
+     * The skill a cast card carries: null when the card is empty, out of range, or bound to
+     * something this player no longer owns. Both sides read it - the menu selects it, the screen
+     * turns to the layer it lives on - so the card and the panel never disagree.
+     */
+    public static MagicSkillDefinition skillForSlot(PlayerMagicState state, int slot) {
+        if (slot < 0 || slot >= MagicContent.LOADOUT_SIZE) {
+            return null;
+        }
+        ResourceLocation equipped = state.equippedSkill(slot);
+        if (equipped == null || !state.hasUnlocked(equipped)) {
+            return null;
+        }
+        return MagicContent.get(equipped);
     }
 
     private int firstUnlockedSkillIndexForTier(int tier) {

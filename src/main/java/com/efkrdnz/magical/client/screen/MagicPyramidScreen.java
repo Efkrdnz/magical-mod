@@ -1459,6 +1459,15 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         int slot = CodexLayout.cardAt(lx, ly);
         if (slot >= 0) {
             press(MagicPyramidMenu.BUTTON_SLOT_BASE + slot);
+            // The menu answers a tick later, so the view the click implies is set here: a card
+            // bound below the line turns the pyramid over, and the list scrolls to the row the
+            // detail panel is about to fill.
+            MagicSkillDefinition bound = MagicPyramidMenu.skillForSlot(ClientMagicState.get(), slot);
+            if (bound != null) {
+                detailScroll = 0;
+                belowPyramidOpen = bound.tier() < 0;
+                skillListScroll = scrollToSkill(bound);
+            }
             return true;
         }
         if (hit(CodexLayout.equipButton(), lx, ly)) {
@@ -1704,6 +1713,22 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
             g.fill(x, y, x + 3, y + height, accent);
             g.fill(x + width - 3, y, x + width, y + height, accent);
         }
+    }
+
+    /** The list scroll that brings a skill into view, as near the top of the list as it allows. */
+    private int scrollToSkill(MagicSkillDefinition skill) {
+        List<MagicSkillDefinition> skills = ownedSkillsForTier(skill.tier());
+        int index = -1;
+        for (int row = 0; row < skills.size(); row++) {
+            if (skills.get(row).id().equals(skill.id())) {
+                index = row;
+                break;
+            }
+        }
+        if (index < 0) {
+            return skillListScroll;
+        }
+        return CodexLayout.clampScroll(index, skills.size(), CodexLayout.visibleSkillRows(visiblePyramidTiers().size()));
     }
 
     private void press(int id) {
