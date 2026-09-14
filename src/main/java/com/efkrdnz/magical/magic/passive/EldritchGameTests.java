@@ -94,4 +94,21 @@ public final class EldritchGameTests {
             helper.succeed();
         });
     }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 120, batch = BATCH)
+    public static void anEyeRevealsWhatItSeesAndTheStareStings(GameTestHelper helper) {
+        ServerPlayer player = eldritchMage(helper, STAND, MagicContent.UNBLINKING_EYE.id());
+        Zombie zombie = victim(helper, player);
+        float health = zombie.getHealth();
+        helper.runAtTickTime(1, () -> MagicCastingService.castById(player, MagicContent.UNBLINKING_EYE.id(), false));
+        helper.runAtTickTime(12, () -> {
+            helper.assertTrue(constructs(helper, player, MagicContent.UNBLINKING_EYE.id()).size() == 1, "one eye must open");
+            helper.assertTrue(MagicStatusService.has(zombie, MagicStatus.REVEALED), "what the eye sees is revealed");
+            helper.assertTrue(player.getUUID().equals(MagicStatusService.sourceOf(zombie, MagicStatus.REVEALED)), "to its owner");
+        });
+        helper.runAtTickTime(50, () -> {
+            helper.assertTrue(zombie.getHealth() < health, "the stare stings");
+            helper.succeed();
+        });
+    }
 }
