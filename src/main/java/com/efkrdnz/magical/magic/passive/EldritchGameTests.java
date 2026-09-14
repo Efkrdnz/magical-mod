@@ -64,6 +64,8 @@ public final class EldritchGameTests {
         net.neoforged.neoforge.network.registration.NetworkRegistry.configureMockConnection(connection);
         server.getPlayerList().placeNewPlayer(connection, player, cookie);
         player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        // A player is invulnerable until their client reports the world loaded; a fake one never does.
+        player.setClientLoaded(true);
         Vec3 stand = helper.absoluteVec(Vec3.atBottomCenterOf(at));
         player.teleportTo(stand.x, stand.y, stand.z);
         state(player).unlockAll(Set.of(skill));
@@ -142,6 +144,24 @@ public final class EldritchGameTests {
         helper.runAtTickTime(20, () -> {
             helper.assertTrue(zombie.getHealth() < health, "the thing ahead is stung");
             helper.assertTrue(MagicStatusService.has(zombie, MagicStatus.HARRIED), "and harried");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100, batch = BATCH)
+    public static void aWardTakesTheHitAndBitesBack(GameTestHelper helper) {
+        ServerPlayer player = eldritchMage(helper, STAND, MagicContent.SKIN_OF_THE_DEEP.id());
+        Zombie zombie = victim(helper, player);
+        float zombieHealth = zombie.getHealth();
+        helper.runAtTickTime(1, () -> MagicCastingService.castById(player, MagicContent.SKIN_OF_THE_DEEP.id(), false));
+        helper.runAtTickTime(5, () -> {
+            List<EldritchConstructEntity> skins = constructs(helper, player, MagicContent.SKIN_OF_THE_DEEP.id());
+            helper.assertTrue(skins.size() == 1 && skins.get(0).extra() == 4, "four wards at one point of size");
+            float health = player.getHealth();
+            player.hurtServer(helper.getLevel(), helper.getLevel().damageSources().mobAttack(zombie), 6.0F);
+            helper.assertTrue(player.getHealth() == health, "a ward takes the hit, got " + player.getHealth() + " of " + health);
+            helper.assertTrue(skins.get(0).extra() == 3, "and is spent, wards left " + skins.get(0).extra());
+            helper.assertTrue(zombie.getHealth() < zombieHealth, "and bites what struck");
             helper.succeed();
         });
     }

@@ -8,10 +8,12 @@ import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.eldritch.GraspOfTheDeepSkill;
 import com.efkrdnz.magical.magic.skill.eldritch.UnblinkingEyeSkill;
+import com.efkrdnz.magical.magic.skill.eldritch.SkinOfTheDeepSkill;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 
@@ -49,6 +51,11 @@ public final class EldritchPassives implements ClassPassiveHandler {
     @Override
     public float outgoingSpellDamage(ServerPlayer player, PlayerMagicState state, LivingEntity target, ResourceLocation skillId, float amount) {
         return UnblinkingEyeSkill.watching(player, target) ? amount * UnblinkingEyeSkill.SEEN_AMP : amount;
+    }
+
+    @Override
+    public float incomingDamage(ServerPlayer player, PlayerMagicState state, DamageSource source, float amount) {
+        return SkinOfTheDeepSkill.absorb(player, state, source, amount);
     }
 
     @Override
