@@ -34,7 +34,8 @@ public final class ClassPassiveEffects {
             new BrewPassives(),
             new RacePassives(),
             new BloodPassives(),
-            new DarkPassives());
+            new DarkPassives(),
+            new EldritchPassives());
 
     private ClassPassiveEffects() {}
 

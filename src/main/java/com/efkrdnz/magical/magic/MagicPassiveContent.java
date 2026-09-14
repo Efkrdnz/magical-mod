@@ -153,6 +153,11 @@ public final class MagicPassiveContent {
     public static final MagicPassiveDefinition LEDGER = forbiddenPassive("ledger", 0x8A6BB5);
     public static final MagicPassiveDefinition WILLING = forbiddenPassive("willing", 0x3F2456);
 
+    // ELDRITCH, layer -5. Two, per the budget of six actives and two passives. Both change what
+    // being noticed does to you: one keeps you seen for longer, the other makes the top a home.
+    public static final MagicPassiveDefinition LIDLESS = forbiddenPassive("lidless", 0x5FEFD0);
+    public static final MagicPassiveDefinition DEEP_BARGAIN = forbiddenPassive("deep_bargain", 0x06322A);
+
     public static final Set<ResourceLocation> STARTER_PASSIVES = Set.of(
             MANA_SKIN.id(),
             HEAT_RESISTANCE.id(),

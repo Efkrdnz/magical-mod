@@ -345,6 +345,14 @@ public final class MagicalCommands {
                                                 data.sync(player);
                                                 return 1;
                                             }))))
+                            .then(Commands.literal("notice")
+                                    .then(Commands.argument("amount", IntegerArgumentType.integer(0, PlayerMagicState.MAX_NOTICE))
+                                            .executes(context -> withPlayer(context.getSource(), player -> {
+                                                PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+                                                data.setNotice(IntegerArgumentType.getInteger(context, "amount"));
+                                                data.sync(player);
+                                                return 1;
+                                            }))))
                             .then(Commands.literal("vessel")
                                     .then(Commands.argument("amount", IntegerArgumentType.integer(0, PlayerMagicState.MAX_BLOOD_VESSEL))
                                             .executes(context -> withPlayer(context.getSource(), player -> {

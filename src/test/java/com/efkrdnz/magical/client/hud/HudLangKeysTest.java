@@ -36,7 +36,7 @@ class HudLangKeysTest {
             "hud.magical.gauge.pride", "hud.magical.gauge.greed", "hud.magical.gauge.envy", "hud.magical.gauge.gluttony",
             "hud.magical.gauge.wrath", "hud.magical.gauge.sloth", "hud.magical.gauge.sloth_rested", "hud.magical.gauge.charge", "hud.magical.gauge.vault",
             "hud.magical.level_chip", "hud.magical.pool", "hud.magical.vault_chip",
-            "hud.magical.arcane_line", "hud.magical.corruption_next", "hud.magical.corruption_line", "hud.magical.vessel_line", "hud.magical.debug",
+            "hud.magical.arcane_line", "hud.magical.corruption_next", "hud.magical.corruption_line", "hud.magical.vessel_line", "hud.magical.notice_line", "hud.magical.debug",
             "hud.magical.rule.caption",
             // The codex builds a skill kind line from the MagicSkillType name.
             "skilltype.magical.projectile", "skilltype.magical.burst", "skilltype.magical.barrier");

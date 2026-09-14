@@ -13,6 +13,7 @@ import com.efkrdnz.magical.client.hud.HudDebug;
 import com.efkrdnz.magical.client.screen.CodexLayout.Rect;
 import com.efkrdnz.magical.client.screen.creator.SpellCreatorScreen;
 import com.efkrdnz.magical.magic.BloodService;
+import com.efkrdnz.magical.magic.EldritchService;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicLoadout;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
@@ -606,9 +607,12 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         g.drawString(font, costs, left, top + 13, STAT_TEXT, false);
     }
 
-    /** "Mana N  Cooldown M" - or, for blood, the price in blood with the points applied. */
+    /** "Mana N  Cooldown M" - or, for blood, the price in blood with the points applied; for eldritch, mana and Notice. */
     private static String costLine(MagicSkillDefinition skill, MagicSkillResolvedStats stats) {
         String cooldown = "  Cooldown " + stats.cooldownTicks();
+        if (skill.school() == MagicSchool.ELDRITCH) {
+            return "Mana " + stats.manaCost() + " + Notice " + EldritchService.cost(stats) + cooldown;
+        }
         if (skill.school() != MagicSchool.BLOOD) {
             return "Mana " + stats.manaCost() + cooldown;
         }

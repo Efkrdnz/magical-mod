@@ -20,6 +20,7 @@ import com.efkrdnz.magical.magic.AuthorityContent;
 import com.efkrdnz.magical.magic.AuthorityDefinition;
 import com.efkrdnz.magical.magic.BloodService;
 import com.efkrdnz.magical.magic.DarkService;
+import com.efkrdnz.magical.magic.EldritchService;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.MagicPassiveDefinition;
@@ -404,6 +405,7 @@ public final class HudState {
         BARRIER.set(fraction(state.barrier(), state.maxBarrier()), now);
         boolean vessel = BloodService.isBloodMage(state);
         boolean corruption = DarkService.isDarkMage(state);
+        boolean noticed = EldritchService.isEldritchMage(state);
         VESSEL.set(vessel ? fraction(state.bloodVessel(), PlayerMagicState.MAX_BLOOD_VESSEL) : 0.0F, now);
         CORRUPTION.set(corruption ? state.corruptionFraction() : 0.0F, now);
         int xp = state.proficiencyXp();
@@ -461,6 +463,10 @@ public final class HudState {
                         ? Component.translatable("hud.magical.corruption_next", state.corruption(), PlayerMagicState.MAX_CORRUPTION, next)
                         : Component.translatable("hud.magical.corruption_line", state.corruption(), PlayerMagicState.MAX_CORRUPTION);
                 captions.add(label(font, text, HudPalette.textTint(HudPalette.corruption().bright())));
+            }
+            if (noticed && captions.size() < HudLayout.CAPTIONS_MAX) {
+                captions.add(label(font, Component.translatable("hud.magical.notice_line", state.notice(), PlayerMagicState.MAX_NOTICE),
+                        HudPalette.textTint(HudPalette.corruption().bright())));
             }
             ArcanePlayerData arcane = ClientArcaneState.get();
             SpellPreset preset = arcane == null ? null : arcane.activePreset();

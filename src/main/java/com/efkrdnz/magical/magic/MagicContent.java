@@ -61,6 +61,15 @@ public final class MagicContent {
     // Linger (how long the pool waits).
     public static final MagicSkillDefinition BLOOD_RITE = register("blood_rite", MagicSchool.BLOOD, MagicSkillType.BURST, -1, 0, 0.0F, 1.0F, 1.0F, 0, 320, 300, 0.0F, 0, 0xC4122B);
 
+    // ELDRITCH, layer -5: six calls to something under the world, paid in mana and in being noticed.
+    // Stats per docs/superpowers/specs/2026-09-14-eldritch-kit-design.md.
+    public static final MagicSkillDefinition GRASP_OF_THE_DEEP = register("grasp_of_the_deep", MagicSchool.ELDRITCH, MagicSkillType.BURST, -5, 0, 4.0F, 1.0F, 1.0F, 22, 200, 80, 0.0F, 0, 0x2FBF9E);
+    public static final MagicSkillDefinition UNBLINKING_EYE = register("unblinking_eye", MagicSchool.ELDRITCH, MagicSkillType.BURST, -5, 0, 2.0F, 1.0F, 1.0F, 18, 300, 400, 0.0F, 0, 0x5FEFD0);
+    public static final MagicSkillDefinition HUNGERING_MAW = register("hungering_maw", MagicSchool.ELDRITCH, MagicSkillType.BURST, -5, 0, 14.0F, 1.0F, 1.0F, 26, 240, 60, 0.8F, 0, 0x1A7A66);
+    public static final MagicSkillDefinition TENDRIL_LASH = register("tendril_lash", MagicSchool.ELDRITCH, MagicSkillType.BURST, -5, 0, 9.0F, 1.4F, 1.0F, 14, 90, 40, 0.6F, 0, 0x3FD9B4);
+    public static final MagicSkillDefinition SKIN_OF_THE_DEEP = register("skin_of_the_deep", MagicSchool.ELDRITCH, MagicSkillType.BURST, -5, 0, 5.0F, 1.0F, 1.0F, 30, 600, 400, 0.0F, 0, 0x06322A);
+    public static final MagicSkillDefinition CALL_OF_THE_DEEP = register("call_of_the_deep", MagicSchool.ELDRITCH, MagicSkillType.BURST, -5, 0, 6.0F, 1.0F, 1.0F, 12, 500, 200, 0.0F, 0, 0x8FF5E0);
+
     // DARK, layer -2, joining black_flames and abyssal_discharge above. Zero mana again, for the
     // opposite reason to Blood's: these cost nothing at the moment of casting. DarkService writes
     // the price down as Corruption instead, and nothing but Purification ever writes it off.

@@ -97,6 +97,7 @@ public final class PlayerMagicState {
      * relog away would not be a debt.
      */
     private int corruption;
+    private int notice;
     /**
      * Class-passive contributions to the pools, recomputed every slow tick by
      * {@link com.efkrdnz.magical.magic.passive.ClassPassiveEffects}. Derived, so never persisted.
@@ -337,6 +338,22 @@ public final class PlayerMagicState {
     /** Corruption as a 0..1 share of the ceiling, which is how every penalty reads it. */
     public float corruptionFraction() {
         return corruption / (float) MAX_CORRUPTION;
+    }
+
+    /** The point past which the deep is looking straight at you. A ceiling, and the top rung. */
+    public static final int MAX_NOTICE = 100;
+
+    /** How much of the deep's attention you have drawn, 0..{@link #MAX_NOTICE}. A heat, not a debt: it cools. */
+    public int notice() {
+        return notice;
+    }
+
+    public void addNotice(int amount) {
+        setNotice(notice + amount);
+    }
+
+    public void setNotice(int value) {
+        notice = clamp(value, 0, MAX_NOTICE);
     }
 
     /** Takes on debt, or writes some off when negative. Clamped at both ends. */
@@ -1900,6 +1917,7 @@ public final class PlayerMagicState {
         copy.bloodShapes = bloodShapes.copy();
         copy.selectedBloodShape = selectedBloodShape;
         copy.corruption = corruption;
+        copy.notice = notice;
         copy.manaBoostPurchases = manaBoostPurchases;
         copy.barrierBoostPurchases = barrierBoostPurchases;
         copy.authorityId = authorityId;
@@ -2000,6 +2018,7 @@ public final class PlayerMagicState {
             tag.putInt("selectedBloodShape", selectedBloodShape);
         }
         tag.putInt("corruption", corruption);
+        tag.putInt("notice", notice);
         tag.putInt("classMaxManaBonus", classMaxManaBonus);
         tag.putInt("classMaxBarrierBonus", classMaxBarrierBonus);
         tag.putInt("manaBoostPurchases", manaBoostPurchases);
@@ -2149,6 +2168,7 @@ public final class PlayerMagicState {
         state.bloodShapes = BloodShapeBook.load(tag.getList("bloodShapes", Tag.TAG_COMPOUND));
         state.setSelectedBloodShape(tag.getInt("selectedBloodShape"));
         state.corruption = clamp(tag.getInt("corruption"), 0, MAX_CORRUPTION);
+        state.notice = clamp(tag.getInt("notice"), 0, MAX_NOTICE);
         state.classMaxManaBonus = tag.getInt("classMaxManaBonus");
         state.classMaxBarrierBonus = tag.getInt("classMaxBarrierBonus");
         state.manaBoostPurchases = tag.getInt("manaBoostPurchases");
