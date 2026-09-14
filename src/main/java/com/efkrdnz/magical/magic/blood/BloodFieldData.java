@@ -5,6 +5,7 @@ import java.util.List;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.IntArrayTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.util.Mth;
 
 /**
  * A formed blood field, as it travels from the server to the clients watching it.
@@ -17,6 +18,12 @@ import net.minecraft.nbt.Tag;
  * <p>Coordinates are canvas-local sixteenths of a block, the same quantization the stored shape
  * uses. Rotation is deliberately <em>not</em> baked in: the painter applies it every frame, so a
  * field set to keep rotating follows the caster's view smoothly rather than in tick steps.
+ *
+ * <p>Two fields came with the kit and both default. {@code anchor} says whether the field hangs
+ * on its owner (Manipulation, Coagulate - re-anchored on them every frame) or on the effect
+ * entity itself (a thrown Spear carries its blood with it). {@code integrity} lets a shell erode
+ * from the top as it is worn down, whatever its age. A tag from before either existed decodes as
+ * the field it was.
  */
 public record BloodFieldData(
         int[] spine,
@@ -29,7 +36,14 @@ public record BloodFieldData(
         float basePitch,
         float formTicks,
         int flags,
-        int ownerId) {
+        int ownerId,
+        byte anchor,
+        float integrity) {
+
+    /** Drawn relative to the owner, re-anchored on them every frame. */
+    public static final byte ANCHOR_OWNER = 0;
+    /** Drawn relative to the effect entity itself, so it goes where the entity goes. */
+    public static final byte ANCHOR_ENTITY = 1;
 
     private static final String KEY_SPINE = "s";
     private static final String KEY_ENDS = "e";
@@ -42,6 +56,13 @@ public record BloodFieldData(
     private static final String KEY_FLAGS = "f";
     private static final String KEY_FORM = "ft";
     private static final String KEY_OWNER = "o";
+    static final String KEY_ANCHOR = "a";
+    static final String KEY_INTEGRITY = "in";
+
+    public BloodFieldData {
+        anchor = anchor == ANCHOR_ENTITY ? ANCHOR_ENTITY : ANCHOR_OWNER;
+        integrity = Mth.clamp(integrity, 0.0F, 1.0F);
+    }
 
     /**
      * Builds a field from clipped polylines of canvas coordinates.
@@ -71,7 +92,18 @@ public record BloodFieldData(
             rawEnds[written++] = cursor;
         }
         return new BloodFieldData(packed, dropEmptyTail(rawEnds), heightOffset, wallHeight,
-                thickness, pitch, baseYaw, basePitch, formTicks, flags, ownerId);
+                thickness, pitch, baseYaw, basePitch, formTicks, flags, ownerId, ANCHOR_OWNER, 1.0F);
+    }
+
+    public BloodFieldData withAnchor(byte anchor) {
+        return new BloodFieldData(spine, ends, heightOffset, wallHeight, thickness, pitch, baseYaw,
+                basePitch, formTicks, flags, ownerId, anchor, integrity);
+    }
+
+    /** The same field, this whole. A new record and so a new tag: the client re-bakes on identity. */
+    public BloodFieldData withIntegrity(float integrity) {
+        return new BloodFieldData(spine, ends, heightOffset, wallHeight, thickness, pitch, baseYaw,
+                basePitch, formTicks, flags, ownerId, anchor, integrity);
     }
 
     /** Drops the trailing polylines the point cap left with nothing in them. */
@@ -165,6 +197,8 @@ public record BloodFieldData(
         tag.putFloat(KEY_FORM, formTicks);
         tag.putByte(KEY_FLAGS, (byte) flags);
         tag.putInt(KEY_OWNER, ownerId);
+        tag.putByte(KEY_ANCHOR, anchor);
+        tag.putFloat(KEY_INTEGRITY, integrity);
         return tag;
     }
 
@@ -184,7 +218,9 @@ public record BloodFieldData(
                 tag.getFloat(KEY_HEIGHT), tag.getFloat(KEY_WALL), tag.getFloat(KEY_THICK),
                 Math.max(0.01F, tag.getFloat(KEY_PITCH)), tag.getFloat(KEY_YAW),
                 tag.getFloat(KEY_TILT), Math.max(1.0F, tag.getFloat(KEY_FORM)),
-                BloodShapeRules.clampFlags(tag.getByte(KEY_FLAGS)), tag.getInt(KEY_OWNER));
+                BloodShapeRules.clampFlags(tag.getByte(KEY_FLAGS)), tag.getInt(KEY_OWNER),
+                tag.contains(KEY_ANCHOR, Tag.TAG_BYTE) ? tag.getByte(KEY_ANCHOR) : ANCHOR_OWNER,
+                tag.contains(KEY_INTEGRITY, Tag.TAG_FLOAT) ? tag.getFloat(KEY_INTEGRITY) : 1.0F);
     }
 
     /**

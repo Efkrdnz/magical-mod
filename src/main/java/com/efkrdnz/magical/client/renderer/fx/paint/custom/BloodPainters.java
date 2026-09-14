@@ -18,5 +18,9 @@ public final class BloodPainters {
     public static void register() {
         CustomPainters.register("blood_manipulation", (ctx, profile, silhouette) ->
                 BloodVoxels.paint(ctx, profile, silhouette, VoxelStyle.STRIKE));
+        CustomPainters.register("crimson_spear", (ctx, profile, silhouette) ->
+                BloodVoxels.paint(ctx, profile, silhouette, VoxelStyle.SPEAR));
+        CustomPainters.register("coagulate", (ctx, profile, silhouette) ->
+                BloodVoxels.paint(ctx, profile, silhouette, VoxelStyle.SHELL));
     }
 }

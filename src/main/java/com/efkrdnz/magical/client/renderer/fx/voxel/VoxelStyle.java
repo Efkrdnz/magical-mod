@@ -75,6 +75,33 @@ public record VoxelStyle(
             0.012F, 0.09F,
             2, 14);
 
+    /**
+     * The look of a Crimson Spear: a short straight field that gathers at the hand in a handful of
+     * ticks, flies as one body, and shatters at the impact through its own dissolve. A small burst
+     * and a low arch, because it forms at a fist rather than out of a whole caster.
+     */
+    public static final VoxelStyle SPEAR = new VoxelStyle(
+            FxKinds.Body.BLOOD, 0xE8303C,
+            1.1F, 220,
+            new Timeline(4.0F, 1.0F, 2.0F, 5.0F, 3.0F),
+            0.25F, 0.15F,
+            0.006F, 0.13F,
+            2, 14);
+
+    /**
+     * The look of Coagulate: a ring of blood that sets slowly round the caster and stands. Its
+     * erosion is driven by the synced integrity rather than by age, so the dissolve here is only
+     * how the last of it drains at the end. Capped so that a shell and a full Manipulation field
+     * together stay inside the frame budget.
+     */
+    public static final VoxelStyle SHELL = new VoxelStyle(
+            FxKinds.Body.BLOOD, 0xC81E2E,
+            1.05F, 600,
+            new Timeline(8.0F, 4.0F, 5.0F, 10.0F, 6.0F),
+            0.45F, 0.5F,
+            0.008F, 0.07F,
+            2, 14);
+
     /** How much of {@link #cap} a profile's budget class is allowed to spend. */
     private static final float[] BUDGET_SCALE = {0.30F, 0.50F, 0.75F, 1.00F};
 

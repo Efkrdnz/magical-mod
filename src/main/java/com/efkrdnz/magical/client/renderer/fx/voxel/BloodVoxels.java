@@ -28,6 +28,9 @@ public final class BloodVoxels {
     /** Launch height as a share of the caster's height: roughly the chest. */
     private static final double LAUNCH_HEIGHT = 0.6D;
 
+    /** Width of the soft edge under the integrity line, as a share of the wall height. */
+    private static final float INTEGRITY_EDGE = 0.08F;
+
     private BloodVoxels() {
     }
 
@@ -58,7 +61,10 @@ public final class BloodVoxels {
         }
 
         BloodFieldData source = field.source();
-        Entity owner = ownerOf(source.ownerId());
+        // A field anchored on its entity is drawn where the entity is and nowhere else: the spear
+        // carries its blood with it, and nothing of the caster is looked up.
+        boolean onOwner = source.anchor() == BloodFieldData.ANCHOR_OWNER;
+        Entity owner = onOwner ? ownerOf(source.ownerId()) : null;
         float yaw = source.baseYaw();
         float pitch = source.basePitch();
         if (source.keepRotating() && owner instanceof LivingEntity living) {
@@ -75,7 +81,7 @@ public final class BloodVoxels {
         // stutter. Re-anchoring on the owner every frame is the other half of drawing this smoothly:
         // the partial tick alone is not enough.
         Vec3 shift = Vec3.ZERO;
-        double launchHeight = 1.0D;
+        double launchHeight = onOwner ? 1.0D : 0.0D;
         if (owner != null) {
             shift = owner.getPosition(ctx.partialTick).subtract(ctx.origin);
             launchHeight = owner.getBbHeight() * LAUNCH_HEIGHT;
@@ -97,6 +103,8 @@ public final class BloodVoxels {
         int rgb = style.rgb();
 
         float pitchSize = source.pitch();
+        float integrity = source.integrity();
+        float wall = Math.max(1.0E-3F, Math.abs(source.wallHeight()));
         float anchorX = (float) shift.x;
         float anchorY = (float) (shift.y + launchHeight);
         float anchorZ = (float) shift.z;
@@ -112,6 +120,13 @@ public final class BloodVoxels {
             float rank = field.rank[i];
             float delay = VoxelMotion.delayFor(style.timing(), source.formTicks(), rank, i, ctx.seed);
             float erosion = VoxelMotion.erosion(style.timing(), rank, delay, ctx.age, ctx.life);
+            if (integrity < 1.0F) {
+                // A shell is worn down from the top, whatever its age: everything above the line
+                // is gone, and a thin band under it is shrinking.
+                float top = Math.abs(field.targets[i * 3 + 1]) / wall;
+                erosion = Math.max(erosion,
+                        Mth.clamp((top - integrity) / INTEGRITY_EDGE + 1.0F, 0.0F, 1.0F));
+            }
             float half = VoxelMotion.halfExtent(style, pitchSize, i, ctx.seed, ctx.age, delay,
                     erosion, edge);
             if (half <= 0.0F) {

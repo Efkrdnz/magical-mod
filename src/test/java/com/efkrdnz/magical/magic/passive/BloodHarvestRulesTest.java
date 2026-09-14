@@ -69,6 +69,8 @@ class BloodHarvestRulesTest {
         assertTrue(doubled > BloodHarvestRules.cubes(BloodHarvestRules.yield(1)),
                 "the doubled pool has to be visibly bigger");
         assertEquals(1, BloodHarvestRules.cubes(0), "even an empty harvest draws one cube rather than nothing");
+        assertTrue(BloodHarvestRules.VEIN_CUBES <= VoxelStyle.HARVEST.cap(), "a walk's stream must fit the style too");
+        assertTrue(BloodHarvestRules.TRACE_CUBES <= VoxelStyle.HARVEST.cap());
     }
 
     /**

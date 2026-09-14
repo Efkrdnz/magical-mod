@@ -3,6 +3,7 @@ package com.efkrdnz.magical.client.renderer;
 import com.efkrdnz.magical.client.renderer.fx.FxBudget;
 import com.efkrdnz.magical.client.renderer.fx.MagicVertex;
 import com.efkrdnz.magical.client.renderer.fx.MagicalFxRenderTypes;
+import com.efkrdnz.magical.client.renderer.fx.voxel.BloodBleedMotion;
 import com.efkrdnz.magical.client.renderer.fx.voxel.BloodHarvestMotion;
 import com.efkrdnz.magical.client.renderer.fx.voxel.VoxelEmitter;
 import com.efkrdnz.magical.client.renderer.fx.voxel.VoxelMotion;
@@ -23,20 +24,28 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Draws harvested blood: a pool of cubes at the corpse, the stream of them into the player, and
- * the burst back out when the Vessel overflows.
+ * Draws pooled blood: a pool of cubes on the ground, the drops falling into it out of the body
+ * that bleeds, the stream of it into the player, the burst back out when the Vessel overflows,
+ * and the vein a walk leaves in the air.
  *
  * <p>The same cubes, colour and render type as Blood Manipulation's field, through the same
  * {@link VoxelEmitter}, out of the same shared voxel budget. What differs is the motion, which is
- * {@link BloodHarvestMotion}'s, and the target: the field flies to points it was told, this flies to
- * a chest that is read off the owner's interpolated position every frame. The entity itself never
- * moves - it marks where the blood was spilled - so the owner is the only thing that has to be
- * re-read to draw a stream that tracks a sprinting player without stutter.
+ * {@link BloodHarvestMotion}'s and {@link BloodBleedMotion}'s, and the targets: the field flies to
+ * points it was told, this flies to and from bodies that are read off their interpolated positions
+ * every frame. The entity itself never moves - it marks where the blood is - so the owner and the
+ * source are the only things re-read to draw a stream that tracks a sprinting player without
+ * stutter.
  */
 public final class BloodHarvestRenderer extends EntityRenderer<BloodHarvestEntity, BloodHarvestRenderer.State> {
 
     private static final VoxelStyle STYLE = VoxelStyle.HARVEST;
     private static final int ALPHA = 255;
+
+    /** A battery is set blood: a shade darker than a harvest that still runs. */
+    private static final int BATTERY_RGB = 0xC81E2E;
+
+    /** A trace is old blood: dim, so it reads as a mark to step back to rather than a thing to collect. */
+    private static final int TRACE_RGB = 0x7A1020;
 
     public BloodHarvestRenderer(EntityRendererProvider.Context context) {
         super(context);
@@ -55,8 +64,12 @@ public final class BloodHarvestRenderer extends EntityRenderer<BloodHarvestEntit
         state.phaseAge = state.age - entity.phaseTick();
         state.flight = entity.flight();
         state.life = entity.life();
-        state.cubes = Math.min(STYLE.cap(), BloodHarvestRules.cubes(entity.worth()));
+        state.kind = entity.kind();
+        state.cubes = Math.min(STYLE.cap(), state.phase == BloodHarvestEntity.PHASE_VEIN
+                ? BloodHarvestRules.VEIN_CUBES : BloodHarvestRules.cubes(state.kind, entity.worth()));
         state.seed = entity.seed();
+        state.feedTicks = entity.feedTicks();
+        state.feedEnd = entity.feedEnd();
 
         Vec3 origin = entity.getPosition(partialTick);
         Vec3 camera = entityRenderDispatcher.camera.getPosition();
@@ -64,15 +77,18 @@ public final class BloodHarvestRenderer extends EntityRenderer<BloodHarvestEntit
         state.distanceSqr = camera.distanceToSqr(origin);
 
         Entity owner = entity.owner();
-        state.chest = owner == null ? null
-                : owner.getPosition(partialTick)
-                        .add(0.0D, owner.getBbHeight() * BloodHarvestEntity.CHEST_HEIGHT, 0.0D)
-                        .subtract(origin);
+        state.chest = owner == null ? null : chestOf(owner, partialTick).subtract(origin);
+        Entity source = entity.fed() ? entity.source() : null;
+        state.source = source == null ? null : chestOf(source, partialTick).subtract(origin);
+    }
+
+    private static Vec3 chestOf(Entity body, float partialTick) {
+        return body.getPosition(partialTick).add(0.0D, body.getBbHeight() * BloodHarvestEntity.CHEST_HEIGHT, 0.0D);
     }
 
     /**
-     * The box is the pool while it pools, and the pool plus the owner once it flies: the corpse can
-     * be behind the camera while the blood is coming straight at it.
+     * The box is the pool while it pools, plus the owner once it flies and the source while it is
+     * fed: the corpse can be behind the camera while the blood is coming straight at it.
      */
     @Override
     public boolean shouldRender(BloodHarvestEntity entity, Frustum frustum, double cameraX, double cameraY, double cameraZ) {
@@ -80,6 +96,10 @@ public final class BloodHarvestRenderer extends EntityRenderer<BloodHarvestEntit
         Entity owner = entity.owner();
         if (owner != null && entity.phase() != BloodHarvestEntity.PHASE_POOLED) {
             box = box.minmax(owner.getBoundingBox().inflate(STYLE.archHeight() + 1.0D));
+        }
+        Entity source = entity.fed() ? entity.source() : null;
+        if (source != null) {
+            box = box.minmax(source.getBoundingBox().inflate(STYLE.archHeight() + 1.0D));
         }
         return entity.shouldRenderAtSqrDistance(entity.distanceToSqr(cameraX, cameraY, cameraZ))
                 && frustum.isVisible(box);
@@ -108,11 +128,18 @@ public final class BloodHarvestRenderer extends EntityRenderer<BloodHarvestEntit
         int basePacked = MagicVertex.pack(STYLE.kind().id(), STYLE.shaderCount(), STYLE.shaderParamB(),
                 0.0F, state.seed, 0);
         VoxelStyle.Timeline timing = STYLE.timing();
+        int rgb = switch (state.kind) {
+            case BloodHarvestRules.KIND_BATTERY -> BATTERY_RGB;
+            case BloodHarvestRules.KIND_TRACE -> TRACE_RGB;
+            default -> STYLE.rgb();
+        };
 
         // A stream with no tracked owner is drawn as a pool: better a puddle that lingers a frame
         // than cubes flying at a point nobody can see.
         boolean flying = state.phase == BloodHarvestEntity.PHASE_STREAMING && state.chest != null;
         boolean bursting = state.phase == BloodHarvestEntity.PHASE_OVERFLOW && state.chest != null;
+        boolean vein = state.phase == BloodHarvestEntity.PHASE_VEIN && state.chest != null;
+        boolean fed = state.phase == BloodHarvestEntity.PHASE_POOLED && state.feedTicks > 0;
         float chestX = state.chest == null ? 0.0F : (float) state.chest.x;
         float chestY = state.chest == null ? 0.0F : (float) state.chest.y;
         float chestZ = state.chest == null ? 0.0F : (float) state.chest.z;
@@ -140,6 +167,34 @@ public final class BloodHarvestRenderer extends EntityRenderer<BloodHarvestEntit
                         position[0], position[1], position[2], chestX, chestY, chestZ, position);
                 erosion = BloodHarvestMotion.entering(timing, progress, cubeFlight);
                 BloodHarvestMotion.wobble(STYLE, i, state.seed, state.age, grow * (1.0F - progress), position);
+            } else if (vein) {
+                // The body comes apart where it stood - the entity sits at the chest it left - and
+                // runs down the vein into wherever the walker now is.
+                BloodHarvestMotion.burst(STYLE, i, state.seed, 1.0F, 0.0F, 0.0F, 0.0F, position);
+                float delay = BloodHarvestMotion.delayFor(timing, i, state.seed);
+                float progress = BloodHarvestMotion.progress(delay, cubeFlight, state.phaseAge);
+                BloodHarvestMotion.fly(STYLE, i, state.seed, progress,
+                        position[0], position[1], position[2], chestX, chestY, chestZ, position);
+                erosion = BloodHarvestMotion.entering(timing, progress, cubeFlight);
+                grow = 1.0F;
+            } else if (fed) {
+                // Drop by drop out of the body that bleeds. The schedule is over the style's cap
+                // rather than the pool's current worth, so a drop's birth never moves once set.
+                float bornAt = BloodBleedMotion.bornAt(i, STYLE.cap(), state.feedTicks);
+                if (!BloodBleedMotion.born(bornAt, state.age, state.feedEnd)) {
+                    continue;
+                }
+                float fall = BloodBleedMotion.fallProgress(bornAt, state.age);
+                BloodHarvestMotion.poolSpot(STYLE, i, state.seed, position);
+                erosion = 0.0F;
+                if (state.source != null && fall < 1.0F) {
+                    BloodBleedMotion.fall(STYLE, i, state.seed, fall, position[0], position[1], position[2],
+                            (float) state.source.x, (float) state.source.y, (float) state.source.z, position);
+                    erosion = BloodBleedMotion.forming(timing, fall, BloodBleedMotion.FALL_TICKS);
+                }
+                erosion = Math.max(erosion, BloodHarvestMotion.dryOut(timing, rank, state.age, state.life));
+                grow = 1.0F;
+                BloodHarvestMotion.wobble(STYLE, i, state.seed, state.age, fall, position);
             } else {
                 BloodHarvestMotion.poolSpot(STYLE, i, state.seed, position);
                 erosion = BloodHarvestMotion.dryOut(timing, rank, state.age, state.life);
@@ -151,7 +206,7 @@ public final class BloodHarvestRenderer extends EntityRenderer<BloodHarvestEntit
             }
             // 0.7 is where the body shader starts its dissolve, the same mapping the field uses.
             int packed = MagicVertex.withPhase(basePacked, 0.7F + 0.3F * erosion);
-            emitter.cube(position[0], position[1], position[2], half, STYLE.rgb(), ALPHA, packed);
+            emitter.cube(position[0], position[1], position[2], half, rgb, ALPHA, packed);
         }
         FxBudget.countQuads(emitter.faces());
         super.render(state, poseStack, buffers, packedLight);
@@ -160,14 +215,19 @@ public final class BloodHarvestRenderer extends EntityRenderer<BloodHarvestEntit
     public static final class State extends EntityRenderState {
         float age;
         byte phase;
+        byte kind;
         float phaseAge;
         int flight;
         int life;
         int cubes;
         int seed;
+        int feedTicks;
+        float feedEnd;
         Vec3 cameraOffset = Vec3.ZERO;
         double distanceSqr;
         /** The owner's chest relative to the pool, or null while the owner is not tracked. */
         Vec3 chest;
+        /** The chest of the body a fed pool bleeds out of, relative to the pool, or null. */
+        Vec3 source;
     }
 }
