@@ -9,7 +9,7 @@ import net.minecraft.util.Mth;
  *
  * <p>Every form used to appear whole on its first frame and then fade out, which reads as a decal
  * being switched on rather than a blade going through something. A swing travels: the arc opens
- * along its own span from where the blade started, and a thrown crescent grows out to its reach
+ * along its own span from where the blade started, and a thrown wave grows out to its reach
  * instead of arriving at full size.
  *
  * <p>Both of the ceilings here are load-bearing. The drawing may never claim more span or more
@@ -41,9 +41,7 @@ public final class ForgeMotion {
      */
     public static Sweep opening(Sweep full, float progress) {
         float to = Mth.lerp(swept(progress), full.fromDegrees(), full.toDegrees());
-        // The bow comes along. A blade that straightened out while it opened would be flat for the
-        // frames the eye actually catches, which are the early ones.
-        return new Sweep(full.plane(), full.radius(), full.thickness(), full.fromDegrees(), to, full.bow());
+        return new Sweep(full.plane(), full.radius(), full.thickness(), full.fromDegrees(), to);
     }
 
     /**
@@ -54,8 +52,16 @@ public final class ForgeMotion {
      * razor.
      */
     public static Sweep reaching(Sweep full, float fromFraction, float progress) {
-        float from = Mth.clamp(fromFraction, 0.0f, 1.0f);
-        return full.scaled(Mth.lerp(swept(progress), from, 1.0f));
+        return full.scaled(reached(fromFraction, progress));
+    }
+
+    /**
+     * The factor {@link #reaching} scales by, on its own, for a form whose drawing is not a
+     * {@link Sweep}: the thrown wave grows its whole front and the ring of ornaments round its rim
+     * out of the same number, so the two cannot drift apart.
+     */
+    public static float reached(float fromFraction, float progress) {
+        return Mth.lerp(swept(progress), Mth.clamp(fromFraction, 0.0f, 1.0f), 1.0f);
     }
 
     /** The progress at which {@link #reaching} from nothing stands at {@code fraction} of its reach. */

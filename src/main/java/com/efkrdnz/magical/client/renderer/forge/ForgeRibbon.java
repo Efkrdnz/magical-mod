@@ -28,33 +28,20 @@ public final class ForgeRibbon {
     public enum Plane { FORWARD, UPRIGHT, GROUND }
 
     /**
-     * One arc of blade: where it lies, how far out it reaches, how far around it sweeps, and how
-     * far its two ends trail behind its middle.
+     * One arc of blade: where it lies, how far out it reaches, and how far around it sweeps.
      *
-     * <p>That last one is the only way an arc can lean out of its own plane. Drawn flat, an arc
-     * has the same silhouette whichever way it is travelling - fine for a swing, which is over in
-     * three ticks with the viewer standing at the middle of it, and wrong for something thrown,
-     * because a thrown blade is a thing with a front. Bowed, the belly leads and the horns lag, so
-     * the shape says where it is going from any angle instead of facing the viewer like a decal.
+     * <p>Flat, and deliberately so. An arc is what a swing is - a thing done in a direction, with
+     * the wielder standing at the middle of it - and a swing is over in three ticks. A thrown wave
+     * is not an arc at all and does not come through here: see {@link ForgeWaveFront}.
      */
-    public record Sweep(Plane plane, float radius, float thickness, float fromDegrees, float toDegrees, float bow) {
-
-        /** A flat arc: what a swing is, and what every form but the thrown wave asks for. */
-        public Sweep(Plane plane, float radius, float thickness, float fromDegrees, float toDegrees) {
-            this(plane, radius, thickness, fromDegrees, toDegrees, 0.0f);
-        }
+    public record Sweep(Plane plane, float radius, float thickness, float fromDegrees, float toDegrees) {
 
         public Sweep shifted(float degrees) {
-            return new Sweep(plane, radius, thickness, fromDegrees + degrees, toDegrees + degrees, bow);
+            return new Sweep(plane, radius, thickness, fromDegrees + degrees, toDegrees + degrees);
         }
 
         public Sweep scaled(float factor) {
-            return new Sweep(plane, radius * factor, thickness * factor, fromDegrees, toDegrees, bow * factor);
-        }
-
-        /** The same arc with both ends trailing {@code depth} blocks behind its middle. */
-        public Sweep bowed(float depth) {
-            return new Sweep(plane, radius, thickness, fromDegrees, toDegrees, depth);
+            return new Sweep(plane, radius * factor, thickness * factor, fromDegrees, toDegrees);
         }
 
         /** In-plane coordinates of the point at {@code t} along the arc, {@code out} across it. */
@@ -70,16 +57,10 @@ public final class ForgeRibbon {
             return at(t, out, 0.0f);
         }
 
-        /**
-         * The same point, standing {@code n} off the plane: one face of the solid.
-         *
-         * <p>The bow rides the same axis. Both are off-plane displacements and a point has only
-         * one of those, so a bowed blade is a bowed blade rather than a flat one with a second
-         * copy leaning away from it.
-         */
+        /** The same point, standing {@code n} off the plane: one face of the solid. */
         public float[] at(float t, float out, float n) {
             float[] flat = uv(t, out);
-            return planar(plane, flat[0], flat[1], n - bow * (1.0f - belly(t)));
+            return planar(plane, flat[0], flat[1], n);
         }
     }
 
@@ -293,13 +274,15 @@ public final class ForgeRibbon {
     }
 
     /**
-     * A unit vector square to both {@code run} and {@code view}.
+     * A unit vector square to both {@code run} and {@code view}: which way a band of light spreads
+     * so it turns its broad side to the viewer without becoming a billboard that ignores the shape
+     * it is wrapping. The wave's rim halo asks for the same thing round a closed ring.
      *
      * <p>A viewer sighting exactly along the arc leaves the two parallel and their cross product
      * zero. That happens, so it gets an answer rather than a NaN: any perpendicular of the run will
      * do, because at that angle the band is edge-on to them however it is turned.
      */
-    private static float[] square(float runX, float runY, float runZ, float viewX, float viewY, float viewZ) {
+    public static float[] square(float runX, float runY, float runZ, float viewX, float viewY, float viewZ) {
         float x = runY * viewZ - runZ * viewY;
         float y = runZ * viewX - runX * viewZ;
         float z = runX * viewY - runY * viewX;
@@ -379,12 +362,6 @@ public final class ForgeRibbon {
     public static float crossSection(float out) {
         float x = Mth.clamp(out, 0.0f, 1.0f);
         return (float) Math.sqrt(Math.max(0.0, 1.0 - Math.pow(2.0 * x - 1.0, 2.0)));
-    }
-
-    /** One at the middle of an arc and zero at both ends: how much of a bow a point gets. */
-    public static float belly(float t) {
-        float offset = 2.0f * Mth.clamp(t, 0.0f, 1.0f) - 1.0f;
-        return 1.0f - offset * offset;
     }
 
     /** How far off the plane one face of the blade stands at this point: the cross-section, scaled. */

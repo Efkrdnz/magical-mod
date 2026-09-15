@@ -6,105 +6,126 @@ import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon.Sweep;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
-import net.minecraft.util.Mth;
+import org.joml.Matrix4f;
 
 /**
- * WAVE: the thrown crescent. A shallow blade lying across the flight, bowed so its belly leads and
- * its two horns trail, with the wake strung out behind it and shrinking as it goes.
+ * WAVE: the thrown front. A sheet of force standing across the flight, bulging toward where it is
+ * going, with its wake strung out behind it and shrinking as it goes.
  *
- * <p>It used to be a ring band sitting between one and a half and three blocks out from the strike,
- * rolled forty degrees about the aim. Two things were wrong with that and they compounded: nothing
- * at all was drawn on the thing that actually hits - the whole band hung a radius away from it -
- * and the roll tipped that band up and to one side, so what a player saw was a moon leaning
- * up-right rather than a blade thrown forward. The picture also claimed nearly four times the width
- * the wave catches in, which is the kind of lie that reads as the game not registering a hit.
+ * <p>It has been wrong twice, both times about which way it leans. First it was a ring band hanging
+ * a radius off the flight path and rolled forty degrees, so it read as a moon tipped up and to the
+ * right; the picture also claimed nearly four times the width the wave catches in, which is the
+ * kind of lie that reads as the game not registering a hit. Then it was a crescent sized off
+ * {@code WaveShape} and sitting on the strike, but bowed belly-down - still a direction, still
+ * arbitrary, and still not the direction the thing was travelling.
  *
- * <p>So the crescent is sized off {@code WaveShape}'s own inflation and sits on the strike rather
- * than beside it, and {@code WaveSilhouetteTest} measures it against {@code HitShapes} so it cannot
- * drift back. What makes it read as thrown is no longer a tilt but the bow: the belly is further
- * along the flight than the horns, so the shape has a front from every angle.
+ * <p>The fix is to stop drawing an arc. An arc has a belly and a belly points somewhere; a surface
+ * of revolution about the aim does not, so there is nothing left to get wrong. {@link
+ * ForgeWaveFront} is that surface and {@code WaveSilhouetteTest} holds it to both halves of this:
+ * the same shape at every roll angle, and never drawn wider or deeper than {@code HitShapes} says
+ * the wave actually catches.
  */
 public final class WaveGeometry {
 
     /**
-     * The crescent's radius, as a fraction of the strike's half-width.
+     * The front's radius, as a fraction of the strike's half-width.
      *
      * <p>Under {@code WaveShape.LATERAL_FRACTION} (0.48), which is what the wave actually catches
-     * either side of its flight line, because the arc runs past ninety degrees and so reaches its
-     * full radius sideways. The margin is what the blade's own thickness spends.
+     * either side of its flight line. The margin is what the rim glow spends.
      */
-    private static final float RADIUS = 0.44f;
-
-    /** The blade's width across, as a fraction of half-width. A thrown edge is a thin thing. */
-    private static final float THICKNESS = 0.42f;
-
-    /** Half the crescent's span. Past ninety, so the horns turn back and the shape closes on itself. */
-    private static final float HALF_ARC = 104.0f;
+    private static final float RADIUS = 0.46f;
 
     /**
-     * How far the horns trail behind the belly, as a fraction of half-width.
+     * The widest the front may ever be drawn, whatever the weapon.
      *
-     * <p>This is the whole of "facing forward". Flat, the crescent is the same shape whichever way
-     * it travels and reads as a decal turned to face you; bowed, the middle leads and the shape
-     * itself points down the flight.
+     * <p>{@code WaveShape.VERTICAL_INFLATION} is a flat 0.9 blocks and does not grow with the
+     * half-width, so a heavy divine blade would otherwise be drawn reaching a block and a half up
+     * and down while still only catching within 0.9.
      */
-    private static final float BOW = 0.30f;
+    private static final float CEILING = 0.9f;
 
-    /** Where the crescent sits in its own span: the belly at the bottom, horns rising either side. */
-    private static final float BELLY_DOWN = 180.0f;
+    /**
+     * How far the middle of the front stands ahead of its rim, as a fraction of half-width.
+     *
+     * <p>This is the whole of "facing forward", and it is the only direction on the shape. Also
+     * under {@code LATERAL_FRACTION}, because the wave's forward pad is the same 0.48.
+     */
+    private static final float DEPTH = 0.40f;
 
-    /** How big the crescent is when it leaves the hand, as a fraction of its full size. */
-    private static final float FROM = 0.70f;
-    private static final float TRAIL_GAP = 0.45f;
-    private static final float TRAIL_SHRINK = 0.10f;
+    /** How broad the rim reads to the things that decorate an edge, as a fraction of half-width. */
+    private static final float THICKNESS = 0.42f;
+
+    /** How big the front is when it leaves the hand, as a fraction of its full size. */
+    private static final float FROM = 0.55f;
+
+    /**
+     * How far the wake strings out behind the head, and how much each copy back has shrunk.
+     *
+     * <p>The thrower stands behind a wave, so its wake is the part nearest the camera and every
+     * copy of it is drawn larger than the head by perspective alone. Left at a swing's numbers the
+     * oldest copy framed the whole strike in a wide soft ring, and what the eye took for the size
+     * of the wave was the faintest thing in it. Short and tapering, the wake sits inside the edge.
+     */
+    private static final float TRAIL_GAP = 0.26f;
+    private static final float TRAIL_SHRINK = 0.20f;
 
     private WaveGeometry() {}
 
     /**
-     * The wave's blade at full size, in the strike's own frame: belly down, horns up and trailing.
+     * How far out from the flight line the front reaches at full size.
      *
      * <p>Public and pure so the silhouette can be measured against the hit volume without a frame
      * being drawn.
      */
-    public static Sweep crescent(float halfWidth) {
-        float radius = halfWidth * RADIUS;
-        return new Sweep(Plane.UPRIGHT, radius, halfWidth * THICKNESS,
-                BELLY_DOWN - HALF_ARC, BELLY_DOWN + HALF_ARC, halfWidth * BOW);
+    public static float radius(float halfWidth) {
+        return Math.min(halfWidth * RADIUS, CEILING);
     }
 
-    /** The blade at this point in its flight: it leaves the hand small and opens out as it goes. */
-    public static Sweep head(float halfWidth, float progress) {
-        return ForgeMotion.reaching(crescent(halfWidth), FROM, progress);
+    /** How far the middle of the front leads its rim at full size. */
+    public static float depth(float halfWidth) {
+        return halfWidth * DEPTH;
+    }
+
+    /** How much of its full size the front has opened out to at this point in its flight. */
+    public static float grown(float progress) {
+        return ForgeMotion.reached(FROM, progress);
     }
 
     /**
-     * How far up the crescent is moved so it straddles the strike instead of hanging under it.
-     *
-     * <p>An arc is measured from the centre of its own circle, so a crescent built at radius R has
-     * every one of its pixels R blocks from that centre and none of them on it. This puts the
-     * middle of the drawn shape back on the thing that hits.
+     * The rim as an arc, for the two things that want an edge to work along: the element ornament
+     * and the shower of debris. A closed circle, because the rim is one - the seam where such a
+     * sweep pinches shut falls between ornaments and is invisible, which is why the rim glow is
+     * drawn by {@link ForgeWaveFront#halo} instead of by the tapering sheath.
      */
-    public static float lift(float halfWidth) {
-        float radius = halfWidth * RADIUS;
-        // The belly bottoms out at -radius. The horns stand at 180 degrees either side of it, so
-        // they sit at cos(180 - HALF_ARC) - above the centre, because the arc runs past ninety.
-        float horns = -radius * Mth.cos(HALF_ARC * Mth.DEG_TO_RAD);
-        return (radius - horns) * 0.5f;
+    public static Sweep rim(float halfWidth, float scale) {
+        return new Sweep(Plane.UPRIGHT, radius(halfWidth) * scale, halfWidth * THICKNESS * scale, 0.0f, 360.0f);
     }
 
     public static void render(PoseStack poseStack, VertexConsumer edge, ForgeStrikeRenderer.State state,
             ForgePalette palette, float partialTick) {
-        Sweep head = head(state.halfWidth, state.progress);
+        float scale = grown(state.progress);
+        float radius = radius(state.halfWidth) * scale;
+        float depth = depth(state.halfWidth) * scale;
         poseStack.pushPose();
-        poseStack.translate(0.0f, lift(state.halfWidth), 0.0f);
+        // Pulled back half its own bulge, so the sheet straddles the thing that hits rather than
+        // standing in front of it: the middle leads by half, the rim trails by half.
+        poseStack.translate(0.0f, 0.0f, -depth * 0.5f);
         ForgeRibbon.trail(state.heavy, state.accent.invertTrail(), state.alpha, (lag, alpha) -> {
             poseStack.pushPose();
             poseStack.translate(0.0f, 0.0f, -lag * TRAIL_GAP);
-            ForgeRibbon.arc(edge, poseStack.last().pose(), head.scaled(1.0f - lag * TRAIL_SHRINK), palette, alpha);
+            float shrink = 1.0f - lag * TRAIL_SHRINK;
+            ForgeWaveFront.draw(edge, poseStack.last().pose(), radius * shrink, depth * shrink, palette, alpha);
             poseStack.popPose();
         });
-        ForgeElementAccent.draw(edge, poseStack.last().pose(), head, palette, state.alpha, state.accent);
-        ForgeAura.arc(edge, poseStack.last().pose(), head, palette, state, state.alpha);
+        Matrix4f pose = poseStack.last().pose();
+        float[] eye = ForgeView.eye(pose);
+        ForgeWaveFront.halo(edge, pose, radius, depth, palette, state.alpha, eye[0], eye[1], eye[2]);
+        Sweep rim = rim(state.halfWidth, scale);
+        ForgeElementAccent.draw(edge, pose, rim, palette, state.alpha, state.accent);
+        // The shower rather than the whole of ForgeAura: the glow a swing gets from the sheath is
+        // the halo here, and asking for both would light the rim twice.
+        ForgeSparks.strike(edge, pose, rim, palette, state.alpha, state.seed, state.grade, state.progress,
+                eye[0], eye[1], eye[2]);
         poseStack.popPose();
     }
 }
