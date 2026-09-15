@@ -87,8 +87,10 @@ class BloodSchoolTest {
     @Test
     void everyBloodSkillIsActuallyWiredUpRatherThanJustRegistered() {
         // A definition with no handler is a skill that shows up in the codex, can be equipped, and
-        // does nothing at all when pressed.
+        // does nothing at all when pressed. Asked of the map rather than of get(), which answers a
+        // placeholder for anything it does not know and so can never be null.
         for (MagicSkillDefinition skill : bloodSkills()) {
+            assertTrue(SkillCastRegistry.all().containsKey(skill.id()), skill.id() + " has no cast handler");
             assertNotNull(SkillCastRegistry.get(skill.id()), skill.id() + " has no cast handler");
         }
     }

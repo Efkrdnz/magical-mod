@@ -5,6 +5,7 @@ import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.network.MagicalNetwork;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -70,6 +71,17 @@ public final class BloodSacrificeService {
     }
 
     private BloodSacrificeService() {
+    }
+
+    /**
+     * Sends the player the pact screen.
+     *
+     * <p>Both clocks are resolved here and shipped with the packet rather than worked out again on
+     * the client, so what the screen promises is what this player's tuning actually buys.
+     */
+    public static void open(ServerPlayer player, PlayerMagicState state) {
+        int boonTicks = boonTicks(state);
+        MagicalNetwork.sendOpenBloodSacrifice(player, boonTicks, priceTicks(boonTicks));
     }
 
     /** How long this player's boons would last, with their points on the ritual applied. */

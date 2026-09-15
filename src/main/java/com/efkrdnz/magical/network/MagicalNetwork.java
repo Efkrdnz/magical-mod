@@ -14,6 +14,7 @@ import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.SpaceAuthorityService;
 import com.efkrdnz.magical.magic.SpaceWalkerService;
 import com.efkrdnz.magical.registry.MagicalAttachments;
+import java.util.List;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -50,6 +51,15 @@ public final class MagicalNetwork {
                         context.enqueueWork(() -> {
                             if (context.player() instanceof ServerPlayer player) {
                                 MagicFusionService.create(player, player.getData(MagicalAttachments.MAGIC_STATE), payload.first(), payload.second());
+                            }
+                        }))
+                .playToClient(OpenBloodSacrificePayload.TYPE, OpenBloodSacrificePayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> handleClientPayload(payload)))
+                .playToServer(BloodSacrificeSealPayload.TYPE, BloodSacrificeSealPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> {
+                            if (context.player() instanceof ServerPlayer player) {
+                                com.efkrdnz.magical.magic.blood.BloodSacrificeService.seal(player,
+                                        player.getData(MagicalAttachments.MAGIC_STATE), payload.boons(), payload.prices());
                             }
                         }))
                 .playToClient(CounterPromptPayload.TYPE, CounterPromptPayload.STREAM_CODEC, (payload, context) ->
@@ -266,6 +276,16 @@ public final class MagicalNetwork {
 
     public static void sendCreateSkill(ResourceLocation first, ResourceLocation second) {
         PacketDistributor.sendToServer(new CreateSkillPayload(first, second));
+    }
+
+    /** Opens the pact screen. The Vessel was checked at the cast; the blood is taken at the seal. */
+    public static void sendOpenBloodSacrifice(ServerPlayer player, int boonTicks, int priceTicks) {
+        PacketDistributor.sendToPlayer(player, new OpenBloodSacrificePayload(boonTicks, priceTicks));
+    }
+
+    /** The pact the player chose. Every rule in it is checked again on the far side. */
+    public static void sendBloodSacrificeSeal(List<ResourceLocation> boons, List<ResourceLocation> prices) {
+        PacketDistributor.sendToServer(new BloodSacrificeSealPayload(boons, prices));
     }
 
     public static void sendCastHold(int slot, boolean held) {
