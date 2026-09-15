@@ -244,9 +244,20 @@ public final class MagicContent {
             FALLEN_SUN.id(),
             TOTAL_ECLIPSE.id(),
             TECTONIC_VERDICT.id());
+    /**
+     * Every skill that can be handed to a player directly, which is not every skill there is.
+     *
+     * <p>Three kinds are withheld, and all three for the same reason: something else is the door. A
+     * sub-skill arrives with its parent, a created skill is made at the Spell Creator, and an
+     * authority's skills are what holding the authority <em>means</em> - they come with it and go
+     * when it goes. {@code /magical unlockall} reads this set, and while the authorities were in it
+     * the debug command was the cheapest way in the game to be a god and the authority itself was
+     * decoration. {@code AuthorityGrantTest} pins the one route in.
+     */
     public static final Set<ResourceLocation> ALL_SKILLS = SKILLS.keySet().stream()
             .filter(id -> !SUB_SKILLS.contains(id))
             .filter(id -> !CREATED_SKILLS.contains(id))
+            .filter(id -> !AUTHORITY_SKILLS.contains(id))
             .collect(java.util.stream.Collectors.toUnmodifiableSet());
 
     private MagicContent() {}
