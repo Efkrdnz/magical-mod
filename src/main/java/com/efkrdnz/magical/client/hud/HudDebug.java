@@ -2,6 +2,7 @@ package com.efkrdnz.magical.client.hud;
 
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.client.MagicalKeyMappings;
+import com.mojang.blaze3d.platform.Window;
 import com.mojang.logging.LogUtils;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -16,6 +17,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 
 /**
@@ -34,7 +36,8 @@ import org.slf4j.Logger;
  *       as a real key is pressed - one click, then held down - from sixty ticks before the first
  *       screenshot until it is taken, so a hold overlay (a radial, the space dials, the switcher,
  *       the blood strip) or a held skill (a Blood Rite) can be captured.</li>
- *   <li>{@code -Dmagical.autoClick=116:247,45;132:339,45} ({@code -PautoClick=...}): presses the
+ *   <li>{@code -Dmagical.autoClick=116:247,45;132:339,45} ({@code -PautoClick=...}): moves the
+ *       pointer onto each point and presses the
  *       open screen at those GUI coordinates at those ticks, so a tab or a button can be walked
  *       through in one launch; a screen that implements {@link Captured} is never auto-closed.</li>
  *   <li>{@code -Dmagical.autoCamera=third_back} ({@code -PautoCamera=...}): switches to that
@@ -207,11 +210,32 @@ public final class HudDebug {
             double x = Double.parseDouble(parts[0].trim());
             double y = Double.parseDouble(parts[1].trim());
             LOGGER.info("HUD auto-click: {} on {}", at, minecraft.screen.getClass().getSimpleName());
+            // Move the real pointer there first. A click that leaves the cursor where it was is
+            // not a click: the render pass reads its mouse position from GLFW, so every hover
+            // state - a lit row, a tooltip - would still answer for wherever the mouse actually
+            // sits, and a capture of one could never be taken.
+            pointAt(minecraft, x, y);
             minecraft.screen.mouseClicked(x, y, 0);
             minecraft.screen.mouseReleased(x, y, 0);
         } catch (NumberFormatException bad) {
             LOGGER.warn("HUD auto-click: not a point: {}", at);
         }
+    }
+
+    /** Put the OS cursor on a point in GUI space, which is window pixels divided by the GUI scale. */
+    private static void pointAt(Minecraft minecraft, double guiX, double guiY) {
+        Window window = minecraft.getWindow();
+        if (window.getGuiScaledWidth() <= 0 || window.getGuiScaledHeight() <= 0) {
+            return;
+        }
+        double px = guiX * window.getScreenWidth() / window.getGuiScaledWidth();
+        double py = guiY * window.getScreenHeight() / window.getGuiScaledHeight();
+        // GLFW refuses to move the pointer of a window without input focus, and an unattended
+        // capture runs unfocused - that is the whole reason pauseOnLostFocus is off - so ask for
+        // focus first or the move is dropped without a word.
+        GLFW.glfwFocusWindow(window.getWindow());
+        GLFW.glfwSetCursorPos(window.getWindow(), px, py);
+        minecraft.screen.mouseMoved(guiX, guiY);
     }
 
     private static KeyMapping heldMapping() {

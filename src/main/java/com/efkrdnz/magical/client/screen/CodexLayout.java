@@ -184,6 +184,8 @@ public final class CodexLayout {
     public static final int CURSE_ROW_STRIDE = 48;
     public static final int CURSE_CARD_W = 172;
     public static final int CURSE_CARD_H = 42;
+    /** The same heading height the passives column uses, so the two columns read as one tab. */
+    public static final int CURSE_HEADER_H = PASSIVE_HEADER_H;
     public static final int DISPEL_DX = 96;
     public static final int DISPEL_DY = 22;
     public static final int DISPEL_W = 66;
@@ -513,13 +515,14 @@ public final class CodexLayout {
         return (LISTS_BOTTOM - LISTS_Y) / CURSE_ROW_STRIDE;
     }
 
-    public static Rect curseCard(int visibleRow) {
-        return new Rect("curse card " + visibleRow, CURSES_X, LISTS_Y + visibleRow * CURSE_ROW_STRIDE, CURSE_CARD_W, CURSE_CARD_H);
+    /** A curse card at the row top {@code y} the walk over the grouped rows arrived at. */
+    public static Rect curseCard(int y) {
+        return new Rect("curse card", CURSES_X, y, CURSE_CARD_W, CURSE_CARD_H);
     }
 
-    public static Rect dispelButton(int visibleRow) {
-        Rect card = curseCard(visibleRow);
-        return new Rect("dispel " + visibleRow, card.x() + DISPEL_DX, card.y() + DISPEL_DY, DISPEL_W, DISPEL_H);
+    public static Rect dispelButton(int y) {
+        Rect card = curseCard(y);
+        return new Rect("dispel", card.x() + DISPEL_DX, card.y() + DISPEL_DY, DISPEL_W, DISPEL_H);
     }
 
     /** The two columns and their scrollbars; the cards inside are checked against their lists. */

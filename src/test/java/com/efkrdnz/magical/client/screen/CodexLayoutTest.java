@@ -209,11 +209,33 @@ class CodexLayoutTest {
         List<Rect> rects = CodexLayout.passivesTabRects();
         assertDisjoint(rects);
         assertInside(ScreenChrome.body(), rects);
-        Rect card = CodexLayout.curseCard(0);
-        assertTrue(card.contains(CodexLayout.dispelButton(0)), "the dispel button escapes its curse card");
-        assertTrue(CodexLayout.cursesList().contains(CodexLayout.curseCard(CodexLayout.visibleCurseRows() - 1)),
+        int firstTop = CodexLayout.LISTS_Y;
+        Rect card = CodexLayout.curseCard(firstTop);
+        assertTrue(card.contains(CodexLayout.dispelButton(firstTop)), "the dispel button escapes its curse card");
+        int lastTop = firstTop + (CodexLayout.visibleCurseRows() - 1) * CodexLayout.CURSE_ROW_STRIDE;
+        assertTrue(CodexLayout.cursesList().contains(CodexLayout.curseCard(lastTop)),
                 "the last visible curse card escapes the curses list");
         assertTrue(CodexLayout.passivesList().h() >= CodexLayout.visiblePassiveRows() * CodexLayout.PASSIVE_ROW_H);
+
+        // Both headings plus the cards under them have to fit, or a pact would push its own
+        // lasting section off the bottom of a column that cannot be scrolled back into view.
+        int withHeadings = 2 * CodexLayout.CURSE_HEADER_H + 2 * CodexLayout.CURSE_ROW_STRIDE;
+        assertTrue(withHeadings <= CodexLayout.cursesList().h(),
+                "a heading over each half leaves room for fewer than two curse cards");
+
+        // Both columns scroll by a row COUNT while their rows have two different heights, so the
+        // last row is only reachable because a heading is never taller than a card: a window of
+        // visibleRows() rows starting at the maximum offset is then never taller than the same
+        // number of cards, which fits by the two assertions below. Let a heading grow past a card
+        // and the bottom of a long list scrolls out of reach with nothing to say so.
+        assertTrue(CodexLayout.CURSE_HEADER_H <= CodexLayout.CURSE_ROW_STRIDE,
+                "a curses heading is taller than a curse card, so the last row cannot be scrolled to");
+        assertTrue(CodexLayout.PASSIVE_HEADER_H <= CodexLayout.PASSIVE_ROW_H,
+                "a passives heading is taller than a passive row, so the last row cannot be scrolled to");
+        assertTrue(CodexLayout.visibleCurseRows() * CodexLayout.CURSE_ROW_STRIDE <= CodexLayout.cursesList().h(),
+                "a full window of curse cards does not fit the column it is counted against");
+        assertTrue(CodexLayout.visiblePassiveRows() * CodexLayout.PASSIVE_ROW_H <= CodexLayout.passivesList().h(),
+                "a full window of passive rows does not fit the column it is counted against");
     }
 
     // ---- the Classes tab ------------------------------------------------------------------------

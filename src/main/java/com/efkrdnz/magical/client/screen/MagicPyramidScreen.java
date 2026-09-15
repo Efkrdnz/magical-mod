@@ -142,8 +142,8 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     /** A passives row that fits on screen this frame, and the screen-local top it starts at. */
     private record PassiveEntry(CodexPassiveRows.Row row, int y) {}
 
-    /** An active curse that fits on screen this frame: its index in the roster and its visible row. */
-    private record CurseEntry(MagicPassiveDefinition definition, int index, int visibleRow) {}
+    /** A curses row that fits on screen this frame, and the screen-local top it starts at. */
+    private record CurseEntry(CodexPassiveRows.Row row, int y) {}
 
     private enum PassiveTooltipStyle {
         NORMAL,
@@ -881,24 +881,36 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
             g.fill(x0 + list.x(), y0 + list.y(), x0 + list.x() + CodexLayout.PASSIVE_CARD_W, y0 + list.y() + 28, EMPTY_FILL);
         }
 
-        int activeCurses = activeCurseCount(state);
-        curseListScroll = CodexLayout.clampScroll(curseListScroll, activeCurses, CodexLayout.visibleCurseRows());
+        List<CodexPassiveRows.Row> curseRows = CodexPassiveRows.curseRows(state);
+        curseListScroll = CodexLayout.clampScroll(curseListScroll, curseRows.size(), CodexLayout.visibleCurseRows());
         Rect curses = CodexLayout.cursesList();
         g.enableScissor(x0 + curses.x(), y0 + curses.y(), x0 + curses.right(), y0 + curses.bottom());
-        for (CurseEntry entry : visibleCurses(state)) {
-            Rect card = CodexLayout.curseCard(entry.visibleRow());
+        for (CurseEntry entry : visibleCurses(curseRows)) {
+            int y = y0 + entry.y();
+            if (entry.row().isHeader()) {
+                g.fill(x0 + curses.x(), y + CodexLayout.CURSE_HEADER_H - 3, x0 + curses.x() + CodexLayout.CURSE_CARD_W,
+                        y + CodexLayout.CURSE_HEADER_H - 2, 0xFF3A2436);
+                continue;
+            }
+            MagicPassiveDefinition definition = entry.row().definition();
+            Rect card = CodexLayout.curseCard(entry.y());
             boolean hovered = hit(card, lx, ly);
-            boolean canDispel = state.canDispelCurse(entry.definition().id());
-            MagicalGuiStyle.card(g, x0 + card.x(), y0 + card.y(), x0 + card.right(), y0 + card.bottom(), hovered ? CURSE_HOVER_BASE : CURSE_BASE);
-            g.fill(x0 + card.x(), y0 + card.bottom() - 2, x0 + card.right(), y0 + card.bottom(), 0xFF000000 | entry.definition().color());
-            Rect dispel = CodexLayout.dispelButton(entry.visibleRow());
-            button(g, x0 + dispel.x(), y0 + dispel.y(), dispel.w(), dispel.h(), canDispel ? DISPEL_BASE : DISPEL_OFF_BASE,
+            MagicalGuiStyle.card(g, x0 + card.x(), y, x0 + card.right(), y0 + card.bottom(), hovered ? CURSE_HOVER_BASE : CURSE_BASE);
+            g.fill(x0 + card.x(), y0 + card.bottom() - 2, x0 + card.right(), y0 + card.bottom(), 0xFF000000 | definition.color());
+            if (entry.row().ritual()) {
+                // No Dispel button: the clock is the only way out of a price, which is the whole
+                // of what the pact bought with it.
+                continue;
+            }
+            Rect dispel = CodexLayout.dispelButton(entry.y());
+            button(g, x0 + dispel.x(), y0 + dispel.y(), dispel.w(), dispel.h(),
+                    state.canDispelCurse(definition.id()) ? DISPEL_BASE : DISPEL_OFF_BASE,
                     Component.translatable("screen.magical.dispel"));
         }
         g.disableScissor();
         Rect curseBar = CodexLayout.cursesScrollbar();
-        MagicalGuiStyle.scrollbar(g, x0 + curseBar.x() + 1, y0 + curseBar.y(), curseBar.h(), activeCurses, CodexLayout.visibleCurseRows(), curseListScroll);
-        if (activeCurses == 0) {
+        MagicalGuiStyle.scrollbar(g, x0 + curseBar.x() + 1, y0 + curseBar.y(), curseBar.h(), curseRows.size(), CodexLayout.visibleCurseRows(), curseListScroll);
+        if (curseRows.isEmpty()) {
             g.fill(x0 + curses.x(), y0 + curses.y(), x0 + curses.x() + CodexLayout.CURSE_CARD_W, y0 + curses.y() + 28, EMPTY_FILL);
         }
     }
@@ -944,22 +956,33 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         }
 
         Rect curses = CodexLayout.cursesList();
+        List<CodexPassiveRows.Row> curseRows = CodexPassiveRows.curseRows(state);
         g.enableScissor(x0 + curses.x(), y0 + curses.y(), x0 + curses.right(), y0 + curses.bottom());
-        for (CurseEntry entry : visibleCurses(state)) {
-            Rect card = CodexLayout.curseCard(entry.visibleRow());
+        for (CurseEntry entry : visibleCurses(curseRows)) {
+            if (entry.row().isHeader()) {
+                g.drawString(font, entry.row().header(), x0 + curses.x() + 2, y0 + entry.y() + 2, GROUP_TEXT, false);
+                continue;
+            }
+            MagicPassiveDefinition definition = entry.row().definition();
+            Rect card = CodexLayout.curseCard(entry.y());
             int x = x0 + card.x();
             int y = y0 + card.y();
             boolean hovered = hit(card, lx, ly);
-            boolean canDispel = state.canDispelCurse(entry.definition().id());
             if (hovered) {
-                hoveredPassive = entry.definition();
+                hoveredPassive = definition;
             }
-            g.drawString(font, Component.translatable(entry.definition().nameKey()), x + 6, y + 5, 0xF4D6FF, false);
+            g.drawString(font, Component.translatable(definition.nameKey()), x + 6, y + 5, 0xF4D6FF, false);
             g.drawString(font, Component.translatable("screen.magical.hover_details"), x + 6, y + 18, hovered ? 0xF7D774 : 0x9D7BB0, false);
-            g.drawString(font, curseRowText(entry.definition(), state), x + 6, y + 31, canDispel ? ENABLED_TEXT : CURSE_TEXT, false);
+            if (entry.row().ritual()) {
+                g.drawString(font, Component.translatable("screen.magical.passive_expires",
+                        CodexPassiveRows.countdown(entry.row().ticks())), x + 6, y + 31, CURSE_TEXT, false);
+                continue;
+            }
+            boolean canDispel = state.canDispelCurse(definition.id());
+            g.drawString(font, curseRowText(definition, state), x + 6, y + 31, canDispel ? ENABLED_TEXT : CURSE_TEXT, false);
         }
         g.disableScissor();
-        if (activeCurseCount(state) == 0) {
+        if (curseRows.isEmpty()) {
             g.drawCenteredString(font, Component.translatable("screen.magical.no_curses"), x0 + curses.x() + CodexLayout.CURSE_CARD_W / 2, y0 + curses.y() + 10, MagicalGuiStyle.TEXT_MUTED);
         }
         if (hoveredPassive != null) {
@@ -988,33 +1011,32 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         return entries;
     }
 
-    private List<CurseEntry> visibleCurses(PlayerMagicState state) {
+    /** The curses rows that fit between the top of the list and its bottom, with their tops. */
+    private List<CurseEntry> visibleCurses(List<CodexPassiveRows.Row> rows) {
         List<CurseEntry> entries = new ArrayList<>();
-        List<MagicPassiveDefinition> curses = MagicPassiveContent.curses();
-        int row = 0;
-        for (int index = 0; index < curses.size(); index++) {
-            MagicPassiveDefinition definition = curses.get(index);
-            if (!state.hasCurse(definition.id())) {
-                continue;
-            }
-            if (row++ < curseListScroll) {
-                continue;
-            }
-            int visibleRow = row - curseListScroll - 1;
-            if (visibleRow >= CodexLayout.visibleCurseRows()) {
+        Rect list = CodexLayout.cursesList();
+        int y = list.y();
+        for (int i = curseListScroll; i < rows.size(); i++) {
+            CodexPassiveRows.Row row = rows.get(i);
+            if (y + curseRowHeight(row) > list.bottom()) {
                 break;
             }
-            entries.add(new CurseEntry(definition, index, visibleRow));
+            entries.add(new CurseEntry(row, y));
+            y += curseRowHeight(row);
         }
         return entries;
     }
 
     private void drawPassiveTooltip(GuiGraphics g, MagicPassiveDefinition definition, PlayerMagicState state, int mouseX, int mouseY) {
         PassiveTooltipStyle style = passiveTooltipStyle(definition);
+        // What it is registered as and what it reads as are two different questions for a pact
+        // half, and the tooltip has to answer the second one. The clock decides.
+        int ritualTicks = state.ritualRemaining(definition.id());
+        CodexPassiveTooltip.Body body = CodexPassiveTooltip.body(definition, ritualTicks);
         int width = PASSIVE_TOOLTIP_W;
         int textWidth = width - 22;
         int descriptionHeight = wrappedHeight(Component.translatable(definition.descriptionKey()), textWidth, LINE_H);
-        int extraHeight = definition.curse() ? (state.linkedSinPassiveForCurse(definition.id()) == null ? 34 : 48) : 22;
+        int extraHeight = CodexPassiveTooltip.extraHeight(body, state.linkedSinPassiveForCurse(definition.id()) != null);
         int height = Math.max(82, 42 + descriptionHeight + extraHeight);
         int x = Mth.clamp(mouseX + 14, leftPos + 8, leftPos + imageWidth - width - 8);
         int y = Mth.clamp(mouseY + 14, topPos + 8, topPos + imageHeight - height - 8);
@@ -1035,22 +1057,34 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         }
         if (style == PassiveTooltipStyle.SIN) {
             g.drawString(font, Component.literal("§k" + "SIN" + "§r"), x + width - 38, y + 10, 0xFF4D4D, false);
-        } else if (definition.curse()) {
+        } else if (style == PassiveTooltipStyle.CURSE) {
             g.drawString(font, Component.translatable("screen.magical.curse_label"), x + width - 48, y + 10, 0xFF5C8A, false);
         }
 
-        int statusColor = definition.curse() ? CURSE_TEXT : state.isPassiveEnabled(definition.id()) ? ENABLED_TEXT : MagicalGuiStyle.TEXT_MUTED;
-        Component status = definition.curse()
-                ? Component.translatable("screen.magical.curse_active")
-                : Component.translatable(state.isPassiveEnabled(definition.id()) ? "screen.magical.passive_enabled" : "screen.magical.passive_disabled");
+        int statusColor = switch (body) {
+            case PACT -> style == PassiveTooltipStyle.CURSE ? CURSE_TEXT : ENABLED_TEXT;
+            case CURSE -> CURSE_TEXT;
+            case PASSIVE -> state.isPassiveEnabled(definition.id()) ? ENABLED_TEXT : MagicalGuiStyle.TEXT_MUTED;
+        };
+        Component status = switch (body) {
+            case PACT -> Component.translatable("screen.magical.passive_expires", CodexPassiveRows.countdown(ritualTicks));
+            case CURSE -> Component.translatable("screen.magical.curse_active");
+            case PASSIVE -> Component.translatable(state.isPassiveEnabled(definition.id())
+                    ? "screen.magical.passive_enabled" : "screen.magical.passive_disabled");
+        };
         g.drawString(font, status, x + 11, y + 25, statusColor, false);
-        if (!definition.curse()) {
+        if (body == CodexPassiveTooltip.Body.PASSIVE) {
+            // A pact half has no level of its own, and a curse never had one.
             g.drawString(font, Component.translatable("screen.magical.passive_level", state.passiveLevel(definition.id()), definition.maxLevel()), x + 132, y + 25, GOLD_TEXT, false);
         }
 
         int textY = y + 42;
         textY += drawWrapped(g, Component.translatable(definition.descriptionKey()), x + 11, textY, textWidth, style == PassiveTooltipStyle.CURSE ? 0xE6C1F2 : STAT_TEXT, LINE_H);
-        if (definition.curse()) {
+        if (body == CodexPassiveTooltip.Body.PACT) {
+            // No dispel cost and no toggle hint: both would point at a way out that the pact was
+            // paid to not have.
+            g.drawString(font, Component.translatable("screen.magical.passive_pact_locked"), x + 11, textY + 9, 0x8FA6C6, false);
+        } else if (body == CodexPassiveTooltip.Body.CURSE) {
             boolean canDispel = state.canDispelCurse(definition.id());
             ResourceLocation linkedSinPassive = state.linkedSinPassiveForCurse(definition.id());
             if (linkedSinPassive != null) {
@@ -1153,14 +1187,9 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         return row.isHeader() ? CodexLayout.PASSIVE_HEADER_H : CodexLayout.PASSIVE_ROW_H;
     }
 
-    private static int activeCurseCount(PlayerMagicState state) {
-        int count = 0;
-        for (MagicPassiveDefinition definition : MagicPassiveContent.curses()) {
-            if (state.hasCurse(definition.id())) {
-                count++;
-            }
-        }
-        return count;
+    /** How tall one row of the curses list is: a heading is shorter than a card. */
+    private static int curseRowHeight(CodexPassiveRows.Row row) {
+        return row.isHeader() ? CodexLayout.CURSE_HEADER_H : CodexLayout.CURSE_ROW_STRIDE;
     }
 
     // ---- the Classes tab ------------------------------------------------------------------------
@@ -1391,7 +1420,7 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
                 return true;
             }
             if (hit(CodexLayout.cursesList(), lx, ly)) {
-                curseListScroll = CodexLayout.clampScroll(curseListScroll - notches, activeCurseCount(state), CodexLayout.visibleCurseRows());
+                curseListScroll = CodexLayout.clampScroll(curseListScroll - notches, CodexPassiveRows.curseRows(state).size(), CodexLayout.visibleCurseRows());
                 return true;
             }
         }
@@ -1558,9 +1587,13 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
                 return true;
             }
         }
-        for (CurseEntry entry : visibleCurses(state)) {
-            if (hit(CodexLayout.dispelButton(entry.visibleRow()), lx, ly)) {
-                press(MagicPyramidMenu.BUTTON_CURSE_DISPEL_BASE + entry.index());
+        for (CurseEntry entry : visibleCurses(CodexPassiveRows.curseRows(state))) {
+            if (entry.row().isHeader() || entry.row().ritual()) {
+                // A price has no Dispel button to press, and its row carries no roster index.
+                continue;
+            }
+            if (hit(CodexLayout.dispelButton(entry.y()), lx, ly)) {
+                press(MagicPyramidMenu.BUTTON_CURSE_DISPEL_BASE + entry.row().index());
                 return true;
             }
         }

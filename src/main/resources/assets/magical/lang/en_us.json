@@ -1802,5 +1802,7 @@
   "screen.magical.tuning.rite": "Rite",
   "screen.magical.passive_group_ritual_boon": "Temporary Buff",
   "screen.magical.passive_group_ritual_price": "Temporary Curse",
-  "screen.magical.passive_expires": "Fades in %s"
+  "screen.magical.passive_expires": "Fades in %s",
+  "screen.magical.passive_pact_locked": "Sealed by a pact. Only the clock ends it.",
+  "screen.magical.passive_group_lasting_curse": "Lasting"
 }
