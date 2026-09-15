@@ -322,6 +322,7 @@
   "message.magical.sacrifice_over_budget": "The rite will not carry that many boons.",
   "message.magical.sacrifice_prices_too_cheap": "The prices do not cover what you are asking for.",
   "message.magical.sacrifice_vessel_not_full": "The Vessel is not full.",
+  "message.magical.spell_fizzled": "The cast dies in your throat.",
   "message.magical.no_blood_trail": "No blood within reach - there is nowhere to step.",
   "message.magical.no_vein_target": "Nothing living to open a vein in.",
   "message.magical.no_blood_to_set": "Nothing to set - no blood of yours in reach, and a dry Vessel.",

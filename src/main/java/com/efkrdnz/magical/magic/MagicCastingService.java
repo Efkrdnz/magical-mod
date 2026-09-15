@@ -340,6 +340,12 @@ public final class MagicCastingService {
      * Registry-driven dispatch: validation already done by castResolved. Self-managed handlers run
      * before mana/stats; everything else gets stats, mana, an always-successful aim, the windup and
      * release cues, and the cooldown / sin / sync bookkeeping around its {@code cast}.
+     *
+     * <p>Spell Fizzle sits between the mana spend and the handler, so a cursed cast has already paid
+     * for itself when it dies. Two deliberate holes in that: self-managed and hold-gated handlers
+     * return above the spend and never fizzle, because a charge that dies halfway through a hold is
+     * a bug report rather than a curse, and the ritual that grants the curse is exempt in
+     * {@code SacrificeCurses.fizzles} itself.
      */
     private static void castViaRegistry(ServerPlayer player, PlayerMagicState state, MagicSkillDefinition definition, int slot, boolean sneakDown) {
         com.efkrdnz.magical.magic.cast.SkillCastHandler handler = com.efkrdnz.magical.magic.cast.SkillCastRegistry.get(definition.id());
@@ -361,6 +367,16 @@ public final class MagicCastingService {
                 && UnwakingCapabilities.refuseControl(player, aim.living())) return;
         if (!MagicSinService.spendManaForSkill(player, state, stats.manaCost())) {
             player.displayClientMessage(Component.translatable("message.magical.not_enough_mana"), true);
+            return;
+        }
+        if (com.efkrdnz.magical.magic.passive.SacrificeCurses.fizzles(player, state, definition, seed)) {
+            // Paid for, cooled down, and nothing happened: that is the whole of the curse. The
+            // windup still plays, so a fizzle reads as a cast that went wrong rather than a key
+            // that did not register.
+            com.efkrdnz.magical.magic.visual.SpellFx.windup(player, definition, aim.point(), player.getLookAngle(), sneak);
+            state.setSkillCooldown(definition.id(), stats.cooldownTicks());
+            player.displayClientMessage(Component.translatable("message.magical.spell_fizzled"), true);
+            state.sync(player);
             return;
         }
         com.efkrdnz.magical.magic.cast.CastContext ctx = com.efkrdnz.magical.magic.cast.CastContext.forPlayer(player, state, definition, stats, sneak, slot, profile, aim, seed);

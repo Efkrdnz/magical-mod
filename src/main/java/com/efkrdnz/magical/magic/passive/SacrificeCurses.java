@@ -24,8 +24,10 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
  * lands twice as hard.
  *
  * <p>Split from {@link SacrificeBoons} because between them they are more than a file's worth.
+ * Public where that one is not, and only for {@link #fizzles}: the cast pipeline has to ask
+ * before it builds a context, and that pipeline lives in another package.
  */
-final class SacrificeCurses {
+public final class SacrificeCurses {
 
     static final float FIZZLE = 0.15F;
     static final float FIZZLE_CAP = 0.3375F;
