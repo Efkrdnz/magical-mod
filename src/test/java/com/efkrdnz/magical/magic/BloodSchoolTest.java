@@ -14,7 +14,7 @@ import net.minecraft.server.Bootstrap;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/** The -1 layer as a whole: six actives, three passives, one price list, and no way in but a command. */
+/** The -1 layer as a whole: seven actives, four passives, one price list, and no way in but a command. */
 class BloodSchoolTest {
 
     @BeforeAll
@@ -32,19 +32,20 @@ class BloodSchoolTest {
     }
 
     @Test
-    void theLayerHoldsExactlySixActivesAndThreePassives() {
+    void theLayerHoldsExactlySevenActivesAndFourPassives() {
         // Named as well as counted, because a bare number says nothing about which one went missing
         // the day somebody deletes a registration.
         assertEquals(List.of(MagicContent.BLOOD_MANIPULATION, MagicContent.VEIN_WALK,
                         MagicContent.OPEN_VEIN, MagicContent.CRIMSON_SPEAR,
-                        MagicContent.COAGULATE, MagicContent.BLOOD_RITE),
-                bloodSkills(), "the school is budgeted at six actives, and these are the six");
+                        MagicContent.COAGULATE, MagicContent.BLOOD_RITE, MagicContent.BLOOD_SACRIFICE),
+                bloodSkills(), "the school is budgeted at seven actives, and these are the seven");
         // Named rather than counted: forbiddenPassives() holds every school's, so a bare size
         // assertion would break every time a new layer is built rather than when Blood changes.
         for (MagicPassiveDefinition passive : List.of(MagicPassiveContent.BLOODSCENT,
-                MagicPassiveContent.CLOTTING, MagicPassiveContent.VESSEL_OVERFLOWS)) {
+                MagicPassiveContent.CLOTTING, MagicPassiveContent.VESSEL_OVERFLOWS,
+                MagicPassiveContent.HELLBROKER)) {
             assertTrue(MagicPassiveContent.isForbiddenPassive(passive.id()),
-                    passive.id() + " is one of Blood's three passives");
+                    passive.id() + " is one of Blood's four passives");
         }
     }
 
@@ -72,6 +73,13 @@ class BloodSchoolTest {
         // BloodService.cost throws for a skill the table does not know, so a missing row is a cast
         // that fails every time rather than one that is quietly free.
         for (MagicSkillDefinition skill : bloodSkills()) {
+            if (MagicContent.BLOOD_SACRIFICE.id().equals(skill.id())) {
+                // The ritual is the one exemption, and it is exempt on purpose: BloodPrices is
+                // scaled by costScale, and a Thrift-tuned ritual costing sixty would break the rule
+                // the whole ability is built on. It bills its own flat hundred instead, and nothing
+                // calls BloodService.cost for it.
+                continue;
+            }
             assertTrue(BloodPrices.base(skill.id()) > 0, skill.id() + " has no blood price");
         }
     }

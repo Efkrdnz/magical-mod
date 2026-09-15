@@ -60,6 +60,12 @@ public final class MagicContent {
     // Speed is Flow (how often a heart is poured), size is Reach (4 blocks at one), duration is
     // Linger (how long the pool waits).
     public static final MagicSkillDefinition BLOOD_RITE = register("blood_rite", MagicSchool.BLOOD, MagicSkillType.BURST, -1, 0, 0.0F, 1.0F, 1.0F, 0, 320, 300, 0.0F, 0, 0xC4122B);
+    // The ritual, and the only blood skill that is not a spell: it opens a screen. Size buys boon
+    // points, duration buys how long the pact runs, and the hundred blood it costs is flat - not a
+    // BloodPrices entry, because a Thrift-tuned ritual costing sixty would break the one rule the
+    // whole thing is built on. Zero damage, zero mana, ninety seconds of cooldown charged on
+    // sealing rather than on opening, so closing the screen again costs nothing.
+    public static final MagicSkillDefinition BLOOD_SACRIFICE = register("blood_sacrifice", MagicSchool.BLOOD, MagicSkillType.BURST, -1, 0, 0.0F, 1.0F, 1.0F, 0, 1800, 1200, 0.0F, 0, 0x6E0B18);
 
     // ELDRITCH, layer -5: six calls to something under the world, paid in mana and in being noticed.
     // Stats per docs/superpowers/specs/2026-09-14-eldritch-kit-design.md.

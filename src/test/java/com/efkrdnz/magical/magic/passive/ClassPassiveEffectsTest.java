@@ -44,6 +44,10 @@ class ClassPassiveEffectsTest {
         // Forbidden-school passives run through the same handler list, so they answer to the same
         // rule. Leaving them out here would let a blood passive ship with no handler at all.
         registered.addAll(MagicPassiveContent.forbiddenPassives());
+        // A Blood Sacrifice's boons and prices are ordinary passives with a clock on them, dispatched
+        // through this same list, so they answer to the same rule: one handler each, no exceptions.
+        registered.addAll(MagicPassiveContent.ritualBoons());
+        registered.addAll(MagicPassiveContent.ritualPrices());
         for (ResourceLocation id : registered) {
             assertTrue(claimed.contains(id), id + " is registered but no handler implements it");
         }

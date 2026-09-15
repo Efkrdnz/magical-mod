@@ -27,6 +27,7 @@ import com.efkrdnz.magical.magic.MagicSkillType;
 import com.efkrdnz.magical.magic.MagicTuningStat;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.blood.BloodPrices;
+import com.efkrdnz.magical.magic.blood.BloodSacrificeService;
 import com.efkrdnz.magical.magic.blood.shape.BloodShapeRules;
 import com.efkrdnz.magical.magic.menu.MagicPyramidMenu;
 import com.efkrdnz.magical.network.MagicalNetwork;
@@ -626,6 +627,11 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
             // Paid in hearts, not blood: the price is what one heart pours, and Thrift raises it.
             return "A heart per pulse, " + Math.max(1, Math.round(BloodPrices.base(skill.id()) / stats.costScale()))
                     + " blood each" + cooldown;
+        }
+        if (MagicContent.BLOOD_SACRIFICE.id().equals(skill.id())) {
+            // The one blood skill not on the price table, because its price is not negotiable: a
+            // full Vessel, flat, however the points are spent.
+            return "Blood " + BloodSacrificeService.RITUAL_COST + " (a full Vessel)" + cooldown;
         }
         return "Blood " + BloodService.cost(stats) + cooldown;
     }

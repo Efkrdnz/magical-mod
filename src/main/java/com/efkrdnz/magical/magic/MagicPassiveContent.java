@@ -21,6 +21,13 @@ public final class MagicPassiveContent {
      * they answer to the same handler rule, so the coverage test treats all three sets alike.
      */
     private static final Set<ResourceLocation> FORBIDDEN_PASSIVES = new LinkedHashSet<>();
+    /**
+     * The two halves of a Blood Sacrifice pact. Filled by {@link #ritualBoon} and
+     * {@link #ritualPrice}; declared here for the same reason the three sets above are, so the
+     * field initialisers further down can add to them.
+     */
+    private static final Set<ResourceLocation> RITUAL_BOONS = new LinkedHashSet<>();
+    private static final Set<ResourceLocation> RITUAL_PRICES = new LinkedHashSet<>();
 
     public static final MagicPassiveDefinition MANA_SKIN = register("mana_skin", false, 1, 0.0F, 0, 0, 0x72E4FF, 1, 5000);
     public static final MagicPassiveDefinition HEAT_RESISTANCE = register("heat_resistance", false, 5, 0.2F, 0, 0, 0xFF7A45, 3, 35000);
@@ -158,6 +165,61 @@ public final class MagicPassiveContent {
     public static final MagicPassiveDefinition LIDLESS = forbiddenPassive("lidless", 0x5FEFD0);
     public static final MagicPassiveDefinition DEEP_BARGAIN = forbiddenPassive("deep_bargain", 0x06322A);
 
+
+    // ---------------------------------------------------------------------------------------
+    // BLOOD SACRIFICE, layer -1. Thirty-two temporary passives a ritual grants and a clock takes
+    // back, plus the Hellbroker that brokers them.
+    //
+    // Every one is registered as a normal passive, prices included. A price is a curse in fiction,
+    // but the codex's curse column carries a Dispel button and a price you can dispel is not a
+    // price. What sorts them is RITUAL_BOONS / RITUAL_PRICES below, never the curse flag.
+    //
+    // Behaviour lives in magic/passive/SacrificeBoons and SacrificeCurses; point costs and list
+    // order live in magic/blood/SacrificeCatalogue.
+    // ---------------------------------------------------------------------------------------
+
+    public static final MagicPassiveDefinition HELLBROKER = forbiddenPassive("hellbroker", 0x7A0E2E);
+
+    // --- boons (crimson) ---
+    public static final MagicPassiveDefinition CRIMSON_EDGE = ritualBoon("crimson_edge", 0xE8425E);
+    public static final MagicPassiveDefinition LONG_REACH = ritualBoon("long_reach", 0xD4627A);
+    public static final MagicPassiveDefinition UNFEELING = ritualBoon("unfeeling", 0xB05C6B);
+    public static final MagicPassiveDefinition SURE_FOOTING = ritualBoon("sure_footing", 0xC97F86);
+    public static final MagicPassiveDefinition SANGUINE_MIGHT = ritualBoon("sanguine_might", 0xD62839);
+    public static final MagicPassiveDefinition QUICKENED_PULSE = ritualBoon("quickened_pulse", 0xFF5C74);
+    public static final MagicPassiveDefinition THINNED_BLOOD = ritualBoon("thinned_blood", 0xE07A99);
+    public static final MagicPassiveDefinition CLOTTED_HIDE = ritualBoon("clotted_hide", 0x9E3B44);
+    public static final MagicPassiveDefinition VESSEL_SIPHON = ritualBoon("vessel_siphon", 0xC4122B);
+    public static final MagicPassiveDefinition SCARLET_TIDE = ritualBoon("scarlet_tide", 0xEF4B5C);
+    public static final MagicPassiveDefinition BLOOD_SCENT = ritualBoon("blood_scent", 0xFF7286);
+    public static final MagicPassiveDefinition SECOND_HEART = ritualBoon("second_heart", 0xA8142E);
+    public static final MagicPassiveDefinition HAEMOPHAGE = ritualBoon("haemophage", 0x8A0B1E);
+    public static final MagicPassiveDefinition RACING_HEART = ritualBoon("racing_heart", 0xFF3355);
+    /** The one boon that pays for a heavy pact, and what makes Hellbroker a build rather than a discount. */
+    public static final MagicPassiveDefinition BLOODBORNE_FURY = ritualBoon("bloodborne_fury", 0xB01732);
+    /** One-shot: spending it removes it, so the pact buys exactly one refused death. */
+    public static final MagicPassiveDefinition IRONBLOOD = ritualBoon("ironblood", 0x7E2230);
+
+    // --- prices (bruised) ---
+    public static final MagicPassiveDefinition OPEN_WOUND = ritualPrice("open_wound", 0x6B2436);
+    public static final MagicPassiveDefinition DULLED_SENSES = ritualPrice("dulled_senses", 0x4F3A55);
+    public static final MagicPassiveDefinition THIN_SKIN = ritualPrice("thin_skin", 0x6E4350);
+    public static final MagicPassiveDefinition LEADEN_STEP = ritualPrice("leaden_step", 0x40323F);
+    public static final MagicPassiveDefinition WEEPING_VESSEL = ritualPrice("weeping_vessel", 0x5A2030);
+    public static final MagicPassiveDefinition HEMORRHAGE = ritualPrice("hemorrhage", 0x8B1024);
+    public static final MagicPassiveDefinition LIFE_TAX = ritualPrice("life_tax", 0x77132A);
+    public static final MagicPassiveDefinition BRITTLE_BARRIER = ritualPrice("brittle_barrier", 0x3F5A70);
+    public static final MagicPassiveDefinition SLOW_BLOOD = ritualPrice("slow_blood", 0x4A3550);
+    public static final MagicPassiveDefinition GLASS_BONES = ritualPrice("glass_bones", 0x8E6B73);
+    public static final MagicPassiveDefinition MANA_DROUGHT = ritualPrice("mana_drought", 0x574B7A);
+    public static final MagicPassiveDefinition BINDING_CHAINS = ritualPrice("binding_chains", 0x5C4A3A);
+    /** Never granted. {@code BloodSacrificeService.seal} rolls it into one of five real prices. */
+    public static final MagicPassiveDefinition THE_UNKNOWN = ritualPrice("the_unknown", 0x2E2440);
+    public static final MagicPassiveDefinition ECHOING_MISERY = ritualPrice("echoing_misery", 0x7A2038);
+    public static final MagicPassiveDefinition SPELL_FIZZLE = ritualPrice("spell_fizzle", 0x453A66);
+    /** The one price with no clock: corruption is permanent and only Purification lifts it. */
+    public static final MagicPassiveDefinition BLOOD_DEBT = ritualPrice("blood_debt", 0x5B3A78);
+
     public static final Set<ResourceLocation> STARTER_PASSIVES = Set.of(
             MANA_SKIN.id(),
             HEAT_RESISTANCE.id(),
@@ -197,6 +259,50 @@ public final class MagicPassiveContent {
         MagicPassiveDefinition definition = register(path, false, 1, 0.0F, 0, 0, color);
         FORBIDDEN_PASSIVES.add(definition.id());
         return definition;
+    }
+
+    /**
+     * A boon a Blood Sacrifice can grant. Registered as a normal passive so that hasPassive,
+     * isPassiveEnabled and ClassPassiveEffects.on all work on it with no special cases; what makes
+     * it temporary is the clock {@code PlayerMagicState.grantRitualPassive} puts on it.
+     */
+    private static MagicPassiveDefinition ritualBoon(String path, int color) {
+        MagicPassiveDefinition definition = register(path, false, 1, 0.0F, 0, 0, color);
+        RITUAL_BOONS.add(definition.id());
+        return definition;
+    }
+
+    /**
+     * A price a Blood Sacrifice charges. Deliberately not a curse: the codex's curse column carries
+     * a Dispel button, and a price the player can dispel is not a price.
+     */
+    private static MagicPassiveDefinition ritualPrice(String path, int color) {
+        MagicPassiveDefinition definition = register(path, false, 1, 0.0F, 0, 0, color);
+        RITUAL_PRICES.add(definition.id());
+        return definition;
+    }
+
+    /** Ids of every ritual boon, in declaration order: cheapest first, as the screen lists them. */
+    public static Set<ResourceLocation> ritualBoons() {
+        return java.util.Collections.unmodifiableSet(RITUAL_BOONS);
+    }
+
+    /** Ids of every ritual price, in declaration order. */
+    public static Set<ResourceLocation> ritualPrices() {
+        return java.util.Collections.unmodifiableSet(RITUAL_PRICES);
+    }
+
+    public static boolean isRitualBoon(ResourceLocation id) {
+        return RITUAL_BOONS.contains(id);
+    }
+
+    public static boolean isRitualPrice(ResourceLocation id) {
+        return RITUAL_PRICES.contains(id);
+    }
+
+    /** True for anything a ritual grants: what the codex pins at the top and refuses to toggle. */
+    public static boolean isRitual(ResourceLocation id) {
+        return isRitualBoon(id) || isRitualPrice(id);
     }
 
     /** Ids of every forbidden-school passive, in declaration order. */

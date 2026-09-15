@@ -11,6 +11,7 @@ import com.efkrdnz.magical.race.MagicalRaces;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -175,6 +176,14 @@ public final class PlayerMagicState {
      * stacks) live in the handlers instead and are deliberately not persisted.
      */
     private final Map<ResourceLocation, Integer> passiveCounters = new LinkedHashMap<>();
+    /**
+     * Ritual passives granted by a Blood Sacrifice, and the ticks each has left.
+     *
+     * <p>Not {@link #passiveCounters}: that map is a general-purpose scratchpad six handlers already
+     * write to, and a counter that silently removed its passive at zero would be a trap for every
+     * one of them. A ritual clock is its own thing, with its own save key and its own test.
+     */
+    private final Map<ResourceLocation, Integer> ritualTicks = new LinkedHashMap<>();
     private final Map<ResourceLocation, Integer> envyProgress = new LinkedHashMap<>();
     private final Map<ResourceLocation, Integer> towerClears = new LinkedHashMap<>();
     private final Set<String> claimedTowerRewards = new LinkedHashSet<>();
@@ -818,6 +827,80 @@ public final class PlayerMagicState {
         return next;
     }
 
+    public Map<ResourceLocation, Integer> ritualTicks() {
+        return ritualTicks;
+    }
+
+    /** How long a ritual passive has left, in ticks. Zero when it is not running at all. */
+    public int ritualRemaining(ResourceLocation passiveId) {
+        return ritualTicks.getOrDefault(passiveId, 0);
+    }
+
+    /**
+     * Grants a ritual passive, or extends one already running. Never shortens one.
+     *
+     * <p>A second pact with a shorter duration cutting the first one short would read as the game
+     * taking away a boon that was paid for, so the longer of the two clocks always wins.
+     */
+    public void grantRitualPassive(ResourceLocation passiveId, int ticks) {
+        if (ticks <= 0 || MagicPassiveContent.get(passiveId) == null) {
+            return;
+        }
+        unlockPassive(passiveId);
+        ritualTicks.merge(passiveId, ticks, Math::max);
+    }
+
+    /** How many ritual prices are running: the number Hellbroker's amplification is a function of. */
+    public int activeRitualPriceCount() {
+        int count = 0;
+        for (ResourceLocation id : ritualTicks.keySet()) {
+            if (MagicPassiveContent.isRitualPrice(id)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /** Ends every running ritual at once. The reset command and a death wipe both want this. */
+    public void clearRitualPassives() {
+        for (ResourceLocation id : List.copyOf(ritualTicks.keySet())) {
+            removePassive(id);
+        }
+        ritualTicks.clear();
+    }
+
+    /**
+     * Runs every tick. Returns true when the client needs the new numbers: on an expiry, because a
+     * passive vanished, and once a second otherwise, because the codex is drawing a countdown and a
+     * frozen one looks like a bug.
+     */
+    public boolean tickRitualPassives() {
+        if (ritualTicks.isEmpty()) {
+            return false;
+        }
+        List<ResourceLocation> done = new ArrayList<>();
+        Iterator<Map.Entry<ResourceLocation, Integer>> entries = ritualTicks.entrySet().iterator();
+        while (entries.hasNext()) {
+            Map.Entry<ResourceLocation, Integer> entry = entries.next();
+            int left = entry.getValue() - 1;
+            if (left <= 0) {
+                entries.remove();
+                done.add(entry.getKey());
+            } else {
+                entry.setValue(left);
+            }
+        }
+        // removePassive touches ritualTicks, so the iteration is finished before anything is removed.
+        for (ResourceLocation id : done) {
+            removePassive(id);
+        }
+        if (!done.isEmpty()) {
+            return true;
+        }
+        int shortest = ritualTicks.values().stream().mapToInt(Integer::intValue).min().orElse(0);
+        return shortest % 20 == 0;
+    }
+
     public Map<ResourceLocation, Integer> envyProgress() {
         return envyProgress;
     }
@@ -1189,6 +1272,8 @@ public final class PlayerMagicState {
             removeSkill(MagicContent.VAULT_OF_AVARICE.id());
         }
         clearPassiveRuntimeState(passiveId);
+        // A clock left behind would keep counting for a passive that is no longer there.
+        ritualTicks.remove(passiveId);
         return true;
     }
 
@@ -1882,6 +1967,9 @@ public final class PlayerMagicState {
             }
             changed = true;
         }
+        if (tickRitualPassives()) {
+            changed = true;
+        }
         if (ensureSinCursesForEnabledPassives()) {
             changed = true;
         }
@@ -1964,6 +2052,7 @@ public final class PlayerMagicState {
         copy.cooldownTotals.putAll(cooldownTotals);
         copy.cooldownEchoCounters.putAll(cooldownEchoCounters);
         copy.passiveCounters.putAll(passiveCounters);
+        copy.ritualTicks.putAll(ritualTicks);
         copy.envyProgress.putAll(envyProgress);
         copy.towerClears.putAll(towerClears);
         copy.claimedTowerRewards.addAll(claimedTowerRewards);
@@ -2128,6 +2217,10 @@ public final class PlayerMagicState {
         CompoundTag passiveCounterTag = new CompoundTag();
         passiveCounters.forEach((id, count) -> passiveCounterTag.putInt(id.toString(), count));
         tag.put("passiveCounters", passiveCounterTag);
+
+        CompoundTag ritualTag = new CompoundTag();
+        ritualTicks.forEach((id, ticks) -> ritualTag.putInt(id.toString(), Math.max(0, ticks)));
+        tag.put("ritualTicks", ritualTag);
 
         CompoundTag envyTag = new CompoundTag();
         envyProgress.forEach((id, progress) -> envyTag.putInt(id.toString(), Math.max(0, progress)));
@@ -2328,6 +2421,15 @@ public final class PlayerMagicState {
             // Only keep counters whose passive still exists, so a removed passive cannot leak into saves.
             if (MagicPassiveContent.get(id) != null) {
                 state.setPassiveCounter(id, passiveCounterTag.getInt(key));
+            }
+        }
+        CompoundTag ritualTag = tag.getCompound("ritualTicks");
+        for (String key : ritualTag.getAllKeys()) {
+            ResourceLocation id = ResourceLocation.parse(key);
+            // Same rule as the counters: a clock for a passive that no longer exists is dropped
+            // rather than carried, so deleting an entry from the catalogue cannot poison a save.
+            if (MagicPassiveContent.get(id) != null) {
+                state.ritualTicks.put(id, Math.max(0, ritualTag.getInt(key)));
             }
         }
         CompoundTag envyTag = tag.getCompound("envyProgress");
