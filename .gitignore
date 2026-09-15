@@ -41,3 +41,9 @@ repo/
 
 ### Local snapshots taken before git history existed
 backups/
+
+### Cygwin drops these wherever bash happens to crash; they are never source
+**/bash.exe.stackdump
+
+### Scratch logs from dev-client and gametest launches
+/*.log
