@@ -41,7 +41,9 @@ public final class ForgeMotion {
      */
     public static Sweep opening(Sweep full, float progress) {
         float to = Mth.lerp(swept(progress), full.fromDegrees(), full.toDegrees());
-        return new Sweep(full.plane(), full.radius(), full.thickness(), full.fromDegrees(), to);
+        // The bow comes along. A blade that straightened out while it opened would be flat for the
+        // frames the eye actually catches, which are the early ones.
+        return new Sweep(full.plane(), full.radius(), full.thickness(), full.fromDegrees(), to, full.bow());
     }
 
     /**

@@ -27,15 +27,34 @@ public final class ForgeRibbon {
     /** Which local plane a sweep lies in. The renderer has already turned +Z into the strike's aim. */
     public enum Plane { FORWARD, UPRIGHT, GROUND }
 
-    /** One arc of blade: where it lies, how far out it reaches and how far around it sweeps. */
-    public record Sweep(Plane plane, float radius, float thickness, float fromDegrees, float toDegrees) {
+    /**
+     * One arc of blade: where it lies, how far out it reaches, how far around it sweeps, and how
+     * far its two ends trail behind its middle.
+     *
+     * <p>That last one is the only way an arc can lean out of its own plane. Drawn flat, an arc
+     * has the same silhouette whichever way it is travelling - fine for a swing, which is over in
+     * three ticks with the viewer standing at the middle of it, and wrong for something thrown,
+     * because a thrown blade is a thing with a front. Bowed, the belly leads and the horns lag, so
+     * the shape says where it is going from any angle instead of facing the viewer like a decal.
+     */
+    public record Sweep(Plane plane, float radius, float thickness, float fromDegrees, float toDegrees, float bow) {
+
+        /** A flat arc: what a swing is, and what every form but the thrown wave asks for. */
+        public Sweep(Plane plane, float radius, float thickness, float fromDegrees, float toDegrees) {
+            this(plane, radius, thickness, fromDegrees, toDegrees, 0.0f);
+        }
 
         public Sweep shifted(float degrees) {
-            return new Sweep(plane, radius, thickness, fromDegrees + degrees, toDegrees + degrees);
+            return new Sweep(plane, radius, thickness, fromDegrees + degrees, toDegrees + degrees, bow);
         }
 
         public Sweep scaled(float factor) {
-            return new Sweep(plane, radius * factor, thickness * factor, fromDegrees, toDegrees);
+            return new Sweep(plane, radius * factor, thickness * factor, fromDegrees, toDegrees, bow * factor);
+        }
+
+        /** The same arc with both ends trailing {@code depth} blocks behind its middle. */
+        public Sweep bowed(float depth) {
+            return new Sweep(plane, radius, thickness, fromDegrees, toDegrees, depth);
         }
 
         /** In-plane coordinates of the point at {@code t} along the arc, {@code out} across it. */
@@ -51,10 +70,16 @@ public final class ForgeRibbon {
             return at(t, out, 0.0f);
         }
 
-        /** The same point, standing {@code n} off the plane: one face of the solid. */
+        /**
+         * The same point, standing {@code n} off the plane: one face of the solid.
+         *
+         * <p>The bow rides the same axis. Both are off-plane displacements and a point has only
+         * one of those, so a bowed blade is a bowed blade rather than a flat one with a second
+         * copy leaning away from it.
+         */
         public float[] at(float t, float out, float n) {
             float[] flat = uv(t, out);
-            return planar(plane, flat[0], flat[1], n);
+            return planar(plane, flat[0], flat[1], n - bow * (1.0f - belly(t)));
         }
     }
 
@@ -156,11 +181,10 @@ public final class ForgeRibbon {
      */
     private static void face(VertexConsumer edge, Matrix4f pose, Sweep sweep, float t0, float t1, float inner,
             float outer, int color, int alpha, float side) {
-        float scale = side * sweep.thickness() * THICKNESS;
-        float in0 = crossSection(inner) * bladeProfile(t0) * scale;
-        float out0 = crossSection(outer) * bladeProfile(t0) * scale;
-        float in1 = crossSection(inner) * bladeProfile(t1) * scale;
-        float out1 = crossSection(outer) * bladeProfile(t1) * scale;
+        float in0 = side * halfThickness(sweep, t0, inner);
+        float out0 = side * halfThickness(sweep, t0, outer);
+        float in1 = side * halfThickness(sweep, t1, inner);
+        float out1 = side * halfThickness(sweep, t1, outer);
         float[] a = sweep.at(t0, inner, in0);
         float[] b = sweep.at(t0, outer, out0);
         float[] c = sweep.at(t1, outer, out1);
@@ -355,6 +379,17 @@ public final class ForgeRibbon {
     public static float crossSection(float out) {
         float x = Mth.clamp(out, 0.0f, 1.0f);
         return (float) Math.sqrt(Math.max(0.0, 1.0 - Math.pow(2.0 * x - 1.0, 2.0)));
+    }
+
+    /** One at the middle of an arc and zero at both ends: how much of a bow a point gets. */
+    public static float belly(float t) {
+        float offset = 2.0f * Mth.clamp(t, 0.0f, 1.0f) - 1.0f;
+        return 1.0f - offset * offset;
+    }
+
+    /** How far off the plane one face of the blade stands at this point: the cross-section, scaled. */
+    public static float halfThickness(Sweep sweep, float t, float out) {
+        return crossSection(out) * bladeProfile(t) * sweep.thickness() * THICKNESS;
     }
 
     /** Thin at both tips, fattest just past a third of the way along. */
