@@ -906,6 +906,9 @@ public final class SpaceSubspaceEntity extends Entity {
                     }
                 }
                 case RICOCHET_COLLISION -> {
+                    // A bounce forgets the fall on both sides, the way the boundary laws do: the
+                    // client so it stops counting it, the server so it stops billing it.
+                    entity.fallDistance = 0.0F;
                     if (pass.moves()) {
                         ricochetCollision(entity, normal);
                     }
@@ -959,7 +962,6 @@ public final class SpaceSubspaceEntity extends Entity {
                 : motion.add(normal.scale(0.18D));
         entity.setDeltaMovement(capMotion(reflected.add(normal.scale(0.08D)), 3.1D));
         entity.hasImpulse = true;
-        entity.fallDistance = 0.0F;
     }
 
     // ---------------------------------------------------------------- controlled gravity
