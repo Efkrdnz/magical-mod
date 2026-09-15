@@ -193,6 +193,14 @@ public final class MagicalCommands {
                                                     .executes(context -> withPlayer(context.getSource(), player -> openCreator(player, OpenSpellCreatorPayload.TAB_CREATE,
                                                             parseMagicId(StringArgumentType.getString(context, "first")),
                                                             parseMagicId(StringArgumentType.getString(context, "second")))))))))
+                    // The pact screen, without walking a Vessel up first. Captures only: the cast
+                    // path refuses a Vessel under a hundred, and the seal still charges it.
+                    .then(Commands.literal("sacrifice")
+                            .executes(context -> withPlayer(context.getSource(), player -> {
+                                PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+                                com.efkrdnz.magical.magic.blood.BloodSacrificeService.open(player, data);
+                                return 1;
+                            })))
                     // Fuse from the console: the same service call the Create button reaches.
                     .then(Commands.literal("create")
                             .then(Commands.argument("first", StringArgumentType.word())

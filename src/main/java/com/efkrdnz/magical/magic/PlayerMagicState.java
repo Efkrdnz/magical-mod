@@ -1325,6 +1325,13 @@ public final class PlayerMagicState {
             // A race passive has no checkbox: it is what the player is, not something they switched on.
             return;
         }
+        if (ritualTicks.containsKey(passiveId)) {
+            // Neither half of a pact is yours to switch off. A boon you could drop would be
+            // harmless; a price you could drop would be the whole ability for free, and the two
+            // are the same row in the same list, so the rule is one rule. The clock is the only
+            // way out, and for a Blood Debt there is not even that.
+            return;
+        }
         if (disabledPassives.remove(passiveId)) {
             passiveDisabledAtMillis.remove(passiveId);
             ResourceLocation linkedCurse = MagicPassiveContent.linkedCurseForSinPassive(passiveId);

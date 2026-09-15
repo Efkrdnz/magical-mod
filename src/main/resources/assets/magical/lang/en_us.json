@@ -1796,8 +1796,11 @@
   "screen.magical.sacrifice.broker": "Hellbroker: prices at x%s",
   "screen.magical.sacrifice.seal": "Seal the Pact",
   "screen.magical.sacrifice.sealing": "Sealing...",
-  "screen.magical.sacrifice.hint": "Click to take or drop one. A price outlives the boon it paid for.",
+  "screen.magical.sacrifice.hint": "Click to take or drop one. A price outlives its boon.",
   "screen.magical.sacrifice.no_points": "Not enough points left for that boon.",
   "screen.magical.tuning.pact": "Pact",
-  "screen.magical.tuning.rite": "Rite"
+  "screen.magical.tuning.rite": "Rite",
+  "screen.magical.passive_group_ritual_boon": "Temporary Buff",
+  "screen.magical.passive_group_ritual_price": "Temporary Curse",
+  "screen.magical.passive_expires": "Fades in %s"
 }

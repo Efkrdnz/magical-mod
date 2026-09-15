@@ -41,6 +41,7 @@ import static com.efkrdnz.magical.client.screen.sacrifice.BloodSacrificeLayout.s
 import com.efkrdnz.magical.client.ClientMagicState;
 import com.efkrdnz.magical.client.hud.HudDebug;
 import com.efkrdnz.magical.client.screen.CodexLayout.Rect;
+import com.efkrdnz.magical.client.screen.CodexPassiveRows;
 import com.efkrdnz.magical.client.screen.MagicalGuiStyle;
 import com.efkrdnz.magical.client.screen.ScreenChrome;
 import com.efkrdnz.magical.magic.MagicContent;
@@ -87,7 +88,6 @@ public final class BloodSacrificeScreen extends Screen implements HudDebug.Captu
     private static final int PRICE_TINT = 0xFFE06470;
     private static final int COST_CHIP = 0xFF16202F;
     private static final int LINE_H = 10;
-    private static final int TICKS_PER_SECOND = 20;
 
     private final Set<ResourceLocation> boons = new LinkedHashSet<>();
     private final Set<ResourceLocation> prices = new LinkedHashSet<>();
@@ -136,7 +136,19 @@ public final class BloodSacrificeScreen extends Screen implements HudDebug.Captu
 
     @Override
     public void tick() {
-        if (pending && ++pendingTicks > PENDING_TIMEOUT_TICKS) {
+        if (!pending) {
+            return;
+        }
+        if (!state().ritualTicks().isEmpty()) {
+            // The pact landed: the synced state is now running a clock it was not running when
+            // this screen opened. There is nothing left to choose, so the screen gets out of the
+            // way rather than sitting on a button that says Sealing forever.
+            onClose();
+            return;
+        }
+        if (++pendingTicks > PENDING_TIMEOUT_TICKS) {
+            // Refused, and the refusal went to the action bar. The button comes back so the pact
+            // can be fixed rather than rebuilt.
             pending = false;
         }
     }
@@ -262,9 +274,9 @@ public final class BloodSacrificeScreen extends Screen implements HudDebug.Captu
                 x0 + need.x(), y0 + need.y() + 11, MagicalGuiStyle.TEXT_MUTED, false);
 
         Rect clock = clocks();
-        g.drawString(font, Component.translatable("screen.magical.sacrifice.boon_clock", clock(boonTicks)),
+        g.drawString(font, Component.translatable("screen.magical.sacrifice.boon_clock", CodexPassiveRows.countdown(boonTicks)),
                 x0 + clock.x(), y0 + clock.y(), BOON_TINT & 0xFFFFFF, false);
-        g.drawString(font, Component.translatable("screen.magical.sacrifice.price_clock", clock(priceTicks)),
+        g.drawString(font, Component.translatable("screen.magical.sacrifice.price_clock", CodexPassiveRows.countdown(priceTicks)),
                 x0 + clock.x(), y0 + clock.y() + 11, PRICE_TINT & 0xFFFFFF, false);
 
         Rect list = chosen();
@@ -465,12 +477,6 @@ public final class BloodSacrificeScreen extends Screen implements HudDebug.Captu
     private static String descriptionKey(ResourceLocation id) {
         MagicPassiveDefinition definition = MagicPassiveContent.get(id);
         return definition == null ? id.toString() : definition.descriptionKey();
-    }
-
-    /** Ticks as m:ss, the same shape the codex countdown uses. */
-    public static String clock(int ticks) {
-        int seconds = Math.max(0, ticks) / TICKS_PER_SECOND;
-        return seconds / 60 + ":" + String.format(Locale.ROOT, "%02d", seconds % 60);
     }
 
     private static PlayerMagicState state() {

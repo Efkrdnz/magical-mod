@@ -136,4 +136,32 @@ class RitualPassiveTimerTest {
         assertFalse(state.hasPassive(price()));
         assertEquals(0, state.ritualRemaining(price()));
     }
+
+    @Test
+    void aPactPassiveRefusesTheCheckbox() {
+        // The codex draws a checkbox beside every normal passive, and a ritual price is a normal
+        // passive. Without this a player could seal a pact and then switch the curse half off,
+        // which is the whole ability for free. Refused in the state rather than in the screen, so
+        // the menu button that carries the toggle is refused with it.
+        PlayerMagicState state = new PlayerMagicState();
+        state.grantRitualPassive(MagicPassiveContent.GLASS_BONES.id(), 200);
+        state.grantRitualPassive(MagicPassiveContent.CRIMSON_EDGE.id(), 200);
+
+        state.togglePassive(MagicPassiveContent.GLASS_BONES.id());
+        state.togglePassive(MagicPassiveContent.CRIMSON_EDGE.id());
+
+        assertTrue(state.isPassiveEnabled(MagicPassiveContent.GLASS_BONES.id()), "a price switched itself off");
+        assertTrue(state.isPassiveEnabled(MagicPassiveContent.CRIMSON_EDGE.id()), "a boon switched itself off");
+    }
+
+    @Test
+    void anOrdinaryPassiveStillTogglesFreely() {
+        // The guard must be about the pact, not about passives in general.
+        PlayerMagicState state = new PlayerMagicState();
+        state.unlockPassive(MagicPassiveContent.MANA_SKIN.id());
+
+        state.togglePassive(MagicPassiveContent.MANA_SKIN.id());
+
+        assertFalse(state.isPassiveEnabled(MagicPassiveContent.MANA_SKIN.id()), "an ordinary passive lost its checkbox");
+    }
 }

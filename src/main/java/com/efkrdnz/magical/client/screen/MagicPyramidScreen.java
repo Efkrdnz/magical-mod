@@ -139,19 +139,8 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     /** The selected skill, its tuning, and where its scrolled content sits this frame. */
     private record DetailFrame(MagicSkillDefinition skill, MagicSkillTuning tuning, int contentTop, int contentHeight) {}
 
-    /** One line of the passives list: either a group header or an owned passive. */
-    private record PassiveRow(Component header, MagicPassiveDefinition definition, int index) {
-        boolean isHeader() {
-            return header != null;
-        }
-
-        int height() {
-            return isHeader() ? CodexLayout.PASSIVE_HEADER_H : CodexLayout.PASSIVE_ROW_H;
-        }
-    }
-
     /** A passives row that fits on screen this frame, and the screen-local top it starts at. */
-    private record PassiveEntry(PassiveRow row, int y) {}
+    private record PassiveEntry(CodexPassiveRows.Row row, int y) {}
 
     /** An active curse that fits on screen this frame: its index in the roster and its visible row. */
     private record CurseEntry(MagicPassiveDefinition definition, int index, int visibleRow) {}
@@ -854,7 +843,7 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     // ---- the Passives tab -----------------------------------------------------------------------
 
     private void paintPassives(GuiGraphics g, PlayerMagicState state, int x0, int y0, double lx, double ly) {
-        List<PassiveRow> rows = passiveRows(state);
+        List<CodexPassiveRows.Row> rows = CodexPassiveRows.rows(state);
         passiveListScroll = CodexLayout.clampScroll(passiveListScroll, rows.size(), CodexLayout.visiblePassiveRows());
         Rect list = CodexLayout.passivesList();
         g.enableScissor(x0 + list.x(), y0 + list.y(), x0 + list.right(), y0 + list.bottom());
@@ -870,10 +859,20 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
             boolean enabled = state.isPassiveEnabled(definition.id());
             Rect card = CodexLayout.passiveCard(entry.y());
             boolean hovered = hit(card, lx, ly);
+            // A price is drawn on the curse ground even though it is registered as a normal
+            // passive, so the half of the pact that costs you does not read as the half that pays.
+            int base = MagicPassiveContent.isRitualPrice(definition.id()) ? CURSE_BASE
+                    : enabled ? PASSIVE_ON_BASE : PASSIVE_BASE;
             MagicalGuiStyle.card(g, x0 + card.x(), y, x0 + card.right(), y0 + card.bottom(),
-                    hovered ? PASSIVE_HOVER_BASE : enabled ? PASSIVE_ON_BASE : PASSIVE_BASE);
+                    hovered ? PASSIVE_HOVER_BASE : base);
             g.fill(x0 + card.x(), y0 + card.bottom() - 2, x0 + card.right(), y0 + card.bottom(), 0xFF000000 | definition.color());
-            MagicalGuiStyle.checkbox(g, x0 + card.x() + 6, y + 7, enabled);
+            if (entry.row().ritual()) {
+                // No checkbox: neither half of a pact can be switched off, and an affordance that
+                // does nothing is worse than none. A pip in its colour stands in its place.
+                g.fill(x0 + card.x() + 8, y + 9, x0 + card.x() + 16, y + 17, 0xFF000000 | definition.color());
+            } else {
+                MagicalGuiStyle.checkbox(g, x0 + card.x() + 6, y + 7, enabled);
+            }
         }
         g.disableScissor();
         Rect bar = CodexLayout.passivesScrollbar();
@@ -910,7 +909,7 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         Rect curseLabel = CodexLayout.cursesLabel();
         MagicalGuiStyle.sectionLabel(g, font, x0 + curseLabel.x(), y0 + curseLabel.y(), Component.translatable("screen.magical.curses"), CURSE_TEXT);
 
-        List<PassiveRow> rows = passiveRows(state);
+        List<CodexPassiveRows.Row> rows = CodexPassiveRows.rows(state);
         Rect list = CodexLayout.passivesList();
         MagicPassiveDefinition hoveredPassive = null;
         g.enableScissor(x0 + list.x(), y0 + list.y(), x0 + list.right(), y0 + list.bottom());
@@ -928,8 +927,15 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
                 hoveredPassive = definition;
             }
             g.drawString(font, Component.translatable(definition.nameKey()), x + 24, y + 4, enabled ? MagicalGuiStyle.TEXT_PRIMARY : MagicalGuiStyle.TEXT_MUTED, false);
-            g.drawString(font, Component.translatable(enabled ? "screen.magical.passive_enabled" : "screen.magical.passive_disabled"), x + 24, y + 15,
-                    enabled ? ENABLED_TEXT : MagicalGuiStyle.TEXT_MUTED, false);
+            if (entry.row().ritual()) {
+                boolean boon = MagicPassiveContent.isRitualBoon(definition.id());
+                g.drawString(font, Component.translatable("screen.magical.passive_expires",
+                                CodexPassiveRows.countdown(entry.row().ticks())), x + 24, y + 15,
+                        boon ? ENABLED_TEXT : CURSE_TEXT, false);
+            } else {
+                g.drawString(font, Component.translatable(enabled ? "screen.magical.passive_enabled" : "screen.magical.passive_disabled"), x + 24, y + 15,
+                        enabled ? ENABLED_TEXT : MagicalGuiStyle.TEXT_MUTED, false);
+            }
             g.drawString(font, Component.translatable("screen.magical.hover_details"), x + 112, y + 15, hovered ? 0xF7D774 : 0x6F7F99, false);
         }
         g.disableScissor();
@@ -967,17 +973,17 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     }
 
     /** The rows that fit between the top of the list and its bottom this frame, with their tops. */
-    private List<PassiveEntry> visiblePassives(List<PassiveRow> rows) {
+    private List<PassiveEntry> visiblePassives(List<CodexPassiveRows.Row> rows) {
         List<PassiveEntry> entries = new ArrayList<>();
         Rect list = CodexLayout.passivesList();
         int y = list.y();
         for (int i = passiveListScroll; i < rows.size(); i++) {
-            PassiveRow row = rows.get(i);
-            if (y + row.height() > list.bottom()) {
+            CodexPassiveRows.Row row = rows.get(i);
+            if (y + passiveRowHeight(row) > list.bottom()) {
                 break;
             }
             entries.add(new PassiveEntry(row, y));
-            y += row.height();
+            y += passiveRowHeight(row);
         }
         return entries;
     }
@@ -1131,6 +1137,10 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     }
 
     private static PassiveTooltipStyle passiveTooltipStyle(MagicPassiveDefinition definition) {
+        if (MagicPassiveContent.isRitualPrice(definition.id())) {
+            // Registered as a normal passive so it can carry a clock, but it is a curse to read.
+            return PassiveTooltipStyle.CURSE;
+        }
         String path = definition.id().getPath();
         if (path.startsWith("sin_") || path.contains("_sin")) {
             return PassiveTooltipStyle.SIN;
@@ -1138,52 +1148,9 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         return definition.curse() ? PassiveTooltipStyle.CURSE : PassiveTooltipStyle.NORMAL;
     }
 
-    /**
-     * The owned passives, grouped by where they came from.
-     *
-     * <p>Declaration order in {@code MagicPassiveContent} already runs general, then the sins, then
-     * the five class lines in tree order, so emitting a header whenever the group changes is enough
-     * and there is no separate sort that could fall out of step with it.
-     */
-    private static List<PassiveRow> passiveRows(PlayerMagicState state) {
-        List<PassiveRow> rows = new ArrayList<>();
-        String group = null;
-        List<MagicPassiveDefinition> all = MagicPassiveContent.normalPassives();
-        for (int index = 0; index < all.size(); index++) {
-            MagicPassiveDefinition definition = all.get(index);
-            if (!state.hasPassive(definition.id())) {
-                continue;
-            }
-            String next = passiveGroupKey(definition);
-            if (!next.equals(group)) {
-                group = next;
-                rows.add(new PassiveRow(passiveGroupLabel(definition, next), null, -1));
-            }
-            rows.add(new PassiveRow(null, definition, index));
-        }
-        return rows;
-    }
-
-    private static String passiveGroupKey(MagicPassiveDefinition definition) {
-        if (MagicPassiveContent.isSinPassive(definition.id())) {
-            return "sins";
-        }
-        ResourceLocation source = MagicalClasses.classGranting(definition.id());
-        if (source == null || !MagicPassiveContent.isClassPassive(definition.id())) {
-            return "general";
-        }
-        return MagicalClasses.baseOf(source).toString();
-    }
-
-    private static Component passiveGroupLabel(MagicPassiveDefinition definition, String key) {
-        if ("sins".equals(key)) {
-            return Component.translatable("screen.magical.passive_group_sins");
-        }
-        if ("general".equals(key)) {
-            return Component.translatable("screen.magical.passive_group_general");
-        }
-        MagicalClassDefinition base = MagicalClasses.get(MagicalClasses.baseOf(MagicalClasses.classGranting(definition.id())));
-        return base == null ? Component.translatable("screen.magical.passive_group_general") : Component.translatable(base.nameKey());
+    /** How tall one row of the passives list is: a heading is shorter than a card. */
+    private static int passiveRowHeight(CodexPassiveRows.Row row) {
+        return row.isHeader() ? CodexLayout.PASSIVE_HEADER_H : CodexLayout.PASSIVE_ROW_H;
     }
 
     private static int activeCurseCount(PlayerMagicState state) {
@@ -1420,7 +1387,7 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         } else if (tab == TAB_PASSIVES) {
             PlayerMagicState state = ClientMagicState.get();
             if (hit(CodexLayout.passivesList(), lx, ly)) {
-                passiveListScroll = CodexLayout.clampScroll(passiveListScroll - notches, passiveRows(state).size(), CodexLayout.visiblePassiveRows());
+                passiveListScroll = CodexLayout.clampScroll(passiveListScroll - notches, CodexPassiveRows.rows(state).size(), CodexLayout.visiblePassiveRows());
                 return true;
             }
             if (hit(CodexLayout.cursesList(), lx, ly)) {
@@ -1580,8 +1547,13 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
     private boolean handlePassivesClick(double lx, double ly) {
         PlayerMagicState state = ClientMagicState.get();
         // Walks the exact same row model the draw pass uses, so headers cannot desync the hitboxes.
-        for (PassiveEntry entry : visiblePassives(passiveRows(state))) {
+        for (PassiveEntry entry : visiblePassives(CodexPassiveRows.rows(state))) {
             if (!entry.row().isHeader() && hit(CodexLayout.passiveCard(entry.y()), lx, ly)) {
+                if (entry.row().ritual()) {
+                    // Refused here as well as in the state, so the click does not travel to a
+                    // server that will only throw it away.
+                    return true;
+                }
                 press(MagicPyramidMenu.BUTTON_PASSIVE_TOGGLE_BASE + entry.row().index());
                 return true;
             }
