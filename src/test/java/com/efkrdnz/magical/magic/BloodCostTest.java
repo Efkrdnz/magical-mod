@@ -130,10 +130,13 @@ class BloodCostTest {
     }
 
     @Test
-    void aHeartBuysTheSameAmountOfBloodMagicAsItBuysOfMana() {
-        // Red Payment already taught players what a heart is worth. Two exchange rates would make
-        // that lesson a lie, so this pins them together rather than leaving it to a comment.
-        assertEquals(8, BloodService.COST_PER_HEALTH);
+    void aHeartIsWorthFiftyBloodAndTheWholeBarIsWorthFiveVessels() {
+        // It used to be eight, pinned equal to Red Payment's mana rate. The two are deliberately
+        // different now: Red Payment buys mana and this buys blood, and this one is charged as true
+        // damage no barrier soaks, which is what pays for the cheaper number. The rate and the
+        // bypasses in BloodPriceTest are one decision - move one and move the other.
+        assertEquals(25, BloodService.COST_PER_HEALTH);
+        assertEquals(500, 20 * BloodService.COST_PER_HEALTH, "ten hearts, in blood");
     }
 
     /** Mirrors BloodService.potency without needing a LivingEntity to hold the health. */

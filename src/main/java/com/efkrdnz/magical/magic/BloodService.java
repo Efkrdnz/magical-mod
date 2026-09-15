@@ -18,11 +18,15 @@ import net.minecraft.world.entity.LivingEntity;
 public final class BloodService {
 
     /**
-     * How much of a blood cost one point of health buys. Shared with
-     * {@code WarPassives.PAYMENT_MANA_PER_HEALTH} on purpose - Red Payment already taught players
-     * what a heart is worth, and two different exchange rates would make that lesson a lie.
+     * How much of a blood cost one point of health buys. Twenty health is five hundred blood, so a
+     * heart is worth fifty and the whole bar is worth five full Vessels.
+     *
+     * <p>It used to be eight, matched to {@code WarPassives.PAYMENT_MANA_PER_HEALTH}. The two are no
+     * longer the same number and no longer should be: Red Payment buys mana, this buys blood, and
+     * this one is now charged as true damage that no barrier soaks. A cheaper bill nothing can
+     * absorb is a harder bill than an expensive one a full barrier pays for you.
      */
-    public static final int COST_PER_HEALTH = 8;
+    public static final int COST_PER_HEALTH = 25;
 
     /** How long healing stays suppressed after a payment in health. */
     public static final int OPEN_WOUND_TICKS = 100;
@@ -97,6 +101,28 @@ public final class BloodService {
     }
 
     /**
+     * Charges a cost the body is not allowed to cover: the mirror of {@link #payInHealthOnly}.
+     *
+     * <p>A ritual wants proof the caster has been taking blood off other people. Letting them open a
+     * vein for the difference would turn "a full Vessel" into "two hearts", which is neither the
+     * same requirement nor the same fantasy.
+     *
+     * <p>Returns false and takes nothing when the Vessel is short, so a refused ritual leaves it
+     * exactly as full as it was.
+     */
+    public static boolean payFromVesselOnly(ServerPlayer player, PlayerMagicState state, int cost) {
+        if (MagicPrice.waived(player) || cost <= 0) {
+            return true;
+        }
+        if (state.bloodVessel() < cost) {
+            player.displayClientMessage(Component.translatable("message.magical.vessel_not_full"), true);
+            return false;
+        }
+        state.drawFromVessel(cost);
+        return true;
+    }
+
+    /**
      * The multiplier a blood skill's damage and size are scaled by: 1.0 at full health, rising to
      * {@link #MAX_POTENCY} at the edge of death.
      *
@@ -142,10 +168,11 @@ public final class BloodService {
         if (healthCost <= 0.0F) {
             return;
         }
-        // The vanilla magic source, not a bespoke one: PassiveHooks.isSpellDamage and
-        // MagicSinService.isMagicDamage both hard-check DamageTypes.MAGIC, so a magical:blood_price
-        // type would silently slip past magic resistance, Gluttony and wrath.
-        player.hurt(player.damageSources().magic(), healthCost);
+        // The bespoke type, not vanilla magic. Slipping past magic resistance, Gluttony and Wrath is
+        // now the point: a price you can resist is not a price, and paying your own bill is not
+        // being attacked. Between the bypass tags and the early-out in MagicGameplayEvents, the
+        // caster's own flesh pays - never armour, and never the barrier.
+        player.hurt(com.efkrdnz.magical.magic.blood.BloodDamageTypes.price(player), healthCost);
         state.openWound(OPEN_WOUND_TICKS);
         PassiveHooks.puff(player, ParticleTypes.DAMAGE_INDICATOR, 6, 0.22D);
     }

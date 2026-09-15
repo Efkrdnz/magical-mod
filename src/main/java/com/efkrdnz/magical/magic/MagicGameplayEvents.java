@@ -234,6 +234,12 @@ public final class MagicGameplayEvents {
             return;
         }
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+        if (event.getSource().is(com.efkrdnz.magical.magic.blood.BloodDamageTypes.BLOOD_PRICE)) {
+            // The price of blood magic is paid in flesh. No Mana Skin, no sin soak, no passive
+            // reduction and above all no barrier: the number the caller asked for is the number that
+            // lands. The bypass tags handle vanilla mitigation; this handles everything in here.
+            return;
+        }
         if (event.getSource().is(DamageTypeTags.IS_FIRE) || event.getSource().is(DamageTypeTags.IS_FREEZING)) {
             damage *= 1.0F - state.passiveReduction(MagicPassiveContent.HEAT_RESISTANCE.id());
         }

@@ -1,7 +1,6 @@
 {
   "replace": false,
   "values": [
-    "magical:forge_strike",
     "magical:blood_price"
   ]
 }
