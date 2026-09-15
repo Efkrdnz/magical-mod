@@ -66,7 +66,7 @@ priceTicks = round(boonTicks * 1.5)          base 1800 (90s)
 
 ### Hellbroker's amplification
 
-Every amplified price is multiplied by
+Every amplified price is amplified by
 
 ```
 amplification(n) = min(2.25, 1 + 0.5 * (n - 1))        n = active ritual prices
@@ -77,6 +77,21 @@ so one price is unchanged, two are 1.5x (the player's own example: a 15% failure
 `1.5^(n-1)`, reaches 50.6% spell failure at four prices and 75.9% at five, which is not a build,
 it is a disconnected mouse. The cap keeps the worst case at 33.75% - punishing, survivable, and
 still the most dangerous thing a blood mage can do to themselves.
+
+"Amplified by" means two different arithmetics, and `SacrificeBudget` has a method for each,
+because getting this wrong silently halves or doubles a price.
+
+- **A magnitude** - a flat number, a chance, a count of ticks - is scaled outright:
+  `amplify(m, clamp, n, broker)` is `min(clamp, m * amplification(n))`. A 15% failure chance at two
+  prices is 22.5%.
+- **A multiplier** - anything expressed as a factor on something else, such as Glass Bones taking
+  1.20x damage - is scaled in its **distance from one**, not in itself:
+  `amplifyMultiplier(x, clamp, n, broker)` is `1 + (x - 1) * amplification(n)`. Glass Bones at 1.20
+  goes to 1.30 at two prices and 1.45 at four. Scaling the multiplier itself would make 1.20 into
+  1.80, nearly doubling incoming damage from one extra price that has nothing to do with it.
+
+A multiplier below one amplifies downward the same way, and its clamp is a floor rather than a
+ceiling, which is why `amplifyMultiplier` clamps with `max` when the multiplier is below one.
 
 Every amplified price also carries its own absolute clamp, listed in its row, so no combination of
 tuning and amplification can push one past the number in the table.
@@ -438,7 +453,8 @@ Overflows are. Three effects, all in `SacrificeBudget`:
 1. `boonBudget` gains a point.
 2. `priceRequired` loses a point, so that point is genuinely free rather than needing a matching
    price.
-3. Every amplified price is multiplied by `amplification(activeRitualPrices)`.
+3. Every amplified price is amplified by `amplification(activeRitualPrices)`, through `amplify`
+   if it is a magnitude and `amplifyMultiplier` if it is a factor.
 
 The name is the deal: the broker gives you a point on credit and charges compound interest on
 everything you already owe. One price, and Hellbroker is a straight discount. Four, and every one
