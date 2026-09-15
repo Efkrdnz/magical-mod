@@ -10,6 +10,7 @@ import com.efkrdnz.magical.entity.BlackFlameProjectileEntity;
 import com.efkrdnz.magical.entity.JudgementBeamEntity;
 import com.efkrdnz.magical.entity.MagicCircleEffectEntity;
 import com.efkrdnz.magical.entity.MagicOpponentEntity;
+import com.efkrdnz.magical.entity.SpaceSubspaceEntity;
 import com.efkrdnz.magical.entity.ascendant.AscendantTier;
 import com.efkrdnz.magical.magic.AuthorityContent;
 import com.efkrdnz.magical.magic.MagicCodexService;
@@ -19,6 +20,7 @@ import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.MagicSkillTuning;
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.SpaceAuthorityService;
 import com.efkrdnz.magical.magic.SpaceRuleCategory;
 import com.efkrdnz.magical.magic.SpaceRuleOperation;
 import com.efkrdnz.magical.magic.SpaceTargetGroup;
@@ -27,6 +29,8 @@ import com.efkrdnz.magical.network.OpenSpellCreatorPayload;
 import com.efkrdnz.magical.network.SpaceRuleAppliedPayload;
 import com.efkrdnz.magical.tower.DungeonTowerService;
 import java.util.Optional;
+import com.mojang.brigadier.arguments.BoolArgumentType;
+import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -193,6 +197,32 @@ public final class MagicalCommands {
                                                     .executes(context -> withPlayer(context.getSource(), player -> openCreator(player, OpenSpellCreatorPayload.TAB_CREATE,
                                                             parseMagicId(StringArgumentType.getString(context, "first")),
                                                             parseMagicId(StringArgumentType.getString(context, "second")))))))))
+                    // A real domain and a real law, without the authority, the mana or the wheel.
+                    // `hud rule` only pops the flash; this drives the rule loop that moves things.
+                    .then(Commands.literal("subspace")
+                            .then(Commands.literal("create")
+                                    .executes(context -> withPlayer(context.getSource(), player -> raiseSubspace(player, 8.0F, false)))
+                                    .then(Commands.argument("radius", FloatArgumentType.floatArg(5.0F, SpaceSubspaceEntity.MAX_RADIUS))
+                                            .executes(context -> withPlayer(context.getSource(), player ->
+                                                    raiseSubspace(player, FloatArgumentType.getFloat(context, "radius"), false)))
+                                            .then(Commands.argument("follow", BoolArgumentType.bool())
+                                                    .executes(context -> withPlayer(context.getSource(), player -> raiseSubspace(player,
+                                                            FloatArgumentType.getFloat(context, "radius"),
+                                                            BoolArgumentType.getBool(context, "follow")))))))
+                            .then(Commands.literal("clear")
+                                    .executes(context -> withPlayer(context.getSource(), player ->
+                                            SpaceAuthorityService.closeAllDomains(player, player.getData(MagicalAttachments.MAGIC_STATE), true))))
+                            // Defaults to everything, including the caster - the target the wheel starts away from.
+                            .then(Commands.literal("rule")
+                                    .then(Commands.argument("category", StringArgumentType.word())
+                                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(lowerNames(SpaceRuleCategory.values()), builder))
+                                            .then(Commands.argument("operation", StringArgumentType.word())
+                                                    .suggests((context, builder) -> SharedSuggestionProvider.suggest(lowerNames(SpaceRuleOperation.values()), builder))
+                                                    .executes(context -> withPlayer(context.getSource(), player -> subspaceRule(context, player, SpaceTargetGroup.EVERYTHING.name())))
+                                                    .then(Commands.argument("target", StringArgumentType.word())
+                                                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(lowerNames(SpaceTargetGroup.values()), builder))
+                                                            .executes(context -> withPlayer(context.getSource(), player ->
+                                                                    subspaceRule(context, player, StringArgumentType.getString(context, "target")))))))))
                     // The pact screen, without walking a Vessel up first. Captures only: the cast
                     // path refuses a Vessel under a hundred, and the seal still charges it.
                     .then(Commands.literal("sacrifice")
@@ -689,6 +719,31 @@ public final class MagicalCommands {
                                                         player.displayClientMessage(Component.literal("FX stress spawned."), false);
                                                         return 1;
                                                     }))))))
+                    .then(Commands.literal("forge")
+                            .then(Commands.literal("bench")
+                                    .then(Commands.argument("element", net.minecraft.commands.arguments.ResourceLocationArgument.id())
+                                            .suggests((context, builder) -> SharedSuggestionProvider.suggestResource(com.efkrdnz.magical.forge.ForgeElements.all().stream().map(com.efkrdnz.magical.forge.ElementDefinition::id).toList(), builder))
+                                            .executes(context -> debugForgeBench(context.getSource(), context, com.efkrdnz.magical.forge.WeaponClass.SWORD, com.efkrdnz.magical.forge.chain.ForgeGrade.MYTHIC, false))
+                                            .then(Commands.argument("class", StringArgumentType.word())
+                                                    .suggests((context, builder) -> SharedSuggestionProvider.suggest(java.util.Arrays.stream(com.efkrdnz.magical.forge.WeaponClass.values()).map(value -> value.name().toLowerCase(java.util.Locale.ROOT)).toList(), builder))
+                                                    .then(Commands.argument("grade", StringArgumentType.word())
+                                                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(java.util.Arrays.stream(com.efkrdnz.magical.forge.chain.ForgeGrade.values()).map(value -> value.name().toLowerCase(java.util.Locale.ROOT)).toList(), builder))
+                                                            .executes(context -> debugForgeBench(context.getSource(), context, weaponClassArg(context), gradeArg(context), false))
+                                                            .then(Commands.literal("heavy")
+                                                                    .executes(context -> debugForgeBench(context.getSource(), context, weaponClassArg(context), gradeArg(context), true)))))))
+                            .then(Commands.literal("strike")
+                                    .then(Commands.argument("form", net.minecraft.commands.arguments.ResourceLocationArgument.id())
+                                            .suggests((context, builder) -> SharedSuggestionProvider.suggestResource(com.efkrdnz.magical.forge.ForgeForms.all().stream().map(com.efkrdnz.magical.forge.FormDefinition::id).toList(), builder))
+                                            .then(Commands.argument("element", net.minecraft.commands.arguments.ResourceLocationArgument.id())
+                                                    .suggests((context, builder) -> SharedSuggestionProvider.suggestResource(com.efkrdnz.magical.forge.ForgeElements.all().stream().map(com.efkrdnz.magical.forge.ElementDefinition::id).toList(), builder))
+                                                    .executes(context -> debugForgeStrike(context.getSource(), context, com.efkrdnz.magical.forge.WeaponClass.SWORD, com.efkrdnz.magical.forge.chain.ForgeGrade.MYTHIC, false))
+                                                    .then(Commands.argument("class", StringArgumentType.word())
+                                                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(java.util.Arrays.stream(com.efkrdnz.magical.forge.WeaponClass.values()).map(value -> value.name().toLowerCase(java.util.Locale.ROOT)).toList(), builder))
+                                                            .then(Commands.argument("grade", StringArgumentType.word())
+                                                                    .suggests((context, builder) -> SharedSuggestionProvider.suggest(java.util.Arrays.stream(com.efkrdnz.magical.forge.chain.ForgeGrade.values()).map(value -> value.name().toLowerCase(java.util.Locale.ROOT)).toList(), builder))
+                                                                    .executes(context -> debugForgeStrike(context.getSource(), context, weaponClassArg(context), gradeArg(context), false))
+                                                                    .then(Commands.literal("heavy")
+                                                                            .executes(context -> debugForgeStrike(context.getSource(), context, weaponClassArg(context), gradeArg(context), true)))))))))
                     .then(Commands.literal("skill")
                             .then(Commands.argument("id", net.minecraft.commands.arguments.ResourceLocationArgument.id())
                                     .suggests((context, builder) -> SharedSuggestionProvider.suggestResource(MagicContent.orderedSkillIds(), builder))
@@ -741,6 +796,58 @@ public final class MagicalCommands {
 
             event.getDispatcher().register(root);
             event.getDispatcher().register(debugRoot);
+        }
+
+        private static com.efkrdnz.magical.forge.WeaponClass weaponClassArg(
+                com.mojang.brigadier.context.CommandContext<CommandSourceStack> context) {
+            String name = StringArgumentType.getString(context, "class").toUpperCase(java.util.Locale.ROOT);
+            for (com.efkrdnz.magical.forge.WeaponClass value : com.efkrdnz.magical.forge.WeaponClass.values()) {
+                if (value.name().equals(name)) {
+                    return value;
+                }
+            }
+            return com.efkrdnz.magical.forge.WeaponClass.SWORD;
+        }
+
+        private static com.efkrdnz.magical.forge.chain.ForgeGrade gradeArg(
+                com.mojang.brigadier.context.CommandContext<CommandSourceStack> context) {
+            String name = StringArgumentType.getString(context, "grade").toUpperCase(java.util.Locale.ROOT);
+            for (com.efkrdnz.magical.forge.chain.ForgeGrade value : com.efkrdnz.magical.forge.chain.ForgeGrade.values()) {
+                if (value.name().equals(name)) {
+                    return value;
+                }
+            }
+            return com.efkrdnz.magical.forge.chain.ForgeGrade.MYTHIC;
+        }
+
+        /** Every form of one element in a row, so the whole set can be judged in a single frame. */
+        private static int debugForgeBench(CommandSourceStack source,
+                com.mojang.brigadier.context.CommandContext<CommandSourceStack> context,
+                com.efkrdnz.magical.forge.WeaponClass archetype, com.efkrdnz.magical.forge.chain.ForgeGrade grade, boolean heavy)
+                throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+            ResourceLocation element = net.minecraft.commands.arguments.ResourceLocationArgument.getId(context, "element");
+            return withPlayer(source, player -> {
+                int spawned = com.efkrdnz.magical.forge.ForgeStrikeBench.bench(player, element, archetype, grade, heavy);
+                player.displayClientMessage(Component.literal(spawned == 0
+                        ? "Forge bench: no such element " + element
+                        : "Forge bench: " + spawned + " forms in " + element.getPath()), false);
+                return spawned;
+            });
+        }
+
+        private static int debugForgeStrike(CommandSourceStack source,
+                com.mojang.brigadier.context.CommandContext<CommandSourceStack> context,
+                com.efkrdnz.magical.forge.WeaponClass archetype, com.efkrdnz.magical.forge.chain.ForgeGrade grade, boolean heavy)
+                throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+            ResourceLocation form = net.minecraft.commands.arguments.ResourceLocationArgument.getId(context, "form");
+            ResourceLocation element = net.minecraft.commands.arguments.ResourceLocationArgument.getId(context, "element");
+            return withPlayer(source, player -> {
+                boolean spawned = com.efkrdnz.magical.forge.ForgeStrikeBench.one(player, form, element, archetype, grade, heavy);
+                if (!spawned) {
+                    player.displayClientMessage(Component.literal("Forge strike: no such form or element."), false);
+                }
+                return spawned ? 1 : 0;
+            });
         }
 
         private static int withPlayer(CommandSourceStack source, java.util.function.ToIntFunction<ServerPlayer> action) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
@@ -857,12 +964,19 @@ public final class MagicalCommands {
         return 1;
     }
 
-    /** {@code hud rule}: names matched against the enums case-insensitively, the operation checked against its category. */
-    private static int ruleFlash(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context, ServerPlayer player, String targetName) {
+    /** One law read off three words. */
+    private record ParsedRule(SpaceRuleCategory category, SpaceRuleOperation operation, SpaceTargetGroup target) {
+    }
+
+    /**
+     * Names matched against the enums case-insensitively, the operation checked against its
+     * category. Returns null once the failure naming the valid words has been sent.
+     */
+    private static ParsedRule parseRule(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context, String targetName) {
         SpaceRuleCategory category = byName(SpaceRuleCategory.values(), StringArgumentType.getString(context, "category"));
         if (category == null) {
             context.getSource().sendFailure(Component.literal("category: " + names(SpaceRuleCategory.values())));
-            return 0;
+            return null;
         }
         SpaceRuleOperation operation = byName(SpaceRuleOperation.values(), StringArgumentType.getString(context, "operation"));
         if (operation == null || operation.category() != category) {
@@ -873,15 +987,47 @@ public final class MagicalCommands {
                 }
             }
             context.getSource().sendFailure(Component.literal(category.name().toLowerCase(java.util.Locale.ROOT) + " operation: " + valid));
-            return 0;
+            return null;
         }
         SpaceTargetGroup target = byName(SpaceTargetGroup.values(), targetName);
         if (target == null) {
             context.getSource().sendFailure(Component.literal("target: " + names(SpaceTargetGroup.values())));
+            return null;
+        }
+        return new ParsedRule(category, operation, target);
+    }
+
+    /** {@code hud rule}: only the packet a landed rule sends, no subspace and no state touched. */
+    private static int ruleFlash(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context, ServerPlayer player, String targetName) {
+        ParsedRule rule = parseRule(context, targetName);
+        if (rule == null) {
             return 0;
         }
-        MagicalNetwork.sendSpaceRuleApplied(player, new SpaceRuleAppliedPayload(category.ordinal(), operation.ordinal(), target.ordinal()));
+        MagicalNetwork.sendSpaceRuleApplied(player, new SpaceRuleAppliedPayload(rule.category().ordinal(), rule.operation().ordinal(), rule.target().ordinal()));
         return 1;
+    }
+
+    /** {@code subspace create}: a domain standing at once, with none of the skill's gates. */
+    private static int raiseSubspace(ServerPlayer player, float radius, boolean followOwner) {
+        SpaceAuthorityService.raiseDebugSubspace(player, radius, followOwner);
+        return 1;
+    }
+
+    /** {@code subspace rule}: the same three words as {@code hud rule}, onto the standing domain. */
+    private static int subspaceRule(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context, ServerPlayer player, String targetName) {
+        ParsedRule rule = parseRule(context, targetName);
+        if (rule == null) {
+            return 0;
+        }
+        if (!SpaceAuthorityService.applyDebugRule(player, rule.category(), rule.operation(), rule.target())) {
+            context.getSource().sendFailure(Component.literal("no subspace standing: /magical subspace create"));
+            return 0;
+        }
+        return 1;
+    }
+
+    private static java.util.List<String> lowerNames(Enum<?>[] values) {
+        return java.util.Arrays.stream(values).map(value -> value.name().toLowerCase(java.util.Locale.ROOT)).toList();
     }
 
     private static <E extends Enum<E>> E byName(E[] values, String name) {

@@ -97,6 +97,41 @@ public final class SpaceAuthorityService {
         MagicalNetwork.sendSpaceRuleApplied(player, new SpaceRuleAppliedPayload(category.ordinal(), operation.ordinal(), targetGroup.ordinal()));
     }
 
+    /**
+     * Raises a subspace with none of the gates the skill has - no authority, no unlock, no
+     * cooldown, no mana. For tests and unattended captures, which need a domain standing by tick
+     * sixty rather than a progression walked up to it. Any domain already owned is closed first,
+     * so repeated calls leave one.
+     */
+    public static SpaceSubspaceEntity raiseDebugSubspace(ServerPlayer player, float radius, boolean followOwner) {
+        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+        closeAllDomains(player, state, false);
+        ServerLevel level = player.serverLevel();
+        SpaceSubspaceEntity subspace = SpaceSubspaceEntity.create(level, player, radius, followOwner);
+        level.addFreshEntity(subspace);
+        state.setActiveSubspaceEntityId(subspace.getId());
+        state.sync(player);
+        return subspace;
+    }
+
+    /**
+     * Writes a law straight onto the caster's standing subspace, past the cooldown and the mana.
+     * It ends in the same two calls {@link #applyRule} does, so a capture drives the real rule
+     * loop and the real flash rather than a stand-in for either.
+     *
+     * @return false when the caster has no subspace to write onto
+     */
+    public static boolean applyDebugRule(ServerPlayer player, SpaceRuleCategory category, SpaceRuleOperation operation, SpaceTargetGroup targetGroup) {
+        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+        SpaceSubspaceEntity subspace = activeSubspace(player, state);
+        if (subspace == null) {
+            return false;
+        }
+        subspace.applyRule(category, operation, targetGroup);
+        MagicalNetwork.sendSpaceRuleApplied(player, new SpaceRuleAppliedPayload(category.ordinal(), operation.ordinal(), targetGroup.ordinal()));
+        return true;
+    }
+
     public static SpaceSubspaceEntity activeSubspace(ServerPlayer player, PlayerMagicState state) {
         if (state.activeSubspaceEntityId() < 0) {
             return null;
