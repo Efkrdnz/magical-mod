@@ -15,8 +15,10 @@ import com.mojang.math.Axis;
 public final class WaveGeometry {
 
     private static final float DIAGONAL = 40.0f;
-    private static final float RADIUS = 1.3f;
-    private static final float THICKNESS = 0.85f;
+    private static final float RADIUS = 2.0f;
+    private static final float THICKNESS = 1.0f;
+    /** How big the crescent is when it leaves the hand, as a fraction of its full size. */
+    private static final float FROM = 0.45f;
     private static final float MAX_ARC = 140.0f;
     private static final float ARC_SCALE = 0.9f;
     private static final float TRAIL_GAP = 0.9f;
@@ -29,7 +31,13 @@ public final class WaveGeometry {
         poseStack.pushPose();
         poseStack.mulPose(Axis.ZP.rotationDegrees(DIAGONAL));
         float half = Math.min(MAX_ARC, state.arc * ARC_SCALE) * 0.5f;
-        Sweep head = new Sweep(Plane.FORWARD, state.halfWidth * RADIUS, state.halfWidth * THICKNESS, -half, half);
+        // UPRIGHT, not FORWARD: a crescent lying in the plane it travels along is edge-on to
+        // whoever threw it, and watching your own wave fly away showed a bright line and nothing
+        // else. Broadside to the flight is also what WaveShape inflates - laterally and
+        // vertically, not along the travel - so this is the honest face of it.
+        Sweep full = new Sweep(Plane.UPRIGHT, state.halfWidth * RADIUS, state.halfWidth * THICKNESS, -half, half);
+        // A thrown crescent opens out as it travels instead of arriving at full size.
+        Sweep head = ForgeMotion.reaching(full, FROM, state.progress);
         ForgeRibbon.trail(state.heavy, state.accent.invertTrail(), state.alpha, (lag, alpha) -> {
             poseStack.pushPose();
             poseStack.translate(0.0f, 0.0f, -lag * TRAIL_GAP);
@@ -37,6 +45,7 @@ public final class WaveGeometry {
             poseStack.popPose();
         });
         ForgeElementAccent.draw(edge, poseStack.last().pose(), head, palette, state.alpha, state.accent);
+        ForgeAura.arc(edge, poseStack.last().pose(), head, palette, state, state.alpha);
         poseStack.popPose();
     }
 }

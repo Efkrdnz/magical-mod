@@ -4,8 +4,10 @@ import com.efkrdnz.magical.client.renderer.forge.ForgeElementAccent;
 import com.efkrdnz.magical.client.renderer.forge.ForgeForms;
 import com.efkrdnz.magical.client.renderer.forge.ForgePalette;
 import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon;
+import com.efkrdnz.magical.client.renderer.forge.ForgeWeaponLook;
 import com.efkrdnz.magical.entity.ForgeStrikeEntity;
 import com.efkrdnz.magical.forge.ForgeElementKind;
+import com.efkrdnz.magical.forge.chain.ForgeGrade;
 import com.efkrdnz.magical.forge.FormFamily;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
@@ -46,7 +48,14 @@ public final class ForgeStrikeRenderer extends EntityRenderer<ForgeStrikeEntity,
         state.secondary = entity.secondaryColor();
         state.edge = entity.edgeColor();
         state.heavy = entity.heavy();
-        state.halfWidth = entity.halfWidth();
+        state.grade = entity.grade();
+        // The entity id, so one strike's shower is the same on every client and on every frame of
+        // its three-tick life, and two strikes side by side do not throw the same sparks.
+        state.seed = entity.getId();
+        // Quality widens the cut and grade brightens it, applied once here rather than in each of
+        // the eight geometries: every form sizes its blade off halfWidth and fades off alpha, so
+        // both attributes reach all of them from these two lines.
+        state.halfWidth = entity.halfWidth() * ForgeWeaponLook.breadth(entity.quality());
         state.arc = entity.arc();
         state.reach = entity.reach();
         state.life = Math.max(1, entity.life());
@@ -56,7 +65,8 @@ public final class ForgeStrikeRenderer extends EntityRenderer<ForgeStrikeEntity,
         state.dirZ = (float) dir.z;
         state.progress = Mth.clamp(state.ageInTicks / state.life, 0.0f, 1.0f);
         state.alpha = (1.0f - ForgeRibbon.smoothstep(FADE_START, 1.0f, state.progress))
-                * (entity.echo() ? ECHO_ALPHA : 1.0f) * state.accent.bodyAlpha();
+                * (entity.echo() ? ECHO_ALPHA : 1.0f) * state.accent.bodyAlpha()
+                * ForgeWeaponLook.emission(entity.grade());
         anchor(entity, state, partialTick);
     }
 
@@ -110,6 +120,9 @@ public final class ForgeStrikeRenderer extends EntityRenderer<ForgeStrikeEntity,
         public ForgeElementAccent.Accent accent = ForgeElementAccent.of(ForgeElementKind.FIRE);
         public int primary = 0xD8E4FF, secondary = 0xD8E4FF, edge = 0xFFFFFF;
         public boolean heavy;
+        /** The weapon's grade as an ordinal, and this strike's own seed for its spark shower. */
+        public int grade = ForgeGrade.HIGH.ordinal();
+        public int seed;
         public float halfWidth = 1.6f, arc = 150.0f, reach = 3.5f, life = 4.0f;
         // partialTick is inherited from EntityRenderState and already set by
         // EntityRenderer.extractRenderState; redeclaring it here would shadow the real one.

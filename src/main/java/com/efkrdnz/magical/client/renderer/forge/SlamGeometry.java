@@ -50,6 +50,7 @@ public final class SlamGeometry {
         Sweep rim = new Sweep(Plane.GROUND, radius, state.halfWidth * THICKNESS, 0.0f, 360.0f);
         ForgeRibbon.arc(edge, pose, rim, palette, state.alpha);
         ForgeElementAccent.draw(edge, pose, rim, palette, state.alpha, state.accent);
+        ForgeAura.arc(edge, pose, rim, palette, state, state.alpha);
         if (state.heavy && state.ageInTicks - partialTick >= SECOND_RING_TICK) {
             ForgeRibbon.arc(edge, pose, rim.scaled(SECOND_RING_RADIUS), palette, state.alpha * SECOND_RING_ALPHA);
         }

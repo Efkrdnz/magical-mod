@@ -14,10 +14,18 @@ public final class RisingGeometry {
 
     private static final float BASE_Y = 0.15f;
     private static final float RISE_PER_TICK = 0.45f;
-    private static final float FORWARD = 0.45f;
-    private static final float RADIUS = 1.1f;
-    private static final float THICKNESS = 0.6f;
-    private static final float TRAIL_DROP = 0.5f;
+    // Far enough out to be a cut in front of the wielder rather than something happening to
+    // their own face: in first person this is the nearest geometry any form draws.
+    private static final float FORWARD = 0.78f;
+    // Pulled back from two. A rising cut is drawn a step in front of the wielder, so in first
+    // person it is the closest thing to the camera of any form; at two it filled a third of the
+    // frame and read as a wall rather than as a cut.
+    private static final float RADIUS = 1.15f;
+    private static final float THICKNESS = 0.95f;
+    private static final float OPEN_BY = 0.5f;
+    // Small enough that the lagged copies overlap into one blur. At half a block apart they
+    // read as separate stacked crescents - a rising cut came out corrugated.
+    private static final float TRAIL_DROP = 0.26f;
     private static final float MAX_ARC = 220.0f;
 
     private RisingGeometry() {}
@@ -26,7 +34,8 @@ public final class RisingGeometry {
             ForgePalette palette, float partialTick) {
         float lift = BASE_Y + state.ageInTicks * RISE_PER_TICK;
         float half = Math.min(state.arc, MAX_ARC) * 0.5f;
-        Sweep sweep = new Sweep(Plane.UPRIGHT, state.halfWidth * RADIUS, state.halfWidth * THICKNESS, -half, half);
+        Sweep full = new Sweep(Plane.UPRIGHT, state.halfWidth * RADIUS, state.halfWidth * THICKNESS, -half, half);
+        Sweep sweep = ForgeMotion.opening(full, state.progress / OPEN_BY);
         poseStack.pushPose();
         poseStack.translate(0.0f, 0.0f, state.reach * FORWARD);
         ForgeRibbon.trail(state.heavy, state.accent.invertTrail(), state.alpha, (lag, alpha) -> {
@@ -38,6 +47,7 @@ public final class RisingGeometry {
         poseStack.pushPose();
         poseStack.translate(0.0f, lift, 0.0f);
         ForgeElementAccent.draw(edge, poseStack.last().pose(), sweep, palette, state.alpha, state.accent);
+        ForgeAura.arc(edge, poseStack.last().pose(), sweep, palette, state, state.alpha);
         poseStack.popPose();
         poseStack.popPose();
     }

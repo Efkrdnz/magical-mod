@@ -5,6 +5,7 @@ import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon.Plane;
 import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon.Sweep;
 import com.efkrdnz.magical.forge.strike.ForgeStrikeMath;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
 /**
@@ -15,11 +16,23 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 public final class FlurryGeometry {
 
     private static final float HEIGHT = 1.2f;
-    private static final float RIBBON_ARC = 34.0f;
+    private static final float RIBBON_ARC = 44.0f;
     private static final float FAN = 0.32f;
-    private static final float THICKNESS = 0.32f;
-    private static final float PULSE_FADE = 4.0f;
+    // A flurry is the narrowest form in the game and was drawn like it, at three quarters of an
+    // already-narrow half-width: a jab came out as a scratch three blocks away that the wielder's
+    // own body hid. It stays the narrowest cut here; it just has to be a cut.
+    private static final float THICKNESS = 1.30f;
+    private static final float PULSE_FADE = 5.0f;
     private static final float STAGGER = 0.18f;
+    /**
+     * How far each jab is rolled about the aim, and how much the fan spreads that.
+     *
+     * <p>Alternating, so the jabs cross. Laid flat they were a row of horizontal scratches at one
+     * height, which from the wielder's own eye is the worst angle a flat ribbon has - a flurry
+     * came out as a faint smudge on the ground. Crossed, the string reads as what it is.
+     */
+    private static final float ROLL = 38.0f;
+    private static final float ROLL_SPREAD = 14.0f;
 
     private FlurryGeometry() {}
 
@@ -40,8 +53,10 @@ public final class FlurryGeometry {
             float alpha = state.alpha * (1.0f - age / PULSE_FADE);
             poseStack.pushPose();
             poseStack.translate(0.0f, offset * STAGGER, 0.0f);
+            poseStack.mulPose(Axis.ZP.rotationDegrees((i % 2 == 0 ? -ROLL : ROLL) + offset * ROLL_SPREAD));
             ForgeRibbon.arc(edge, poseStack.last().pose(), sweep, palette, alpha);
             ForgeElementAccent.draw(edge, poseStack.last().pose(), sweep, palette, alpha, state.accent);
+            ForgeAura.arc(edge, poseStack.last().pose(), sweep, palette, state, alpha);
             poseStack.popPose();
         }
         poseStack.popPose();

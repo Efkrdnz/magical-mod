@@ -18,7 +18,9 @@ public final class SlashGeometry {
     private static final float HEIGHT = 1.15f;
     private static final float TILT = -22.0f;
     private static final float TRAIL_SWEEP = 30.0f;
-    private static final float THICKNESS = 0.55f;
+    private static final float THICKNESS = 0.85f;
+    /** The arc is fully open by here, so the whole cut is on screen before the fade starts. */
+    private static final float OPEN_BY = 0.5f;
     private static final float MAX_ARC = 300.0f;
 
     private SlashGeometry() {}
@@ -30,10 +32,13 @@ public final class SlashGeometry {
         poseStack.mulPose(Axis.ZP.rotationDegrees(TILT));
         Matrix4f pose = poseStack.last().pose();
         float half = Math.min(state.arc, MAX_ARC) * 0.5f;
-        Sweep head = new Sweep(Plane.GROUND, state.reach, state.halfWidth * THICKNESS, -half, half);
+        Sweep full = new Sweep(Plane.GROUND, state.reach, state.halfWidth * THICKNESS, -half, half);
+        // The cut opens from where the blade started rather than appearing whole: a swing travels.
+        Sweep head = ForgeMotion.opening(full, state.progress / OPEN_BY);
         ForgeRibbon.trail(state.heavy, state.accent.invertTrail(), state.alpha,
                 (lag, alpha) -> ForgeRibbon.arc(edge, pose, head.shifted(-lag * TRAIL_SWEEP), palette, alpha));
         ForgeElementAccent.draw(edge, pose, head, palette, state.alpha, state.accent);
+        ForgeAura.arc(edge, pose, head, palette, state, state.alpha);
         poseStack.popPose();
     }
 }

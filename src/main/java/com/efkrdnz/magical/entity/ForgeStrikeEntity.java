@@ -20,6 +20,7 @@ import java.util.Optional;
 import com.efkrdnz.magical.forge.StrikeLoadout;
 import com.efkrdnz.magical.forge.WeaponClass;
 import com.efkrdnz.magical.forge.ForgePayloadService;
+import com.efkrdnz.magical.forge.chain.ForgeGrade;
 import com.efkrdnz.magical.forge.chain.Payload;
 import com.efkrdnz.magical.forge.chain.TriggerKind;
 import com.efkrdnz.magical.forge.strike.ForgeStrikeMath;
@@ -63,6 +64,11 @@ public final class ForgeStrikeEntity extends Entity {
     private static final EntityDataAccessor<Integer> COMBO_INDEX = defineInt();
     private static final EntityDataAccessor<Integer> OWNER_ID = defineInt();
     private static final EntityDataAccessor<Integer> ELEMENT_ORDINAL = defineInt();
+    // How good the weapon was. The element and the form were the only things the picture knew
+    // about a weapon, so a crude first attempt and a divine masterwork threw identical-looking
+    // strikes and half of what the forge does was invisible.
+    private static final EntityDataAccessor<Integer> GRADE = defineInt();
+    private static final EntityDataAccessor<Integer> QUALITY = defineInt();
     private static final EntityDataAccessor<Boolean> HEAVY = defineBool();
     private static final EntityDataAccessor<Boolean> ECHO = defineBool();
     private static final EntityDataAccessor<Float> HALF_WIDTH = defineFloat();
@@ -141,6 +147,8 @@ public final class ForgeStrikeEntity extends Entity {
         strike.entityData.set(ELEMENT_ORDINAL, element.kind().ordinal());
         strike.entityData.set(HEAVY, spec.heavy());
         strike.entityData.set(ECHO, echo);
+        strike.entityData.set(GRADE, weapon.grade().ordinal());
+        strike.entityData.set(QUALITY, weapon.quality());
         strike.entityData.set(HALF_WIDTH, spec.halfWidth());
         strike.entityData.set(ARC, spec.arcDegrees());
         strike.entityData.set(REACH, spec.reach());
@@ -172,6 +180,8 @@ public final class ForgeStrikeEntity extends Entity {
         builder.define(COMBO_INDEX, 0);
         builder.define(OWNER_ID, NO_ID);
         builder.define(ELEMENT_ORDINAL, ForgeElementKind.FIRE.ordinal());
+        builder.define(GRADE, ForgeGrade.HIGH.ordinal());
+        builder.define(QUALITY, 50);
         builder.define(HEAVY, false);
         builder.define(ECHO, false);
         builder.define(HALF_WIDTH, 1.6F);
@@ -425,6 +435,16 @@ public final class ForgeStrikeEntity extends Entity {
 
     public int comboIndex() {
         return entityData.get(COMBO_INDEX);
+    }
+
+    /** The weapon's grade, as an ordinal into {@link ForgeGrade}. */
+    public int grade() {
+        return this.entityData.get(GRADE);
+    }
+
+    /** The weapon's quality, 0 to 100. */
+    public int quality() {
+        return this.entityData.get(QUALITY);
     }
 
     public boolean heavy() {

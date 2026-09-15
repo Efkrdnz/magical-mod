@@ -567,8 +567,14 @@ public final class ForgeComboService {
         return look.lengthSqr() < 1.0E-6 ? new Vec3(0.0, 0.0, 1.0) : look.normalize();
     }
 
-    /** Where the strike is born: on the eye for anchored forms, ahead for a wave, underfoot for a slam. */
-    private static Vec3 originFor(ServerPlayer player, FormFamily family, Vec3 look, float reach) {
+    /**
+     * Where the strike is born: on the eye for anchored forms, ahead for a wave, underfoot for a
+     * slam.
+     *
+     * <p>Public for {@code ForgeStrikeBench}, which spawns strikes for captures. A debug spawn that
+     * picked its own origin would be showing a strike the game never spawns.
+     */
+    public static Vec3 originFor(ServerPlayer player, FormFamily family, Vec3 look, float reach) {
         return switch (family) {
             case SLAM -> player.position().add(look.scale(reach * SLAM_FORWARD_FRACTION));
             case WAVE -> player.getEyePosition().add(look.scale(WAVE_LEAD));
