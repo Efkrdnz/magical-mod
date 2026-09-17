@@ -62,7 +62,8 @@ public final class MagicCastContentKept {
                         com.efkrdnz.magical.entity.domain.ManaWeaveEntity.MIN_RADIUS,
                         !ctx.player().isShiftKeyDown())));
         SkillCastRegistry.register(MagicContent.WEAVE_RULES, SkillCastRegistry.holdHint("message.magical.weave_hold_to_rule"));
-        SkillCastRegistry.register(MagicContent.MANA_FORM, SkillCastRegistry.holdHint("message.magical.mana_form_pending"));
+        SkillCastRegistry.register(MagicContent.MANA_FORM, SkillCastRegistry.selfManaged(ctx ->
+                com.efkrdnz.magical.magic.mana.ManaFormService.toggle(ctx.player(), ctx.state())));
         // Circle Arsenal is hold/release like Gabriel and Black Flames: the press only hints.
         SkillCastRegistry.register(MagicContent.CIRCLE_ARSENAL, new SkillCastHandler() {
             @Override

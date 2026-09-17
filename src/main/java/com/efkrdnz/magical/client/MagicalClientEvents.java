@@ -216,6 +216,9 @@ public final class MagicalClientEvents {
                 if (SpaceManipulationOverlay.active()) {
                     SpaceManipulationOverlay.finish();
                 }
+                if (WeaveRuleOverlay.active()) {
+                    WeaveRuleOverlay.finish();
+                }
                 FirstPersonEffects.tick(minecraft);
                 com.efkrdnz.magical.client.fx.TransientVisuals.tick();
                 com.efkrdnz.magical.client.fx.SpellParticles.tick();
@@ -242,6 +245,12 @@ public final class MagicalClientEvents {
                 if (SpaceAuthorityInput.tickSlot(minecraft, i)) {
                     while (MagicalKeyMappings.CAST_SLOTS[i].consumeClick()) {
                         // Authority skills use hold/release instead of press-to-cast.
+                    }
+                    continue;
+                }
+                if (ManaAuthorityInput.tickSlot(minecraft, i)) {
+                    while (MagicalKeyMappings.CAST_SLOTS[i].consumeClick()) {
+                        // Weave Rules is chosen on three wheels, not pressed.
                     }
                     continue;
                 }
@@ -380,13 +389,17 @@ public final class MagicalClientEvents {
 
         @SubscribeEvent
         public static void onMouseScroll(InputEvent.MouseScrollingEvent event) {
-            if (SovereignAegisInput.handleScroll(event.getScrollDeltaY()) || BlackFlamesInput.handleScroll(event.getScrollDeltaY()) || SpaceOffenseInput.handleScroll(event.getScrollDeltaY()) || SoulVowInput.handleScroll(event.getScrollDeltaY()) || SpaceManipulationOverlay.handleScroll(event.getScrollDeltaY()) || MagicWheelOverlay.handleScroll(event.getScrollDeltaY())) {
+            if (SovereignAegisInput.handleScroll(event.getScrollDeltaY()) || BlackFlamesInput.handleScroll(event.getScrollDeltaY()) || SpaceOffenseInput.handleScroll(event.getScrollDeltaY()) || SoulVowInput.handleScroll(event.getScrollDeltaY()) || SpaceManipulationOverlay.handleScroll(event.getScrollDeltaY()) || WeaveRuleOverlay.handleScroll(event.getScrollDeltaY()) || MagicWheelOverlay.handleScroll(event.getScrollDeltaY())) {
                 event.setCanceled(true);
             }
         }
 
         @SubscribeEvent
         public static void onMouseButton(InputEvent.MouseButton.Pre event) {
+            if (WeaveRuleOverlay.handleMouseButton(event.getButton(), event.getAction())) {
+                event.setCanceled(true);
+                return;
+            }
             if (SpaceManipulationOverlay.handleMouseButton(event.getButton(), event.getAction())) {
                 event.setCanceled(true);
             }

@@ -164,7 +164,7 @@ public final class SpaceManipulationOverlay {
         }
     }
 
-    private static int[] wheelCenters(int width) {
+    static int[] wheelCenters(int width) {
         int margin = SELECTED_RADIUS + 18;
         int minGap = SELECTED_RADIUS * 2 + 18;
         if (width >= minGap * 2 + margin * 2) {
@@ -174,8 +174,12 @@ public final class SpaceManipulationOverlay {
         return new int[] { width / 2 - spacing, width / 2, width / 2 + spacing };
     }
 
-    private static void drawWheel(GuiGraphics guiGraphics, Minecraft minecraft, int centerX, int centerY, int wheelIndex, List<Component> labels, int selected, int color, Component title) {
-        boolean activeRing = wheelIndex == activeWheel;
+    static void drawWheel(GuiGraphics guiGraphics, Minecraft minecraft, int centerX, int centerY, int wheelIndex, List<Component> labels, int selected, int color, Component title) {
+        drawWheel(guiGraphics, minecraft, centerX, centerY, wheelIndex == activeWheel, labels, selected, color, title);
+    }
+
+    /** The same wheel, for any overlay that tracks which ring is focused on its own. */
+    static void drawWheel(GuiGraphics guiGraphics, Minecraft minecraft, int centerX, int centerY, boolean activeRing, List<Component> labels, int selected, int color, Component title) {
         fillCircleRows(guiGraphics, centerX, centerY, SELECTED_RADIUS + 12, activeRing ? 0x44040A12 : 0x26040A12);
         fillCircleRows(guiGraphics, centerX, centerY, SELECTED_RADIUS + 2, activeRing ? 0xC80B1422 : 0x9C0B1422);
         fillRing(centerX, centerY, OUTER_RADIUS + 2, SELECTED_RADIUS, activeRing ? 0xAA000000 | color : 0x556A8FA5);
@@ -223,7 +227,7 @@ public final class SpaceManipulationOverlay {
         return java.util.Arrays.stream(SpaceTargetGroup.values()).<Component>map(target -> Component.translatable(target.translationKey())).toList();
     }
 
-    private static void fillRingSlice(int centerX, int centerY, float innerRadius, float outerRadius, float startAngle, float endAngle, int color) {
+    static void fillRingSlice(int centerX, int centerY, float innerRadius, float outerRadius, float startAngle, float endAngle, int color) {
         int steps = Math.max(8, Mth.ceil(Math.abs(endAngle - startAngle) / 12.0F));
         BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
         for (int step = 0; step < steps; step++) {
@@ -235,32 +239,32 @@ public final class SpaceManipulationOverlay {
         RenderType.gui().draw(builder.buildOrThrow());
     }
 
-    private static void fillRing(int centerX, int centerY, float innerRadius, float outerRadius, int color) {
+    static void fillRing(int centerX, int centerY, float innerRadius, float outerRadius, int color) {
         fillRingSlice(centerX, centerY, innerRadius, outerRadius, 0.0F, 360.0F, color);
     }
 
-    private static void fillCircleRows(GuiGraphics guiGraphics, int centerX, int centerY, int radius, int color) {
+    static void fillCircleRows(GuiGraphics guiGraphics, int centerX, int centerY, int radius, int color) {
         for (int y = -radius; y <= radius; y++) {
             int width = Mth.floor(Math.sqrt((radius * radius) - (y * y)));
             guiGraphics.fill(centerX - width, centerY + y, centerX + width, centerY + y + 1, color);
         }
     }
 
-    private static void addTriangle(BufferBuilder builder, float x1, float y1, float x2, float y2, float x3, float y3, int color) {
+    static void addTriangle(BufferBuilder builder, float x1, float y1, float x2, float y2, float x3, float y3, int color) {
         builder.addVertex(x1, y1, 0.0F).setColor(color);
         builder.addVertex(x2, y2, 0.0F).setColor(color);
         builder.addVertex(x3, y3, 0.0F).setColor(color);
     }
 
-    private static float pointX(int centerX, float radius, float angleDegrees) {
+    static float pointX(int centerX, float radius, float angleDegrees) {
         return centerX + Mth.cos((angleDegrees - 90.0F) * Mth.DEG_TO_RAD) * radius;
     }
 
-    private static float pointY(int centerY, float radius, float angleDegrees) {
+    static float pointY(int centerY, float radius, float angleDegrees) {
         return centerY + Mth.sin((angleDegrees - 90.0F) * Mth.DEG_TO_RAD) * radius;
     }
 
-    private static int brighten(int color, float amount) {
+    static int brighten(int color, float amount) {
         int r = (color >> 16) & 0xFF;
         int g = (color >> 8) & 0xFF;
         int b = color & 0xFF;

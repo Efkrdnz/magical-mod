@@ -208,6 +208,13 @@ public final class MagicalNetwork {
                                 ForgeComboService.onStrike(player, payload);
                             }
                         }))
+                .playToServer(ApplyWeaveRulePayload.TYPE, ApplyWeaveRulePayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> {
+                            if (context.player() instanceof net.minecraft.server.level.ServerPlayer player) {
+                                com.efkrdnz.magical.magic.mana.ManaAuthorityService.inscribe(
+                                        player, payload.aspect(), payload.operation(), payload.subject());
+                            }
+                        }))
                 .playToServer(ApplySpaceRulePayload.TYPE, ApplySpaceRulePayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> {
                             if (context.player() instanceof ServerPlayer player) {
@@ -379,6 +386,10 @@ public final class MagicalNetwork {
 
     public static void sendForgeCombo(ServerPlayer player, ForgeComboSyncPayload payload) {
         PacketDistributor.sendToPlayer(player, payload);
+    }
+
+    public static void sendWeaveRule(int aspect, int operation, int subject) {
+        PacketDistributor.sendToServer(new ApplyWeaveRulePayload(aspect, operation, subject));
     }
 
     public static void sendSpaceRule(int category, int operation, int targetGroup) {

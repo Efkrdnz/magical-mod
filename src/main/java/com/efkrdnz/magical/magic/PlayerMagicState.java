@@ -45,6 +45,7 @@ public final class PlayerMagicState {
     private ResourceLocation raceId;
     private int activeSubspaceEntityId = -1;
     private int activeWeaveEntityId = -1;
+    private int manaFormTicks;
     private String anchorSigilDimension = "";
     private int anchorSigilX;
     private int anchorSigilY;
@@ -487,6 +488,15 @@ public final class PlayerMagicState {
     /** The Weave this wielder is holding open, or -1. One per wielder, like the subspace. */
     public int activeWeaveEntityId() {
         return activeWeaveEntityId;
+    }
+
+    /** Ticks left as the field rather than a body. Zero means the wielder has a body. */
+    public int manaFormTicks() {
+        return manaFormTicks;
+    }
+
+    public boolean inManaForm() {
+        return manaFormTicks > 0;
     }
 
     /** Ticks left on the anchor sigil, for the HUD's chip; {@link #hasAnchorSigil()} is the flag. */
@@ -1105,6 +1115,7 @@ public final class PlayerMagicState {
         authorityId = null;
         activeSubspaceEntityId = -1;
         activeWeaveEntityId = -1;
+        manaFormTicks = 0;
         clearSoulBond();
     }
 
@@ -1114,6 +1125,10 @@ public final class PlayerMagicState {
 
     public void setActiveWeaveEntityId(int entityId) {
         activeWeaveEntityId = entityId;
+    }
+
+    public void setManaFormTicks(int ticks) {
+        manaFormTicks = Math.max(0, ticks);
     }
 
     public void setAnchorSigil(String dimension, BlockPos pos, int ticks) {
@@ -2030,6 +2045,7 @@ public final class PlayerMagicState {
         copy.raceId = raceId;
         copy.activeSubspaceEntityId = activeSubspaceEntityId;
         copy.activeWeaveEntityId = activeWeaveEntityId;
+        copy.manaFormTicks = manaFormTicks;
         copy.anchorSigilDimension = anchorSigilDimension;
         copy.anchorSigilX = anchorSigilX;
         copy.anchorSigilY = anchorSigilY;
@@ -2139,6 +2155,7 @@ public final class PlayerMagicState {
         }
         tag.putInt("activeSubspaceEntityId", activeSubspaceEntityId);
         tag.putInt("activeWeaveEntityId", activeWeaveEntityId);
+        tag.putInt("manaFormTicks", manaFormTicks);
         tag.putString("anchorSigilDimension", anchorSigilDimension);
         tag.putInt("anchorSigilX", anchorSigilX);
         tag.putInt("anchorSigilY", anchorSigilY);
@@ -2300,6 +2317,7 @@ public final class PlayerMagicState {
         }
         state.activeSubspaceEntityId = tag.contains("activeSubspaceEntityId") ? tag.getInt("activeSubspaceEntityId") : -1;
         state.activeWeaveEntityId = tag.contains("activeWeaveEntityId") ? tag.getInt("activeWeaveEntityId") : -1;
+        state.manaFormTicks = tag.contains("manaFormTicks") ? tag.getInt("manaFormTicks") : 0;
         state.anchorSigilDimension = tag.getString("anchorSigilDimension");
         state.anchorSigilX = tag.getInt("anchorSigilX");
         state.anchorSigilY = tag.getInt("anchorSigilY");
