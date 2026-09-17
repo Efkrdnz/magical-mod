@@ -61,6 +61,16 @@ public final class MagicCastContentKept {
         SkillCastRegistry.register(MagicContent.WRIT, SkillCastRegistry.holdHint("message.magical.writ_hold"));
         SkillCastRegistry.register(MagicContent.MANA_FORM, SkillCastRegistry.selfManaged(ctx ->
                 com.efkrdnz.magical.magic.mana.ManaFormService.toggle(ctx.player(), ctx.state())));
+        // The Authority of Chaos. Three presses and a hold, and all three presses are deliberately
+        // tiny: Burden places one grain, the Last Grain places one more, and Criticality has no
+        // damage of its own at all. Everything that happens afterwards comes out of the Pile.
+        SkillCastRegistry.register(MagicContent.BURDEN, SkillCastRegistry.selfManaged(ctx ->
+                com.efkrdnz.magical.magic.chaos.ChaosAuthorityService.burden(ctx.player(), ctx.state())));
+        SkillCastRegistry.register(MagicContent.FRACTURE, SkillCastRegistry.holdHint("message.magical.fracture_hold"));
+        SkillCastRegistry.register(MagicContent.LAST_GRAIN, SkillCastRegistry.selfManaged(ctx ->
+                com.efkrdnz.magical.magic.chaos.ChaosAuthorityService.lastGrain(ctx.player(), ctx.state())));
+        SkillCastRegistry.register(MagicContent.CRITICALITY, SkillCastRegistry.selfManaged(ctx ->
+                com.efkrdnz.magical.magic.chaos.ChaosAuthorityService.criticality(ctx.player(), ctx.state())));
         // Circle Arsenal is hold/release like Gabriel and Black Flames: the press only hints.
         SkillCastRegistry.register(MagicContent.CIRCLE_ARSENAL, new SkillCastHandler() {
             @Override

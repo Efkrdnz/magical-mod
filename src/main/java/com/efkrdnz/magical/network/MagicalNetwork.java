@@ -215,6 +215,12 @@ public final class MagicalNetwork {
                                         player, payload.target(), payload.aspect(), payload.operation(), payload.subject());
                             }
                         }))
+                .playToServer(ApplyFracturePayload.TYPE, ApplyFracturePayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> {
+                            if (context.player() instanceof net.minecraft.server.level.ServerPlayer player) {
+                                com.efkrdnz.magical.magic.chaos.ChaosAuthorityService.setFracture(player, payload.ordinals());
+                            }
+                        }))
                 .playToServer(ApplySpaceRulePayload.TYPE, ApplySpaceRulePayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> {
                             if (context.player() instanceof ServerPlayer player) {
@@ -390,6 +396,15 @@ public final class MagicalNetwork {
 
     public static void sendWrit(String target, int aspect, int operation, int subject) {
         PacketDistributor.sendToServer(new ApplyWritPayload(target, aspect, operation, subject));
+    }
+
+    /** The whole Fracture at once: a half-authored sequence should never exist on the server. */
+    public static void sendFracture(int[] ordinals) {
+        if (ordinals == null || ordinals.length < 5) {
+            return;
+        }
+        PacketDistributor.sendToServer(new ApplyFracturePayload(
+                ordinals[0], ordinals[1], ordinals[2], ordinals[3], ordinals[4]));
     }
 
     public static void sendSpaceRule(int category, int operation, int targetGroup) {

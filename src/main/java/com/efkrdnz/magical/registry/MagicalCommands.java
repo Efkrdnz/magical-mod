@@ -553,6 +553,22 @@ public final class MagicalCommands {
                                         player.displayClientMessage(Component.translatable("message.magical.authority_cleared"), false);
                                         return 1;
                                     }))))
+                    // Capture tooling, and nothing else: a screenshot of an avalanche needs a
+                    // loaded field, and building one honestly means pressing Burden thirty times.
+                    // The skill is the only real way to make a Pile; this only seeds one.
+                    .then(Commands.literal("pile")
+                            .then(Commands.literal("load")
+                                    .then(Commands.argument("radius", IntegerArgumentType.integer(1, 16))
+                                            .then(Commands.argument("amount", IntegerArgumentType.integer(1, 16))
+                                                    .executes(context -> withPlayer(context.getSource(), player -> seedPile(player,
+                                                            IntegerArgumentType.getInteger(context, "radius"),
+                                                            IntegerArgumentType.getInteger(context, "amount")))))))
+                            .then(Commands.literal("clear")
+                                    .executes(context -> withPlayer(context.getSource(), player -> {
+                                        com.efkrdnz.magical.magic.chaos.PileService.forget(player.getUUID());
+                                        player.displayClientMessage(net.minecraft.network.chat.Component.literal("Pile forgotten."), false);
+                                        return 1;
+                                    }))))
                     .then(Commands.literal("passive")
                             .then(Commands.literal("unlockall")
                                     .executes(context -> withPlayer(context.getSource(), player -> {
@@ -878,7 +894,34 @@ public final class MagicalCommands {
             });
         }
 
-        private static int withPlayer(CommandSourceStack source, java.util.function.ToIntFunction<ServerPlayer> action) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        /**
+     * Presses {@code amount} of stress into every solid block in a cube around the caster.
+     *
+     * <p>Debug only. It goes through {@code Pile.add} rather than round it, so slack ground still
+     * refuses, the site ceiling still holds, and anything already over capacity is armed exactly as
+     * Burden would have armed it - a seeded field behaves like a built one.
+     */
+    private static int seedPile(net.minecraft.server.level.ServerPlayer player, int radius, int amount) {
+        com.efkrdnz.magical.magic.chaos.Pile pile = com.efkrdnz.magical.magic.chaos.PileService.pileFor(player);
+        long now = player.serverLevel().getGameTime();
+        net.minecraft.core.BlockPos centre = player.blockPosition();
+        int loaded = 0;
+        for (net.minecraft.core.BlockPos pos : net.minecraft.core.BlockPos.betweenClosed(
+                centre.offset(-radius, -radius, -radius), centre.offset(radius, radius, radius))) {
+            if (player.serverLevel().getBlockState(pos).isAir()) {
+                continue;
+            }
+            // betweenClosed hands out one reused mutable cursor, and a Pile site is a map key.
+            if (pile.add(com.efkrdnz.magical.magic.chaos.PileSite.of(pos.immutable()), amount, now)) {
+                loaded++;
+            }
+        }
+        player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                loaded + " sites burdened by " + amount), false);
+        return loaded;
+    }
+
+    private static int withPlayer(CommandSourceStack source, java.util.function.ToIntFunction<ServerPlayer> action) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
             return action.applyAsInt(source.getPlayerOrException());
         }
 

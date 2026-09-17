@@ -12,6 +12,7 @@ public final class AuthorityContent {
     public static final ResourceLocation SPACE = ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "authority_of_space");
     public static final ResourceLocation SOUL = ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "authority_of_soul");
     public static final ResourceLocation MANA = ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "authority_of_mana");
+    public static final ResourceLocation CHAOS = ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "authority_of_chaos");
 
     public static final AuthorityDefinition AUTHORITY_OF_SPACE = register(
             SPACE,
@@ -27,6 +28,12 @@ public final class AuthorityContent {
             MANA,
             0xF0F4FF,
             List.of(MagicContent.OPEN_LEDGER.id(), MagicContent.WRIT.id(), MagicContent.MANA_FORM.id()));
+
+    public static final AuthorityDefinition AUTHORITY_OF_CHAOS = register(
+            CHAOS,
+            0xFF4FD8,
+            List.of(MagicContent.BURDEN.id(), MagicContent.FRACTURE.id(), MagicContent.LAST_GRAIN.id(),
+                    MagicContent.CRITICALITY.id()));
 
     private AuthorityContent() {}
 

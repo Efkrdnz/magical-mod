@@ -100,6 +100,7 @@ public final class MagicGameplayEvents {
         DungeonTowerService.tick(event.getServer());
         ChronosSequenceService.tick();
         ForgeComboService.tick(event.getServer());
+        com.efkrdnz.magical.magic.chaos.PileService.tick(event.getServer());
     }
 
     private static void tickManaFlight(ServerPlayer player, PlayerMagicState state) {
@@ -191,6 +192,8 @@ public final class MagicGameplayEvents {
             SpaceAuthorityService.closeAllDomains(player, state, false);
             ForgeComboService.reset(player);
             BlacksmithForgeService.forget(player);
+            // Stress is never saved, so a wielder who logs out leaves no minefield behind them.
+            com.efkrdnz.magical.magic.chaos.PileService.forget(player.getUUID());
         }
     }
 

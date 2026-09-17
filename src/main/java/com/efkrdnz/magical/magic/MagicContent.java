@@ -98,6 +98,14 @@ public final class MagicContent {
     public static final MagicSkillDefinition OPEN_LEDGER = register("open_ledger", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 28, 200, 20, 0.0F, 0, 0xF0F4FF, MagicAttribute.ARCANE);
     public static final MagicSkillDefinition WRIT = register("writ", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 10, 12, 20, 0.0F, 0, 0xE6ECFF, MagicAttribute.ARCANE);
     public static final MagicSkillDefinition MANA_FORM = register("mana_form", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 36, 400, 20, 0.0F, 0, 0xFFFFFF, MagicAttribute.ARCANE);
+    // The Authority of Chaos. Its own school and its own attribute, unlike Mana above: CHAOS has a
+    // SchoolMaterial row already, so these four inherit the magenta facet-band cast circle instead
+    // of falling back to arcane blue. Three of them carry no damage at all - every number this
+    // Authority does is in the Pile, which is to say in the ground the wielder prepared.
+    public static final MagicSkillDefinition BURDEN = register("burden", MagicSchool.CHAOS, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 2, 4, 20, 0.0F, 0, 0xFF4FD8, MagicAttribute.CHAOS);
+    public static final MagicSkillDefinition FRACTURE = register("fracture", MagicSchool.CHAOS, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 0, 100, 20, 0.0F, 0, 0xFF9BEC, MagicAttribute.CHAOS);
+    public static final MagicSkillDefinition LAST_GRAIN = register("last_grain", MagicSchool.CHAOS, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 4, 10, 20, 0.0F, 0, 0xC81FA6, MagicAttribute.CHAOS);
+    public static final MagicSkillDefinition CRITICALITY = register("criticality", MagicSchool.CHAOS, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 72, 1200, 20, 0.0F, 0, 0xE05ACB, MagicAttribute.CHAOS);
     public static final MagicSkillDefinition SOUL_VOW = register("soul_vow", MagicSchool.SOUL, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 18, 80, 20, 0.0F, 0, 0xD8F0FF, MagicAttribute.SOUL);
     public static final MagicSkillDefinition SOUL_VALLEY = register("soul_valley", MagicSchool.SOUL, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 74, 1600, 20, 0.0F, 0, 0xD8F0FF, MagicAttribute.SOUL);
 
@@ -204,7 +212,8 @@ public final class MagicContent {
     private static final int STARTER_SPACE_WALKER_LUCKY_WEIGHT = 6;
     public static final Set<ResourceLocation> STARTER_UNLOCKS = Set.of(STARTER_SKILL);
     public static final Set<ResourceLocation> AUTHORITY_SKILLS = Set.of(CREATE_SUBSPACE.id(), MANIPULATE_SPACE.id(), POCKET_DIMENSION.id(), SPATIAL_ARSENAL.id(), SOUL_VOW.id(),
-            OPEN_LEDGER.id(), WRIT.id(), MANA_FORM.id());
+            OPEN_LEDGER.id(), WRIT.id(), MANA_FORM.id(),
+            BURDEN.id(), FRACTURE.id(), LAST_GRAIN.id(), CRITICALITY.id());
     public static final Set<ResourceLocation> CLASS_REWARD_SKILLS = Set.of(
             HEATED_IRON.id(),
             DAWNHAMMER.id(),

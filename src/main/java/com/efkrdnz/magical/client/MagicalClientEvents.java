@@ -216,6 +216,9 @@ public final class MagicalClientEvents {
                 if (WritOverlay.active()) {
                     WritOverlay.finish();
                 }
+                if (FractureOverlay.active()) {
+                    FractureOverlay.finish();
+                }
                 FirstPersonEffects.tick(minecraft);
                 com.efkrdnz.magical.client.fx.TransientVisuals.tick();
                 com.efkrdnz.magical.client.fx.SpellParticles.tick();
@@ -248,6 +251,12 @@ public final class MagicalClientEvents {
                 if (ManaAuthorityInput.tickSlot(minecraft, i)) {
                     while (MagicalKeyMappings.CAST_SLOTS[i].consumeClick()) {
                         // A writ is chosen on a page and three dials, not pressed.
+                    }
+                    continue;
+                }
+                if (ChaosAuthorityInput.tickSlot(minecraft, i)) {
+                    while (MagicalKeyMappings.CAST_SLOTS[i].consumeClick()) {
+                        // A Fracture is five gates read left to right, not a press.
                     }
                     continue;
                 }
@@ -412,12 +421,14 @@ public final class MagicalClientEvents {
                     || SoulVowInput.handleScroll(scrollDeltaY)
                     || SpaceManipulationOverlay.handleScroll(scrollDeltaY)
                     || WritOverlay.handleScroll(scrollDeltaY)
+                    || FractureOverlay.handleScroll(scrollDeltaY)
                     || MagicWheelOverlay.handleScroll(scrollDeltaY);
         }
 
         /** The same for a mouse button, in the same order the event handler used. */
         public static boolean dispatchMouseButton(int button, int action) {
             return WritOverlay.handleMouseButton(button, action)
+                    || FractureOverlay.handleMouseButton(button, action)
                     || SpaceManipulationOverlay.handleMouseButton(button, action);
         }
 

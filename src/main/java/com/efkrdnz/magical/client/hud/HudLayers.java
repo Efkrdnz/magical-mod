@@ -131,6 +131,7 @@ public final class HudLayers {
         Minecraft minecraft = Minecraft.getInstance();
         SpaceManipulationOverlay.render(graphics, minecraft);
         com.efkrdnz.magical.client.WritOverlay.render(graphics, minecraft);
+        com.efkrdnz.magical.client.FractureOverlay.render(graphics, minecraft);
         MagicWheelOverlay.render(graphics, minecraft);
         SovereignAegisInput.render(graphics, minecraft);
         BlackFlamesInput.render(graphics, minecraft);
