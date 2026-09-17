@@ -82,6 +82,11 @@ public abstract class DomainEntity extends Entity {
     /** True when this subject is inside the region, by whatever shape the region actually has. */
     protected abstract boolean contains(Entity entity);
 
+    /** {@link #contains} for callers outside the domain, such as a law consulted at cast time. */
+    public boolean covers(Entity entity) {
+        return contains(entity);
+    }
+
     /** One subject, one pass over this domain's whole vocabulary. */
     protected abstract void applyLaws(Entity owner, Entity subject, DomainPass pass);
 

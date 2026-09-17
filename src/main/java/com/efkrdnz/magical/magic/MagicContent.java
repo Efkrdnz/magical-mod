@@ -91,6 +91,13 @@ public final class MagicContent {
     public static final MagicSkillDefinition SPATIAL_ARSENAL = register("spatial_arsenal", MagicSchool.SPATIAL, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 18, 80, 20, 0.0F, 0, 0x6ABEFF, MagicAttribute.SPATIAL);
     public static final MagicSkillDefinition SINGULARITY = register("singularity", MagicSchool.SPATIAL, MagicSkillType.BURST, -6, 0, 32.0F, 0.82F, 2.0F, 84, 900, 160, 1.2F, 0, 0x050714, MagicAttribute.SPATIAL);
     public static final MagicSkillDefinition DIMENSIONAL_GUILLOTINE = register("dimensional_guillotine", MagicSchool.SPATIAL, MagicSkillType.BURST, -6, 0, 42.0F, 1.0F, 2.3F, 72, 520, 42, 1.4F, 0, 0x82E8FF, MagicAttribute.SPATIAL);
+    // The Authority of Mana. ARCANE rather than a school of its own: an authority skill sits at
+    // tier -6, the counter ladder never reaches below -5 (see MagicCounterService), so a dedicated
+    // attribute would be an edge that can never fire - and a new school with no SchoolMaterial row
+    // falls back to arcane blue anyway, which is what this is being called on purpose.
+    public static final MagicSkillDefinition CLAIM_WEAVE = register("claim_weave", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 28, 200, 20, 0.0F, 0, 0xF0F4FF, MagicAttribute.ARCANE);
+    public static final MagicSkillDefinition WEAVE_RULES = register("weave_rules", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 10, 12, 20, 0.0F, 0, 0xE6ECFF, MagicAttribute.ARCANE);
+    public static final MagicSkillDefinition MANA_FORM = register("mana_form", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 36, 400, 20, 0.0F, 0, 0xFFFFFF, MagicAttribute.ARCANE);
     public static final MagicSkillDefinition SOUL_VOW = register("soul_vow", MagicSchool.SOUL, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 18, 80, 20, 0.0F, 0, 0xD8F0FF, MagicAttribute.SOUL);
     public static final MagicSkillDefinition SOUL_VALLEY = register("soul_valley", MagicSchool.SOUL, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 74, 1600, 20, 0.0F, 0, 0xD8F0FF, MagicAttribute.SOUL);
 
@@ -196,7 +203,8 @@ public final class MagicContent {
     private static final float STARTER_TIER_4_CHANCE = 0.18F;
     private static final int STARTER_SPACE_WALKER_LUCKY_WEIGHT = 6;
     public static final Set<ResourceLocation> STARTER_UNLOCKS = Set.of(STARTER_SKILL);
-    public static final Set<ResourceLocation> AUTHORITY_SKILLS = Set.of(CREATE_SUBSPACE.id(), MANIPULATE_SPACE.id(), POCKET_DIMENSION.id(), SPATIAL_ARSENAL.id(), SOUL_VOW.id());
+    public static final Set<ResourceLocation> AUTHORITY_SKILLS = Set.of(CREATE_SUBSPACE.id(), MANIPULATE_SPACE.id(), POCKET_DIMENSION.id(), SPATIAL_ARSENAL.id(), SOUL_VOW.id(),
+            CLAIM_WEAVE.id(), WEAVE_RULES.id(), MANA_FORM.id());
     public static final Set<ResourceLocation> CLASS_REWARD_SKILLS = Set.of(
             HEATED_IRON.id(),
             DAWNHAMMER.id(),

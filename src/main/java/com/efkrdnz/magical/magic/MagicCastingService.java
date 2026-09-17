@@ -300,6 +300,14 @@ public final class MagicCastingService {
             return;
         }
 
+        // A Weave with SCHOOL set to ZERO over this caster is anti-magic, and anti-magic is not a
+        // skill anyone cast at them - it is one cell of an ordinary grammar someone legislated.
+        // Checked before the cooldown so a silenced cast is refused rather than burned.
+        if (com.efkrdnz.magical.magic.mana.WeaveLaw.silenced(player)) {
+            player.displayClientMessage(Component.translatable("message.magical.weave_silenced"), true);
+            return;
+        }
+
         if (java.util.Set.of("iron_charge", "transposition").contains(skillId.getPath()) && UnwakingCapabilities.refuseMovement(player)) return;
         if (state.isSkillOnCooldown(skillId)) {
             player.displayClientMessage(Component.translatable("message.magical.skill_cooling"), true);

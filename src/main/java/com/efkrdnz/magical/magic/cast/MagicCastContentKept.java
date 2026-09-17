@@ -53,6 +53,16 @@ public final class MagicCastContentKept {
         SkillCastRegistry.register(MagicContent.BLACK_FLAMES, SkillCastRegistry.holdHint("message.magical.black_flames_hold"));
         SkillCastRegistry.register(MagicContent.SPATIAL_ARSENAL, SkillCastRegistry.holdHint("message.magical.spatial_arsenal_hold"));
         SkillCastRegistry.register(MagicContent.SOUL_VOW, SkillCastRegistry.holdHint("message.magical.soul_vow_hold"));
+        // Authority of Mana. Claim is self-managed the way the subspace is - it pays its own price
+        // and doubles as the dismiss. Rules is a hold, because the player is choosing one of six
+        // aspects, six operations and three subjects, not pressing a button.
+        SkillCastRegistry.register(MagicContent.CLAIM_WEAVE, SkillCastRegistry.selfManaged(ctx ->
+                com.efkrdnz.magical.magic.mana.ManaAuthorityService.claimOrRelease(
+                        ctx.player(), ctx.state(),
+                        com.efkrdnz.magical.entity.domain.ManaWeaveEntity.MIN_RADIUS,
+                        !ctx.player().isShiftKeyDown())));
+        SkillCastRegistry.register(MagicContent.WEAVE_RULES, SkillCastRegistry.holdHint("message.magical.weave_hold_to_rule"));
+        SkillCastRegistry.register(MagicContent.MANA_FORM, SkillCastRegistry.holdHint("message.magical.mana_form_pending"));
         // Circle Arsenal is hold/release like Gabriel and Black Flames: the press only hints.
         SkillCastRegistry.register(MagicContent.CIRCLE_ARSENAL, new SkillCastHandler() {
             @Override

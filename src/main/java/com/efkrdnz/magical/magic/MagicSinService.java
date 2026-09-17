@@ -67,6 +67,16 @@ public final class MagicSinService {
     }
 
     public static boolean spendManaForSkill(ServerPlayer player, PlayerMagicState state, int amount) {
+        // Every cast in the mod is billed through here, which is why the Weave is read here and
+        // nowhere else. A caster with no Weave over them pays exactly what they always paid.
+        amount = com.efkrdnz.magical.magic.mana.WeaveLaw.cost(player, amount);
+        if (amount <= 0) {
+            // ZERO makes the cast free; INVERT hands the price back rather than taking it.
+            if (amount < 0) {
+                state.setMana(Math.min(state.maxMana(), state.mana() - amount));
+            }
+            return true;
+        }
         if (MagicPrice.waived(player)) {
             // Creative is charged nothing. The contract is unchanged - true still means "the cast
             // may proceed" - so the rollback paths that refund manaCost on a failed cast simply

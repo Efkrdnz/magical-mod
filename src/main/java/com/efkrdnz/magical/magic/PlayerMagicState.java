@@ -44,6 +44,7 @@ public final class PlayerMagicState {
     /** Chosen once at first spawn and never again; null until then, which is what holds the awakening. */
     private ResourceLocation raceId;
     private int activeSubspaceEntityId = -1;
+    private int activeWeaveEntityId = -1;
     private String anchorSigilDimension = "";
     private int anchorSigilX;
     private int anchorSigilY;
@@ -481,6 +482,11 @@ public final class PlayerMagicState {
 
     public int activeSubspaceEntityId() {
         return activeSubspaceEntityId;
+    }
+
+    /** The Weave this wielder is holding open, or -1. One per wielder, like the subspace. */
+    public int activeWeaveEntityId() {
+        return activeWeaveEntityId;
     }
 
     /** Ticks left on the anchor sigil, for the HUD's chip; {@link #hasAnchorSigil()} is the flag. */
@@ -1098,11 +1104,16 @@ public final class PlayerMagicState {
         clearAuthoritySkills();
         authorityId = null;
         activeSubspaceEntityId = -1;
+        activeWeaveEntityId = -1;
         clearSoulBond();
     }
 
     public void setActiveSubspaceEntityId(int entityId) {
         activeSubspaceEntityId = entityId;
+    }
+
+    public void setActiveWeaveEntityId(int entityId) {
+        activeWeaveEntityId = entityId;
     }
 
     public void setAnchorSigil(String dimension, BlockPos pos, int ticks) {
@@ -2018,6 +2029,7 @@ public final class PlayerMagicState {
         copy.authorityId = authorityId;
         copy.raceId = raceId;
         copy.activeSubspaceEntityId = activeSubspaceEntityId;
+        copy.activeWeaveEntityId = activeWeaveEntityId;
         copy.anchorSigilDimension = anchorSigilDimension;
         copy.anchorSigilX = anchorSigilX;
         copy.anchorSigilY = anchorSigilY;
@@ -2126,6 +2138,7 @@ public final class PlayerMagicState {
             tag.putString("raceId", raceId.toString());
         }
         tag.putInt("activeSubspaceEntityId", activeSubspaceEntityId);
+        tag.putInt("activeWeaveEntityId", activeWeaveEntityId);
         tag.putString("anchorSigilDimension", anchorSigilDimension);
         tag.putInt("anchorSigilX", anchorSigilX);
         tag.putInt("anchorSigilY", anchorSigilY);
@@ -2286,6 +2299,7 @@ public final class PlayerMagicState {
             }
         }
         state.activeSubspaceEntityId = tag.contains("activeSubspaceEntityId") ? tag.getInt("activeSubspaceEntityId") : -1;
+        state.activeWeaveEntityId = tag.contains("activeWeaveEntityId") ? tag.getInt("activeWeaveEntityId") : -1;
         state.anchorSigilDimension = tag.getString("anchorSigilDimension");
         state.anchorSigilX = tag.getInt("anchorSigilX");
         state.anchorSigilY = tag.getInt("anchorSigilY");

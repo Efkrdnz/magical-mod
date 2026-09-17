@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.registry;
 
 import com.efkrdnz.magical.MagicalMod;
+import com.efkrdnz.magical.entity.domain.ManaWeaveEntity;
 import com.efkrdnz.magical.entity.DivineDividerWaveEntity;
 import com.efkrdnz.magical.entity.FlareTriangleEntity;
 import com.efkrdnz.magical.entity.MagicBarrageBeamEntity;
@@ -165,6 +166,14 @@ public final class MagicalEntities {
                     .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
                     .updateInterval(1)
                     .build(key("space_subspace")));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<ManaWeaveEntity>> MANA_WEAVE = ENTITY_TYPES.register(
+            "mana_weave",
+            () -> EntityType.Builder.<ManaWeaveEntity>of(ManaWeaveEntity::new, MobCategory.MISC)
+                    .sized(48.0F, 48.0F)
+                    .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
+                    .updateInterval(1)
+                    .build(key("mana_weave")));
 
     public static final DeferredHolder<EntityType<?>, EntityType<SpacePocketPortalEntity>> SPACE_POCKET_PORTAL = ENTITY_TYPES.register(
             "space_pocket_portal",

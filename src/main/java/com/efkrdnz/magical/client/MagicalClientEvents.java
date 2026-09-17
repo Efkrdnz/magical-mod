@@ -169,6 +169,9 @@ public final class MagicalClientEvents {
         event.registerEntityRenderer(MagicalEntities.SKILL_CLASH_EFFECT.get(), SkillClashEffectRenderer::new);
         event.registerEntityRenderer(MagicalEntities.ABYSSAL_DISCHARGE.get(), AbyssalDischargeRenderer::new);
         event.registerEntityRenderer(MagicalEntities.SPACE_SUBSPACE.get(), SpaceSubspaceRenderer::new);
+        // The Weave has no shell of its own yet - a domain with no renderer bound is a client-side
+        // NullPointerException on the first frame it is in view, not an invisible entity.
+        event.registerEntityRenderer(MagicalEntities.MANA_WEAVE.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);
         event.registerEntityRenderer(MagicalEntities.SPACE_SUMMON.get(), SpaceSummonRenderer::new);
         event.registerEntityRenderer(MagicalEntities.SPACE_PORTAL.get(), SpacePortalRenderer::new);
         event.registerEntityRenderer(MagicalEntities.SPACE_POCKET_PORTAL.get(), SpacePocketPortalRenderer::new);

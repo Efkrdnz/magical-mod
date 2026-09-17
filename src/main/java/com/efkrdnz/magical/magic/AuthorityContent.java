@@ -11,6 +11,7 @@ public final class AuthorityContent {
 
     public static final ResourceLocation SPACE = ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "authority_of_space");
     public static final ResourceLocation SOUL = ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "authority_of_soul");
+    public static final ResourceLocation MANA = ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "authority_of_mana");
 
     public static final AuthorityDefinition AUTHORITY_OF_SPACE = register(
             SPACE,
@@ -21,6 +22,11 @@ public final class AuthorityContent {
             SOUL,
             0xD8F0FF,
             List.of(MagicContent.SOUL_VOW.id()));
+
+    public static final AuthorityDefinition AUTHORITY_OF_MANA = register(
+            MANA,
+            0xF0F4FF,
+            List.of(MagicContent.CLAIM_WEAVE.id(), MagicContent.WEAVE_RULES.id(), MagicContent.MANA_FORM.id()));
 
     private AuthorityContent() {}
 

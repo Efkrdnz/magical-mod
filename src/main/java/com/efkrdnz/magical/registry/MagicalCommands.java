@@ -223,6 +223,29 @@ public final class MagicalCommands {
                                                             .suggests((context, builder) -> SharedSuggestionProvider.suggest(lowerNames(SpaceTargetGroup.values()), builder))
                                                             .executes(context -> withPlayer(context.getSource(), player ->
                                                                     subspaceRule(context, player, StringArgumentType.getString(context, "target")))))))))
+                    // The Weave, without an authority or a cooldown in the way. Captures only.
+                    .then(Commands.literal("weave")
+                            .then(Commands.literal("claim")
+                                    .executes(context -> withPlayer(context.getSource(), player -> raiseWeave(player, 12.0F, true)))
+                                    .then(Commands.argument("radius", FloatArgumentType.floatArg(
+                                            com.efkrdnz.magical.entity.domain.ManaWeaveEntity.MIN_RADIUS,
+                                            com.efkrdnz.magical.entity.domain.ManaWeaveEntity.MAX_RADIUS))
+                                            .executes(context -> withPlayer(context.getSource(), player ->
+                                                    raiseWeave(player, FloatArgumentType.getFloat(context, "radius"), true)))))
+                            .then(Commands.literal("rule")
+                                    .then(Commands.argument("aspect", StringArgumentType.word())
+                                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(
+                                                    lowerNames(com.efkrdnz.magical.magic.mana.WeaveAspect.values()), builder))
+                                            .then(Commands.argument("operation", StringArgumentType.word())
+                                                    .suggests((context, builder) -> SharedSuggestionProvider.suggest(
+                                                            lowerNames(com.efkrdnz.magical.magic.mana.WeaveOperation.values()), builder))
+                                                    .executes(context -> withPlayer(context.getSource(), player ->
+                                                            weaveRule(context, player, "THEIRS")))
+                                                    .then(Commands.argument("subject", StringArgumentType.word())
+                                                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(
+                                                                    lowerNames(com.efkrdnz.magical.magic.mana.WeaveSubject.values()), builder))
+                                                            .executes(context -> withPlayer(context.getSource(), player ->
+                                                                    weaveRule(context, player, StringArgumentType.getString(context, "subject")))))))))
                     // The pact screen, without walking a Vessel up first. Captures only: the cast
                     // path refuses a Vessel under a hundred, and the seal still charges it.
                     .then(Commands.literal("sacrifice")
@@ -1014,6 +1037,51 @@ public final class MagicalCommands {
     }
 
     /** {@code subspace rule}: the same three words as {@code hud rule}, onto the standing domain. */
+    /** Raises a Weave with none of the skill's gates, so a capture does not need an authority. */
+    private static int raiseWeave(ServerPlayer player, float radius, boolean followOwner) {
+        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+        com.efkrdnz.magical.entity.domain.ManaWeaveEntity weave =
+                com.efkrdnz.magical.entity.domain.ManaWeaveEntity.create(player.serverLevel(), player, radius, followOwner);
+        player.serverLevel().addFreshEntity(weave);
+        state.setActiveWeaveEntityId(weave.getId());
+        state.sync(player);
+        return 1;
+    }
+
+    /** Writes a rule straight onto the standing Weave, bypassing the skill's mana and cooldown. */
+    private static int weaveRule(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context, ServerPlayer player, String subjectName) {
+        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+        com.efkrdnz.magical.entity.domain.ManaWeaveEntity weave =
+                com.efkrdnz.magical.magic.mana.ManaAuthorityService.activeWeave(player, state);
+        if (weave == null) {
+            context.getSource().sendFailure(Component.literal("no weave standing: /magical weave claim"));
+            return 0;
+        }
+        com.efkrdnz.magical.magic.mana.WeaveAspect aspect = enumByName(
+                com.efkrdnz.magical.magic.mana.WeaveAspect.values(), StringArgumentType.getString(context, "aspect"));
+        com.efkrdnz.magical.magic.mana.WeaveOperation operation = enumByName(
+                com.efkrdnz.magical.magic.mana.WeaveOperation.values(), StringArgumentType.getString(context, "operation"));
+        com.efkrdnz.magical.magic.mana.WeaveSubject subject = enumByName(
+                com.efkrdnz.magical.magic.mana.WeaveSubject.values(), subjectName);
+        if (aspect == null || operation == null || subject == null) {
+            context.getSource().sendFailure(Component.literal("unknown aspect, operation or subject"));
+            return 0;
+        }
+        weave.inscribe(aspect, operation, subject);
+        context.getSource().sendSuccess(() -> Component.literal(
+                "weave: " + aspect + " " + operation + " " + subject), false);
+        return 1;
+    }
+
+    private static <T extends Enum<T>> T enumByName(T[] values, String name) {
+        for (T value : values) {
+            if (value.name().equalsIgnoreCase(name)) {
+                return value;
+            }
+        }
+        return null;
+    }
+
     private static int subspaceRule(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context, ServerPlayer player, String targetName) {
         ParsedRule rule = parseRule(context, targetName);
         if (rule == null) {
