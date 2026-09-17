@@ -136,7 +136,7 @@ public final class OpenVeinSkill implements SkillModule {
             @Override
             public MobCastProfile mob() {
                 // A mob has no Vessel to bleed anything into.
-                return null;
+                return MobCastProfile.NONE;
             }
         };
     }

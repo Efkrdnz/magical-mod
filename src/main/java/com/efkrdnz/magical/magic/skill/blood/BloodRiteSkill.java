@@ -126,7 +126,7 @@ public final class BloodRiteSkill implements SkillModule {
 
             @Override
             public MobCastProfile mob() {
-                return null;
+                return MobCastProfile.NONE;
             }
         };
     }

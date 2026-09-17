@@ -154,7 +154,7 @@ public final class CoagulateSkill implements SkillModule {
 
             @Override
             public MobCastProfile mob() {
-                return null;
+                return MobCastProfile.NONE;
             }
         };
     }

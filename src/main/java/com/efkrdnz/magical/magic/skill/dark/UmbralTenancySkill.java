@@ -114,7 +114,7 @@ public final class UmbralTenancySkill implements SkillModule {
 
             @Override
             public MobCastProfile mob() {
-                return null;
+                return MobCastProfile.NONE;
             }
         };
     }

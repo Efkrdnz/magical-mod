@@ -157,7 +157,7 @@ public final class BloodManipulationSkill implements SkillModule {
             @Override
             public MobCastProfile mob() {
                 // Mobs have no editor to draw in, so there is no shape for them to cast.
-                return null;
+                return MobCastProfile.NONE;
             }
 
             @Override

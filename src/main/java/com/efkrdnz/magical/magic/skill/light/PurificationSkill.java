@@ -103,7 +103,7 @@ public final class PurificationSkill implements SkillModule {
 
             @Override
             public MobCastProfile mob() {
-                return null;
+                return MobCastProfile.NONE;
             }
         };
     }

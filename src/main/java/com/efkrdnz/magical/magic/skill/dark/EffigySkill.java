@@ -110,7 +110,7 @@ public final class EffigySkill implements SkillModule {
 
             @Override
             public MobCastProfile mob() {
-                return null;
+                return MobCastProfile.NONE;
             }
         };
     }

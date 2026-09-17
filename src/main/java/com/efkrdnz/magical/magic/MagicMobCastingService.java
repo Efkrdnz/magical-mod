@@ -317,7 +317,12 @@ public final class MagicMobCastingService {
                 return false;
             }
         }
-        if (!SkillCastRegistry.has(definition.id()) || !SkillCastRegistry.get(definition.id()).mob().usable()) {
+        // Null-safe on purpose: a handler that means "mobs never cast this" should say so with
+        // MobCastProfile.NONE, but twelve of them used to say it with null and every one was a
+        // server crash in entity ticking the moment an ascendant opponent considered the skill.
+        com.efkrdnz.magical.magic.cast.MobCastProfile profile =
+                SkillCastRegistry.has(definition.id()) ? SkillCastRegistry.get(definition.id()).mob() : null;
+        if (profile == null || !profile.usable()) {
             return false;
         }
         MagicSkillResolvedStats stats = definition.resolve(state.tuningFor(definition.id()));

@@ -78,7 +78,7 @@ public final class BloodSacrificeSkill implements SkillModule {
 
             @Override
             public MobCastProfile mob() {
-                return null;
+                return MobCastProfile.NONE;
             }
         };
     }

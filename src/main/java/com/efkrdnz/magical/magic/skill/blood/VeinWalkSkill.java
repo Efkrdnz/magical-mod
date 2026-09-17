@@ -129,7 +129,7 @@ public final class VeinWalkSkill implements SkillModule {
 
             @Override
             public MobCastProfile mob() {
-                return null;
+                return MobCastProfile.NONE;
             }
         };
     }
