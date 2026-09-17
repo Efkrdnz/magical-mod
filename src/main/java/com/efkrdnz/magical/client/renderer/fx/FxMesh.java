@@ -402,11 +402,19 @@ public final class FxMesh {
         });
     }
 
-    /** Low-poly boulder: a jittered sphere (radius ~1) with facet uvs. */
+    /**
+     * Low-poly boulder: a jittered sphere (radius ~1) with facet uvs.
+     *
+     * <p>The sphere is fetched <em>before</em> the cache is entered, and must stay that way. Every
+     * builder here memoises into the one {@code CACHE}, and a {@code computeIfAbsent} whose mapping
+     * function reaches back into the same HashMap throws {@link java.util.ConcurrentModificationException}
+     * on Java 9 and up - so building the boulder inside its own cache miss crashed the render thread
+     * the first time anything with a boulder body was drawn.
+     */
     public static float[] boulder(int seed) {
+        int segments = 8, rings = 5;
+        float[] base = sphere(segments, rings);
         return CACHE.computeIfAbsent("boulder:" + seed, key -> {
-            int segments = 8, rings = 5;
-            float[] base = sphere(segments, rings);
             float[] m = base.clone();
             for (int i = 0; i < m.length; i += STRIDE) {
                 float x = m[i], y = m[i + 1], z = m[i + 2];

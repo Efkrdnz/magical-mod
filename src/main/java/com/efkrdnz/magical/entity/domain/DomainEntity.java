@@ -24,12 +24,17 @@ import net.minecraft.world.phys.Vec3;
 /**
  * A bounded region owned by one wielder, which ticks over whatever stands inside it.
  *
- * <p>Three Authorities want one and they want the same machine: Space raises a subspace and
- * legislates physics in it, Mana claims a Weave and legislates magic in it, Life spreads a root
- * network and commands the cycle in it. What differs between them is only the vocabulary written on
- * the region and what that vocabulary does to a subject. Everything else - who owns it, whether it
- * follows them, how long it lives, how it finds what is inside, which half of a law each machine is
- * allowed to carry out, and the abilities it lent out and must take back - is the same code, and it
+ * <p><b>Only the Authority of Space has one.</b> This was pulled out of the subspace on the
+ * assumption that Mana and Life would want the same machine, and that assumption was wrong twice:
+ * an Authority over mana owns prices rather than places, and an Authority over life owns a growing
+ * graph rather than a ball. A region is the shape of exactly one of the nine, and giving the other
+ * eight the same shape with different words on it is how nine powers become one power.
+ *
+ * <p>It is left standing because the subspace genuinely uses all of it and the split is what makes
+ * the two halves of a law legible - who owns it, whether it follows them, how long it lives, how it
+ * finds what is inside, which half of a law each machine may carry out, and the abilities it lent
+ * out and must take back. If nothing else ever subclasses it, it should be folded back in rather
+ * than left advertising tenants that never arrived. All of that is the same code, and it
  * lives here so that it is the same code in fact rather than by resemblance.
  *
  * <p><b>Why an abstract class and not one entity carrying a kind.</b> {@code

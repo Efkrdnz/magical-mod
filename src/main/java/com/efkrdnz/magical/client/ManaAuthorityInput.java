@@ -6,10 +6,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * Holding a slot that carries Weave Rules opens the three wheels; letting go writes the rule.
+ * Holding a slot that carries Writ opens the Ledger; letting go declares what is on it.
  *
- * <p>The same shape {@code SpaceAuthorityInput} gives Manipulate Space, and for the same reason: a
- * grammar of thirty-six declarations is chosen, not pressed.
+ * <p>The same hold-and-release shape {@code SpaceAuthorityInput} gives Manipulate Space, for the
+ * same reason - a grammar this wide is chosen, not pressed - but what it opens is a page of spells
+ * the wielder has witnessed rather than a fixed set of dials.
  */
 public final class ManaAuthorityInput {
 
@@ -22,22 +23,22 @@ public final class ManaAuthorityInput {
             return false;
         }
         ResourceLocation skillId = ClientMagicState.get().equippedSkill(slot);
-        boolean weaveSlot = ClientMagicState.get().hasAuthority(AuthorityContent.MANA)
-                && MagicContent.WEAVE_RULES.id().equals(skillId);
+        boolean writSlot = ClientMagicState.get().hasAuthority(AuthorityContent.MANA)
+                && MagicContent.WRIT.id().equals(skillId);
         boolean down = MagicalKeyMappings.CAST_SLOTS[slot].isDown();
-        if (!weaveSlot) {
+        if (!writSlot) {
             if (WAS_DOWN[slot]) {
                 WAS_DOWN[slot] = false;
-                if (WeaveRuleOverlay.active()) {
-                    WeaveRuleOverlay.finish();
+                if (WritOverlay.active()) {
+                    WritOverlay.finish();
                 }
             }
             return false;
         }
         if (down && !WAS_DOWN[slot]) {
-            WeaveRuleOverlay.begin();
+            WritOverlay.begin();
         } else if (!down && WAS_DOWN[slot]) {
-            WeaveRuleOverlay.finish();
+            WritOverlay.finish();
         }
         WAS_DOWN[slot] = down;
         return true;

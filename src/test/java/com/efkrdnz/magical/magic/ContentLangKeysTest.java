@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * A skill with no lang key is not a crash. It is a codex row reading
- * {@code skill.magical.claim_weave}, a cast card with a raw id on it and a tooltip that says
+ * {@code skill.magical.open_ledger}, a cast card with a raw id on it and a tooltip that says
  * nothing - all of which read as placeholder art rather than as a bug, so they survive review.
  *
  * <p>Nothing has ever checked these. {@code MagicalTooltipAssetsTest} deliberately skips keys built

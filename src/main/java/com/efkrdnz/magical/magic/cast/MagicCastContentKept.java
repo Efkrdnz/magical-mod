@@ -53,15 +53,12 @@ public final class MagicCastContentKept {
         SkillCastRegistry.register(MagicContent.BLACK_FLAMES, SkillCastRegistry.holdHint("message.magical.black_flames_hold"));
         SkillCastRegistry.register(MagicContent.SPATIAL_ARSENAL, SkillCastRegistry.holdHint("message.magical.spatial_arsenal_hold"));
         SkillCastRegistry.register(MagicContent.SOUL_VOW, SkillCastRegistry.holdHint("message.magical.soul_vow_hold"));
-        // Authority of Mana. Claim is self-managed the way the subspace is - it pays its own price
-        // and doubles as the dismiss. Rules is a hold, because the player is choosing one of six
-        // aspects, six operations and three subjects, not pressing a button.
-        SkillCastRegistry.register(MagicContent.CLAIM_WEAVE, SkillCastRegistry.selfManaged(ctx ->
-                com.efkrdnz.magical.magic.mana.ManaAuthorityService.claimOrRelease(
-                        ctx.player(), ctx.state(),
-                        com.efkrdnz.magical.entity.domain.ManaWeaveEntity.MIN_RADIUS,
-                        !ctx.player().isShiftKeyDown())));
-        SkillCastRegistry.register(MagicContent.WEAVE_RULES, SkillCastRegistry.holdHint("message.magical.weave_hold_to_rule"));
+        // Authority of Mana. Opening the book is self-managed and doubles as shutting it. A writ
+        // is a hold, because the player is choosing a spell out of everything they have ever
+        // witnessed, then an aspect, an operation and a subject - not pressing a button.
+        SkillCastRegistry.register(MagicContent.OPEN_LEDGER, SkillCastRegistry.selfManaged(ctx ->
+                com.efkrdnz.magical.magic.mana.ManaLedgerService.openOrClose(ctx.player(), ctx.state())));
+        SkillCastRegistry.register(MagicContent.WRIT, SkillCastRegistry.holdHint("message.magical.writ_hold"));
         SkillCastRegistry.register(MagicContent.MANA_FORM, SkillCastRegistry.selfManaged(ctx ->
                 com.efkrdnz.magical.magic.mana.ManaFormService.toggle(ctx.player(), ctx.state())));
         // Circle Arsenal is hold/release like Gabriel and Black Flames: the press only hints.

@@ -44,7 +44,7 @@ public final class PlayerMagicState {
     /** Chosen once at first spawn and never again; null until then, which is what holds the awakening. */
     private ResourceLocation raceId;
     private int activeSubspaceEntityId = -1;
-    private int activeWeaveEntityId = -1;
+    private final com.efkrdnz.magical.magic.mana.ManaLedger manaLedger = new com.efkrdnz.magical.magic.mana.ManaLedger();
     private int manaFormTicks;
     private String anchorSigilDimension = "";
     private int anchorSigilX;
@@ -485,12 +485,17 @@ public final class PlayerMagicState {
         return activeSubspaceEntityId;
     }
 
-    /** The Weave this wielder is holding open, or -1. One per wielder, like the subspace. */
-    public int activeWeaveEntityId() {
-        return activeWeaveEntityId;
+    /**
+     * The book this wielder keeps: what they have witnessed, and what they have ruled about it.
+     *
+     * <p>Never null and never replaced, so callers may hold it. It is the whole of the Authority
+     * of Mana, which owns prices rather than places and therefore owns no entity at all.
+     */
+    public com.efkrdnz.magical.magic.mana.ManaLedger manaLedger() {
+        return manaLedger;
     }
 
-    /** Ticks left as the field rather than a body. Zero means the wielder has a body. */
+    /** Ticks spent as the pool rather than a body. Zero means the wielder has a body. */
     public int manaFormTicks() {
         return manaFormTicks;
     }
@@ -1114,17 +1119,13 @@ public final class PlayerMagicState {
         clearAuthoritySkills();
         authorityId = null;
         activeSubspaceEntityId = -1;
-        activeWeaveEntityId = -1;
+        manaLedger.clear();
         manaFormTicks = 0;
         clearSoulBond();
     }
 
     public void setActiveSubspaceEntityId(int entityId) {
         activeSubspaceEntityId = entityId;
-    }
-
-    public void setActiveWeaveEntityId(int entityId) {
-        activeWeaveEntityId = entityId;
     }
 
     public void setManaFormTicks(int ticks) {
@@ -2044,7 +2045,7 @@ public final class PlayerMagicState {
         copy.authorityId = authorityId;
         copy.raceId = raceId;
         copy.activeSubspaceEntityId = activeSubspaceEntityId;
-        copy.activeWeaveEntityId = activeWeaveEntityId;
+        copy.manaLedger.copyFrom(manaLedger);
         copy.manaFormTicks = manaFormTicks;
         copy.anchorSigilDimension = anchorSigilDimension;
         copy.anchorSigilX = anchorSigilX;
@@ -2154,7 +2155,7 @@ public final class PlayerMagicState {
             tag.putString("raceId", raceId.toString());
         }
         tag.putInt("activeSubspaceEntityId", activeSubspaceEntityId);
-        tag.putInt("activeWeaveEntityId", activeWeaveEntityId);
+        tag.put("manaLedger", manaLedger.save());
         tag.putInt("manaFormTicks", manaFormTicks);
         tag.putString("anchorSigilDimension", anchorSigilDimension);
         tag.putInt("anchorSigilX", anchorSigilX);
@@ -2316,7 +2317,7 @@ public final class PlayerMagicState {
             }
         }
         state.activeSubspaceEntityId = tag.contains("activeSubspaceEntityId") ? tag.getInt("activeSubspaceEntityId") : -1;
-        state.activeWeaveEntityId = tag.contains("activeWeaveEntityId") ? tag.getInt("activeWeaveEntityId") : -1;
+        state.manaLedger.load(tag.getCompound("manaLedger"));
         state.manaFormTicks = tag.contains("manaFormTicks") ? tag.getInt("manaFormTicks") : 0;
         state.anchorSigilDimension = tag.getString("anchorSigilDimension");
         state.anchorSigilX = tag.getInt("anchorSigilX");

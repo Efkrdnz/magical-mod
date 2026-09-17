@@ -237,7 +237,12 @@ public final class MagicGameplayEvents {
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
         // A wielder who has put the body down cannot be struck by anything that needs a body to
         // strike. It is not a ward and there is nothing to break - there is simply no one there.
-        if (state.inManaForm()) {
+        // A wielder who put the body down has no flesh for this to land on, but the blow is not
+        // free: it is billed to the pool they are currently made of, and emptying that pool is
+        // the only thing that ends them in this state.
+        if (state.inManaForm()
+                && com.efkrdnz.magical.magic.mana.ManaFormService.absorb(player, state,
+                        event.getContainer().getNewDamage())) {
             event.getContainer().setNewDamage(0.0F);
             event.setCanceled(true);
             return;

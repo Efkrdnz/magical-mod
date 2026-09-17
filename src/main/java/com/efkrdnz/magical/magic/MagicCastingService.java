@@ -300,14 +300,6 @@ public final class MagicCastingService {
             return;
         }
 
-        // A Weave with SCHOOL set to ZERO over this caster is anti-magic, and anti-magic is not a
-        // skill anyone cast at them - it is one cell of an ordinary grammar someone legislated.
-        // Checked before the cooldown so a silenced cast is refused rather than burned.
-        if (com.efkrdnz.magical.magic.mana.WeaveLaw.silenced(player)) {
-            player.displayClientMessage(Component.translatable("message.magical.weave_silenced"), true);
-            return;
-        }
-
         if (java.util.Set.of("iron_charge", "transposition").contains(skillId.getPath()) && UnwakingCapabilities.refuseMovement(player)) return;
         if (state.isSkillOnCooldown(skillId)) {
             player.displayClientMessage(Component.translatable("message.magical.skill_cooling"), true);
@@ -317,6 +309,14 @@ public final class MagicCastingService {
         MagicSkillDefinition definition = MagicContent.get(skillId);
         if (definition == null || !state.hasUnlocked(skillId)) {
             player.displayClientMessage(Component.translatable("message.magical.skill_locked"), true);
+            return;
+        }
+        // A writ with MANIFESTATION set to ZERO over this spell is anti-magic, and anti-magic is
+        // not a skill anyone cast at them - it is one cell of an ordinary grammar someone
+        // legislated. It has to wait until here because a writ names a spell, and until the
+        // definition is resolved there is no spell to ask about. Nothing has been spent yet.
+        if (com.efkrdnz.magical.magic.mana.WritLaw.silenced(player, definition)) {
+            player.displayClientMessage(Component.translatable("message.magical.writ_silenced"), true);
             return;
         }
         com.efkrdnz.magical.magic.status.MagicStatus blocker = com.efkrdnz.magical.magic.status.MagicStatusService.castBlocker(player);

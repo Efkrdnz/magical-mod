@@ -26,7 +26,7 @@ public final class AuthorityContent {
     public static final AuthorityDefinition AUTHORITY_OF_MANA = register(
             MANA,
             0xF0F4FF,
-            List.of(MagicContent.CLAIM_WEAVE.id(), MagicContent.WEAVE_RULES.id(), MagicContent.MANA_FORM.id()));
+            List.of(MagicContent.OPEN_LEDGER.id(), MagicContent.WRIT.id(), MagicContent.MANA_FORM.id()));
 
     private AuthorityContent() {}
 

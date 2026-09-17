@@ -130,7 +130,7 @@ public final class HudLayers {
     private static void renderSelector(GuiGraphics graphics, DeltaTracker delta) {
         Minecraft minecraft = Minecraft.getInstance();
         SpaceManipulationOverlay.render(graphics, minecraft);
-        com.efkrdnz.magical.client.WeaveRuleOverlay.render(graphics, minecraft);
+        com.efkrdnz.magical.client.WritOverlay.render(graphics, minecraft);
         MagicWheelOverlay.render(graphics, minecraft);
         SovereignAegisInput.render(graphics, minecraft);
         BlackFlamesInput.render(graphics, minecraft);

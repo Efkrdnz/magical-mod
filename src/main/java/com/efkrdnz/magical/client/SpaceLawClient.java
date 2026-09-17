@@ -41,8 +41,8 @@ public final class SpaceLawClient {
         if (player == null || level == null || event.getEntity() != player || player.isSpectator()) {
             return;
         }
-        // Every domain, not just a subspace: a Weave and a root network split their laws the
-        // same way and would otherwise silently lose the half only this client can deliver.
+        // Every domain rather than the subspace by name: any future region that splits its laws
+        // the same way would otherwise silently lose the half only this client can deliver.
         for (DomainEntity domain : level.getEntitiesOfClass(DomainEntity.class,
                 player.getBoundingBox().inflate(DomainEntity.MAX_CLIENT_REACH))) {
             domain.applyLocalPlayerMotion(player);

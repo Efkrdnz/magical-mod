@@ -169,9 +169,6 @@ public final class MagicalClientEvents {
         event.registerEntityRenderer(MagicalEntities.SKILL_CLASH_EFFECT.get(), SkillClashEffectRenderer::new);
         event.registerEntityRenderer(MagicalEntities.ABYSSAL_DISCHARGE.get(), AbyssalDischargeRenderer::new);
         event.registerEntityRenderer(MagicalEntities.SPACE_SUBSPACE.get(), SpaceSubspaceRenderer::new);
-        // The Weave has no shell of its own yet - a domain with no renderer bound is a client-side
-        // NullPointerException on the first frame it is in view, not an invisible entity.
-        event.registerEntityRenderer(MagicalEntities.MANA_WEAVE.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);
         event.registerEntityRenderer(MagicalEntities.SPACE_SUMMON.get(), SpaceSummonRenderer::new);
         event.registerEntityRenderer(MagicalEntities.SPACE_PORTAL.get(), SpacePortalRenderer::new);
         event.registerEntityRenderer(MagicalEntities.SPACE_POCKET_PORTAL.get(), SpacePocketPortalRenderer::new);
@@ -216,8 +213,8 @@ public final class MagicalClientEvents {
                 if (SpaceManipulationOverlay.active()) {
                     SpaceManipulationOverlay.finish();
                 }
-                if (WeaveRuleOverlay.active()) {
-                    WeaveRuleOverlay.finish();
+                if (WritOverlay.active()) {
+                    WritOverlay.finish();
                 }
                 FirstPersonEffects.tick(minecraft);
                 com.efkrdnz.magical.client.fx.TransientVisuals.tick();
@@ -250,7 +247,7 @@ public final class MagicalClientEvents {
                 }
                 if (ManaAuthorityInput.tickSlot(minecraft, i)) {
                     while (MagicalKeyMappings.CAST_SLOTS[i].consumeClick()) {
-                        // Weave Rules is chosen on three wheels, not pressed.
+                        // A writ is chosen on a page and three dials, not pressed.
                     }
                     continue;
                 }
@@ -389,20 +386,39 @@ public final class MagicalClientEvents {
 
         @SubscribeEvent
         public static void onMouseScroll(InputEvent.MouseScrollingEvent event) {
-            if (SovereignAegisInput.handleScroll(event.getScrollDeltaY()) || BlackFlamesInput.handleScroll(event.getScrollDeltaY()) || SpaceOffenseInput.handleScroll(event.getScrollDeltaY()) || SoulVowInput.handleScroll(event.getScrollDeltaY()) || SpaceManipulationOverlay.handleScroll(event.getScrollDeltaY()) || WeaveRuleOverlay.handleScroll(event.getScrollDeltaY()) || MagicWheelOverlay.handleScroll(event.getScrollDeltaY())) {
+            if (dispatchScroll(event.getScrollDeltaY())) {
                 event.setCanceled(true);
             }
         }
 
         @SubscribeEvent
         public static void onMouseButton(InputEvent.MouseButton.Pre event) {
-            if (WeaveRuleOverlay.handleMouseButton(event.getButton(), event.getAction())) {
-                event.setCanceled(true);
-                return;
-            }
-            if (SpaceManipulationOverlay.handleMouseButton(event.getButton(), event.getAction())) {
+            if (dispatchMouseButton(event.getButton(), event.getAction())) {
                 event.setCanceled(true);
             }
+        }
+
+        /**
+         * Offers a wheel turn to every hold overlay, first one to claim it wins.
+         *
+         * <p>Split out of the event handler so the capture harness can drive the same chain: a hold
+         * overlay is a scroll and two buttons, and until this existed a capture could only ever
+         * photograph its opening state.
+         */
+        public static boolean dispatchScroll(double scrollDeltaY) {
+            return SovereignAegisInput.handleScroll(scrollDeltaY)
+                    || BlackFlamesInput.handleScroll(scrollDeltaY)
+                    || SpaceOffenseInput.handleScroll(scrollDeltaY)
+                    || SoulVowInput.handleScroll(scrollDeltaY)
+                    || SpaceManipulationOverlay.handleScroll(scrollDeltaY)
+                    || WritOverlay.handleScroll(scrollDeltaY)
+                    || MagicWheelOverlay.handleScroll(scrollDeltaY);
+        }
+
+        /** The same for a mouse button, in the same order the event handler used. */
+        public static boolean dispatchMouseButton(int button, int action) {
+            return WritOverlay.handleMouseButton(button, action)
+                    || SpaceManipulationOverlay.handleMouseButton(button, action);
         }
 
 

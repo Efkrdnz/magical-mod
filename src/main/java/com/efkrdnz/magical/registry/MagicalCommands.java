@@ -223,29 +223,34 @@ public final class MagicalCommands {
                                                             .suggests((context, builder) -> SharedSuggestionProvider.suggest(lowerNames(SpaceTargetGroup.values()), builder))
                                                             .executes(context -> withPlayer(context.getSource(), player ->
                                                                     subspaceRule(context, player, StringArgumentType.getString(context, "target")))))))))
-                    // The Weave, without an authority or a cooldown in the way. Captures only.
-                    .then(Commands.literal("weave")
-                            .then(Commands.literal("claim")
-                                    .executes(context -> withPlayer(context.getSource(), player -> raiseWeave(player, 12.0F, true)))
-                                    .then(Commands.argument("radius", FloatArgumentType.floatArg(
-                                            com.efkrdnz.magical.entity.domain.ManaWeaveEntity.MIN_RADIUS,
-                                            com.efkrdnz.magical.entity.domain.ManaWeaveEntity.MAX_RADIUS))
+                    // The Ledger, without an authority or a cooldown in the way. Captures only -
+                    // the skills themselves are played from a cast slot and need no command.
+                    .then(Commands.literal("ledger")
+                            .then(Commands.literal("open")
+                                    .executes(context -> withPlayer(context.getSource(), player -> debugLedger(player, true))))
+                            .then(Commands.literal("close")
+                                    .executes(context -> withPlayer(context.getSource(), player -> debugLedger(player, false))))
+                            // Enters a spell by hand, so a capture need not stage a fight to fill
+                            // the book before the wheels have anything to offer.
+                            .then(Commands.literal("witness")
+                                    .then(Commands.argument("skill", StringArgumentType.word())
                                             .executes(context -> withPlayer(context.getSource(), player ->
-                                                    raiseWeave(player, FloatArgumentType.getFloat(context, "radius"), true)))))
-                            .then(Commands.literal("rule")
-                                    .then(Commands.argument("aspect", StringArgumentType.word())
-                                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(
-                                                    lowerNames(com.efkrdnz.magical.magic.mana.WeaveAspect.values()), builder))
-                                            .then(Commands.argument("operation", StringArgumentType.word())
+                                                    debugWitness(context, player)))))
+                            .then(Commands.literal("writ")
+                                    .then(Commands.argument("target", StringArgumentType.word())
+                                            .then(Commands.argument("aspect", StringArgumentType.word())
                                                     .suggests((context, builder) -> SharedSuggestionProvider.suggest(
-                                                            lowerNames(com.efkrdnz.magical.magic.mana.WeaveOperation.values()), builder))
-                                                    .executes(context -> withPlayer(context.getSource(), player ->
-                                                            weaveRule(context, player, "THEIRS")))
-                                                    .then(Commands.argument("subject", StringArgumentType.word())
+                                                            lowerNames(com.efkrdnz.magical.magic.mana.WritAspect.values()), builder))
+                                                    .then(Commands.argument("operation", StringArgumentType.word())
                                                             .suggests((context, builder) -> SharedSuggestionProvider.suggest(
-                                                                    lowerNames(com.efkrdnz.magical.magic.mana.WeaveSubject.values()), builder))
+                                                                    lowerNames(com.efkrdnz.magical.magic.mana.WritOperation.values()), builder))
                                                             .executes(context -> withPlayer(context.getSource(), player ->
-                                                                    weaveRule(context, player, StringArgumentType.getString(context, "subject")))))))))
+                                                                    debugWrit(context, player, "THEIRS")))
+                                                            .then(Commands.argument("subject", StringArgumentType.word())
+                                                                    .suggests((context, builder) -> SharedSuggestionProvider.suggest(
+                                                                            lowerNames(com.efkrdnz.magical.magic.mana.WritSubject.values()), builder))
+                                                                    .executes(context -> withPlayer(context.getSource(), player ->
+                                                                            debugWrit(context, player, StringArgumentType.getString(context, "subject"))))))))))
                     // The pact screen, without walking a Vessel up first. Captures only: the cast
                     // path refuses a Vessel under a hundred, and the seal still charges it.
                     .then(Commands.literal("sacrifice")
@@ -1037,40 +1042,78 @@ public final class MagicalCommands {
     }
 
     /** {@code subspace rule}: the same three words as {@code hud rule}, onto the standing domain. */
-    /** Raises a Weave with none of the skill's gates, so a capture does not need an authority. */
-    private static int raiseWeave(ServerPlayer player, float radius, boolean followOwner) {
+    /** Opens or shuts the book with none of the skill gates, so a capture needs no authority. */
+    private static int debugLedger(ServerPlayer player, boolean open) {
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
-        com.efkrdnz.magical.entity.domain.ManaWeaveEntity weave =
-                com.efkrdnz.magical.entity.domain.ManaWeaveEntity.create(player.serverLevel(), player, radius, followOwner);
-        player.serverLevel().addFreshEntity(weave);
-        state.setActiveWeaveEntityId(weave.getId());
+        if (open) {
+            state.manaLedger().open();
+        } else {
+            state.manaLedger().close();
+        }
         state.sync(player);
         return 1;
     }
 
-    /** Writes a rule straight onto the standing Weave, bypassing the skill's mana and cooldown. */
-    private static int weaveRule(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context, ServerPlayer player, String subjectName) {
+    /** Enters a spell in the book by hand rather than by standing near someone casting it. */
+    private static int debugWitness(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context, ServerPlayer player) {
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
-        com.efkrdnz.magical.entity.domain.ManaWeaveEntity weave =
-                com.efkrdnz.magical.magic.mana.ManaAuthorityService.activeWeave(player, state);
-        if (weave == null) {
-            context.getSource().sendFailure(Component.literal("no weave standing: /magical weave claim"));
+        net.minecraft.resources.ResourceLocation id = skillId(StringArgumentType.getString(context, "skill"));
+        if (id == null || MagicContent.get(id) == null) {
+            context.getSource().sendFailure(Component.literal("unknown skill"));
             return 0;
         }
-        com.efkrdnz.magical.magic.mana.WeaveAspect aspect = enumByName(
-                com.efkrdnz.magical.magic.mana.WeaveAspect.values(), StringArgumentType.getString(context, "aspect"));
-        com.efkrdnz.magical.magic.mana.WeaveOperation operation = enumByName(
-                com.efkrdnz.magical.magic.mana.WeaveOperation.values(), StringArgumentType.getString(context, "operation"));
-        com.efkrdnz.magical.magic.mana.WeaveSubject subject = enumByName(
-                com.efkrdnz.magical.magic.mana.WeaveSubject.values(), subjectName);
+        state.manaLedger().witness(id);
+        state.sync(player);
+        return 1;
+    }
+
+    /**
+     * Writes a writ straight into the book, past the mana, the cooldown and the witnessed gate.
+     *
+     * <p>{@code target} is a skill, or {@code #school} for a writ over a whole school.
+     */
+    private static int debugWrit(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context, ServerPlayer player, String subjectName) {
+        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+        com.efkrdnz.magical.magic.mana.WritAspect aspect = enumByName(
+                com.efkrdnz.magical.magic.mana.WritAspect.values(), StringArgumentType.getString(context, "aspect"));
+        com.efkrdnz.magical.magic.mana.WritOperation operation = enumByName(
+                com.efkrdnz.magical.magic.mana.WritOperation.values(), StringArgumentType.getString(context, "operation"));
+        com.efkrdnz.magical.magic.mana.WritSubject subject = enumByName(com.efkrdnz.magical.magic.mana.WritSubject.values(), subjectName);
         if (aspect == null || operation == null || subject == null) {
             context.getSource().sendFailure(Component.literal("unknown aspect, operation or subject"));
             return 0;
         }
-        weave.inscribe(aspect, operation, subject);
+        String target = StringArgumentType.getString(context, "target");
+        com.efkrdnz.magical.magic.mana.Writ writ;
+        if (target.startsWith("#")) {
+            com.efkrdnz.magical.magic.MagicSchool school =
+                    enumByName(com.efkrdnz.magical.magic.MagicSchool.values(), target.substring(1));
+            if (school == null) {
+                context.getSource().sendFailure(Component.literal("unknown school"));
+                return 0;
+            }
+            writ = new com.efkrdnz.magical.magic.mana.Writ(null, school, aspect, operation, subject);
+        } else {
+            net.minecraft.resources.ResourceLocation id = skillId(target);
+            if (id == null || MagicContent.get(id) == null) {
+                context.getSource().sendFailure(Component.literal("unknown skill"));
+                return 0;
+            }
+            writ = new com.efkrdnz.magical.magic.mana.Writ(id, null, aspect, operation, subject);
+        }
+        com.efkrdnz.magical.magic.mana.ManaLedger.Outcome outcome = state.manaLedger().write(writ);
+        state.sync(player);
         context.getSource().sendSuccess(() -> Component.literal(
-                "weave: " + aspect + " " + operation + " " + subject), false);
-        return 1;
+                "writ " + outcome + ": " + target + " " + aspect + " " + operation + " " + subject), false);
+        return outcome == com.efkrdnz.magical.magic.mana.ManaLedger.Outcome.WRITTEN
+                || outcome == com.efkrdnz.magical.magic.mana.ManaLedger.Outcome.STRUCK ? 1 : 0;
+    }
+
+    /** A bare path is assumed to be one of ours, so captures can say {@code wildfire}. */
+    private static net.minecraft.resources.ResourceLocation skillId(String raw) {
+        return raw.contains(":")
+                ? net.minecraft.resources.ResourceLocation.tryParse(raw)
+                : net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("magical", raw);
     }
 
     private static <T extends Enum<T>> T enumByName(T[] values, String name) {
