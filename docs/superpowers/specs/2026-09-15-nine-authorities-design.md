@@ -567,3 +567,129 @@ entangled first, each one proving something the next needs:
    Rule 3 says only an Authority answers an Authority, and Aegis is a class reward.
 4. **Eight bonds, four suspensions, eight Hollow entries, three worn, one branch.** These caps are
    the balance surface of four whole Authorities, and they are guesses until something is playable.
+
+---
+
+## 8. Arsenals
+
+Space already has one: `spatial_arsenal` is a parent skill holding `singularity` and
+`dimensional_guillotine`, cast from a hold-to-open radial wheel. Every Authority should have the
+same — the one sanctioned place for a direct, aimed, violent ability.
+
+This does not contradict rule 6, it protects it. The grammars stay systems precisely *because* there
+is somewhere else for the blunt instrument to live. But the Arsenal must not become the bin for the
+press-and-cast junk §1 cut, so it carries its own rule:
+
+> **An Arsenal mode must spend or read its Authority's authored state.**
+> The Arsenal is the grammar discharged as a weapon, not a second parallel kit. A mode that works
+> identically for a player who has authored nothing has failed.
+
+And the corollary the first design pass got wrong:
+
+> **If a mode costs no mana, the state it spends must be something the player would have kept.**
+> Eight of twenty-seven proposed modes cost 0 mana while spending a domain about to lapse, entries
+> about to rot, or vitality that re-farms itself. That is a free ultimate with a cooldown.
+
+### 8.1 The shape vocabulary
+
+Every mode is one shape, and no Arsenal carries two of the same:
+
+**EXECUTE** (finishes something already losing) · **SIEGE** (breaks a position) ·
+**CONTROL** (removes the enemy's options) · **DENIAL** (makes a place or resource unusable) ·
+**DEFENCE** (survives something specific) · **ESCAPE** (leaves a fight on your terms)
+
+**ANSWER was in the first draft of this list and is deleted.** It is not a shape, it is a targeting
+clause — it says who you point at, not what happens. Eight of twenty-seven modes claimed it, and
+six of those eight were the same DENIAL (point at the rival's construct, it stops working) wearing
+five different verbs. A ring answer must now be expressed *through* a real shape: "a DENIAL that
+beats Life", not "an ANSWER aimed at Life".
+
+Three caps, all of them failures observed in the first pass:
+
+1. **At most four of the nine may carry an EXECUTE.** Nine designers working blind produced nine
+   threshold-executes, seven of them consuming exactly one token of a ledger at 25–45% health. That
+   is a reflex, not a design.
+2. **At least one DEFENCE and one ESCAPE must exist on the roster.** The first pass produced zero of
+   each: twenty-seven ultimates and not one of them saves you or gets you out, which makes every
+   Authority-versus-Authority fight a race to press first. That is the press-and-cast failure
+   arriving from the other direction. Soul is the natural DEFENCE (routing a blow down the lattice is
+   the anchor's whole premise); Space is the natural ESCAPE.
+3. **Every Arsenal needs one mode payable by a single deliberate act.** A new holder has authored
+   nothing. Space passes (one `create_subspace` arms everything); Chaos and Devouring pass; Word,
+   Life, Soul and Dominion all shipped arsenals that cannot fire at all for a new holder — Word's
+   for plausibly an hour, Life's until something walks into the roots and dies. The fix is never to
+   weaken the state gate; it is to price one mode in something buyable immediately.
+
+### 8.2 Build three first
+
+**Space — `spatial_arsenal`** (extend the built one). Keep both modes. `singularity` gains a law
+tribute: cast inside your own domain it eats up to three written categories off the subspace and
+becomes what it ate — VECTOR_FIELD makes it the field's new centre, GRAVITY/REMOVE means victims have
+no direction to escape in. The laws are gone afterwards and must be re-legislated. `dimensional_
+guillotine` is re-seated on the **shell plane** — the cut falls along the chord of the domain through
+the target, sweeping everything pinned between target and wall, with its length the domain's radius
+rather than a fixed reach. Its proposed restraint-count damage multiplier is **cut**: state as a
+damage multiplier is the weakest possible compliance with the rule above.
+
+New third mode **`partition`** (DENIAL): the domain collapses and its shell hardens into a wall that
+nothing non-local crosses in either direction — no teleport, no pearl, no `pocket_dimension`, no
+Space Walker jump, no Dreams merge, no Soul edge, no Word spoken from outside. Duration is the
+domain's own weight, 60 ticks + 20 per law written. It is uncastable without a domain, and it is the
+one thing in the mod that makes a fight strictly local. Ship it at a shorter duration than that, or
+hold it for a second pass — it is the riskiest new mechanic here, and its implementation surface is
+every teleport call site in the mod.
+
+**Devouring — `gullet`.** The cheapest new state of the nine (eight slots, a family enum, a potency
+enum, a rot clock) and it onboards in one cast. `last_meal` (EXECUTE) digests the richest entry
+outright to close two jaws on something under 35%. `disgorge` (DENIAL) vomits the spoiling half of
+the Hollow into a field where no Authority construct may be *anchored* — `create_subspace`,
+`raise_throne`, `claim_weave`, root spread, `branch_reality` and `suspend_outcome` all fail to take
+hold inside it. Two fixes before building: `disgorge` must cost **fresh** entries, never the rotting
+ones, or it is paid for in stock already written off; and its ban must be on *raising something new*,
+never a dispel of something already standing.
+
+**Soul — `drawn_lattice`**, and it wins its slot on one mode. **`cats_cradle`** (DENIAL) snaps the
+whole graph taut and physical: one visible cord in the world per written edge, re-anchored every tick
+as its node moves, so **the shape of the fence is the shape of the lattice you built**, with each
+cord's durability read off the share written on that edge and its behaviour off the flow. Nothing
+else on the roster could imitate it. Build the lattice for that alone. `unsworn` waits for Dominion
+to exist. `requital` either gets real anti-farm guards — lethal blow only, hostile source, in combat,
+two-minute expiry — or is cut and replaced with the DEFENCE mode the whole roster is missing.
+
+Mana's `mana_loom` is the runner-up and loses: the Weave is a subspace that legislates spells instead
+of physics, `foreclosure` and `partition` are the same mode, `excision` and singularity's law tribute
+are the same mechanic, and two of its three modes are dark in singleplayer. Build it fourth and lift
+`excision` into it unchanged — it is the best single idea after `cats_cradle`.
+
+**Word and Dominion wait**, whatever the fiction is worth. Word's arsenal cannot fire for an hour
+after you receive the Authority. Dominion's `prostration` — unaimed, no line of sight, reaching every
+regarded being in loaded chunks for up to 150 ticks of total lockout with no telegraph — is the most
+likely thing in this design to get the mod uninstalled from a server.
+
+### 8.3 The generalization, and two traps
+
+One Arsenal is nine hard-codings of Space. All verified in the tree:
+`MagicCastingService.java:190` (parent id check), `:193` (authority + seal gate), `:233` (parent
+cooldown cap), `PlayerMagicState.java:1074` / `:1193` (the unlock and removeSkill cascades),
+`MagicPyramidScreen.java:691` (the SubskillFamily and palette), `MagicPyramidMenu.java:288`,
+`MagicSkillTuningView.java:19`, `MagicCastContentKept.java:54` (the hold hint), and
+`SpaceOffenseInput.java:29` / `:73` (the MODES array, the authority check and the palette). The wheel
+geometry is already a function of `MODES.length`, so a third slice costs nothing.
+
+Build one `ArsenalDefinition` lookup keyed by authority before any content lands. `SOVEREIGN_AEGIS`,
+`GABRIEL` and `BLACK_FLAMES` use the same parent/sub-skill cascade but are class content, not
+Authority arsenals — they should share the *cascade* mechanism and not the arsenal registry.
+
+**Trap one — the payload.** `sendSpaceOffenseCast(slot, mode)` is enough for Space and for nothing
+else. Mana's `excision`, Word's `edict` and Mana's `foreclosure` all need the caster to pick *which*
+authored rule or name to spend. Widen the wire to `(slot, mode, arg)` **now**, before the second
+arsenal, and re-validate `arg` server-side against the live list — a client-supplied index into
+authored state is exactly the field that gets exploited.
+
+**Trap two — velocity.** Three proposed modes have the server writing a player's velocity. It cannot:
+`SpaceLawPass` exists precisely because vanilla has no channel to deliver a velocity to the player it
+is aimed at. Any Arsenal mode that moves a player puts its movement half on `SpaceLawClient`, or it
+will work on mobs and silently do nothing to players — the bug already fixed once.
+
+**And one line to fix on the way past.** `en_us.json:647` currently describes Spatial Arsenal as
+attacks "that do not require an active subspace." That sentence is exactly what §8 overturns.
