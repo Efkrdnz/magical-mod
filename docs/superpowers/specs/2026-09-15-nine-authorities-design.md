@@ -167,15 +167,21 @@ gap between two points you can see, for everything, not just yourself — would 
 
 ### 4.2 Soul — the kit you asked for
 
-Today Soul is `soul_vow` and its child `soul_valley`. That is the entire Authority, against Space's
-four skills, twelve law categories, a dimension and a storage screen. It is the least-built thing in
-the mod relative to its billing.
+Today Soul is `soul_vow` and nothing else. That is the entire Authority, against Space's four skills,
+twelve law categories, a dimension and a storage screen. It is the least-built thing in the mod
+relative to its billing.
+
+**`soul_valley` is not spare — it is the bind.** `SoulAuthorityService:58` resolves mode 0
+(`ACTION_BIND`) to `SOUL_VALLEY`, which carries that action's cost (74 mana, 1600 ticks), its magic
+circle (`MagicCircleEffectEntity.STYLE_SOUL_VALLEY`) and a `MagicSkillTuningView` case. The other
+four modes — swap, call, sever, step — bill against `soul_vow` itself. So the sub-skill is the
+expensive opening move, and repurposing it would gut the Authority's one working skill.
 
 Keep `soul_vow` (bind / swap / call / sever / step) and add:
 
 | Skill | id | Shape | Cost / CD | What |
 |---|---|---|---|---|
-| Spirit Walk | `spirit_walk` | press | 30 / 400 | 30s incorporeal: cannot damage or be damaged, hostiles lose you, only Soul skills work. **This is what `soul_valley` becomes** — not a place you travel to, a state you enter. Resolves the child skill into something with a reason to exist. |
+| Spirit Walk | `spirit_walk` | press | 30 / 400 | 30s incorporeal: cannot damage or be damaged, hostiles lose you, only Soul skills work. A new skill of its own — *not* a repurposing of `soul_valley`. |
 | Soul Echo | `soul_echo` | press | 20 / 400 | Leave an invulnerable, immobile echo of yourself for 60s. Recast to swap places with it. One at a time. |
 | Soul Anchor | `soul_anchor` | hold | 1/tick | While held you and allies within 8 blocks cannot be moved — knockback, pull, push, all refused. |
 | Soul Strike | `soul_strike` | press | 24 / 120 | A beam that ignores armour entirely. Low base damage; the point is that shells do not matter. |
