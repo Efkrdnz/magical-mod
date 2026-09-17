@@ -1,7 +1,7 @@
 # The Nine Authorities
 
 **Status:** design, not built. Two of the nine exist in code; the other seven are specified here.
-**Date:** 2026-09-15
+**Date:** 2026-09-15, rewritten 2026-09-17
 
 ---
 
@@ -18,7 +18,7 @@ of concepts an Authority holds entire.** The Spatial school is what a mage can b
 the Authority of Space simply tells extension what to do. That is why school names and Authority
 names collide (SOUL, SPATIAL, CHAOS) — the collision is the point, not an accident.
 
-### The five rules
+### The six rules
 
 1. **One Authority per wielder.** Already true: `PlayerMagicState.authorityId` is a single field, and
    `setAuthority` takes the previous one's skills back.
@@ -30,6 +30,36 @@ names collide (SOUL, SPATIAL, CHAOS) — the collision is the point, not an acci
    filtered them and no class grant names one, so that was the only leak.
 5. **No Authority of Time.** Time is Space's ("space/time"). `time_flow` is already one of
    `manipulate_space`'s twelve law categories and that is where it stays.
+6. **An Authority is a machine, not a skill list.** This is the rule the first draft of this document
+   broke, and §4 is written to it.
+
+### Rule 6, stated properly
+
+The two built Authorities are the specification, and they are built the same way:
+
+**Space** is not four spells. It is a *grammar gated behind an anchor*. `create_subspace` raises a
+bounded domain; nothing else in the kit works without it. `manipulate_space` then legislates physics
+inside that domain from twelve law categories × their operations × five target groups — several
+hundred expressible states, authored by the player, persisting on the domain entity. The player is
+not casting. They are legislating.
+
+**Soul** is a *persistent graph plus operations on it*. `soul_vow` binds souls and the bonds survive
+death, respawn and dimension change; swap, call, sever and step are operations on the graph the
+player built. Semi-immortality is not a perk bolted on — it falls out of the fact that a bond exists.
+
+So every Authority below has:
+
+- an **anchor**: the ability that creates the context, which the rest of the kit needs;
+- a **grammar**: the ability that only functions inside or against that context, composed from named
+  axes with named values;
+- **persistent authored state** the player builds up, which is saved, visible and worth protecting;
+- an **emergent property** that falls out of the structure rather than being designed as a perk.
+
+The whole kit arrives at once when the Authority does, so the parts may depend on each other freely.
+
+What this rules out, permanently: press-a-button-and-damage-happens, flat percentage buffs, "clear
+all" convenience macros, undo buttons, and menus of five effects with an axis label stapled on. Every
+one of those appeared in the first design pass for these nine, and every one was cut.
 
 ---
 
@@ -40,265 +70,413 @@ names collide (SOUL, SPATIAL, CHAOS) — the collision is the point, not an acci
 | 1 | **Space** | extension, distance, dimension — and time | `0x88DFFF` | SPATIAL (exists) | built |
 | 2 | **Soul** | the self that persists: identity, bonds | `0xD8F0FF` | SOUL (exists) | one skill |
 | 3 | **Mana** | the substrate magic is made of | `0xF0F4FF` | **new** MANA | design |
-| 4 | **Life** | growth, vitality, the making of living things | `0x66DD66` | **new** LIFE | design |
-| 5 | **Death** | the ending, decay, the boundary | `0x2F1F3D` | **new** DEATH | design |
-| 6 | **Form** | matter and shape: what a thing is made of | `0xA0826D` | **new** FORM | design |
-| 7 | **Mind** | cognition: thought, knowing, attention, will | `0x9A7AFF` | **new** MIND | design |
-| 8 | **Law** | oath and obligation binding a person | `0xC0A000` | **new** LAW | design |
-| 9 | **Chaos** | probability, mutation, change | `0xD946EF` | CHAOS (exists) | design |
+| 4 | **Life** | the whole cycle: growth, vitality, decay, death, undeath | `0x66DD66` | **new** LIFE | design |
+| 5 | **Chaos** | possibility held open; the breaking of certainty | `0xD946EF` | CHAOS (exists) | design |
+| 6 | **The Word** | to name a thing is to make it so | `0xEFE4C0` | **new** WORD | design |
+| 7 | **Devouring** | eat a thing and take what it was | `0x8C2F39` | **new** DEVOURING | design |
+| 8 | **Dreams** | unreality made real | `0x6E5AA8` | **new** DREAM | design |
+| 9 | **Dominion** | every living thing knows where it stands | `0xC0A000` | **new** DOMINION | design |
 
 Six new `MagicSchool` values and six new `MagicAttribute` values. That is the largest single
 addition to those enums the mod has ever had, and every `switch` over them has to be revisited —
-`MagicAttribute.fromSchool` and `counters` most of all.
+`MagicAttribute.fromSchool` and `counters` most of all. See §7.2.
 
 The codex is safe: `PyramidLayersTest.eachLayerBelowTheLineHoldsOneSchool` exempts the Authority row
 (`authority || schools.size() == 1`), so nine schools sharing tier -6 is already legal.
 
-### Concepts that were considered and rejected
+### Concepts considered and rejected
 
-**Time** (it is Space's), **Motion** (Space owns where things are and `manipulate_space` already has
-velocity and acceleration laws), **Knowledge** (folded into Mind), **Freedom** (it is the absence of
-Law, not a concept of its own — an authority defined as *not another one* has no identity),
-**Order** (renamed to Law, because "order" invites zone rules and those are Space's), **Light**,
-**Storm**, **Judgement**, **Fate**, **Hunger**, **True Name**.
+**Time** — it is Space's. **Motion** — Space owns where things are, and `manipulate_space` already
+has velocity and acceleration laws. **Knowledge** and **Mind** — cognition is a small idea next to
+the rest of this list, and mind-control is miserable to be on the receiving end of. **Freedom** — the
+absence of a thing is not a thing. **Fate** — it is the flip side of Chaos, and this roster does not
+carry both faces of one coin. **Threads** — Fate wearing a coat. **Light**, **Storm**, **Judgement**,
+**Hunger**, **Order**.
 
-**Blood has no Authority, deliberately.** The Blood school is a whole pillar — seven skills, the
-Vessel, the sacrifice pact — and the red team flagged it as an unowned concept. It stays unowned:
-blood is where Life and Death overlap, and it is the best possible illustration of the framing
-above. A mortal pays in blood because they cannot command either concept outright.
+Three more were cut after the first draft of this document, on the mod author's ruling:
+
+- **Form** ("what a thing is made of") — *sounds weak.* It is also three other Authorities wearing a
+  coat: shaping matter is Space, remaking a body is Life, and turning a thing into another thing is
+  the Word. Nothing was left once those were taken back.
+- **Law** ("oath and obligation") — *sounds weak, and law stuff is mostly bounded to space.* That is
+  exactly right: every version of it was a zone with rules in it, which is what a subspace already
+  is. Its one salvageable idea — rank following a *person* rather than a *place* — became Dominion,
+  and Dominion is built specifically so that it has no radius. See §4.9.
+- **Death** as its own Authority — *life and death are opposite sides of the same coin.* Folded into
+  Life, which now owns endings, decay, undeath and the raising of the dead. That makes Life the
+  largest Authority on the roster, so §4.4 gives it a hard economy instead of an arbitrary cap.
+
+**Blood still has no Authority, deliberately.** The Blood school is a whole pillar — seven skills,
+the Vessel, the sacrifice pact — and an earlier review flagged it as an unowned concept. It stays
+unowned: blood is where the halves of Life meet, and it is the best illustration of the framing
+above. A mortal pays in blood precisely because they cannot command the concept outright.
 
 ---
 
 ## 3. The counter ring
 
-Your rule — only an Authority answers an Authority — means the nine *are* a standoff, so the graph
-is the design, not decoration.
-
-They sit in a ring. **Each counters the two after it, loses to the two before it, and is neutral
-with the remaining four.**
+Rule 3 says only an Authority answers an Authority, and only the ones the ring names. The nine sit in
+a cycle in which **each counters the two after it**, loses to the two before it, and is a standoff
+with the remaining four.
 
 ```
-        Mana → Space → Form → Life → Death → Soul → Mind → Law → Chaos ──┐
-          ↑                                                             │
-          └─────────────────────────────────────────────────────────────┘
+Mana -> Space -> Dreams -> Soul -> Dominion -> Life -> Devouring -> Word -> Chaos -> (Mana)
 ```
 
-| Authority | Counters | Loses to | Standoff with |
+Eighteen edges. Every node has out-degree 2 and in-degree 2; nothing is unanswerable, nothing is a
+free win, and no pair counters each other.
+
+| Authority | Answers | Loses to | Standoff with |
 |---|---|---|---|
-| **Mana** | Space, Form | Law, Chaos | Life, Death, Soul, Mind |
-| **Space** | Form, Life | Mana, Chaos | Death, Soul, Mind, Law |
-| **Form** | Life, Death | Mana, Space | Soul, Mind, Law, Chaos |
-| **Life** | Death, Soul | Space, Form | Mind, Law, Chaos, Mana |
-| **Death** | Soul, Mind | Form, Life | Law, Chaos, Mana, Space |
-| **Soul** | Mind, Law | Life, Death | Chaos, Mana, Space, Form |
-| **Mind** | Law, Chaos | Death, Soul | Mana, Space, Form, Life |
-| **Law** | Chaos, Mana | Soul, Mind | Space, Form, Life, Death |
-| **Chaos** | Mana, Space | Mind, Law | Form, Life, Death, Soul |
-
-**Verified regular:** 9 nodes, 18 edges, every node out-degree 2 and in-degree 2. Count the columns.
-(An earlier draft of this shipped a ten-row table for a nine-Authority roster and called it balanced;
-this one is checked.)
-
-The four standoffs per Authority carry as much weight as the wins. Most matchups are not decided by
-the concepts at all — they come down to the two people holding them.
+| **Mana** | Space, Dreams | Word, Chaos | Soul, Dominion, Life, Devouring |
+| **Space** | Dreams, Soul | Mana, Chaos | Dominion, Life, Devouring, Word |
+| **Dreams** | Soul, Dominion | Mana, Space | Life, Devouring, Word, Chaos |
+| **Soul** | Dominion, Life | Space, Dreams | Devouring, Word, Chaos, Mana |
+| **Dominion** | Life, Devouring | Dreams, Soul | Word, Chaos, Mana, Space |
+| **Life** | Devouring, Word | Soul, Dominion | Chaos, Mana, Space, Dreams |
+| **Devouring** | Word, Chaos | Dominion, Life | Mana, Space, Dreams, Soul |
+| **Word** | Chaos, Mana | Life, Devouring | Space, Dreams, Soul, Dominion |
+| **Chaos** | Mana, Space | Devouring, Word | Dreams, Soul, Dominion, Life |
 
 ### The eighteen edges
 
 | Edge | Why |
 |---|---|
-| Mana → Space | Folding space is magic. Magic is mana. Nullify it and the fold never opens. |
-| Mana → Form | Matter is mana that stopped moving. Unmake the one and the other has nothing to be. |
-| Space → Form | A thing cut out of space has nowhere to be, whatever it is made of. |
-| Space → Life | Seal it away from sun, soil and air. A pocket dimension starves what grows. |
-| Form → Life | Refuse flesh its shape. Growth has nothing to grow into. |
-| Form → Death | Death acts on a body; Form decides what a body *is*. Turn flesh to crystal and rot has nothing to eat. |
-| Life → Death | Regrowth outlasts decay. The mark runs out before the body does. |
-| Life → Soul | The vessel will not let go. A body Life holds open cannot be vacated — sever, swap and step all fail. |
-| Death → Soul | The mark is on the self, not the body. Step into a new vessel and it steps with you. |
-| Death → Mind | Thought ends. |
-| Soul → Mind | The self overrules what it merely thinks. |
-| Soul → Law | An oath binds a self. Swap selves and it binds nobody. |
-| Mind → Law | Know the letter, escape the spirit. |
-| Mind → Chaos | Someone who knows every outcome is not gambling. |
-| Law → Chaos | Law binds the wild. |
-| **Law → Mana** | **Law is the one Authority not made of mana.** A geas runs on your word, so a null field has nothing to grip. |
-| Chaos → Mana | A null field is a precise, uniform volume. Chaos is the end of uniformity: it leaks. |
-| Chaos → Space | Destinations stop being reliable. The fold opens somewhere else. |
-
-**Law → Mana is the keystone.** You asked for anti-magic that nullifies *everything*, and this is
-what keeps that from being an auto-win: Law's power is not a spell, so there is nothing in it for
-Mana to switch off. It is also the answer to "is anti-magic too strong" — it is, against eight of
-them, and that is fine, because the ninth ignores it completely.
-
-**The weakest edge is Chaos → Mana.** It is the one story I would not defend hard. Flagged rather
-than hidden.
+| Mana → Space | A subspace is raised with mana and refreshed with mana. Inside a Weave that has zeroed cost and flow, it cannot be raised at all. |
+| Mana → Dreams | Branching is cheap; merging is paid in divergence. Raise the price and the dreamer cannot afford to bring anything back. |
+| Space → Dreams | A branch must snapshot a region, and Space owns the region. A sealed boundary gives the merge nowhere to land. |
+| Space → Soul | The lattice assumes its nodes are somewhere. Space owns separation — fold, seal, or simply move them, and swap, call and step arrive in the wrong place. |
+| Dreams → Soul | Bind a soul inside a branch and you have bonded a copy. Merge with the living withdrawn and the node was never there. |
+| Dreams → Dominion | Rank is a fact about the world. A branch is a world you author, so a hierarchy set in a dream comes back without ever passing the Throne. |
+| Soul → Dominion | A bonded soul answers along its edge whatever its station. The flow does not care who is above whom. |
+| Soul → Life | Life commands bodies. Soul is the part that is not the body: a soul with an outbound death edge does not die when the cycle says Ending. |
+| Dominion → Life | Yggdrasil's reserve is taken from the dead. A being stationed above the tree cannot be taken by it. |
+| Dominion → Devouring | You cannot eat what outranks you. Station the devourer beneath and its Hollow closes against half the world. |
+| Life → Devouring | The Hollow rots and must be refilled. Life decides what is alive to eat, and can hold a whole region at a stage that yields nothing. |
+| Life → Word | A name is what a thing has become. Hold it at Seed and there is nothing yet to study and nothing to revoke. |
+| Devouring → Word | A spoken name is a construct hanging on a target. The Hollow eats constructs. |
+| Devouring → Chaos | A suspension is an unresolved thing sitting in the air. Eat it and it digests: the branch that becomes real is the eater's. |
+| Word → Chaos | Bind a name onto an event and it has exactly one outcome, permanently. There are no branches left to choose between. |
+| Word → Mana | Name the Weave, then revoke it. To unname a field is to make it never-so. |
+| Chaos → Mana | Mana's rules are statements of certainty about what a cast costs. A suspended cast has not cost anything yet, so the Weave never billed it. |
+| Chaos → Space | A law delivers its consequence every tick. Suspend the consequence and the law fires into nothing. |
 
 ### Making the ring mechanical
 
-A ring is only worth having if it is code. The rule, extending `MagicCounterService`:
+None of this is code. `MagicCounterService` knows nothing about Authorities. The work:
 
-- non-Authority vs non-Authority → the existing `MagicAttribute.counters()` lattice, unchanged;
-- non-Authority vs Authority → **always refused**, whatever the attribute says;
-- Authority vs Authority → counters **only if the ring says so**, looked up from a single
-  `AuthorityRing` table.
-
-That last clause is what stops the ring being lore. It also settles the open question at
-`MagicCounterService:421`: Sovereign Aegis can currently counter `singularity`,
-`dimensional_guillotine` and `soul_valley`, because those sit outside `AUTHORITY_SKILLS`. Under rule
-3 that is a violation — they are Authority powers. Fixing it means deriving "is this an Authority
-skill" transitively through sub-skills rather than from a hand-written set. **This is a balance
-change and needs your say-so.**
+1. `AuthorityRing` — a static, tested adjacency table with `counters(a, b)` and `answeredBy(a)`.
+   A test pins out-degree 2, in-degree 2, and the absence of any mutual pair.
+2. A hook in `MagicCounterService`: an Authority ability aimed at the wielder of an Authority it
+   answers resolves in the answerer's favour; one aimed at a wielder whose Authority answers *it* is
+   refused outright with a HUD line naming why.
+3. The codex Authority row shows the ring for whichever Authority the player holds.
 
 ---
 
-## 4. The nine kits
+## 4. The nine systems
 
-Costs are in the mod's own band — existing Authority skills run 8–36 mana for utility and 72–84 for
-an ultimate, with cooldowns from 8 to 1600 ticks.
+Every entry is **anchor → grammar**, then the rest of the machine. Costs use the existing Authority
+band: 8–36 mana for the working parts, 72–84 for anything that ends a fight; cooldowns 8–1600 ticks.
 
-### 4.1 Space — built, plus one gap
+### 4.1 Space — the Subspace (built), and the Fold
 
-`create_subspace` · `manipulate_space` · `spatial_arsenal` (→ `singularity`,
-`dimensional_guillotine`) · `pocket_dimension`.
+**Anchor** `create_subspace` — hold to charge, release to raise a physics domain (radius 5–16,
+following or anchored, ten minutes). 22 mana, 40 tick cooldown. Held as
+`PlayerMagicState.activeSubspaceEntityId`; the laws live on `SpaceSubspaceEntity` as synced data.
 
-Nothing to redesign. The one thing missing for it to read as omnipotence over *extension* rather than
-over *rooms*: Space cannot presently move anything but the caster. A `fold_distance` — collapse the
-gap between two points you can see, for everything, not just yourself — would close it.
+**Grammar** `manipulate_space` — 8 mana, 8 tick cooldown. One law per category, written onto the
+active subspace and applied by its tick to everything inside.
 
-### 4.2 Soul — the kit you asked for
+| Axis | Values |
+|---|---|
+| Category (12) | GRAVITY, VELOCITY, ACCELERATION, AIR_RESISTANCE, PRESSURE, MASS, TIME_FLOW, VECTOR_FIELD, ENTROPY, FRICTION, BOUNDARY, COLLISION |
+| Operation | per category — REMOVE / DECREASE / INCREASE / REVERSE / CONTROL / STOP / STASIS / SEAL / RICOCHET / … / CLEAR |
+| Target group (5) | EVERYTHING, EVERYTHING_EXCEPT_USER, LIVING_ENTITIES, PLAYERS, PROJECTILES |
 
-Today Soul is `soul_vow` and nothing else. That is the entire Authority, against Space's four skills,
-twelve law categories, a dimension and a storage screen. It is the least-built thing in the mod
-relative to its billing.
+Roughly 354 expressible states. `SpaceLawPass` splits each law: the server carries the consequences,
+each client carries its own player's movement. That split is load-bearing — see CLAUDE.md.
 
-**`soul_valley` is not spare — it is the bind.** `SoulAuthorityService:58` resolves mode 0
-(`ACTION_BIND`) to `SOUL_VALLEY`, which carries that action's cost (74 mana, 1600 ticks), its magic
-circle (`MagicCircleEffectEntity.STYLE_SOUL_VALLEY`) and a `MagicSkillTuningView` case. The other
-four modes — swap, call, sever, step — bill against `soul_vow` itself. So the sub-skill is the
-expensive opening move, and repurposing it would gut the Authority's one working skill.
+**The gap.** Space today commands *rooms*. It has no way to act on distance itself, and its domain
+reaches only its own interior. One addition, in the same idiom:
 
-Keep `soul_vow` (bind / swap / call / sever / step) and add:
+**`fold_space`** — requires **two** raised subspaces, which is why Space alone may hold a second
+domain, at double cost. Folding binds their interiors into one place: stepping into either exits the
+other, a law written on one applies to both, and reach and line of sight pass through. It is the only
+ability in the mod that needs two instances of its own anchor, and it turns "I made a room" into "I
+decide what is far from what".
 
-| Skill | id | Shape | Cost / CD | What |
-|---|---|---|---|---|
-| Spirit Walk | `spirit_walk` | press | 30 / 400 | 30s incorporeal: cannot damage or be damaged, hostiles lose you, only Soul skills work. A new skill of its own — *not* a repurposing of `soul_valley`. |
-| Soul Echo | `soul_echo` | press | 20 / 400 | Leave an invulnerable, immobile echo of yourself for 60s. Recast to swap places with it. One at a time. |
-| Soul Anchor | `soul_anchor` | hold | 1/tick | While held you and allies within 8 blocks cannot be moved — knockback, pull, push, all refused. |
-| Soul Strike | `soul_strike` | press | 24 / 120 | A beam that ignores armour entirely. Low base damage; the point is that shells do not matter. |
-| Self Affirm | `self_affirm` | passive | — | Resistance to effects that rewrite what you are: petrification, transmutation, domination. Not damage — identity. |
+`pocket_dimension` and `spatial_arsenal` — with `singularity` and `dimensional_guillotine` cascading
+beneath it — stay exactly as built.
 
-**Signature moment:** stepping through a bond to a partner half a world away. There is no distance
-between selves that know each other.
+**Emergent:** flight is not an ability. It is GRAVITY / CONTROL aimed at everything, and it stops
+when the domain does.
 
-**Border:** Soul owns the self that *persists*. Mind owns what it currently *thinks*. Life owns the
-body's *continuing*. Soul does not heal, does not command, does not end.
+---
 
-### 4.3 Mana — "nullify everything", and pure-mana form
+### 4.2 Soul — the Lattice
 
-| Skill | id | Shape | Cost / CD | What |
-|---|---|---|---|---|
-| Nullification Aura | `nullification_aura` | world-altering | 40 / 240 | A 12-block sphere for 240 ticks. Spell entities inside cease — not deflected, *unmade*. New casts inside fail. Persistent effects freeze rather than end. |
-| Arcane Ascension | `arcane_ascension` | hold-modes | 2/tick | Become pure mana: no block collision, half damage from magic, every attack becomes magic damage. The "pure mana form" you asked for. |
-| Spell Rejection | `spell_rejection` | press | 18 / 600 | 10s where every hostile projectile within 30 blocks is turned back on its caster. |
-| Spell Unraveling | `spell_unraveling` | channelled | 1/tick | Channel to pick apart another caster's active spells one at a time, nearest first. |
-| Mana Convergence | `mana_convergence` | world-altering | 30 / 400 | A zone where mana regenerates double and spells cost a fifth less — for everyone, including them. |
+**Anchor** `soul_vow` — mode 0 (`ACTION_BIND`) resolves to `soul_valley`, 74 mana / 1600 ticks, and
+that stays exactly as it is: binding is the expensive opening move. A bond survives death, respawn
+and dimension change. **Eight bonds maximum.**
 
-**Signature moment:** a caster watches their spell simply stop existing in mid-air.
+**Grammar** `lattice_weave` — hold and aim at a bonded node to author one **edge**: what runs along
+it, which way, and how much. 8–24 mana per write, 20 tick cooldown. Maintaining a written edge costs
+nothing, which is what makes the graph a *structure* rather than a channelled spell.
 
-**Border:** Mana commands the *engine*, never an output. It is not a fire school with a coat of
-paint. Nothing in this kit deals elemental damage.
+| Axis | Values |
+|---|---|
+| Flow (8) | LIFE (healing), HARM (damage), **DEATH** (the killing blow itself), MANA, SENSE (what they see and hear), PLACE (where they are), WILL (status effects), SKILL (they may cast what you know) |
+| Direction (4) | OUT (you → them), IN (them → you), BOTH (double cost), CHAIN (relays one further hop per bond, weakening each time) |
+| Share (4) | a quarter, a half, all, SEALED (locked; neither you nor anyone else may rewrite it for a time) |
 
-**The risk, stated plainly:** the pre-cast nullification hook is the single most invasive change in
-this whole document. It has to sit in `MagicCastingService.castResolved` before the if-ladder, and it
-must not nullify the Mana wielder's own skills or Law's.
+128 states per edge, eight edges. The operations that already exist become *reads of the graph*:
+`swap` needs a PLACE edge, `call` needs one inbound, `step` moves along one, `sever` deletes a node
+and everything incident to it.
 
-### 4.4 Life — Yggdrasil
+**Emergent — semi-immortality, properly.** DEATH is a flow like any other. An outbound DEATH edge
+means the killing blow goes *there* instead of to you, at the share you wrote. When every death edge
+is spent or severed the blow has nowhere to go, and you enter collapse: `COLLAPSE_TICKS` (1400) in
+which you are not yet dead and can still bind. None of that is a perk; it is what an edge does.
 
-| Skill | id | Shape | Cost / CD | What |
-|---|---|---|---|---|
-| Yggdrasil Anchor | `yggdrasil_anchor` | world-altering | 84 / 1600 | A persistent world-tree entity. Ten minutes or until starved. Pulses healing in a wide radius, and it *grows* — feed it and it strengthens. The centrepiece, not a buff totem. |
-| Life Weave | `life_weave` | channelled | 30 / 300 | A bidirectional bond: shared healing, and if one dies the other can spend the bond to bring them back. |
-| Symbiosis | `symbiosis` | hold-modes | 2/tick | Everyone in 16 blocks shares all damage and all healing. Turns a group into one organism. |
-| Ancestral Bloom | `ancestral_bloom` | press | 36 / 400 | Summon a grove guardian that fights for you. **This is "creating life"** and it should mean a creature with a mind, not a spawned mob. |
-| Verdant Grasp | `verdant_grasp` | press | 24 / 200 | Roots erupt; anything held is also healed while held. Life restrains by *nurturing*, which is the whole joke. |
+**Counterplay:** the carriers are visible and killable, and a CHAIN edge is a map of your allies
+drawn for the enemy. Space moves your nodes out from under the lattice; Dreams bonds you to a copy.
 
-**Cut from the panel's proposal:** `renewal` and `regeneration_surge`. Four separate healing skills
-made Life the strongest kit in the roster by a distance and made three of them redundant with the
-tree. A healing cap per tick is mandatory or Yggdrasil plus Symbiosis is unkillable.
+---
 
-### 4.5 Death — inevitability, not damage
+### 4.3 Mana — the Weave
 
-| Skill | id | Shape | Cost / CD | What |
-|---|---|---|---|---|
-| Lifespan | `lifespan` | hold-modes | 36 / 600 | A visible countdown over the target. At zero they die, regardless of health, shields or healing. Delay it by paying mana; escape it by outrunning the wielder's range. **Cannot be healed off.** |
-| Mortality Mark | `mortality_mark` | press | 18 / 120 | The marked take more from every source. Death does not deal damage; it makes damage matter. |
-| The Boundary | `the_boundary` | channelled | 40 / 800 | Channel, rooted, to open a zone nothing may *leave* — including by teleport, portal or soul-step. |
-| Inevitable Chains | `inevitable_chains` | hold-modes | 24 / 300 | Spectral chains. Breaking them costs the target health, not time. |
-| Entropic Aura | `entropic_aura` | passive | — | Hostiles near you are weaker for being near you. Always on. |
+**Anchor** `claim_weave` — 28 mana, 200 tick cooldown. Claims the local mana field as a bounded
+domain (radius 8–24), one per wielder. Everything *magical* inside is governed by what you write on
+it. The rules persist on the domain entity and survive logout.
 
-**Border:** not a damage kit. Every entry above is about *certainty*, and none of it out-damages a
-tier-4 spell.
+**Grammar** `weave_rules` — the same shape as Space's, over magic instead of physics.
 
-### 4.6 Form — matter and shape
+| Axis | Values |
+|---|---|
+| Aspect (6) | COST, COOLDOWN, DURATION, SCHOOL (whether a school may function at all), FLOW (which way mana moves), MANIFESTATION (whether a cast produces anything) |
+| Operation (6) | RAISE, LOWER, ZERO, INVERT, LOCK, RESTORE |
+| Whose (3) | ALL, MINE, THEIRS |
 
-| Skill | id | Shape | Cost / CD | What |
-|---|---|---|---|---|
-| Petrify | `petrify` | press | 24 / 200 | The target becomes stone: cannot act, cannot be hurt, cannot be healed. A pause button on a person. |
-| Transmute | `transmute` | press | 12 / 40 | Change what a volume of the world is made of. |
-| Unmaking | `unmaking` | press | 36 / 400 | A burst that reduces everything in it to its base material — structures included. |
-| Morigelem | `morigelem` | press | 30 / 600 | Reshape a corpse into a golem that fights for you. Not necromancy: the body is *material*, and the thing that stands up was never alive. |
-| Transmute Vitality | `transmute_vitality` | press | 30 / 300 | Change what healing *is* for one target: their incoming healing becomes damage. This is Form's counter to Life made mechanical. |
+108 states. **Anti-magic is not a skill.** It is SCHOOL / ZERO / THEIRS — the extreme setting of an
+ordinary axis. That is what makes it terrifying rather than a button: it sits in the same menu as
+COST / RAISE / THEIRS and COOLDOWN / LOCK / ALL, and the wielder chose it.
 
-**Form was the weakest kit in the panel** — pure utility, no scaling, loses every duel.
-`transmute_vitality` is the fix and it is deliberately the edge the ring already promised.
+**Pure mana form** — `mana_form`, 36 mana, and it **only functions inside your own Weave**. You put
+the body down and *are* the field: nothing physical can find you, you pass through blocks, you cannot
+be targeted by anything that needs a target. Two constraints make it a system rather than
+invulnerability. At the shell of the Weave you are forced back into a body, so the domain is now your
+cage as much as your throne. And **every rule you wrote applies to you** — a wielder who inverted the
+flow of everything has to live inside that.
 
-**Border:** Space owns *where* a thing is. Form owns *what it is made of*. Life owns the animate.
+**Emergent:** two overlapping Weaves cancel to neutral across the overlap — a dead zone where magic
+behaves normally and neither wielder can legislate. It is also the cleanest in-fiction argument for
+§5.1: two Authorities of Mana would produce a world-sized dead zone.
 
-### 4.7 Mind — cognition
+**Counterplay:** walk out. And the mod already has two schools that do not pay in mana — Blood pays
+in the Vessel and in health, Eldritch pays in Notice — so a Weave that has zeroed every cost still
+does not stop a Crimson Spear. That is not a balance patch; it is `BloodService.pay` and
+`EldritchService.notice` working as they already do.
 
-| Skill | id | Shape | Cost / CD | What |
-|---|---|---|---|---|
-| Omniscience | `omniscience` | press | 30 / 600 | For 45s every creature in 32 blocks is revealed through everything, with health and intent. No stealth survives. |
-| Compelled Obedience | `compelled_obedience` | press | 36 / 400 | Give a creature one order it must carry out for 60s: attack its allies, flee, stand, follow. |
-| Conviction Lock | `conviction_lock` | press | 30 / 500 | Freeze creatures into their current behaviour. Not paralysis — they keep doing whatever they were doing, forever. |
-| Phantom Guise | `phantom_guise` | channelled | 2/tick | You and nearby allies stop being perceivable. Nothing targets you; damage does not draw attention. |
-| Whispered Doubt | `whispered_doubt` | channelled | 2/tick | Channelled uncertainty: aim degrades, movement stutters. |
+---
 
-**Border:** Mind owns the *current contents* of a head. Soul owns the self that has the head. Mind
-can make you forget your name; Soul decides whether it is still yours.
+### 4.4 Life — Yggdrasil and the Cycle
 
-**The risk:** this is the most invasive kit for vanilla AI. Goal injection and targeting suppression
-are where cascading bugs live. Build it late.
+**Anchor** `yggdrasil` — 84 mana, 1600 tick cooldown. A tree, and a **root network** that spreads
+over the terrain from it as a visible border. The network is the domain, and it grows as the tree is
+fed.
 
-### 4.8 Law — oath and obligation
+**Grammar** `weave_the_cycle` — commands the stage of anything inside the roots. **Outside the roots
+nothing has a stage at all**, which is what makes this interlock real rather than decorative: there
+is no natural lifecycle running in the world that the grammar merely accelerates.
 
-| Skill | id | Shape | Cost / CD | What |
-|---|---|---|---|---|
-| Geas | `geas` | hold-modes | 36 / 400 | Bind one creature to a command — obey, be still, do not cast, do not leave. **Reality enforces it.** It is not a status effect and resisting is not a stat check. The centrepiece. |
-| Vow of Service | `vow_of_service` | press | 30 / 600 | Bind a creature as a servant. It is stronger for serving you, and it suffers for leaving. |
-| Oath of Binding | `oath_of_binding` | hold-modes | 24 / 300 | A mutual oath with an ally: both stronger, both unable to harm the other, both punished if either breaks it. |
-| Hierarchy | `hierarchy` | press | 36 / 500 | Assert rank. Anything weaker than a threshold simply may not raise a hand to you. |
-| Oath Severance | `oath_severance` | press | 40 / 400 | Break any binding on a target — including another Authority's — and the breaking costs them. |
+| Axis | Values |
+|---|---|
+| Stage (8) | SEED, SPROUT, GROWTH, VIGOUR, FRUITING, WANING, ENDING, HOLLOW |
+| Operation (6) | SET, HOLD, REVERSE, HASTEN, GRAFT (move a stage from one thing onto another), TAKE (end it and bank it) |
+| Scope (3) | one creature, a kind, everything within |
 
-**Cut:** `word_is_law`. Its Silence mode was zone anti-magic, which is Mana's, and its shape was a
-zone rule, which is Space's. Law binds *people*, and the moment it binds a *region* it has stopped
-being Law. This is the sharpest border in the roster and the one most likely to erode.
+144 states.
 
-### 4.9 Chaos — change
+**The economy is the design.** `weave_the_cycle` is **not paid in mana. It is paid in Vitality**, and
+Vitality has exactly one source: a thing that dies inside your roots does not simply die — it feeds
+the tree. The reserve sits on the tree entity, visible, and whoever kills the tree takes it.
 
-| Skill | id | Shape | Cost / CD | What |
-|---|---|---|---|---|
-| Probability Cascade | `probability_cascade` | press | 24 / 200 | A projectile that branches on every hit, each child weaker, chaining through a crowd. |
-| Mutation Field | `mutation_field` | world-altering | 30 / 400 | A zone where every creature is rerolled every few ticks from a weighted table of effects. Including you. |
-| Quantum Split | `quantum_split` | hold-modes | 30 / 300 | Mark up to three and rotate their positions. |
-| Paradox Echo | `paradox_echo` | press | 36 / 500 | Spawn a duplicate of what you hit; the two split every blow meant for either. |
-| Certainty Inversion | `certainty_inversion` | passive | — | Near you, accuracy drops and criticals stop happening. Always on. |
+This is what lets Life hold death without a second Authority and without an arbitrary healing cap.
+Raising the dead is SET HOLLOW → SEED. It is not gated by a cooldown; it is gated by having farmed
+enough death to pay for it, out of a bank that is a target standing in the open.
 
-**The trap, and it was flagged:** Chaos must not be defined as *not-Order*. Its identity is "I
-command change", positively — it is the only Authority whose power applies to the wielder too, and it
-should feel like that is a price worth paying rather than a drawback.
+**Emergent:** the wielder stops seeing deaths as losses. A battlefield inside your roots is income,
+and the tree is the reason you will hold ground you would otherwise abandon.
 
-**Chaos is the weakest of the nine** and the honest candidate for replacement if one has to go.
+**Counterplay:** kill the tree — everything in the network drops to HOLLOW at once and the reserve
+spends itself into the ground. Fight outside the roots. Deny it deaths.
+
+---
+
+### 4.5 Chaos — Suspension
+
+Chaos does not randomise; randomising is a spell list with dice in it. Chaos **holds possibility
+open**.
+
+**Anchor** `suspend_outcome` — 18 mana, 60 tick cooldown, **four held at once**. Catches an event
+before it resolves: the blow has not landed, the block has not broken, the death has not happened,
+the cast has not finished. It hangs in the air, unresolved and **visible to everyone**, holding the
+outcomes that were actually possible for it.
+
+**Grammar** `collapse_outcome` — operates only on what you are holding. 8–32 mana.
+
+| Axis | Values |
+|---|---|
+| What was caught (6) | A BLOW, A BREAKING, A DEATH, A CASTING, A MOVEMENT, AN OPERATION (another Authority's) |
+| How it resolves (6) | AS IT WAS, REVERSED (onto its source), ELSEWHERE (onto another target), DOUBLED, NEVER, **SPLICED** |
+| Whose (3) | mine, theirs, the world's |
+
+108 states. **SPLICED is the keystone**: a suspension collapses into an outcome that belonged to a
+*different* suspension you are holding. It exists only because you hold several at once, so the
+suspensions interlock with each other and not merely with the anchor. Someone's death resolves as
+someone else's block breaking.
+
+**The pressure.** An uncollapsed suspension resolves itself when its clock runs out, and it does not
+resolve kindly. Holding four is holding four clocks, in public, where the enemy can count them.
+
+**Emergent:** you can suspend your own death and simply decline to collapse it for a while. Everyone
+watching sees it hanging over you and cannot know which way you will take it.
+
+**Counterplay:** make him hold more than he can collapse, and wait. Word can BIND an event so it has
+one outcome and nothing to branch into. Devouring eats the suspension itself.
+
+---
+
+### 4.6 The Word — the Lexicon
+
+**Anchor** `study_name` — hold focus on a thing until its true name is learned. It costs **time and
+exposure**, not a button press: common things take seconds, a person's name takes a long and obvious
+while, and they feel it happening. The name enters your **Lexicon** permanently, saved across
+sessions.
+
+**Grammar** `speak_name` — [a name you hold] × [operation] × [target]. 12–36 mana.
+
+| Axis | Values |
+|---|---|
+| Name (7) | a creature's, a block's, an item's, an effect's, a skill's, a place's, **a person's** |
+| Operation (4) | SPEAK (the target takes on what the name means, for a while), BESTOW (the target *is* that thing), REVOKE, BIND (permanent and unrevokable — **including by you**) |
+| Target (5) | a creature, a block, an item, an effect hanging on something, **a construct another Authority raised** |
+
+140 states. Two cells carry the whole Authority:
+
+- **REVOKE on a thing that has no bestowed name strips its own.** A thing with no name is not that
+  thing any more. That is the "to unname is to make never-so" half, and it is why there is no
+  separate unname ability — it is a cell in the table, not a button beside it.
+- **BIND is a commitment, not an upgrade.** Once bound, nobody may revoke it, and that includes the
+  speaker. Binding a wolf as a boulder means you have a boulder now, for good.
+
+**Emergent:** the Lexicon becomes a record of everything you have ever properly looked at. Power is
+gated by *having been there* rather than by levels, and it is inspectable, so a Lexicon is a
+biography.
+
+**Counterplay:** stay out of sight — study is slow and visible. Life holds a thing at Seed so there
+is nothing yet to study. Devouring eats the name off the target.
+
+---
+
+### 4.7 Devouring — the Hollow
+
+**Anchor** `devour` — eat a thing into the Hollow. The entry carries **what it was**. Eight entries.
+
+**Grammar** `wear` — put on up to **three** entries at once: a loadout built out of your own kills.
+Swapping is free but slow enough to be a decision.
+
+| Axis | Values |
+|---|---|
+| Family (10) | PREDATION, HIDE, FLAME, VENOM, VOICE, STEP, FLIGHT, STONE, ROT, **AUTHORITY** |
+| Potency (4) | thin, whole, rich, sovereign |
+| Slot (3) | first, second, third |
+
+`digest` destroys an entry for permanent growth — a real choice, because the entry is then gone.
+
+**The pressure.** Entries **rot**, and the rich ones rot fastest. You are never full; an empty Hollow
+is simply weakness, not a hidden bonus. That is what makes Devouring a character rather than a
+toolbox: it has to keep hunting.
+
+**AUTHORITY is the cross-authority hook.** You can eat another Authority's *construct* — a subspace,
+a stretch of root network, a held suspension, a bestowed name, an open dream branch — and wear what
+it was. It is the only Authority whose power is other Authorities' work.
+
+**Emergent:** you look like what you have eaten. Worn families bend the player model, so an opponent
+reads your loadout off your silhouette before you are in range of them.
+
+**Counterplay:** do not die near him. And the general counter is structural — a wielder who raises no
+constructs gives Devouring nothing to take.
+
+---
+
+### 4.8 Dreams — the Dreaming
+
+**Anchor** `branch_reality` — snapshot a region of the real world into the Dreaming, a fourth
+datapack dimension following `pocket_space`, `dungeon_tower` and `chronos_end`. One branch at a time.
+
+**Inside the branch there is no grammar, and that is the point.** You act freely: build, break, kill,
+burn it down. Nothing you do there is real yet, so nothing there needs a rule. Unreality is free.
+
+**Grammar** `merge_waking` — the machine is the *merge*. Category by category, you rule what crosses
+back.
+
+| Axis | Values |
+|---|---|
+| Category (8) | the ground, what was built, the living, the dead, what was carried, your body, your wounds, the hours |
+| Verdict (3) | IMPOSE (the dream overwrites the waking world), WITHDRAW (the waking world is undone to match what the dream left untouched), KEEP (both stand) |
+
+3⁸ = **6,561 distinct merges**, and every one of them means something. "The dead: impose. Everything
+else: withdraw" is *I fought you for an hour and brought back only your death.* "The hours: withdraw"
+is *I did not spend them.* "My wounds: withdraw; my body: impose" is the reason this Authority
+frightens people.
+
+**The cost is divergence:** mana in proportion to how far what you impose has drifted from the
+snapshot. Rewriting a hillside is ruinous; bringing back a single death is cheap. The player prices
+their own ambition, which is a better limiter than a cooldown.
+
+**Border with Space, policed:** `pocket_dimension` is an *empty private room*. A branch is an
+*editable copy of a real place, with a way back*. They are not the same feature and must not drift
+into each other.
+
+**Counterplay:** the merge point is fixed and public — kill him as he wakes. Mana prices the merge
+out of reach and strands him. Space seals the region the merge has to land on.
+
+---
+
+### 4.9 Dominion — the Throne
+
+This replaces the rejected Law, and it is built specifically so that it cannot fail the way Law
+failed. Law was always a zone with rules in it, which is what a subspace already is. **Dominion has
+no radius.** It rules people, anywhere, for good.
+
+**Anchor** `raise_throne` — a seat, placed in the world. You must be **sitting on it** to legislate.
+That is the entire constraint: rank costs nothing to *hold* and requires you to come home to
+*change*.
+
+**Regard** — looking at a being enters it into the hierarchy. Permanently. Globally. A being you have
+never looked at is not in the hierarchy at all, and is untouched by every ruling you have ever made.
+
+**Grammar** `set_station` — [a being you have regarded] × [station] × [what the station governs].
+
+| Axis | Values |
+|---|---|
+| Station (5) | above you, beside you, beneath you, beneath all, beneath notice |
+| Bearing (5) | STRIKING (raising a hand to those above), SPEAKING (obeying a command), FLEEING (leaving), TAKING (taking from those above), BEING SEEN (being perceived at all) |
+| Verdict (3) | MAY, MUST, MAY NOT |
+
+75 rulings per regarded being, and the hierarchy is world-wide and permanent.
+
+**Emergent — this is what the whole Authority exists for.** Anything beneath you whose STRIKING is
+MAY NOT *cannot start a fight with you*. Not "takes reduced damage": cannot begin. Anywhere on the
+map, at any distance, with no zone existing anywhere at all. That is what being the god of rank
+means, and it falls out of the table rather than being written as a perk.
+
+**Counterplay:** the Throne is a place, and you must return to it to change anything — an enemy who
+finds it knows where you must eventually be. A being you have not regarded is outside the system
+entirely. Soul's flows answer along their edges whatever the station; Dreams sets a hierarchy inside
+a branch that never passed the Throne.
 
 ---
 
@@ -306,79 +484,86 @@ should feel like that is a price worth paying rather than a drawback.
 
 ### 5.1 Exclusivity — the ledger (not built)
 
-Your rule "one Authority can be wielded by one person at a time" is currently unimplemented; there
-is no world-level state at all.
+Rule 2 needs world state, and the mod has no `SavedData` precedent yet.
 
-- **`magic/AuthorityLedger.java`** — a `SavedData` on the overworld holding
-  `Map<ResourceLocation, UUID> heldBy`. `claim`, `release`, `holderOf`, `isFree`.
-- **`PlayerMagicState.setAuthority`** gains a failure mode: it returns false when the ledger says
-  someone else holds it. Today it can only fail on an unknown id.
-- **`clearAuthority`** releases the claim.
-- **Login revalidation** — if a player's saved `authorityId` disagrees with the ledger, the ledger
-  wins and the player is told.
-- **Tests** to pin: a second claimant is refused; death does not release; logout does not release;
-  a cleared Authority becomes claimable; two players can hold two *different* Authorities.
-
-Open: does an Authority ever come free on its own? A holder who never logs in again otherwise locks
-a ninth of the endgame forever.
+`AuthorityLedger extends SavedData` — `Map<ResourceLocation, UUID>`, one holder per Authority.
+`PlayerMagicState.setAuthority` consults it and refuses if the Authority is taken; `clearAuthority`
+releases it. An offline holder still holds. Taking an Authority from someone therefore requires them
+to lose it first, which is what §5.2 is for.
 
 ### 5.2 Acquisition (not built)
 
-There is no in-game way to get an Authority — `/magical authority <id>` is the only path in the
-codebase, and the "Authority dimension progression" the docs mention is not wired to anything.
+Today the only path is `/magical authority <id>`. Nine Authorities want nine acquisitions, and they
+should be the concept's own test rather than nine identical pedestals — study a name nobody offered
+you to earn the Word, be eaten and come back to earn Devouring, sit a throne nobody granted you to
+earn Dominion. Out of scope here beyond the note that the ledger has to exist first.
 
-Proposal: one **pedestal** per Authority, each behind its own trial. Right-click a free pedestal to
-claim; right-click a held one and it names the holder. That last part is the important one — it turns
-the ledger into *information*, and the nine wielders into named figures on a server.
+### 5.3 One domain entity, not three
 
-### 5.3 What is already done
+Space's subspace, Mana's Weave and Life's root network are the same thing three times over: a bounded
+entity carrying synced rule data, ticking over whatever is inside, following or anchored, with the
+server/client split that `SpaceLawPass` already defines.
 
-`be441d5`, pushed: `ALL_SKILLS` excludes `AUTHORITY_SKILLS`, so `/magical unlockall` cannot grant an
-Authority skill. `AuthorityGrantTest` pins six rules, including five that were true but untested.
+**Consolidate before the third one is written, not after.** A `DomainEntity` parameterised by kind,
+with a resolver per Authority (`SpaceLawResolver`, `WeaveRuleResolver`, `CycleResolver`), all sharing
+the pass split and the chunk-ticket handling. Writing Mana's Weave as a copy of
+`SpaceSubspaceEntity` would guarantee that every physics bug gets fixed twice and the second fix gets
+forgotten.
+
+### 5.4 State, and where it lives
+
+`PlayerMagicState` syncs wholesale on every change and is already large. The rule for these nine:
+
+- **On the attachment:** ids and small authored graphs only — `activeSubspaceEntityId`, the Soul
+  lattice (8 nodes), the Hollow (8 entries), held suspensions (4), the active branch id, the Throne's
+  position. Each gets its own dirty flag and its own payload, the way `CooldownSyncPayload` already
+  works, rather than riding the whole-state blob.
+- **On the domain entity:** every rule set — Space's laws, Mana's rules, Life's stages and Vitality.
+- **On `SavedData`:** the exclusivity ledger, the Word's global name registry, and Dominion's
+  hierarchy, which is world-wide and permanent and therefore not player state at all.
+
+### 5.5 What is already done
+
+- `be441d5` — `unlockall` no longer grants Authority skills (rule 4).
+- `AuthorityGrantTest` — six tests pinning grant, revoke, swap and the `unlockall` exclusion.
+- `AuthorityContent` maps an Authority to its skill ids; `setAuthority` / `clearAuthority` move the
+  whole kit at once, which is the mechanism rule 6 depends on.
 
 ---
 
-## 6. What this costs
+## 6. What this costs, and the build order
 
-Space took a bespoke entity with twelve law categories, a server/client split, a dimension, storage,
-screens, inputs, payloads and renderers. Assume each new Authority is a comparable piece of work.
-Nine Authorities at 5–7 skills each is roughly **fifty skills, six new schools, six new attributes,
-and on the order of twenty new entities**.
+Seven Authorities, each a domain or a graph plus a screen. Honest ordering — cheapest and least
+entangled first, each one proving something the next needs:
 
-**Build order, cheapest and safest first:**
-
-1. **Soul** — you asked for it, it reuses `SoulBondEntity` and the existing input handler, and it is
-   the most embarrassing gap. Lowest risk, highest immediate payoff.
-2. **Form** — self-contained, no hooks into casting or AI.
-3. **Chaos** — effects and positions, few new systems.
-4. **Death** — countdown state and networking.
-5. **Mana** — the pre-cast nullification hook is a landmine; do it once you have the pattern.
-6. **Life** — Yggdrasil persistence plus bond sync; healing must be capped.
-7. **Mind** — mob AI goal injection, the most invasive to vanilla.
-8. **Law** — oath state tracked across dimensions; the most complex state in the design.
-
-Before any of them: **the ledger (§5.1) and the ring lookup (§3)**, because every Authority after
-them depends on both.
+1. **Space** ✓ built — the grammar template.
+2. **Soul** ✓ bound — needs the lattice grammar (§4.2) to stop being a third of an Authority.
+3. **Devouring** — no new entity, small state, a familiar inventory-and-loadout screen. Proves the
+   authored-loadout shape at the lowest risk.
+4. **Mana** — the second domain, and therefore the one that forces §5.3's consolidation. Do not
+   attempt it before the `DomainEntity` refactor.
+5. **The Word** — no new entity, a `SavedData` registry, and a lexicon screen much like the codex.
+   Proves world state ahead of the ledger.
+6. **Life** — the third domain, cheap once §5.3 exists; its real work is the Vitality economy.
+7. **Chaos** — event interception is the fragile part (`LivingDamageEvent` and its neighbours). It
+   needs the rest stable first.
+8. **Dreams** — a new dimension, snapshot NBT, and a merge screen. The most expensive single item.
+9. **Dominion** — a permanent global hierarchy touching targeting, AI and damage. Last, because it is
+   the one that can break everything else.
 
 ---
 
-## 7. Open questions — these are yours, not mine
+## 7. Open questions — the mod author's, not mine
 
-1. **Six new schools and attributes.** `MagicAttribute.counters()` is a hand-written lattice and
-   every `switch` over these enums has to grow. Do Authorities get their own schools at all, or do
-   they borrow existing ones (Life→WATER, Death→DARK, Mind→ARCANE…)? Borrowing is far cheaper and
-   slightly wrong.
-2. **Does Sovereign Aegis lose its answer to `singularity`, `dimensional_guillotine` and
-   `soul_valley`?** Rule 3 says yes. `MagicCounterService:421` currently says no, deliberately. This
-   is a balance change either way.
-3. **Can a wielder give an Authority up?** `clearAuthority` exists but nothing calls it for a player.
-   If Authorities are permanent, the ledger never frees; if they are droppable, they can be traded.
-4. **Is this PvE or PvP?** Geas, Compelled Obedience and Symbiosis are all far more dangerous aimed
-   at a player than a mob. If PvP matters, several need separate tuning.
-5. **Corruption.** Blood Sacrifice charges corruption. Should Mind or Chaos? Or is corruption
-   orthogonal to Authorities entirely?
-6. **Fusion.** The Spell Creator fuses two skills. Can it touch Authority skills? If yes, a wielder
-   can manufacture powers no design here anticipated.
-7. **Chaos.** It is the weakest of the nine and the only one defined partly by opposition. Keep it,
-   or replace it — Hunger was the red team's suggestion, as the one concept that fills a real gap
-   (appetite, striving, the drive to want).
+1. **Dominion, or the Abyss.** §4.9 is the second attempt at this slot; the first was Law and it was
+   rejected. The Throne fixes the specific complaint — rank follows a person, nothing has a radius —
+   but if it still reads as bureaucracy rather than godhood, the standing alternative is an
+   **Authority of the Abyss**: depth, pressure, what is beneath, and what should not have surfaced.
+   Swapping it changes no ring topology, only that node's eighteen-edge justifications.
+2. **Six new schools, or fewer.** Every new `MagicSchool` and `MagicAttribute` means revisiting
+   `counters()` and every switch over them. Mana, Life, Word, Devouring, Dream and Dominion could
+   borrow ARCANE / PRIMORDIAL / VOID instead of minting their own.
+3. **Does Sovereign Aegis still answer `singularity`, `dimensional_guillotine` and `soul_valley`?**
+   Rule 3 says only an Authority answers an Authority, and Aegis is a class reward.
+4. **Eight bonds, four suspensions, eight Hollow entries, three worn, one branch.** These caps are
+   the balance surface of four whole Authorities, and they are guesses until something is playable.
