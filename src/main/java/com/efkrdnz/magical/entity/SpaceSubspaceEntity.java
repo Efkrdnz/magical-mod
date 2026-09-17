@@ -1,7 +1,8 @@
 package com.efkrdnz.magical.entity;
 
 import com.efkrdnz.magical.boss.unwaking.UnwakingCapabilities;
-import com.efkrdnz.magical.magic.SpaceLawPass;
+import com.efkrdnz.magical.entity.domain.DomainEntity;
+import com.efkrdnz.magical.magic.DomainPass;
 import com.efkrdnz.magical.magic.SpaceRuleCategory;
 import com.efkrdnz.magical.magic.SpaceRuleOperation;
 import com.efkrdnz.magical.magic.SpaceTargetGroup;
@@ -30,16 +31,12 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
-public final class SpaceSubspaceEntity extends Entity {
+public final class SpaceSubspaceEntity extends DomainEntity {
     private static final int NO_RULE = -1;
     /** How close to the shell an entity must be for a boundary rule to act on it. */
     private static final double BOUNDARY_THICKNESS = 1.45D;
     /** How far past the shell we still look, so a boundary can catch something on its way in. */
     private static final double BOUNDARY_OUTER_REACH = 1.35D;
-    private static final int LIFE_TICKS = 20 * 60 * 10;
-    private static final EntityDataAccessor<Float> RADIUS = SynchedEntityData.defineId(SpaceSubspaceEntity.class, EntityDataSerializers.FLOAT);
-    private static final EntityDataAccessor<Boolean> FOLLOW_OWNER = SynchedEntityData.defineId(SpaceSubspaceEntity.class, EntityDataSerializers.BOOLEAN);
-    private static final EntityDataAccessor<Integer> OWNER_ID = SynchedEntityData.defineId(SpaceSubspaceEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> GRAVITY_OPERATION = SynchedEntityData.defineId(SpaceSubspaceEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> GRAVITY_TARGET = SynchedEntityData.defineId(SpaceSubspaceEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> VELOCITY_OPERATION = SynchedEntityData.defineId(SpaceSubspaceEntity.class, EntityDataSerializers.INT);
@@ -66,30 +63,23 @@ public final class SpaceSubspaceEntity extends Entity {
     private static final EntityDataAccessor<Integer> COLLISION_TARGET = SynchedEntityData.defineId(SpaceSubspaceEntity.class, EntityDataSerializers.INT);
     private final Set<Integer> reversedAccelerationEntityIds = new HashSet<>();
     /** Players this subspace granted flight to, so it only ever revokes what it gave. */
-    private final Set<UUID> grantedFlightPlayers = new HashSet<>();
-    private final Set<UUID> touchedFlightPlayers = new HashSet<>();
-    private UUID ownerUuid;
 
     public SpaceSubspaceEntity(EntityType<? extends SpaceSubspaceEntity> entityType, Level level) {
         super(entityType, level);
-        noPhysics = true;
     }
 
     public static SpaceSubspaceEntity create(ServerLevel level, LivingEntity owner, float radius, boolean followOwner) {
         SpaceSubspaceEntity entity = new SpaceSubspaceEntity(MagicalEntities.SPACE_SUBSPACE.get(), level);
-        entity.ownerUuid = owner.getUUID();
         entity.setPos(owner.getX(), owner.getY() + owner.getBbHeight() * 0.5D, owner.getZ());
-        entity.entityData.set(RADIUS, Mth.clamp(radius, 5.0F, 16.0F));
-        entity.entityData.set(FOLLOW_OWNER, followOwner);
-        entity.entityData.set(OWNER_ID, owner.getId());
+        entity.setOwner(owner);
+        entity.setRadius(Mth.clamp(radius, 5.0F, MAX_RADIUS));
+        entity.setFollowOwner(followOwner);
         return entity;
     }
 
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
-        builder.define(RADIUS, 5.0F);
-        builder.define(FOLLOW_OWNER, false);
-        builder.define(OWNER_ID, -1);
+        super.defineSynchedData(builder);
         builder.define(GRAVITY_OPERATION, NO_RULE);
         builder.define(GRAVITY_TARGET, SpaceTargetGroup.EVERYTHING_EXCEPT_USER.ordinal());
         builder.define(VELOCITY_OPERATION, NO_RULE);
@@ -114,30 +104,6 @@ public final class SpaceSubspaceEntity extends Entity {
         builder.define(BOUNDARY_TARGET, SpaceTargetGroup.EVERYTHING_EXCEPT_USER.ordinal());
         builder.define(COLLISION_OPERATION, NO_RULE);
         builder.define(COLLISION_TARGET, SpaceTargetGroup.EVERYTHING_EXCEPT_USER.ordinal());
-    }
-
-    @Override
-    public void tick() {
-        super.tick();
-        setDeltaMovement(Vec3.ZERO);
-        if (level().isClientSide()) {
-            followOwnerClient();
-            return;
-        }
-        Entity owner = ownerEntity();
-        if (!(owner instanceof LivingEntity livingOwner) || !owner.isAlive() || tickCount > LIFE_TICKS) {
-            clearOwnerState(owner);
-            discard();
-            return;
-        }
-        if (followsOwner()) {
-            setPos(owner.getX(), owner.getY() + owner.getBbHeight() * 0.5D, owner.getZ());
-        } else if (owner.distanceToSqr(position()) > radius() * radius()) {
-            clearOwnerState(owner);
-            discard();
-            return;
-        }
-        applyRules(livingOwner);
     }
 
     public void applyRule(SpaceRuleCategory category, SpaceRuleOperation operation, SpaceTargetGroup targetGroup) {
@@ -199,23 +165,21 @@ public final class SpaceSubspaceEntity extends Entity {
         }
     }
 
-    private void applyRules(LivingEntity owner) {
-        touchedFlightPlayers.clear();
-        double searchRadius = searchRadius();
-        AABB area = new AABB(getX() - searchRadius, getY() - searchRadius, getZ() - searchRadius, getX() + searchRadius, getY() + searchRadius, getZ() + searchRadius);
-        for (Entity entity : level().getEntities(this, area, target -> target.isAlive() && target != this && !(target instanceof SpaceSubspaceEntity))) {
-            // A player's movement belongs to their own client, which runs the other half of the
-            // law through SpaceLawClient. All the server can do here is hand out what it costs.
-            applyLaws(owner, entity, entity instanceof Player ? SpaceLawPass.CONSEQUENCES : SpaceLawPass.WHOLE);
-        }
-        revokeUntouchedGrantedFlight();
+    /**
+     * A subspace is a sphere, and it measures the centre of a body rather than the feet standing
+     * under it - which is why a tall mob is inside before it looks inside.
+     */
+    @Override
+    protected boolean contains(Entity entity) {
+        return entityBoundaryPoint(entity).distanceToSqr(position()) <= radius() * radius();
     }
 
     /**
      * How far out this subspace has to look. A boundary rule acts on things approaching from
      * outside, so it reaches past its own shell; every other law stops at the radius.
      */
-    private double searchRadius() {
+    @Override
+    protected double searchRadius() {
         return radius() + (hasBoundaryRule() ? BOUNDARY_OUTER_REACH : 0.0D);
     }
 
@@ -224,17 +188,9 @@ public final class SpaceSubspaceEntity extends Entity {
         return MAX_RADIUS + BOUNDARY_OUTER_REACH;
     }
 
-    /**
-     * Pushes the player sitting at this client, and only that player, through the movement half
-     * of every law. Called from {@code SpaceLawClient} just before the player's own physics run,
-     * so a law sets the velocity their input then works against.
-     */
-    public void applyLocalPlayerMotion(Player player) {
-        applyLaws(level().getEntity(entityData.get(OWNER_ID)), player, SpaceLawPass.MOTION);
-    }
-
     /** One entity, one pass over the twelve laws. */
-    private void applyLaws(Entity owner, Entity entity, SpaceLawPass pass) {
+    @Override
+    protected void applyLaws(Entity owner, Entity entity, DomainPass pass) {
         double radiusSqr = radius() * radius();
         double distanceSqr = entityBoundaryPoint(entity).distanceToSqr(position());
         if (distanceSqr > radiusSqr) {
@@ -258,7 +214,7 @@ public final class SpaceSubspaceEntity extends Entity {
         applyCollision(owner, entity, pass);
     }
 
-    private void applyGravity(Entity owner, Entity entity, SpaceLawPass pass) {
+    private void applyGravity(Entity owner, Entity entity, DomainPass pass) {
         SpaceRuleOperation operation = operation(entityData.get(GRAVITY_OPERATION));
         if (operation == null || !matchesTarget(owner, entity, target(entityData.get(GRAVITY_TARGET)))) {
             return;
@@ -288,7 +244,7 @@ public final class SpaceSubspaceEntity extends Entity {
         entity.hasImpulse = true;
     }
 
-    private void applyVelocity(Entity owner, Entity entity, SpaceLawPass pass) {
+    private void applyVelocity(Entity owner, Entity entity, DomainPass pass) {
         SpaceRuleOperation operation = operation(entityData.get(VELOCITY_OPERATION));
         if (operation == null || !pass.moves() || !matchesTarget(owner, entity, target(entityData.get(VELOCITY_TARGET)))) {
             return;
@@ -303,7 +259,7 @@ public final class SpaceSubspaceEntity extends Entity {
         entity.hasImpulse = true;
     }
 
-    private void applyAcceleration(Entity owner, Entity entity, SpaceLawPass pass) {
+    private void applyAcceleration(Entity owner, Entity entity, DomainPass pass) {
         SpaceRuleOperation operation = operation(entityData.get(ACCELERATION_OPERATION));
         if (operation == null || !pass.moves() || !matchesTarget(owner, entity, target(entityData.get(ACCELERATION_TARGET)))) {
             return;
@@ -353,7 +309,7 @@ public final class SpaceSubspaceEntity extends Entity {
         return new Vec3(0.0D, 0.16D, 0.0D);
     }
 
-    private void applyAirResistance(Entity owner, Entity entity, SpaceLawPass pass) {
+    private void applyAirResistance(Entity owner, Entity entity, DomainPass pass) {
         SpaceRuleOperation operation = operation(entityData.get(AIR_RESISTANCE_OPERATION));
         if (operation == null || !matchesTarget(owner, entity, target(entityData.get(AIR_RESISTANCE_TARGET)))) {
             return;
@@ -384,7 +340,7 @@ public final class SpaceSubspaceEntity extends Entity {
         }
     }
 
-    private void applyPressure(Entity owner, Entity entity, SpaceLawPass pass) {
+    private void applyPressure(Entity owner, Entity entity, DomainPass pass) {
         SpaceRuleOperation operation = operation(entityData.get(PRESSURE_OPERATION));
         if (operation == null || !matchesTarget(owner, entity, target(entityData.get(PRESSURE_TARGET)))) {
             return;
@@ -413,7 +369,7 @@ public final class SpaceSubspaceEntity extends Entity {
         }
     }
 
-    private void applyMass(Entity owner, Entity entity, SpaceLawPass pass) {
+    private void applyMass(Entity owner, Entity entity, DomainPass pass) {
         SpaceRuleOperation operation = operation(entityData.get(MASS_OPERATION));
         if (operation == null || !matchesTarget(owner, entity, target(entityData.get(MASS_TARGET)))) {
             return;
@@ -442,7 +398,7 @@ public final class SpaceSubspaceEntity extends Entity {
         }
     }
 
-    private void applyTimeFlow(Entity owner, Entity entity, SpaceLawPass pass) {
+    private void applyTimeFlow(Entity owner, Entity entity, DomainPass pass) {
         if (UnwakingCapabilities.controlled(entity)) return;
         SpaceRuleOperation operation = operation(entityData.get(TIME_FLOW_OPERATION));
         if (operation == null || !matchesTarget(owner, entity, target(entityData.get(TIME_FLOW_TARGET)))) {
@@ -475,7 +431,7 @@ public final class SpaceSubspaceEntity extends Entity {
         }
     }
 
-    private void applyVectorField(Entity owner, Entity entity, SpaceLawPass pass) {
+    private void applyVectorField(Entity owner, Entity entity, DomainPass pass) {
         SpaceRuleOperation operation = operation(entityData.get(VECTOR_FIELD_OPERATION));
         if (operation == null || !pass.moves() || !matchesTarget(owner, entity, target(entityData.get(VECTOR_FIELD_TARGET)))) {
             return;
@@ -498,7 +454,7 @@ public final class SpaceSubspaceEntity extends Entity {
         entity.hasImpulse = true;
     }
 
-    private void applyEntropy(Entity owner, Entity entity, SpaceLawPass pass) {
+    private void applyEntropy(Entity owner, Entity entity, DomainPass pass) {
         SpaceRuleOperation operation = operation(entityData.get(ENTROPY_OPERATION));
         if (operation == null || !matchesTarget(owner, entity, target(entityData.get(ENTROPY_TARGET)))) {
             return;
@@ -541,7 +497,7 @@ public final class SpaceSubspaceEntity extends Entity {
         return impulse.normalize().scale(strength);
     }
 
-    private void applyFriction(Entity owner, Entity entity, SpaceLawPass pass) {
+    private void applyFriction(Entity owner, Entity entity, DomainPass pass) {
         SpaceRuleOperation operation = operation(entityData.get(FRICTION_OPERATION));
         if (operation == null || !matchesTarget(owner, entity, target(entityData.get(FRICTION_TARGET)))) {
             return;
@@ -586,13 +542,6 @@ public final class SpaceSubspaceEntity extends Entity {
         };
     }
 
-    private Vec3 capMotion(Vec3 motion, double maxLength) {
-        if (motion.lengthSqr() <= maxLength * maxLength) {
-            return motion;
-        }
-        return motion.normalize().scale(maxLength);
-    }
-
     private SpaceRuleOperation operation(int ordinal) {
         SpaceRuleOperation[] operations = SpaceRuleOperation.values();
         return ordinal >= 0 && ordinal < operations.length ? operations[ordinal] : null;
@@ -603,37 +552,9 @@ public final class SpaceSubspaceEntity extends Entity {
         return ordinal >= 0 && ordinal < targets.length ? targets[ordinal] : SpaceTargetGroup.EVERYTHING_EXCEPT_USER;
     }
 
-    private void followOwnerClient() {
-        if (!followsOwner()) {
-            return;
-        }
-        Entity owner = level().getEntity(entityData.get(OWNER_ID));
-        if (owner != null && owner.isAlive()) {
-            setPos(Mth.lerp(0.55D, getX(), owner.getX()), Mth.lerp(0.55D, getY(), owner.getY() + owner.getBbHeight() * 0.5D), Mth.lerp(0.55D, getZ(), owner.getZ()));
-        }
-    }
-
-    private Entity ownerEntity() {
-        return ownerUuid == null || !(level() instanceof ServerLevel serverLevel) ? null : serverLevel.getEntity(ownerUuid);
-    }
-
-    private void clearOwnerState(Entity owner) {
-        if (owner instanceof net.minecraft.server.level.ServerPlayer player) {
-            var state = player.getData(MagicalAttachments.MAGIC_STATE);
-            if (state.activeSubspaceEntityId() == getId()) {
-                state.setActiveSubspaceEntityId(-1);
-                state.sync(player);
-            }
-        }
-    }
-
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
-        if (tag.hasUUID("Owner")) {
-            ownerUuid = tag.getUUID("Owner");
-        }
-        entityData.set(RADIUS, tag.getFloat("Radius"));
-        entityData.set(FOLLOW_OWNER, tag.getBoolean("FollowOwner"));
+        super.readAdditionalSaveData(tag);
         entityData.set(GRAVITY_OPERATION, tag.getInt("GravityOperation"));
         entityData.set(GRAVITY_TARGET, tag.getInt("GravityTarget"));
         entityData.set(VELOCITY_OPERATION, tag.getInt("VelocityOperation"));
@@ -664,11 +585,7 @@ public final class SpaceSubspaceEntity extends Entity {
 
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
-        if (ownerUuid != null) {
-            tag.putUUID("Owner", ownerUuid);
-        }
-        tag.putFloat("Radius", radius());
-        tag.putBoolean("FollowOwner", followsOwner());
+        super.addAdditionalSaveData(tag);
         tag.putInt("GravityOperation", entityData.get(GRAVITY_OPERATION));
         tag.putInt("GravityTarget", entityData.get(GRAVITY_TARGET));
         tag.putInt("VelocityOperation", entityData.get(VELOCITY_OPERATION));
@@ -695,39 +612,7 @@ public final class SpaceSubspaceEntity extends Entity {
         tag.putInt("CollisionTarget", entityData.get(COLLISION_TARGET));
     }
 
-    @Override
-    public boolean shouldRenderAtSqrDistance(double distance) {
-        return distance < SpellEntityVisibility.RENDER_DISTANCE_SQR;
-    }
-
-    @Override
-    public boolean isNoGravity() {
-        return true;
-    }
-
-    @Override
-    public boolean hurtServer(ServerLevel level, net.minecraft.world.damagesource.DamageSource damageSource, float amount) {
-        return false;
-    }
-
-    public float radius() {
-        return entityData.get(RADIUS);
-    }
-
-    public boolean followsOwner() {
-        return entityData.get(FOLLOW_OWNER);
-    }
-
-    public UUID ownerUuid() {
-        return ownerUuid;
-    }
-
     // ---------------------------------------------------------------- boundary
-
-    /** Centre of an entity's body, which is what the boundary maths measures against. */
-    private Vec3 entityBoundaryPoint(Entity entity) {
-        return entity.position().add(0.0D, entity.getBbHeight() * 0.5D, 0.0D);
-    }
 
     /** Largest radius a subspace can have, so callers can bound their search for one. */
     public static final float MAX_RADIUS = 16.0F;
@@ -775,7 +660,7 @@ public final class SpaceSubspaceEntity extends Entity {
      * rules only bite within {@link #BOUNDARY_THICKNESS} of the surface, so the middle of a
      * subspace stays free to move through.
      */
-    private void applyBoundary(Entity owner, Entity entity, SpaceLawPass pass) {
+    private void applyBoundary(Entity owner, Entity entity, DomainPass pass) {
         if (UnwakingCapabilities.controlled(entity)) return;
         SpaceRuleOperation operation = operation(entityData.get(BOUNDARY_OPERATION));
         if (operation == null || !matchesTarget(owner, entity, target(entityData.get(BOUNDARY_TARGET)))) {
@@ -811,7 +696,7 @@ public final class SpaceSubspaceEntity extends Entity {
     }
 
     /** Pins the entity to the shell and kills any motion trying to cross it. */
-    private void sealBoundary(Entity entity, Vec3 radial, double signedDistance, SpaceLawPass pass) {
+    private void sealBoundary(Entity entity, Vec3 radial, double signedDistance, DomainPass pass) {
         boolean inside = signedDistance <= 0.0D;
         entity.fallDistance = 0.0F;
         // A body is moved by whoever owns its position - the server, which syncs a player's teleport.
@@ -849,7 +734,7 @@ public final class SpaceSubspaceEntity extends Entity {
     }
 
     /** Teleports across the sphere, so leaving one side re-enters from the other. */
-    private void wrapBoundary(Entity entity, Vec3 radial, double signedDistance, SpaceLawPass pass) {
+    private void wrapBoundary(Entity entity, Vec3 radial, double signedDistance, DomainPass pass) {
         boolean inside = signedDistance <= 0.0D;
         entity.fallDistance = 0.0F;
         if (pass.consequences()) {
@@ -864,17 +749,13 @@ public final class SpaceSubspaceEntity extends Entity {
         entity.hasImpulse = true;
     }
 
-    private void moveByCorrection(Entity entity, Vec3 correction) {
-        entity.teleportTo(entity.getX() + correction.x, entity.getY() + correction.y, entity.getZ() + correction.z);
-    }
-
     // ---------------------------------------------------------------- collision
 
     /**
      * Rewrites how entities inside the subspace bump into each other. Contacts are found per
      * entity against its immediate neighbours, so cost scales with crowding rather than volume.
      */
-    private void applyCollision(Entity owner, Entity entity, SpaceLawPass pass) {
+    private void applyCollision(Entity owner, Entity entity, DomainPass pass) {
         SpaceRuleOperation operation = operation(entityData.get(COLLISION_OPERATION));
         SpaceTargetGroup targetGroup = target(entityData.get(COLLISION_TARGET));
         if (operation == null || !matchesTarget(owner, entity, targetGroup)) {
@@ -940,7 +821,7 @@ public final class SpaceSubspaceEntity extends Entity {
         entity.hasImpulse = true;
     }
 
-    private void intensifyCollision(Entity entity, Entity other, Vec3 normal, SpaceLawPass pass) {
+    private void intensifyCollision(Entity entity, Entity other, Vec3 normal, DomainPass pass) {
         Vec3 motion = entity.getDeltaMovement();
         double relativeImpact = Math.max(0.05D, -motion.dot(normal) + other.getDeltaMovement().dot(normal));
         if (pass.moves()) {
@@ -979,69 +860,5 @@ public final class SpaceSubspaceEntity extends Entity {
             return player.getAbilities().flying ? motion.y : Math.max(0.0D, motion.y);
         }
         return motion.y;
-    }
-
-    /**
-     * Grants flight, but never to someone who could already fly. That guard is what keeps this
-     * from fighting Mana Flight or creative mode: if the ability was not ours to give, it is not
-     * ours to take away, and the player is never recorded in {@code grantedFlightPlayers}.
-     */
-    private void grantCreativeFlight(net.minecraft.server.level.ServerPlayer player) {
-        if (player.isCreative() || player.isSpectator()) {
-            return;
-        }
-        UUID uuid = player.getUUID();
-        if (grantedFlightPlayers.contains(uuid)) {
-            touchedFlightPlayers.add(uuid);
-            player.fallDistance = 0.0F;
-            return;
-        }
-        if (player.getAbilities().mayfly) {
-            return;
-        }
-        touchedFlightPlayers.add(uuid);
-        player.getAbilities().mayfly = true;
-        player.onUpdateAbilities();
-        grantedFlightPlayers.add(uuid);
-        player.fallDistance = 0.0F;
-    }
-
-    /** Takes flight back from anyone who left the subspace this tick. */
-    private void revokeUntouchedGrantedFlight() {
-        grantedFlightPlayers.removeIf(uuid -> {
-            if (touchedFlightPlayers.contains(uuid)) {
-                return false;
-            }
-            revokeGrantedFlight(uuid);
-            return true;
-        });
-    }
-
-    private void revokeAllGrantedFlight() {
-        for (UUID uuid : Set.copyOf(grantedFlightPlayers)) {
-            revokeGrantedFlight(uuid);
-        }
-        grantedFlightPlayers.clear();
-        touchedFlightPlayers.clear();
-    }
-
-    private void revokeGrantedFlight(UUID uuid) {
-        if (!(level() instanceof ServerLevel serverLevel)) {
-            return;
-        }
-        net.minecraft.server.level.ServerPlayer player = serverLevel.getServer().getPlayerList().getPlayer(uuid);
-        if (player == null || player.isCreative() || player.isSpectator()) {
-            return;
-        }
-        player.getAbilities().mayfly = false;
-        player.getAbilities().flying = false;
-        player.onUpdateAbilities();
-    }
-
-    @Override
-    public void remove(RemovalReason reason) {
-        // Flight is on loan for as long as the subspace exists; it must not outlive it.
-        revokeAllGrantedFlight();
-        super.remove(reason);
     }
 }

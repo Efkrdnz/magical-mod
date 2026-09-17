@@ -18,7 +18,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 /**
  * Where a law lands, run against a real level.
  *
- * <p>The split these pin is the whole point of {@link SpaceLawPass}: a law's push is written by
+ * <p>The split these pin is the whole point of {@link DomainPass}: a law's push is written by
  * whichever side owns the pushed thing's movement, and for a player that is never the server. The
  * first test would have failed the other way round before the split - the server wrote a player's
  * velocity happily, and the write simply never reached them, so the law looked dead from inside

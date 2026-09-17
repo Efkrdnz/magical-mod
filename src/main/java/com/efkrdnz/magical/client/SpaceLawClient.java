@@ -1,7 +1,7 @@
 package com.efkrdnz.magical.client;
 
 import com.efkrdnz.magical.MagicalMod;
-import com.efkrdnz.magical.entity.SpaceSubspaceEntity;
+import com.efkrdnz.magical.entity.domain.DomainEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
@@ -11,7 +11,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 
 /**
- * Pushes this client's own player through whatever subspace laws are standing over them.
+ * Pushes this client's own player through whatever domain laws are standing over them.
  *
  * <p>The server cannot do it. A law's push is a velocity, and a velocity written onto a
  * server-side player goes nowhere: vanilla sends the motion packet for {@code hasImpulse} over
@@ -21,7 +21,7 @@ import net.neoforged.neoforge.event.tick.PlayerTickEvent;
  * velocity with the server's copy, and the server has no real copy of a player's velocity to send.
  *
  * <p>So the push is made here, where the player's velocity actually lives, and only ever against
- * the player at this client - every other player in the subspace is doing the same at theirs.
+ * the player at this client - every other player in the domain is doing the same at theirs.
  * {@code PlayerTickEvent.Pre} fires at the top of {@code Player.tick()}, before the player's own
  * physics and input run, so a law sets the velocity the rest of the tick works against rather than
  * fighting over the result. The server keeps the other half of every law: the damage, the effects,
@@ -41,9 +41,11 @@ public final class SpaceLawClient {
         if (player == null || level == null || event.getEntity() != player || player.isSpectator()) {
             return;
         }
-        double reach = SpaceSubspaceEntity.maxSearchRadius();
-        for (SpaceSubspaceEntity subspace : level.getEntitiesOfClass(SpaceSubspaceEntity.class, player.getBoundingBox().inflate(reach))) {
-            subspace.applyLocalPlayerMotion(player);
+        // Every domain, not just a subspace: a Weave and a root network split their laws the
+        // same way and would otherwise silently lose the half only this client can deliver.
+        for (DomainEntity domain : level.getEntitiesOfClass(DomainEntity.class,
+                player.getBoundingBox().inflate(DomainEntity.MAX_CLIENT_REACH))) {
+            domain.applyLocalPlayerMotion(player);
         }
     }
 }

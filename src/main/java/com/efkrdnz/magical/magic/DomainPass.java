@@ -1,7 +1,7 @@
 package com.efkrdnz.magical.magic;
 
 /**
- * Which half of a space law one pass over an entity is allowed to carry out.
+ * Which half of a domain law one pass over an entity is allowed to carry out.
  *
  * <p>A mob is simulated on the server, so the whole of a law reaches it there. A player is not.
  * Vanilla forwards a motion packet to the player it is about through {@code hurtMarked} alone
@@ -16,7 +16,7 @@ package com.efkrdnz.magical.magic;
  * damage, effects, air, flight, the body moved across the shell - and each client pushes the one
  * player whose movement it owns.
  */
-public enum SpaceLawPass {
+public enum DomainPass {
     /** The server, acting on something it simulates itself. Both halves. */
     WHOLE(true, true),
     /** The server, acting on a player. Everything except the push. */
@@ -27,7 +27,7 @@ public enum SpaceLawPass {
     private final boolean moves;
     private final boolean consequences;
 
-    SpaceLawPass(boolean moves, boolean consequences) {
+    DomainPass(boolean moves, boolean consequences) {
         this.moves = moves;
         this.consequences = consequences;
     }
