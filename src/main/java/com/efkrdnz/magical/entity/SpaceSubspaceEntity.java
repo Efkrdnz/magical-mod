@@ -10,7 +10,10 @@ import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicDamageService;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import com.efkrdnz.magical.registry.MagicalEntities;
+import com.efkrdnz.magical.client.renderer.space.SubspaceCrossings;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
@@ -66,6 +69,104 @@ public final class SpaceSubspaceEntity extends DomainEntity {
 
     public SpaceSubspaceEntity(EntityType<? extends SpaceSubspaceEntity> entityType, Level level) {
         super(entityType, level);
+    }
+
+    // ------------------------------------------------------------------ what the boundary wears
+
+    /** How long a law takes to settle onto the wall after it is written. */
+    private static final float SETTLE_TICKS = 10.0F;
+    /** How far past the shell a body is still watched, so a crossing is caught on the way through. */
+    private static final double CROSSING_WATCH = 1.5D;
+
+    private final int[] lawChangedAt = new int[SpaceRuleCategory.values().length];
+    private final Map<Integer, Boolean> lastInside = new HashMap<>();
+    private final SubspaceCrossings crossings = new SubspaceCrossings();
+    private int[] lastLaws;
+
+    /**
+     * The twelve law ordinals in category order, which is the whole of what the boundary draws.
+     *
+     * <p>Handing the renderer one array rather than twenty-four accessors is what lets
+     * {@code SubspaceLedger} be a pure class with a test: the reduction from ordinals to marks
+     * happens somewhere a test can reach, instead of inside a render pass where nothing can.
+     */
+    public int[] lawOrdinals() {
+        return new int[] {
+            entityData.get(GRAVITY_OPERATION),
+            entityData.get(VELOCITY_OPERATION),
+            entityData.get(ACCELERATION_OPERATION),
+            entityData.get(AIR_RESISTANCE_OPERATION),
+            entityData.get(PRESSURE_OPERATION),
+            entityData.get(MASS_OPERATION),
+            entityData.get(TIME_FLOW_OPERATION),
+            entityData.get(VECTOR_FIELD_OPERATION),
+            entityData.get(ENTROPY_OPERATION),
+            entityData.get(FRICTION_OPERATION),
+            entityData.get(BOUNDARY_OPERATION),
+            entityData.get(COLLISION_OPERATION),
+        };
+    }
+
+    /** How far a law's mark has settled onto the wall: 0 the tick it arrives, 1 once it is written. */
+    public float lawSettle01(int slot, float age) {
+        if (slot < 0 || slot >= lawChangedAt.length) {
+            return 1.0F;
+        }
+        return Mth.clamp((age - lawChangedAt[slot]) / SETTLE_TICKS, 0.0F, 1.0F);
+    }
+
+    /** Where bodies have lately gone through the wall. Client-side; empty on the server. */
+    public SubspaceCrossings crossings() {
+        return crossings;
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (level().isClientSide()) {
+            watchLaws();
+            watchCrossings();
+        }
+    }
+
+    /** Notices a law arriving or going dark, so its mark can settle in rather than blink on. */
+    private void watchLaws() {
+        int[] now = lawOrdinals();
+        if (lastLaws != null) {
+            for (int slot = 0; slot < now.length; slot++) {
+                if (now[slot] != lastLaws[slot]) {
+                    lawChangedAt[slot] = tickCount;
+                }
+            }
+        }
+        lastLaws = now;
+    }
+
+    /**
+     * Notices bodies going through the wall.
+     *
+     * <p>Only a body seen on the previous tick can cross: something that merely came into range
+     * already inside has not crossed anything, and firing a ring for it would ripple the wall
+     * every time a domain loaded.
+     */
+    private void watchCrossings() {
+        double radius = radius();
+        AABB area = new AABB(position(), position()).inflate(radius + CROSSING_WATCH);
+        Map<Integer, Boolean> seen = new HashMap<>();
+        for (Entity entity : level().getEntities(this, area,
+                target -> target.isAlive() && target instanceof LivingEntity)) {
+            Vec3 fromCentre = entityBoundaryPoint(entity).subtract(position());
+            double lengthSq = fromCentre.lengthSqr();
+            boolean inside = lengthSq <= radius * radius;
+            Boolean was = lastInside.get(entity.getId());
+            if (was != null && was != inside && lengthSq > 1.0E-4D) {
+                Vec3 direction = fromCentre.normalize();
+                crossings.note((float) direction.x, (float) direction.y, (float) direction.z, tickCount);
+            }
+            seen.put(entity.getId(), inside);
+        }
+        lastInside.clear();
+        lastInside.putAll(seen);
     }
 
     public static SpaceSubspaceEntity create(ServerLevel level, LivingEntity owner, float radius, boolean followOwner) {

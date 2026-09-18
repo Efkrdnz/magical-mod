@@ -184,17 +184,25 @@ public abstract class DomainEntity extends Entity {
         entity.teleportTo(entity.getX() + correction.x, entity.getY() + correction.y, entity.getZ() + correction.z);
     }
 
+    /**
+     * Keeps a following domain on its owner, on the client, exactly - not eased toward them.
+     *
+     * <p>It used to lerp a little over half the way each tick, which is invisible on a cloud of
+     * particles and very visible on a wall: a domain that wears a level horizon and an upright
+     * standing due north is an instrument, and an instrument that swims behind the person holding
+     * it reads as a mistake. The server sets the position outright, so easing here was also the
+     * two sides disagreeing about where the wall is.
+     */
     private void followOwnerClient() {
         if (!followsOwner()) {
             return;
         }
         Entity owner = level().getEntity(entityData.get(OWNER_ID));
         if (owner != null && owner.isAlive()) {
-            setPos(Mth.lerp(0.55D, getX(), owner.getX()),
-                    Mth.lerp(0.55D, getY(), owner.getY() + owner.getBbHeight() * 0.5D),
-                    Mth.lerp(0.55D, getZ(), owner.getZ()));
+            setPos(owner.getX(), owner.getY() + owner.getBbHeight() * 0.5D, owner.getZ());
         }
     }
+
 
     protected Entity ownerEntity() {
         return ownerUuid == null || !(level() instanceof ServerLevel serverLevel) ? null : serverLevel.getEntity(ownerUuid);

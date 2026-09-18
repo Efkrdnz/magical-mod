@@ -36,6 +36,7 @@ public final class MagicalFxRenderTypes {
     private static final ShaderProgram SMOKE_VEIL = program("rendertype_smoke_veil");
     private static final ShaderProgram FP_OVERLAY = program("rendertype_fp_overlay");
     private static final ShaderProgram HUD_SIGIL = program("rendertype_hud_sigil");
+    private static final ShaderProgram SUBSPACE = program("rendertype_subspace");
 
     /**
      * ONE / ONE_MINUS_SRC_ALPHA over premultiplied colour. The HUD shader writes premultiplied
@@ -58,6 +59,8 @@ public final class MagicalFxRenderTypes {
     private static final int HUD_BUFFER_BYTES = 32768;
 
     private static RenderType hudSigil;
+    private static RenderType subspaceShell;
+    private static RenderType subspaceMark;
     private static RenderType shardBody;
     private static RenderType surfaceField;
     private static RenderType groundMark;
@@ -93,6 +96,7 @@ public final class MagicalFxRenderTypes {
         event.registerShader(SMOKE_VEIL);
         event.registerShader(FP_OVERLAY);
         event.registerShader(HUD_SIGIL);
+        event.registerShader(SUBSPACE);
     }
 
     /** Flush order: solids -> darkness -> glow. */
@@ -100,6 +104,8 @@ public final class MagicalFxRenderTypes {
         List<RenderType> order = new ArrayList<>();
         order.add(shardBody());
         order.add(surfaceField());
+        order.add(subspaceShell());
+        order.add(subspaceMark());
         order.add(groundMark());
         order.add(riftCut());
         order.add(lensWarp());
@@ -192,6 +198,44 @@ public final class MagicalFxRenderTypes {
             filamentDark = create("filament_dark", base(FILAMENT_BEAM, false, true), 8192, true);
         }
         return filamentDark;
+    }
+
+    /**
+     * The boundary wall of a subspace: a premultiplied pane that darkens rather than adds.
+     *
+     * <p>It replaces {@code RenderType.lightning()}, which the dome used to borrow and which
+     * writes depth - so water, glass and every other translucent thing behind a domain simply
+     * vanished, a see-through failure no shader could have fixed. This writes colour only.
+     *
+     * <p>Culling is on and is doing real work rather than saving fill: the inverted shell survives
+     * only where it faces the viewer, which is the whole of it from inside and the far hemisphere
+     * from outside, so emitting the inverted shell alone gives one wall and emitting both gives
+     * two. Sorting is off because the emission order already runs far wall then near.
+     */
+    public static RenderType subspaceShell() {
+        if (subspaceShell == null) {
+            // Bytes, not vertices: 112 to a quad, and the worst case is 2560 quads of membrane.
+            subspaceShell = create("subspace_shell", base(SUBSPACE, false, true)
+                    .setTransparencyState(PREMULTIPLIED_TRANSPARENCY)
+                    .setCullState(RenderStateShard.CULL), 393216, false);
+        }
+        return subspaceShell;
+    }
+
+    /**
+     * Everything written on that wall: the horizon, the meridian and its graduations, the law
+     * marks, the crown, a crossing ripple.
+     *
+     * <p>Separate from the wall for one reason - a mark has no front and no back. The wall is a
+     * solid and needs culling to tell its near half from its far; a line lying on the wall has to
+     * be legible from whichever side of it you are standing, so it is drawn without.
+     */
+    public static RenderType subspaceMark() {
+        if (subspaceMark == null) {
+            subspaceMark = create("subspace_mark", base(SUBSPACE, false, true)
+                    .setTransparencyState(PREMULTIPLIED_TRANSPARENCY), 65536, false);
+        }
+        return subspaceMark;
     }
 
     public static RenderType surfaceField() {

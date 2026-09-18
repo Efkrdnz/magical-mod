@@ -429,6 +429,155 @@ public final class FxMesh {
         });
     }
 
+    /**
+     * The boundary shell of a subspace, outward-facing, radius 1.
+     *
+     * <p>UV0 is not a texture coordinate here, it is the vertex's own place on the sphere: u is
+     * the bearing east of due north as a turn, v is the height mapped 0 at the south pole to 1 at
+     * the north. The subspace fragment shader rebuilds the surface normal out of exactly those
+     * two numbers, because the vertex format has position, colour, UV0 and two packed integers
+     * and there is nowhere in it to put a normal.
+     *
+     * <p>{@link #sphere} cannot serve, and the difference is one line: it writes a mirrored
+     * {@code u} that runs 0 to 1 and back so that a texture will not seam at the far side. That
+     * is right for a texture and fatal for a bearing - two opposite points on the dome would
+     * claim the same one, and the shell would be legislated twice on one side and not at all on
+     * the other.
+     */
+    public static float[] globe(int segments, int rings) {
+        return CACHE.computeIfAbsent("globe:" + segments + ":" + rings, key -> {
+            float[] m = new float[segments * rings * 4 * STRIDE];
+            int o = 0;
+            for (int r = 0; r < rings; r++) {
+                float lat0 = ((float) r / rings - 0.5F) * Mth.PI;
+                float lat1 = ((float) (r + 1) / rings - 0.5F) * Mth.PI;
+                for (int i = 0; i < segments; i++) {
+                    float t0 = (float) i / segments;
+                    float t1 = (float) (i + 1) / segments;
+                    float a0 = t0 * Mth.TWO_PI;
+                    float a1 = t1 * Mth.TWO_PI;
+                    // Up then east, which winds a face whose normal points away from the centre.
+                    o = shell(m, o, a0, lat0, t0, height01(lat0));
+                    o = shell(m, o, a0, lat1, t0, height01(lat1));
+                    o = shell(m, o, a1, lat1, t1, height01(lat1));
+                    o = shell(m, o, a1, lat0, t1, height01(lat0));
+                }
+            }
+            return m;
+        });
+    }
+
+    /**
+     * The same shell wound inside out, so face culling keeps the half of it that faces the
+     * viewer.
+     *
+     * <p>That is the whole trick behind a domain costing less from the inside than from the
+     * outside. Standing in your own subspace only the inverted shell is emitted and the graphics
+     * card keeps all of it, which is one wall on every sight line; standing outside, the inverted
+     * shell survives only on the far hemisphere and an ordinary globe supplies the near one, which
+     * is two. The shader is told which case it is in and each wall paints the root of what the
+     * pair must deliver, so the two pictures agree.
+     */
+    public static float[] globeInverted(int segments, int rings) {
+        // Fetched before the cache is entered - see boulder(): a computeIfAbsent whose mapping
+        // function reaches back into the same HashMap throws on Java 9 and up.
+        float[] outward = globe(segments, rings);
+        return CACHE.computeIfAbsent("globeIn:" + segments + ":" + rings, key -> {
+            float[] m = outward.clone();
+            for (int q = 0; q + 4 * STRIDE <= m.length; q += 4 * STRIDE) {
+                for (int c = 0; c < STRIDE; c++) {
+                    float swap = m[q + STRIDE + c];
+                    m[q + STRIDE + c] = m[q + 3 * STRIDE + c];
+                    m[q + 3 * STRIDE + c] = swap;
+                }
+            }
+            return m;
+        });
+    }
+
+    /**
+     * A ribbon lying along one latitude of the unit shell: the horizon, the crown, a law mark, a
+     * graduation, a crossing ripple.
+     *
+     * <p>Centred on due north and swept symmetrically, so a caller places it by rotating the pose
+     * rather than by rebuilding it - twelve law marks are one cached mesh drawn twelve times.
+     * Unlike the shell, UV0 here is local to the stroke: u runs along it and v runs across it, 0
+     * at one lip and 1 at the other, which is all an antialiased stroke needs and it needs no
+     * normal at all.
+     */
+    public static float[] shellBand(int segments, float latitudeDeg, float halfLatitudeDeg, float sweepDeg) {
+        String key = "shellBand:" + segments + ":" + latitudeDeg + ":" + halfLatitudeDeg + ":" + sweepDeg;
+        return CACHE.computeIfAbsent(key, k -> {
+            float[] m = new float[segments * 4 * STRIDE];
+            int o = 0;
+            float lat0 = (latitudeDeg - halfLatitudeDeg) * Mth.DEG_TO_RAD;
+            float lat1 = (latitudeDeg + halfLatitudeDeg) * Mth.DEG_TO_RAD;
+            float start = -sweepDeg * 0.5F * Mth.DEG_TO_RAD;
+            float sweep = sweepDeg * Mth.DEG_TO_RAD;
+            for (int i = 0; i < segments; i++) {
+                float t0 = (float) i / segments;
+                float t1 = (float) (i + 1) / segments;
+                float a0 = start + t0 * sweep;
+                float a1 = start + t1 * sweep;
+                o = shell(m, o, a0, lat0, t0, 0.0F);
+                o = shell(m, o, a0, lat1, t0, 1.0F);
+                o = shell(m, o, a1, lat1, t1, 1.0F);
+                o = shell(m, o, a1, lat0, t1, 0.0F);
+            }
+            return m;
+        });
+    }
+
+    /**
+     * A ribbon standing up the shell at due north, from one latitude to another.
+     *
+     * <p>The one line in the domain that is not a circle, and the reason the boundary can be read
+     * at all: a level horizon says which way is down and a graduated upright says how far it is
+     * to the wall. u runs up it, v across it.
+     */
+    public static float[] shellMeridian(int rings, float halfWidthDeg, float latitudeStartDeg, float latitudeEndDeg) {
+        String key = "shellMeridian:" + rings + ":" + halfWidthDeg + ":" + latitudeStartDeg + ":" + latitudeEndDeg;
+        return CACHE.computeIfAbsent(key, k -> {
+            float[] m = new float[rings * 4 * STRIDE];
+            int o = 0;
+            float west = -halfWidthDeg * Mth.DEG_TO_RAD;
+            float east = halfWidthDeg * Mth.DEG_TO_RAD;
+            for (int r = 0; r < rings; r++) {
+                float t0 = (float) r / rings;
+                float t1 = (float) (r + 1) / rings;
+                float lat0 = Mth.lerp(t0, latitudeStartDeg, latitudeEndDeg) * Mth.DEG_TO_RAD;
+                float lat1 = Mth.lerp(t1, latitudeStartDeg, latitudeEndDeg) * Mth.DEG_TO_RAD;
+                o = shell(m, o, west, lat0, t0, 0.0F);
+                o = shell(m, o, west, lat1, t1, 0.0F);
+                o = shell(m, o, east, lat1, t1, 1.0F);
+                o = shell(m, o, east, lat0, t0, 1.0F);
+            }
+            return m;
+        });
+    }
+
+    /** Height on the unit shell as the shader reads it back: -1 at the south pole, 1 at the north. */
+    private static float height01(float latitude) {
+        return (float) Math.sin(latitude) * 0.5F + 0.5F;
+    }
+
+    /**
+     * One vertex on the unit shell. Bearing 0 is due north (-Z), a quarter turn is east (+X).
+     *
+     * <p>{@link Mth#sin} is deliberately not used. It reads a 65536-entry table with no
+     * interpolation, which quantises the angle to about a two-hundredth of a degree - invisible on
+     * a shape and not invisible here, because the shell is a coordinate system that the fragment
+     * shader rebuilds with the card's own trigonometry. A vertex that disagrees with the
+     * reconstruction by a fiftieth of a degree is a surface normal wrong by that much, and the
+     * whole transparency of the wall is a function of that normal. The mesh is built once and
+     * cached, so the exact call costs nothing that is ever paid twice.
+     */
+    private static int shell(float[] m, int o, float bearing, float latitude, float u, float v) {
+        float s = (float) Math.cos(latitude);
+        return put(m, o, (float) Math.sin(bearing) * s, (float) Math.sin(latitude),
+                (float) -Math.cos(bearing) * s, u, v);
+    }
+
     private static int put(float[] m, int o, float x, float y, float z, float u, float v) {
         m[o] = x;
         m[o + 1] = y;
