@@ -131,10 +131,11 @@ class SubspaceShaderAssetsTest {
     }
 
     @Test
-    @DisplayName("the two colours the shader owns are the two colours Java named")
+    @DisplayName("the three colours the shader owns are the three colours Java named")
     void thePaletteAgrees() throws IOException {
         String fragment = read(SHADER + ".fsh");
-        assertVec3(fragment, "INK", SubspaceOptics.INK);
+        assertVec3(fragment, "BODY", SubspaceOptics.BODY);
+        assertVec3(fragment, "GLAZE", SubspaceOptics.GLAZE);
         assertVec3(fragment, "BURNISH", SubspaceOptics.BURNISH);
     }
 
@@ -154,6 +155,36 @@ class SubspaceShaderAssetsTest {
         Matcher writes = Pattern.compile("fragColor = vec4\\(([^;]*), alpha\\)").matcher(fragment);
         assertTrue(writes.find(), "the shader never writes a premultiplied colour beside its own alpha");
         assertTrue(writes.group(1).contains("* alpha"), "the colour was not multiplied by its own alpha: " + writes.group(1));
+    }
+
+    /**
+     * The bug this whole boundary was rebuilt around, turned into something that fails a test
+     * rather than a screenshot.
+     *
+     * <p>A domain is a sphere centred on its caster, so from the one viewpoint any player ever has,
+     * every sight line runs along the surface normal: at radius sixteen the eye is 0.72 above the
+     * centre, the sight line is never more than 1.43 degrees off the normal, and the inverted
+     * Fresnel the wall used to be varied by 5.3e-10 of alpha across the entire visible sphere -
+     * against a dither of 1/510, which is to say the only spatial structure on the whole wall was
+     * the noise. The wall was a flat seven percent and it moved blackstone by two levels of 255.
+     *
+     * <p>The arithmetic was never wrong; it was about a viewer standing outside, and a domain
+     * discards itself when its owner leaves it, so that viewer cannot exist in single player. So
+     * the caster branch is fenced off by name: no dot product, no view direction, nothing that
+     * could be a function of an angle that has no range.
+     */
+    @Test
+    @DisplayName("the wall the caster sees is not a function of an angle it does not have")
+    void theInsideMembraneHasNoViewAngle() throws IOException {
+        String fragment = read(SHADER + ".fsh");
+        int open = fragment.indexOf("// --- membrane, from inside: no view-angle term ---");
+        int close = fragment.indexOf("// --- end membrane, from inside ---");
+        assertTrue(open >= 0 && close > open, "the inside branch is no longer fenced off by name");
+        String branch = fragment.substring(open, close);
+        for (String angle : new String[] {"dot(", "viewDir", "shellNormal", "pow("}) {
+            assertFalse(branch.contains(angle),
+                    "the caster wall reads " + angle + " again, which is a constant from the centre");
+        }
     }
 
     @Test

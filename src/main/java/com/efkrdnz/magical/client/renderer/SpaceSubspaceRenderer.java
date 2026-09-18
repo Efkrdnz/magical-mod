@@ -10,6 +10,7 @@ import com.efkrdnz.magical.client.renderer.space.SubspaceLedger;
 import com.efkrdnz.magical.client.renderer.space.SubspaceLod;
 import com.efkrdnz.magical.client.renderer.space.SubspaceOptics;
 import com.efkrdnz.magical.client.renderer.space.SubspaceSun;
+import com.efkrdnz.magical.client.renderer.space.SubspaceVault;
 import com.efkrdnz.magical.entity.SpaceSubspaceEntity;
 import com.efkrdnz.magical.magic.SpaceRuleCategory;
 import com.efkrdnz.magical.magic.SpaceRuleChange;
@@ -26,59 +27,44 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * The boundary of a subspace: a wall of cold glass that wears the laws written on it.
+ * The boundary of a subspace: a vault of cold glass, wound as tight as the law written on it.
  *
- * <p>What was here before drew six unrelated things on {@code RenderType.lightning()} - two shell
- * bands, a hundred and twenty-two sphere rings, five spinning orbit arcs, three rings of glyph
- * ticks and nine wandering glints - all additive, all at a fixed tessellation, all sorted every
- * frame. In daylight that was simultaneously too much and too little: from inside it laid a pale
- * cyan wash over the whole sky, and from thirty blocks outside it was not there at all. Those are
- * the same fault. A constant alpha covers the most area exactly where you are trying to see and
- * delivers the least exactly where a silhouette lives, and no value of it fixes both.
+ * <p>You are standing under an arch rather than inside a bubble. A ring runs round the wall at
+ * head height and a bit, twelve ribs spring from it and climb, leaning, to an open eye of sky
+ * straight overhead, and a second ring traces the floor where the wall meets the world you were
+ * standing in. Six of the twelve carry a law: heavier, in the operation own colour, swelling into
+ * a boss that bears its glyph. The other six pinch to an empty socket at the same height, so the
+ * denominator is drawn as well as the numerator. Between all of it the pane is three percent.
  *
- * <p>So the wall is angle-dependent instead - see {@link SubspaceOptics} - and it darkens rather
- * than adds, which is the one thing that reads over daylight sand as well as over a night sky.
- * Everything else here is an instrument rather than an ornament: a level horizon that says which
- * way gravity runs, one graduated upright standing due north so the radius can be counted off in
- * blocks, and a band of marks along the horizon, one for every law written. An empty domain is a
- * pane of glass with a horizon on it. A fully legislated one is dense enough to read across a
- * field.
+ * <p>Two geometric facts about that viewpoint decide everything, and the dome this replaces fell
+ * foul of both. The domain is a sphere pinned to the caster body centre while the camera is at
+ * their eyes, so the eye is {@code SubspaceVault.EYE_OFFSET} above the centre and nowhere else.
+ * First: every sight line therefore runs along the surface normal, so the inverted Fresnel the old
+ * wall was built on was a constant to ten decimal places and the wall was a flat seven percent
+ * that moved blackstone by two values out of two hundred and fifty-five. Second: every meridian
+ * plane contains the eye, so any member drawn up a meridian projects to an exactly straight line -
+ * which is a tree trunk or a fence post, not architecture. Hence the twist.
  *
- * <p>Nothing moves except a ring where something crossed.
+ * <p>Nothing moves except a ring where something crossed, a rib climbing once as its law is
+ * written, and the wall fading up when it is raised.
  */
 public final class SpaceSubspaceRenderer extends EntityRenderer<SpaceSubspaceEntity, SpaceSubspaceRenderer.State> {
 
-    /** Latitude of the crown cut, where the membrane has thinned to a fifth. */
-    private static final float CROWN_LATITUDE = 80.0F;
-    private static final float CROWN_HALF_WIDTH = 0.42F;
-    private static final float HORIZON_HALF_WIDTH = 0.9F;
-    /** The meridian stops short of the crown so the two lines never meet in a corner. */
-    private static final float MERIDIAN_TOP = 76.0F;
-    private static final float MERIDIAN_HALF_WIDTH = 0.55F;
-    /** East, south and west, drawn plainer and stopped lower, so north is still the one line. */
-    private static final float CARDINAL_TOP = 40.0F;
-    private static final float CARDINAL_HALF_WIDTH = 0.4F;
-    private static final float[] CARDINALS = {90.0F, 180.0F, 270.0F};
-    private static final float TICK_HALF_WIDTH = 0.42F;
-    /** Every fifth block is cut longer, the way any scale a person can read at a glance is. */
-    private static final int TICK_EMPHASIS = 5;
-    /**
-     * Where the writing goes is the ledger's business, not the renderer's - it is the same
-     * question as which slot a category owns, and it is pinned by the same test.
-     */
-    private static final float TICK_SWEEP = (float) SubspaceLedger.TICK_SWEEP_DEGREES;
-    private static final float TICK_LONG_SWEEP = (float) SubspaceLedger.TICK_LONG_SWEEP_DEGREES;
-    private static final float TICK_OFFSET = (float) SubspaceLedger.TICK_OFFSET_DEGREES;
-    private static final float MARK_LATITUDE = (float) SubspaceLedger.MARK_LATITUDE_DEGREES;
-    private static final float MARK_HALF_HEIGHT = (float) SubspaceLedger.MARK_HALF_HEIGHT_DEGREES;
-    private static final float MARK_SWEEP = (float) SubspaceLedger.SLOT_WIDTH_DEGREES;
-    private static final float RIPPLE_HALF_WIDTH = 1.1F;
-    /** How far out a crossing ring runs, in degrees from the point it started at. */
-    private static final float RIPPLE_REACH = 62.0F;
-    /** The ring mesh is cached per step rather than per frame, which is what makes it free. */
-    private static final int RIPPLE_STEPS = 8;
     /** The wall fades up over half a second; its radius never takes part, so it is never a bubble. */
     private static final float BIRTH_TICKS = 12.0F;
+    /** How far out a crossing ring runs, in degrees from the point it started at. */
+    private static final float RIPPLE_REACH = 62.0F;
+    private static final float RIPPLE_HALF_WIDTH = 1.1F;
+    /** The ring mesh is cached per step rather than per frame, which is what makes it free. */
+    private static final int RIPPLE_STEPS = 8;
+    private static final int CATEGORIES = SpaceRuleCategory.values().length;
+
+    private static final float RING_HALF = (float) SubspaceVault.RING_HALF_DEGREES;
+    private static final float RIB_HALF = (float) SubspaceVault.RIB_HALF_DEGREES;
+    private static final float BOSS_HALF = (float) SubspaceVault.BOSS_HALF_DEGREES;
+    private static final float NOTCH_HALF_SWEEP = (float) SubspaceVault.NOTCH_HALF_SWEEP_DEGREES;
+    private static final float NOTCH_HALF_HEIGHT = (float) SubspaceVault.NOTCH_HALF_HEIGHT_DEGREES;
+    private static final float OCULUS_LATITUDE = (float) SubspaceVault.OCULUS_LATITUDE_DEGREES;
 
     public SpaceSubspaceRenderer(EntityRendererProvider.Context context) {
         super(context);
@@ -90,14 +76,13 @@ public final class SpaceSubspaceRenderer extends EntityRenderer<SpaceSubspaceEnt
     }
 
     /**
-     * The box the frustum test uses, which is the domain itself rather than the entity's declared
+     * The box the frustum test uses, which is the domain itself rather than the entity declared
      * size.
      *
-     * <p>An entity's bounding box hangs from its feet and a domain is a ball around its middle, so
+     * <p>An entity bounding box hangs from its feet and a domain is a ball around its middle, so
      * the registered 32x32 box covers the whole upper hemisphere and none of the lower one: a
      * caster looking down at the floor of their own subspace had it culled out from under them the
-     * moment the centre left the frustum. One override, and worth more than any amount of shader
-     * work.
+     * moment the centre left the frustum.
      */
     @Override
     protected AABB getBoundingBoxForCulling(SpaceSubspaceEntity entity) {
@@ -117,12 +102,13 @@ public final class SpaceSubspaceRenderer extends EntityRenderer<SpaceSubspaceEnt
         SubspaceLedger ledger = SubspaceLedger.of(entity.lawOrdinals());
         state.sealed = ledger.sealed();
         state.gravity = ledger.gravityState();
-        for (int slot = 0; slot < state.change.length; slot++) {
+        state.lawCount = ledger.lawCount();
+        for (int slot = 0; slot < CATEGORIES; slot++) {
             state.change[slot] = ledger.change(slot);
             state.settle[slot] = entity.lawSettle01(slot, state.age);
         }
 
-        // The camera, not the entity's own position, decides everything about cost and about which
+        // The camera, not the entity own position, decides everything about cost and about which
         // walls are emitted - a domain is the one effect in the mod you can stand inside.
         Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
         double distanceSq = camera.distanceToSqr(entity.position());
@@ -140,8 +126,8 @@ public final class SpaceSubspaceRenderer extends EntityRenderer<SpaceSubspaceEnt
     @Override
     public void render(State state, PoseStack poseStack, MultiBufferSource buffer, int packedLight) {
         poseStack.pushPose();
-        drawMembrane(state, poseStack, buffer);
-        drawWriting(state, poseStack, buffer);
+        drawPane(state, poseStack, buffer);
+        drawVault(state, poseStack, buffer);
         poseStack.popPose();
         super.render(state, poseStack, buffer, packedLight);
     }
@@ -150,7 +136,7 @@ public final class SpaceSubspaceRenderer extends EntityRenderer<SpaceSubspaceEnt
      * The wall. One shell from inside, two from outside, the far one coarse because it is read
      * through the near one and they share a silhouette.
      */
-    private void drawMembrane(State state, PoseStack poseStack, MultiBufferSource buffer) {
+    private void drawPane(State state, PoseStack poseStack, MultiBufferSource buffer) {
         VertexConsumer consumer = buffer.getBuffer(MagicalFxRenderTypes.subspaceShell());
         float radius = state.radius;
         int segments = SubspaceLod.segments(state.rung);
@@ -170,75 +156,70 @@ public final class SpaceSubspaceRenderer extends EntityRenderer<SpaceSubspaceEnt
         emit(consumer, poseStack, FxMesh.globe(segments, rings), radius, SubspaceOptics.BODY, state.opacity, packed);
     }
 
-    /** Everything written on the wall, on the render type that has no front and no back. */
-    private void drawWriting(State state, PoseStack poseStack, MultiBufferSource buffer) {
+    /** Everything built on the wall, on the render type that has no front and no back. */
+    private void drawVault(State state, PoseStack poseStack, MultiBufferSource buffer) {
         VertexConsumer consumer = buffer.getBuffer(MagicalFxRenderTypes.subspaceMark());
         int lift = sunStep(state);
         float radius = state.radius;
         int segments = SubspaceLod.segments(state.rung);
+        float spring = (float) SubspaceVault.springLatitudeDegrees(radius);
+        float foot = (float) SubspaceVault.footprintLatitudeDegrees(radius);
 
-        // The horizon is the gravity readout as well as the level line, because a level line is
-        // exactly the thing that says which way is down.
-        emit(consumer, poseStack, FxMesh.shellBand(segments, 0.0F, HORIZON_HALF_WIDTH, 360.0F), radius,
-                SubspaceOptics.BURNISH, state.opacity,
-                MagicVertex.pack(SubspaceKind.HORIZON, lift, state.gravity, 0.0F, 0, 0));
+        // Where the wall meets the world. Everything below this is behind the floor and the depth
+        // test has already removed it, so this ring is the one place the two actually touch - and
+        // it is the only reading a player looking down ever gets.
+        emit(consumer, poseStack, FxMesh.shellBand(segments, foot, RING_HALF, 360.0F), radius,
+                SubspaceOptics.GLAZE, state.opacity,
+                MagicVertex.pack(SubspaceKind.FOOT, lift, state.gravity, 0.0F, 0, 0));
 
-        emit(consumer, poseStack, FxMesh.shellBand(segments, CROWN_LATITUDE, CROWN_HALF_WIDTH, 360.0F), radius,
-                SubspaceOptics.CROWN, state.opacity,
-                MagicVertex.pack(SubspaceKind.CROWN, lift, 0, 0.0F, 0, 0));
+        // The course the ribs spring from, and gravity read a second time: level is one course,
+        // inverted winds the other way and lights from beneath, dissolved breaks into dashes.
+        emit(consumer, poseStack, FxMesh.shellBand(segments, spring, RING_HALF, 360.0F), radius,
+                SubspaceOptics.GLAZE, state.opacity,
+                MagicVertex.pack(SubspaceKind.SPRING, lift, state.gravity, 0.0F, 0, 0));
 
-        emit(consumer, poseStack, FxMesh.shellMeridian(SubspaceLod.rings(state.rung) / 2, MERIDIAN_HALF_WIDTH, 0.0F, MERIDIAN_TOP),
-                radius, SubspaceOptics.BURNISH, state.opacity,
-                MagicVertex.pack(SubspaceKind.MERIDIAN, lift, 0, 0.0F, 0, 0));
+        emit(consumer, poseStack, FxMesh.shellBand(segments, OCULUS_LATITUDE, RING_HALF, 360.0F), radius,
+                SubspaceOptics.GLAZE, state.opacity,
+                MagicVertex.pack(SubspaceKind.OCULUS, lift, 0, 0.0F, 0, 0));
 
-        // Three quieter uprights at the other cardinals. One line standing in three hundred and
-        // sixty degrees of wall has nothing to be a landmark against; four of them are a compass,
-        // and a compass is the least decoration that turns a curved surface into a place.
-        float[] cardinal = FxMesh.shellMeridian(SubspaceLod.rings(state.rung) / 3, CARDINAL_HALF_WIDTH, 0.0F, CARDINAL_TOP);
-        int cardinalPacked = MagicVertex.pack(SubspaceKind.MERIDIAN, lift, 1, 0.0F, 0, 0);
-        for (float bearing : CARDINALS) {
-            place(consumer, poseStack, cardinal, radius, bearing, 0.0F, SubspaceOptics.BURNISH, state.opacity, cardinalPacked);
-        }
-
-        drawGraduations(state, poseStack, consumer, lift);
-        drawLaws(state, poseStack, consumer, lift);
+        drawRibs(state, poseStack, consumer, lift, spring);
         drawRipples(state, poseStack, consumer, lift);
     }
 
     /**
-     * One graduation per block of radius up the meridian, so the size of a domain is a thing you
-     * count rather than a thing you estimate. Reading a wall in blocks is the difference between
-     * knowing you can clear it and hoping.
+     * The twelve. Each one springs from the course at the bearing its category owns and winds up to
+     * the oculus; a written law makes its rib heavier, colours both of its lips and hangs a boss on
+     * it, and an unwritten one leaves a socket at the same height so the count has a denominator.
      */
-    private void drawGraduations(State state, PoseStack poseStack, VertexConsumer consumer, int lift) {
-        int packed = MagicVertex.pack(SubspaceKind.TICK, lift, 0, 0.0F, 0, 0);
-        float top = Mth.sin(MERIDIAN_TOP * Mth.DEG_TO_RAD);
-        for (int block = 1; block <= Math.floor(state.radius * top); block++) {
-            float sweep = block % TICK_EMPHASIS == 0 ? TICK_LONG_SWEEP : TICK_SWEEP;
-            float[] tick = FxMesh.shellBand(1, 0.0F, TICK_HALF_WIDTH, sweep);
-            float latitude = (float) Math.toDegrees(Math.asin(block / state.radius));
-            place(consumer, poseStack, tick, state.radius, TICK_OFFSET, latitude,
-                    SubspaceOptics.BURNISH, state.opacity, packed);
-        }
-    }
+    private void drawRibs(State state, PoseStack poseStack, VertexConsumer consumer, int lift, float spring) {
+        float radius = state.radius;
+        // A domain that has been turned upside down is wound the other way, which is a thing you can
+        // see in the silhouette from any distance - unlike a mirrored line, which would be buried.
+        float twist = (float) SubspaceVault.twist(state.lawCount)
+                * (state.gravity == SubspaceLedger.GRAVITY_FLIP ? -1.0F : 1.0F);
+        int rings = Math.max(8, SubspaceLod.rings(state.rung) * 3 / 4);
+        float[] rib = FxMesh.shellHelix(rings, RIB_HALF, spring, OCULUS_LATITUDE, twist);
+        float[] notch = FxMesh.shellMeridian(2, NOTCH_HALF_SWEEP, -NOTCH_HALF_HEIGHT, NOTCH_HALF_HEIGHT);
+        float[] boss = FxMesh.shellBand(2, 0.0F, BOSS_HALF, BOSS_HALF * 2.0F);
+        float bossLatitude = (float) SubspaceVault.bossLatitudeDegrees(radius);
+        int inverted = state.gravity == SubspaceLedger.GRAVITY_FLIP ? 2 : 0;
 
-    /**
-     * One mark per law, each in the slot its category owns, on a single arc centred north. The
-     * meridian falls in the gap at the middle of that arc, so the marks read as two hands of six
-     * either side of a known direction - a legislated domain can be counted from outside without
-     * knowing what any one mark means.
-     */
-    private void drawLaws(State state, PoseStack poseStack, VertexConsumer consumer, int lift) {
-        float[] mark = FxMesh.shellBand(2, 0.0F, MARK_HALF_HEIGHT, MARK_SWEEP);
-        for (int slot = 0; slot < state.change.length; slot++) {
+        for (int slot = 0; slot < CATEGORIES; slot++) {
             int change = state.change[slot];
-            if (change < 0) {
-                continue;
+            boolean lit = change >= 0;
+            int rgb = lit ? HudPalette.change(SpaceRuleChange.values()[change]) : SubspaceOptics.GLAZE;
+            float bearing = (float) SubspaceLedger.slotBearingDegrees(slot);
+            float settle = lit ? state.settle[slot] : 1.0F;
+
+            place(consumer, poseStack, notch, radius, bearing, spring, rgb, state.opacity,
+                    MagicVertex.pack(SubspaceKind.NOTCH, lift, lit ? 1 : 0, 1.0F, 0, 0));
+            place(consumer, poseStack, rib, radius, bearing, 0.0F, rgb, state.opacity,
+                    MagicVertex.pack(SubspaceKind.RIB, lift, (lit ? 1 : 0) | inverted, settle, 0, 0));
+            if (lit) {
+                place(consumer, poseStack, boss, radius,
+                        (float) SubspaceVault.bossBearingDegrees(slot, radius, state.lawCount), bossLatitude,
+                        rgb, state.opacity, MagicVertex.pack(SubspaceKind.BOSS, lift, change, settle, 0, 0));
             }
-            int packed = MagicVertex.pack(SubspaceKind.MARK, lift, change, state.settle[slot], 0, 0);
-            place(consumer, poseStack, mark, state.radius,
-                    (float) SubspaceLedger.slotBearingDegrees(slot), MARK_LATITUDE,
-                    HudPalette.change(SpaceRuleChange.values()[change]), state.opacity, packed);
         }
     }
 
@@ -284,7 +265,7 @@ public final class SpaceSubspaceRenderer extends EntityRenderer<SpaceSubspaceEnt
         FxMesh.emit(consumer, poseStack.last().pose(), mesh, radius, radius, radius, rgb, opacity, packed);
     }
 
-    /** The sun's own height, folded into the six bits the vertex has spare for it. */
+    /** The sun own height, folded into the six bits the vertex has spare for it. */
     private static int sunStep(State state) {
         return Mth.clamp(Math.round(state.sunLift * 63.0F), 0, 63);
     }
@@ -295,11 +276,12 @@ public final class SpaceSubspaceRenderer extends EntityRenderer<SpaceSubspaceEnt
         private float opacity;
         private float sunLift = 1.0F;
         private int rung;
+        private int lawCount;
         private boolean inside;
         private boolean sealed;
         private int gravity;
-        private final int[] change = new int[SpaceRuleCategory.values().length];
-        private final float[] settle = new float[SpaceRuleCategory.values().length];
+        private final int[] change = new int[CATEGORIES];
+        private final float[] settle = new float[CATEGORIES];
         private final float[] ripplePhase = new float[SubspaceCrossings.SLOTS];
         private final float[] rippleBearing = new float[SubspaceCrossings.SLOTS];
         private final float[] rippleLatitude = new float[SubspaceCrossings.SLOTS];

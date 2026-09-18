@@ -17,54 +17,59 @@ out vec4 fragColor;
 
 // What this fragment belongs to. Mirrored in SubspaceKind, pinned by SubspaceShaderAssetsTest.
 const int KIND_MEMBRANE = 0;
-const int KIND_HORIZON = 1;
-const int KIND_MERIDIAN = 2;
-const int KIND_TICK = 3;
-const int KIND_MARK = 4;
-const int KIND_CROWN = 5;
-const int KIND_RIPPLE = 6;
+const int KIND_FOOT = 1;
+const int KIND_SPRING = 2;
+const int KIND_NOTCH = 3;
+const int KIND_RIB = 4;
+const int KIND_BOSS = 5;
+const int KIND_OCULUS = 6;
+const int KIND_RIPPLE = 7;
 
 // The optics, computed here in floats and again in SubspaceOptics in doubles where a test can
-// reach them. Both copies have to be the same curve.
-const float K = 3.0;
+// reach them. Both copies have to be the same numbers, and a test reads both files to check.
+const float A_PANE = 0.03;
+const float SEAL_LIFT = 0.03;
+const float A_LIMB = 0.62;
+const float A_LIMB_SEALED = 0.84;
+const float K_LIMB = 3.0;
 const float K_SEALED = 2.4;
-const float A_FACE = 0.07;
-const float A_RIM = 0.58;
-const float A_RIM_SEALED = 0.8;
-const float NEAR_LIFT = 0.1;
-const float PX_MAIN = 2.2;
-const float PX_HAIR = 1.6;
-const float PX_BURN = 1.4;
-const float INK_LINE = 0.8;
-const float INK_TICK = 0.58;
-const float INK_MARK = 0.72;
-const float SHOULDER_SPREAD = 3.2;
-const float SHOULDER_INK = 0.34;
-const float MIN_GRAD = 0.0001;
-const float CROWN_LO = 0.955;
-const float CROWN_HI = 0.985;
-const float CROWN_DIM = 0.18;
+const float A_SHADOW = 0.62;
+const float A_HIGHLIGHT = 0.52;
+const float ARRIS_PIXELS = 1.2;
+const float MIN_LIP_PIXELS = 1.5;
+const float PX_RIB = 6.2;
+const float RIB_LIT_GAIN = 1.34;
+const float PX_SPRING = 6.2;
+const float PX_FOOT = 7.0;
+const float PX_OCULUS = 6.0;
+const float PX_NOTCH = 6.0;
+const float PX_GLYPH = 6.6;
+const float PX_RIPPLE = 6.0;
+const float NOTCH_DIM = 0.72;
+const float BOSS_LIFT = 0.06;
+const float APERTURE_SIN = 0.9781476007338057;
+const float DASH_CYCLES = 72.0;
 const float GLOW_CEILING = 0.3;
 const float GLOW_KNEE = 3.0;
-const float LINE_TINT = 0.22;
-const float INK_CROWN = 0.55;
-const float INK_RIPPLE = 0.45;
+const float GLOW_TINT = 0.45;
+const float GLYPH_LIGHT_SPREAD = 0.35;
+const float MIN_GRAD = 0.0001;
 
-const vec3 INK = vec3(8.0, 12.0, 18.0) / 255.0;
+const vec3 BODY = vec3(18.0, 26.0, 38.0) / 255.0;
+const vec3 GLAZE = vec3(220.0, 235.0, 255.0) / 255.0;
 const vec3 BURNISH = vec3(87.0, 188.0, 255.0) / 255.0;
 
 const int GRAVITY_LEVEL = 0;
 const int GRAVITY_INVERTED = 1;
 const int GRAVITY_DISSOLVED = 2;
 
-// A meridian is either the graduated line standing due north or one of the three plain cardinals
-// that give the inside of the dome a compass to be read against.
-const int MERIDIAN_NORTH = 0;
-const int MERIDIAN_CARDINAL = 1;
+// The sun comes from up and slightly east, in the stroke own across-coordinate. One direction for
+// every glyph in the domain, so no two law marks are lit from different places.
+const vec2 GLYPH_LIGHT = vec2(0.42, 0.91);
 
 // A line a fixed number of pixels wide however far off the wall is. The derivative of a coordinate
 // is exactly how much of it one pixel covers, which is the exchange rate between the two. The
-// floor matters: at the limb the shell's parameters stop changing across a pixel, the derivative
+// floor matters: at the limb the shell parameters stop changing across a pixel, the derivative
 // collapses toward zero, and without a floor the silhouette grows a ring of fireflies.
 float pixelLine(float d, float pixels) {
     float g = max(fwidth(d), MIN_GRAD);
@@ -109,123 +114,117 @@ void main() {
     int param = magicA.z;
     float phase = clamp(magicB.x, 0.0, 1.0);
 
-    vec3 material = vertexColor.rgb;
-    vec3 glowColour = BURNISH;
+    vec3 accent = vertexColor.rgb;
+    vec3 material = BODY;
+    vec3 glowColour = mix(BURNISH, accent, GLOW_TINT);
     float glow = 0.0;
     float alpha = 0.0;
 
     if (kind == KIND_MEMBRANE) {
-        // Inverted Fresnel. Where the wall faces you it is all but absent; where it turns away it
-        // gathers. That is what a pane of glass does, and it is the only arrangement that can be
-        // see-through in the middle and findable at the edge at the same time - a flat alpha is
-        // either a haze over everything you are trying to look at or nothing at all.
-        float c = abs(dot(normalize(shellNormal), normalize(viewDir)));
         bool sealedWall = (param & 1) != 0;
-        bool twoWalls = (param & 2) != 0;
-        float rim = sealedWall ? A_RIM_SEALED : A_RIM;
-        float k = sealedWall ? K_SEALED : K;
-        float delivered = A_FACE + (rim - A_FACE) * pow(max(0.0, 1.0 - c), k);
+        if ((param & 2) != 0) {
+            // From outside, and only from outside, the impact parameter genuinely sweeps the disc
+            // and the limb genuinely is where a silhouette lives, so the Fresnel is not merely
+            // valid here - it is the whole of what an opponent sees. A sight line crosses two
+            // walls, so each paints the exact root of what the pair owes and the picture from
+            // outside matches the picture from in.
+            float c = abs(dot(normalize(shellNormal), normalize(viewDir)));
+            float rim = sealedWall ? A_LIMB_SEALED : A_LIMB;
+            float k = sealedWall ? K_SEALED : K_LIMB;
+            float pane = sealedWall ? A_PANE + SEAL_LIFT : A_PANE;
+            float delivered = pane + (rim - pane) * pow(max(0.0, 1.0 - c), k);
+            alpha = 1.0 - sqrt(max(0.0, 1.0 - delivered));
+        } else {
+            // --- membrane, from inside: no view-angle term ---
+            // A domain is a sphere centred on its caster, so from here every sight line runs along
+            // the surface normal and any function of the angle between them is a constant. The old
+            // wall was an inverted Fresnel and it varied by ten decimal places of nothing. The pane
+            // is a tint and carries no reading; the vault standing on it is what is seen.
+            alpha = sealedWall ? A_PANE + SEAL_LIFT : A_PANE;
+            alpha *= 1.0 - step(APERTURE_SIN, abs(texCoord0.y * 2.0 - 1.0));
+            // --- end membrane, from inside ---
+        }
+        material = BODY;
+    } else if (kind == KIND_BOSS) {
+        // A law glyph, embossed on a panel raised out of the pane. The settle runs its form out
+        // from its own centre once and then stops: a law arriving is a thing that happens, not a
+        // thing that keeps happening.
+        vec2 p = vec2(texCoord0.x, texCoord0.y) * 2.0 - 1.0;
+        float settle = easeInOut(phase);
+        float d = markForm(param & 7, p / max(settle, 0.04));
+        float band = pixelLine(d, PX_GLYPH);
+        // Lit off the signed distance own gradient, so a stroke gets a lit edge and a shadow edge
+        // rather than a symmetric halo - the same chamfer every other member has, on a curve.
+        vec2 gradient = vec2(dFdx(d), dFdy(d));
+        float slope = length(gradient);
+        vec2 facing = slope > 1.0e-8 ? gradient / slope : vec2(0.0, 1.0);
+        float lit = smoothstep(-GLYPH_LIGHT_SPREAD, GLYPH_LIGHT_SPREAD, dot(facing, normalize(GLYPH_LIGHT)));
 
-        // Outside the domain a sight line crosses two walls and inside it crosses one, so each of
-        // the two paints the root of what the pair owes. The two pictures then agree at every
-        // angle, instead of the domain doubling in weight the moment you step out of it - which
-        // would be exactly backwards, since the person deciding whether to walk in is the one who
-        // needs to see through it.
-        alpha = twoWalls ? 1.0 - sqrt(max(0.0, 1.0 - delivered)) : delivered;
-
-        // Within arm's reach the wall gains a little body, so the caster can feel where it is
-        // without having to sight along it.
-        alpha += NEAR_LIFT * (1.0 - c) * (1.0 - smoothstep(1.0, 4.0, length(viewDir)));
-
-        // The zenith thins away to almost nothing. A domain is a wall, not a lid: from inside you
-        // can always find your own sky straight up, and the cap that would otherwise sit over your
-        // head is the part of a dome that reads most like a bubble.
-        float height = abs(texCoord0.y * 2.0 - 1.0);
-        alpha *= mix(1.0, CROWN_DIM, smoothstep(CROWN_LO, CROWN_HI, height));
-
-        // Only the last sliver of the limb lights. Everywhere else the wall darkens what is behind
-        // it, and darkening is the one thing that reads over daylight sand as well as over a night
-        // sky; an additive wash reads over neither.
-        glow = smoothstep(0.82, 1.0, 1.0 - c) * sunLift;
+        float ink = band * settle * mix(A_SHADOW, A_HIGHLIGHT, lit);
+        float panel = BOSS_LIFT * settle * (1.0 - smoothstep(0.82, 1.0, max(abs(p.x), abs(p.y))));
+        alpha = ink + panel * (1.0 - ink);
+        material = alpha > 1.0e-5
+                ? (mix(BODY, accent, lit) * ink + BODY * panel * (1.0 - ink)) / alpha
+                : BODY;
+        glow = band * settle * (1.0 - lit) * sunLift;
     } else {
-        // Everything written on the wall is a ribbon carrying its own across-coordinate, so one
-        // stroke serves the horizon, the meridian, a graduation, a law mark and a ripple. Each
-        // branch says only how far this fragment is from the nearest line and how much of the line
-        // is showing here; the stroke itself is cut once, below, so every mark in the domain is the
-        // same kind of mark.
+        // Every member of the vault is a chamfer: a lip that darkens toward BODY meeting a lip that
+        // lightens toward GLAZE at a one-pixel arris. The two move a background in opposite
+        // directions, so whichever lip the background defeats the other one carries - which is why
+        // this reads over noon sand and over blackstone with the same numbers, and why the floor
+        // under its contrast has a closed form instead of a setting.
         float across = texCoord0.y - 0.5;
         float along = texCoord0.x;
-        float distance = abs(across);
         float showing = 1.0;
-        float pixels = PX_MAIN;
-        float ink = INK_LINE;
-        float shoulder = SHOULDER_INK;
-        // A line cut into the wall is the wall's own light gone dark, not black.
-        vec3 paint = mix(INK, BURNISH, LINE_TINT);
+        float weight = 1.0;
+        float pixels = PX_RIB;
+        bool flip = false;
 
-        if (kind == KIND_HORIZON) {
-            // Gravity read a second time. A level line is the thing that says which way is down,
-            // so the most consequential law in the domain is legible before a single mark has been
-            // learned: inverted it doubles, dissolved it breaks into dashes.
-            if (param == GRAVITY_INVERTED) {
-                distance = min(abs(across - 0.16), abs(across + 0.16));
-                pixels = PX_HAIR;
-            } else if (param == GRAVITY_DISSOLVED) {
-                showing = step(0.42, fract(along * 96.0));
-            }
-        } else if (kind == KIND_MERIDIAN) {
-            // Only north is graduated and only north is drawn full; the other three cardinals are
-            // there so that north means something, and are deliberately the quieter lines.
-            if (param == MERIDIAN_CARDINAL) {
-                pixels = PX_HAIR;
-                ink = INK_TICK;
-            }
-        } else if (kind == KIND_TICK) {
-            pixels = PX_HAIR;
-            ink = INK_TICK;
-        } else if (kind == KIND_CROWN) {
-            // The one hard edge the domain owns, and one of the three things in it that paint
-            // rather than darken - see below.
-            pixels = PX_BURN;
-            ink = INK_CROWN;
-            shoulder *= 0.5;
-            paint = vertexColor.rgb;
-            glowColour = vertexColor.rgb;
+        if (kind == KIND_FOOT) {
+            pixels = PX_FOOT;
+            showing = param == GRAVITY_DISSOLVED ? step(0.45, fract(along * DASH_CYCLES)) : 1.0;
+            flip = param == GRAVITY_INVERTED;
+        } else if (kind == KIND_SPRING) {
+            pixels = PX_SPRING;
+            showing = param == GRAVITY_DISSOLVED ? step(0.45, fract(along * DASH_CYCLES)) : 1.0;
+            flip = param == GRAVITY_INVERTED;
+        } else if (kind == KIND_OCULUS) {
+            // The one ring lit from the other side, because its lit lip has to face into the
+            // opening rather than out of it. A hole reads as a hole when its rim catches the light.
+            pixels = PX_OCULUS;
+            flip = true;
+        } else if (kind == KIND_NOTCH) {
+            pixels = PX_NOTCH;
+            weight = (param & 1) != 0 ? 1.0 : NOTCH_DIM;
         } else if (kind == KIND_RIPPLE) {
-            ink = INK_RIPPLE;
+            pixels = PX_RIPPLE;
             showing = sin(phase * MAGIC_PI);
-            shoulder *= 0.5;
-            paint = vertexColor.rgb;
-            glowColour = vertexColor.rgb;
         } else {
-            // A law mark. The settle runs its form out from its own centre once and then stops:
-            // a law arriving is a thing that happens, not a thing that keeps happening.
-            vec2 p = vec2(along, texCoord0.y) * 2.0 - 1.0;
-            float settle = easeInOut(phase);
-            distance = markForm(param & 7, p / max(settle, 0.04));
-            showing = settle;
-            pixels = PX_BURN;
-            ink = INK_MARK;
-            shoulder *= 0.5;
-
-            // A mark is the one thing in the domain allowed to be brighter than the sky, and it
-            // has to be: its colour is what says which way a law bends, and a colour carried only
-            // in the glow is a colour daylight takes away - every law came out the same grey. A
-            // line running right round the wall cannot do this, because anything covering that
-            // much of the frame and lighting will wash the sky out. A mark is six degrees wide,
-            // and an over-blend cannot clip however bright it is, so a mark may paint.
-            paint = vertexColor.rgb;
-            glowColour = vertexColor.rgb;
+            // A rib. A written law makes it heavier and gives it the operation own colour; an empty
+            // slot is held back rather than left out, so the count has a denominator. The settle
+            // runs the promotion up from the springing course once.
+            pixels = (param & 1) != 0 ? PX_RIB * RIB_LIT_GAIN : PX_RIB;
+            weight = (param & 1) != 0 ? 1.0 : NOTCH_DIM;
+            showing = 1.0 - step(phase, along);
+            flip = (param & 2) != 0;
         }
 
-        // The stroke and the shoulder under it. The crisp line is what the eye measures against
-        // and the shoulder is what keeps it from disappearing into a busy background.
-        float line = showing * max(pixelLine(distance, pixels),
-                pixelLine(distance, pixels * SHOULDER_SPREAD) * shoulder);
+        float g = max(fwidth(across), MIN_GRAD);
+        float band = pixelLine(across, pixels);
+        // The arris is measured in the same derivative the stroke is, so at grazing incidence the
+        // two blow up together and the chamfer can never flatten into one mid-blue line.
+        float lit = smoothstep(-ARRIS_PIXELS * 0.5 * g, ARRIS_PIXELS * 0.5 * g, across);
+        if (flip) {
+            lit = 1.0 - lit;
+        }
 
-        material = paint;
-        alpha = line * ink;
-        glow = line * sunLift;
+        material = mix(BODY, accent, lit);
+        alpha = band * showing * weight * mix(A_SHADOW, A_HIGHLIGHT, lit);
+        // The light sits in the groove rather than on the lip. The lit lip has already been pushed
+        // toward white and has no headroom left; the shadow lip has just been pushed toward the
+        // wall own slate and has all of it, and a dark groove with light in it is what a lit
+        // engraving looks like.
+        glow = band * showing * weight * (1.0 - lit) * sunLift;
     }
 
     alpha *= vertexColor.a;
@@ -235,8 +234,8 @@ void main() {
     // which is the way every additive effect in this mod has always failed over daylight.
     glow = GLOW_CEILING * (1.0 - exp(-max(glow, 0.0) * GLOW_KNEE));
 
-    // Four and a half percent alpha across a gradient bands visibly at eight bits, and a dome is
-    // one enormous gradient. Half a bit of blue noise costs one tap and removes every ring.
+    // Three percent alpha across a gradient bands visibly at eight bits, and a dome is one enormous
+    // gradient. Half a bit of blue noise costs one tap and removes every ring.
     alpha += (blueNoise(Sampler0, gl_FragCoord.xy / 64.0) - 0.5) / 255.0 * step(0.002, alpha);
     alpha = clamp(alpha, 0.0, 1.0);
 

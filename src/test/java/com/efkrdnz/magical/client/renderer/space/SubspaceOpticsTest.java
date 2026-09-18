@@ -27,17 +27,34 @@ class SubspaceOpticsTest {
      * clipping - is what the test is actually for.
      */
     @Test
-    @DisplayName("looking straight through the wall is close to looking at nothing")
-    void faceOnIsAlmostClear() {
-        assertEquals(0.070D, SubspaceOptics.alphaDelivered(0.0D), 0.002D);
+    @DisplayName("the pane is a tint and nothing else")
+    void thePaneIsATint() {
+        // Three percent: six levels of cold slate over daylight sand. It was seven, and seven was
+        // chosen on the theory that the Fresnel would carry the reading everywhere else - which it
+        // could not, because from the centre of a sphere there is no angle for it to be a function
+        // of. Halving it is not a retreat: the reading moved to the structure, which is the only
+        // place from this viewpoint it could ever have lived, and the wall got clearer as well as
+        // far more visible because tint is area times alpha and visibility is local contrast.
+        assertEquals(0.030D, SubspaceOptics.paneAlpha(false), 1.0E-9D);
+        assertEquals(0.030D, SubspaceOptics.alphaDelivered(0.0D), 1.0E-9D);
+        assertTrue(SubspaceOptics.paneAlpha(false) < 0.070D, "the pane is no clearer than the one it replaced");
+        assertEquals(0.060D, SubspaceOptics.paneAlpha(true), 1.0E-9D);
     }
 
+    /**
+     * The one branch the Fresnel survives on, and the one it was always right about.
+     *
+     * <p>From outside, the impact parameter genuinely sweeps the disc and the limb genuinely is
+     * where a silhouette lives, so nothing here is a constant. It carries that whole case alone now
+     * - the writing on the wall is legible from inside and the outside gets a shape - which is why
+     * the limb is a little firmer than it was.
+     */
     @Test
     @DisplayName("the wall thickens toward the limb and never reaches opaque")
     void theRimIsBrightButNotSolid() {
-        assertTrue(SubspaceOptics.alphaDelivered(0.866D) <= 0.18D, "outer quarter stays readable");
+        assertTrue(SubspaceOptics.alphaDelivered(0.866D) <= 0.14D, "outer quarter stays readable");
         assertTrue(SubspaceOptics.alphaDelivered(0.980D) <= 0.42D, "outer 4% stays readable");
-        assertEquals(0.580D, SubspaceOptics.alphaDelivered(1.0D), 0.001D);
+        assertEquals(0.620D, SubspaceOptics.alphaDelivered(1.0D), 1.0E-9D);
         assertTrue(SubspaceOptics.alphaDelivered(1.0D) < 1.0D, "the silhouette is never opaque");
     }
 
@@ -140,8 +157,10 @@ class SubspaceOpticsTest {
     void theLayerBudgetIsTiny() {
         assertEquals(1, SubspaceOptics.membraneCrossings(true));
         assertEquals(2, SubspaceOptics.membraneCrossings(false));
-        assertTrue(SubspaceOptics.maxSurfacesCrossed(true) <= 2);
-        assertTrue(SubspaceOptics.maxSurfacesCrossed(false) <= 4);
+        // The vault can stack three on one sight line where a rib crosses a ring over the pane,
+        // which is still small enough that the glow ceiling can be proved rather than guessed at.
+        assertTrue(SubspaceOptics.maxSurfacesCrossed(true) <= 3);
+        assertTrue(SubspaceOptics.maxSurfacesCrossed(false) <= 5);
     }
 
     private static double red(int rgb) {

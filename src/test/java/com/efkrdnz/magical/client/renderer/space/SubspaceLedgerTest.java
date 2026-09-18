@@ -69,18 +69,14 @@ class SubspaceLedgerTest {
     }
 
     @Test
-    @DisplayName("the twelve slots sit on one arc centred on north, and none of them covers it")
-    void theMeridianFallsInAGap() {
+    @DisplayName("the twelve slots wrap the whole horizon, evenly and for good")
+    void everySlotOwnsOneBearing() {
         for (int slot = 0; slot < SpaceRuleCategory.values().length; slot++) {
-            double bearing = SubspaceLedger.slotBearingDegrees(slot);
-            assertTrue(Math.abs(bearing) <= 50.0D, "slot " + slot + " left the band: " + bearing);
-            assertTrue(Math.abs(bearing) > SubspaceLedger.SLOT_WIDTH_DEGREES * 0.5D,
-                    "slot " + slot + " covers the meridian");
+            assertEquals(slot * SubspaceLedger.SLOT_PITCH_DEGREES, SubspaceLedger.slotBearingDegrees(slot), 1.0E-6D,
+                    "slot " + slot + " is not where its category put it");
         }
-        for (int slot = 1; slot < SpaceRuleCategory.values().length; slot++) {
-            double gap = SubspaceLedger.slotBearingDegrees(slot) - SubspaceLedger.slotBearingDegrees(slot - 1);
-            assertEquals(SubspaceLedger.SLOT_PITCH_DEGREES, gap, 1.0E-6D);
-        }
+        assertEquals(360.0D, SpaceRuleCategory.values().length * SubspaceLedger.SLOT_PITCH_DEGREES, 1.0E-6D,
+                "the slots do not close the circle, so some bearing reads nothing");
     }
 
     @Test
@@ -131,28 +127,21 @@ class SubspaceLedgerTest {
     }
 
     /**
-     * A subspace is centred on its caster's chest and raised where they stand, so its whole lower
-     * hemisphere is underground. Anything written down there is written for nobody.
+     * A subspace is centred on its caster chest and raised where they stand, so its whole lower
+     * hemisphere is underground. Anything written down there is written for nobody, and the band
+     * that used to carry the laws sat below the horizon and was buried by the floor.
      */
     @Test
     @DisplayName("everything written on the wall is above the horizon, because the rest is buried")
     void theWritingIsAboveGround() {
-        assertTrue(SubspaceLedger.MARK_LATITUDE_DEGREES - SubspaceLedger.MARK_HALF_HEIGHT_DEGREES > 0.0D,
-                "the law band reaches below the horizon");
-    }
-
-    @Test
-    @DisplayName("the graduations keep to the corridor the marks leave empty")
-    void theScaleAndTheBandDoNotCollide() {
-        double graduationReach = SubspaceLedger.TICK_OFFSET_DEGREES + SubspaceLedger.TICK_LONG_SWEEP_DEGREES * 0.5D;
-        for (int slot = 0; slot < SpaceRuleCategory.values().length; slot++) {
-            double nearEdge = Math.abs(SubspaceLedger.slotBearingDegrees(slot)) - SubspaceLedger.SLOT_WIDTH_DEGREES * 0.5D;
-            assertTrue(nearEdge > graduationReach,
-                    "slot " + slot + " reaches in to " + nearEdge + " where the scale reaches out to " + graduationReach);
+        for (double radius : new double[] {5.0D, 8.0D, 12.0D, 16.0D}) {
+            double springing = SubspaceVault.springLatitudeDegrees(radius);
+            assertTrue(radius * Math.sin(Math.toRadians(springing)) > 0.90D,
+                    "the course the laws are counted on is underground at R=" + radius);
         }
     }
 
-    @Test
+        @Test
     @DisplayName("a nonsense ordinal on the wire is ignored rather than drawn")
     void aForgedOrdinalDrawsNothing() {
         int[] ops = noLaws();

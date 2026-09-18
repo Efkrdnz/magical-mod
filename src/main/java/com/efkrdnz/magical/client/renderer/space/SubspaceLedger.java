@@ -27,37 +27,7 @@ public final class SubspaceLedger {
     public static final int GRAVITY_ZERO = 2;
 
     /** Degrees between one slot's centre and the next. */
-    public static final double SLOT_PITCH_DEGREES = 9.0;
-    /** How wide a mark is, in degrees of bearing. Narrower than the pitch, so marks never touch. */
-    public static final double SLOT_WIDTH_DEGREES = 5.0;
-
-    /**
-     * How far above the horizon the band of marks sits, and how tall a mark is.
-     *
-     * <p>It sat below the horizon until a domain was raised standing on the ground, which is how
-     * every domain is raised: a subspace is centred on its caster's chest, so a radius-sixteen one
-     * has all sixteen of its lower blocks underground and a band a degree or two under the waist
-     * is a band nobody will ever see. Everything written on the wall lives above the horizon for
-     * the same reason.
-     */
-    public static final double MARK_LATITUDE_DEGREES = 5.5;
-    /** Half the slot's width, so a mark is square and its glyph is not drawn stretched. */
-    public static final double MARK_HALF_HEIGHT_DEGREES = 2.5;
-
-    /**
-     * The graduations on the north meridian: where their centre sits relative to the line and how
-     * far they run, plainly and on every fifth block.
-     *
-     * <p>They are crossbars on the line rather than a scale hung off one side of it. Hung east
-     * they reached into the innermost pair of law slots, and the choice was between graduations
-     * too short to count and marks too narrow to read; centred, they fit inside the corridor the
-     * band already leaves clear either side of north, and a crossbar is how a ruler is drawn
-     * anyway.
-     */
-    public static final double TICK_OFFSET_DEGREES = 0.0;
-    public static final double TICK_SWEEP_DEGREES = 2.0;
-    public static final double TICK_LONG_SWEEP_DEGREES = 2.8;
-
+    public static final double SLOT_PITCH_DEGREES = SubspaceVault.RIB_PITCH_DEGREES;
     private static final SpaceRuleCategory[] CATEGORIES = SpaceRuleCategory.values();
     private static final SpaceRuleOperation[] OPERATIONS = SpaceRuleOperation.values();
 
@@ -143,13 +113,15 @@ public final class SubspaceLedger {
     }
 
     /**
-     * Where a slot's mark sits, in degrees east of due north.
+     * The bearing a slot owns, for good.
      *
-     * <p>The twelve are laid symmetrically about north with a half-slot on either side of it, so
-     * the meridian falls in the gap between the sixth and seventh and the band reads as two hands
-     * of six rather than as one run with an arbitrary start.
+     * <p>A category owns a compass direction rather than a place on a band: gravity stands due
+     * north, velocity thirty degrees east of it, collision thirty degrees west. Twelve of them wrap
+     * the whole horizon, which is the reading the wall this replaces failed hardest - it put all
+     * twelve on one arc round north, so from three quarters of all bearings a fully legislated
+     * domain and an empty one were the same picture.
      */
     public static double slotBearingDegrees(int slot) {
-        return (slot - (CATEGORIES.length - 1) / 2.0) * SLOT_PITCH_DEGREES;
+        return slot * SLOT_PITCH_DEGREES;
     }
 }

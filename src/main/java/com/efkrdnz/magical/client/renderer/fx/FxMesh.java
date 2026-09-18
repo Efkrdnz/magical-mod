@@ -556,6 +556,53 @@ public final class FxMesh {
         });
     }
 
+    /**
+     * A ribbon wound up the shell: a rib of the vault.
+     *
+     * <p>The one builder here that is not a circle of latitude or a meridian, and the reason the
+     * boundary does not read as a wireframe globe. A domain is a sphere centred on the viewer eye,
+     * so every meridian plane contains that eye and a member drawn up a meridian projects to an
+     * exactly straight line - not nearly straight, exactly, at every radius and every bearing. A
+     * straight near-vertical bar at twenty blocks is a tree trunk or a fence post. Gaining {@code
+     * twist} degrees of bearing per degree of latitude takes the rib off its own meridian, which
+     * makes it lean, and how far it leans is how much law is in force.
+     *
+     * <p>Built at bearing zero at {@code latitudeStartDeg}, so a caller places the twelve by
+     * rotating the pose. u runs up it and v across it, 0 at the west lip and 1 at the east, which
+     * is what the chamfer reads to decide which side of the stroke is lit.
+     */
+    public static float[] shellHelix(int rings, float halfWidthDeg, float latitudeStartDeg,
+            float latitudeEndDeg, float twist) {
+        String key = "shellHelix:" + rings + ":" + halfWidthDeg + ":" + latitudeStartDeg + ":"
+                + latitudeEndDeg + ":" + twist;
+        return CACHE.computeIfAbsent(key, k -> {
+            float[] m = new float[rings * 4 * STRIDE];
+            int o = 0;
+            for (int r = 0; r < rings; r++) {
+                float t0 = (float) r / rings;
+                float t1 = (float) (r + 1) / rings;
+                float lat0 = Mth.lerp(t0, latitudeStartDeg, latitudeEndDeg);
+                float lat1 = Mth.lerp(t1, latitudeStartDeg, latitudeEndDeg);
+                // The half-width is an angle on the great circle, so at latitude L it has to be
+                // opened out by 1/cos(L) to keep the same width on the ground. The clamp stops the
+                // last ring before the pole from opening to a full turn.
+                float w0 = halfWidthDeg / Math.max(0.2F, (float) Math.cos(Math.toRadians(lat0)));
+                float w1 = halfWidthDeg / Math.max(0.2F, (float) Math.cos(Math.toRadians(lat1)));
+                float b0 = twist * (lat0 - latitudeStartDeg);
+                float b1 = twist * (lat1 - latitudeStartDeg);
+                o = shell(m, o, radians(b0 - w0), radians(lat0), t0, 0.0F);
+                o = shell(m, o, radians(b1 - w1), radians(lat1), t1, 0.0F);
+                o = shell(m, o, radians(b1 + w1), radians(lat1), t1, 1.0F);
+                o = shell(m, o, radians(b0 + w0), radians(lat0), t0, 1.0F);
+            }
+            return m;
+        });
+    }
+
+    private static float radians(float degrees) {
+        return (float) Math.toRadians(degrees);
+    }
+
     /** Height on the unit shell as the shader reads it back: -1 at the south pole, 1 at the north. */
     private static float height01(float latitude) {
         return (float) Math.sin(latitude) * 0.5F + 0.5F;
