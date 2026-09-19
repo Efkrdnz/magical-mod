@@ -10,6 +10,7 @@ public final class ModifierVerses {
     public static final ResourceLocation WEIGHT = VerseIds.of("weight");
     public static final ResourceLocation HASTE = VerseIds.of("haste");
     public static final ResourceLocation UNDYING = VerseIds.of("undying");
+    public static final ResourceLocation SECOND_WIND = VerseIds.of("second_wind");
 
     private ModifierVerses() {
     }
@@ -32,5 +33,6 @@ public final class ModifierVerses {
         }));
         c.register(modifier("haste", 2, Verse.UNLIMITED, 0, 0, s -> s.multiplySpeed(2.5D)));
         c.register(modifier("undying", 20, 3, 4, 0, s -> s.behaviour(Behaviour.UNDYING)));
+        c.register(modifier("second_wind", 5, Verse.UNLIMITED, -3, -7, s -> { }));
     }
 }
