@@ -33,6 +33,16 @@ public final class IncantationService {
 
     public static final int SLOTS = Grimoire.SLOTS;
 
+    /** The skill that recites a slot, for the debug command; slot 0 is Incantation I. */
+    public static com.efkrdnz.magical.magic.MagicSkillDefinition skillFor(int slot) {
+        return switch (slot) {
+            case 1 -> com.efkrdnz.magical.magic.MagicContent.INCANTATION_2;
+            case 2 -> com.efkrdnz.magical.magic.MagicContent.INCANTATION_3;
+            case 3 -> com.efkrdnz.magical.magic.MagicContent.INCANTATION_4;
+            default -> com.efkrdnz.magical.magic.MagicContent.INCANTATION_1;
+        };
+    }
+
     private record Held(ResourceKey<Level> dimension, ReciteSession[] sessions) {
     }
 
@@ -136,7 +146,9 @@ public final class IncantationService {
         Incantation copy = new Incantation();
         copy.copyFrom(state.grimoire().incantation(slot));
         ReciteSession session = ReciteSession.of(copy, VerseContent.CATALOGUE);
-        return Reciter.recite(session, copy.breath(), state.mana(), 1.0D, new PreviewReciteWorld(state.grimoire(), slot, VerseContent.CATALOGUE));
+        com.efkrdnz.magical.magic.MagicSkillDefinition skill = skillFor(slot);
+        double costScale = skill.resolve(state.tuningFor(skill.id())).costScale();
+        return Reciter.recite(session, copy.breath(), state.mana(), costScale, new PreviewReciteWorld(state.grimoire(), slot, VerseContent.CATALOGUE));
     }
 
     /** {@code needle} and {@code magical:needle} both name the needle; anything unparsable makes the whole list null. */

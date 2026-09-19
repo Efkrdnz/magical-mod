@@ -61,6 +61,16 @@ public final class MagicCastContentKept {
         SkillCastRegistry.register(MagicContent.WRIT, SkillCastRegistry.holdHint("message.magical.writ_hold"));
         SkillCastRegistry.register(MagicContent.MANA_FORM, SkillCastRegistry.selfManaged(ctx ->
                 com.efkrdnz.magical.magic.mana.ManaFormService.toggle(ctx.player(), ctx.state())));
+        // A press on Incantation k recites slot k. Self-managed: the service bills the verses it
+        // read and sets the cooldown from the beat, so the registry's mana and cooldown never apply.
+        SkillCastRegistry.register(MagicContent.INCANTATION_1, SkillCastRegistry.selfManaged(ctx ->
+                com.efkrdnz.magical.magic.incantation.IncantationService.recite(ctx, 0)));
+        SkillCastRegistry.register(MagicContent.INCANTATION_2, SkillCastRegistry.selfManaged(ctx ->
+                com.efkrdnz.magical.magic.incantation.IncantationService.recite(ctx, 1)));
+        SkillCastRegistry.register(MagicContent.INCANTATION_3, SkillCastRegistry.selfManaged(ctx ->
+                com.efkrdnz.magical.magic.incantation.IncantationService.recite(ctx, 2)));
+        SkillCastRegistry.register(MagicContent.INCANTATION_4, SkillCastRegistry.selfManaged(ctx ->
+                com.efkrdnz.magical.magic.incantation.IncantationService.recite(ctx, 3)));
         // The Authority of Chaos. Three presses and a hold, and all three presses are deliberately
         // tiny: Burden places one grain, the Last Grain places one more, and Criticality has no
         // damage of its own at all. Everything that happens afterwards comes out of the Pile.

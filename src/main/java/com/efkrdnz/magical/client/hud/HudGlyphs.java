@@ -34,6 +34,11 @@ public final class HudGlyphs {
         fallback("judgement", StampId.CROSS.atlasCell());
         fallback("divine_divider", StampId.BAR.atlasCell());
         fallback("circle_arsenal", StampId.RING.atlasCell());
+        // The four incantations: one plain counting mark each, I to IV.
+        fallback("incantation_1", StampId.DOT.atlasCell());
+        fallback("incantation_2", StampId.BAR.atlasCell());
+        fallback("incantation_3", StampId.TRIANGLE.atlasCell());
+        fallback("incantation_4", StampId.SQUARE.atlasCell());
         fallback("vault_of_avarice", StampId.SQUARE.atlasCell());
         fallback("create_subspace", StampId.RING.atlasCell());
         fallback("manipulate_space", StampId.LINK.atlasCell());

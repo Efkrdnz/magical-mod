@@ -27,7 +27,9 @@ public final class AuthorityContent {
     public static final AuthorityDefinition AUTHORITY_OF_MANA = register(
             MANA,
             0xF0F4FF,
-            List.of(MagicContent.OPEN_LEDGER.id(), MagicContent.WRIT.id(), MagicContent.MANA_FORM.id()));
+            List.of(MagicContent.OPEN_LEDGER.id(), MagicContent.WRIT.id(), MagicContent.MANA_FORM.id(),
+                    MagicContent.INCANTATION_1.id(), MagicContent.INCANTATION_2.id(),
+                    MagicContent.INCANTATION_3.id(), MagicContent.INCANTATION_4.id()));
 
     public static final AuthorityDefinition AUTHORITY_OF_CHAOS = register(
             CHAOS,
