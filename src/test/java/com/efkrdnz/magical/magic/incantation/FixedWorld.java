@@ -7,11 +7,17 @@ import java.util.List;
 import java.util.Set;
 import net.minecraft.resources.ResourceLocation;
 
-/** A world that answers with whatever the test set; {@code random} returns queued rolls, then zeros. */
+/**
+ * A world that answers with whatever the test set; {@code random} returns queued rolls, then zeros.
+ * The two counts stand at a distance: {@code enemyRange} and {@code projectileRange} are how far out
+ * they are, so a Clause that asks about a shorter radius than that is answered with nothing.
+ */
 final class FixedWorld implements ReciteWorld {
 
     int enemies;
     int projectiles;
+    double enemyRange;
+    double projectileRange;
     double health = 1.0D;
     boolean everyOtherSkip;
     final Deque<Integer> rolls = new ArrayDeque<>();
@@ -30,12 +36,12 @@ final class FixedWorld implements ReciteWorld {
 
     @Override
     public int enemiesWithin(double blocks) {
-        return enemies;
+        return blocks >= enemyRange ? enemies : 0;
     }
 
     @Override
     public int projectilesWithin(double blocks) {
-        return projectiles;
+        return blocks >= projectileRange ? projectiles : 0;
     }
 
     @Override

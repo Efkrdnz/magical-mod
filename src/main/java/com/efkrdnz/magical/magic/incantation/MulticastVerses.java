@@ -34,9 +34,12 @@ public final class MulticastVerses {
         c.register(multicast("column", 3, Verse.UNLIMITED, 3, s -> { s.setPattern(90.0D); s.addSpread(-8.0D); }));
         c.register(multicast("pentacle", 5, Verse.UNLIMITED, 5, s -> { s.setPattern(180.0D); s.addSpread(-12.0D); }));
         c.register(multicast("hexad", 6, Verse.UNLIMITED, 6, s -> { s.setPattern(180.0D); s.addSpread(-15.0D); }));
-        // BURST_X: draw whatever is left in the unread pile.
+        // BURST_X: draw whatever is left in the unread pile. The Lua guards on #deck > 0, so on an
+        // empty pile nothing is drawn at all and drawManyCount keeps whatever the last draw set.
         c.register(Verse.of("epic", VerseType.MULTICAST, 20, 10, null, 1, Declared.of(Declared.ALL, 0, 0), (r, rec, it) -> {
-            r.drawActions(r.deck().size());
+            if (!r.deck().isEmpty()) {
+                r.drawActions(r.deck().size());
+            }
             return VerseAction.NONE;
         }));
     }

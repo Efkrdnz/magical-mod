@@ -358,7 +358,8 @@ public final class ControlVerses {
             int bodies = data.verse().bodies();
             r.discardTop(howMany);
             boolean valid = false;
-            for (VerseCard check : deck) {
+            // The Lua scans deck after the removals, so the scan is re-read rather than the list kept.
+            for (VerseCard check : r.deck()) {
                 if (check.type().payloadWorthy()) {
                     valid = true;
                     break;
@@ -391,7 +392,8 @@ public final class ControlVerses {
     // ---- the Clauses -------------------------------------------------------------------------
 
     private static void registerClauses(VerseCatalogue c) {
-        // IF_ENEMY (15 within 240 px), IF_PROJECTILE (20 within 160 px), IF_HP (below a quarter), IF_HALF.
+        // IF_ENEMY (15 within 240 px), IF_PROJECTILE (20 within 160 px), IF_HP (at or below a quarter:
+        // the Lua skips when hpdiff > 0.25, so a quarter exactly passes), IF_HALF.
         c.register(clause("clause_outnumbered", w -> w.enemiesWithin(16.0D) >= 6));
         c.register(clause("clause_crowded", w -> w.projectilesWithin(16.0D) >= 12));
         c.register(clause("clause_wounded", w -> w.healthFraction() <= 0.25D));

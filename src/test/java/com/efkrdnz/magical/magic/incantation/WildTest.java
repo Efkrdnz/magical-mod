@@ -61,9 +61,20 @@ class WildTest {
     }
 
     @Test
-    void blindTrioDrawsThree() {
-        RecitePlan plan = press(session("blind_trio", "needle", "needle", "needle"), 1, PLENTY, new FixedWorld().roll(0, 1, 2));
-        assertEquals(3, plan.bodies().size());
+    void blindTrioDrawsThreeSeparatePicks() {
+        RecitePlan plan = press(session("blind_trio", "needle", "ember", "shard"), 1, PLENTY, new FixedWorld().roll(0, 1, 2));
+        assertEquals(List.of("needle", "ember", "shard"), bodies(plan.root()),
+                "three independent rolls over the same pile, each landing on the card it named");
+    }
+
+    @Test
+    void blindDrawWalksPastASpentCard() {
+        Incantation incantation = tape(1, "blind_draw", "ember", "shard");
+        incantation.setUses(1, 0);
+        ReciteSession session = ReciteSession.of(incantation, VerseContent.CATALOGUE);
+        RecitePlan plan = press(session, 1, PLENTY, new FixedWorld().roll(0));
+        assertEquals(List.of("shard"), bodies(plan.root()), "the roll landed on a spent Ember, so the walk went on to the next card");
+        assertEquals(0, incantation.entries().get(1).usesRemaining(), "and the spent card was not billed again");
     }
 
     @Test

@@ -42,12 +42,13 @@ public final class UtilityVerses {
             r.drawActions(1);
             return VerseAction.NONE;
         }));
-        // BLOOD_MAGIC: a refund of mana paid in health, as true damage, then draw one.
+        // BLOOD_MAGIC: a refund of mana paid in health, as true damage. The Lua draws first and takes
+        // the hp off afterwards, so the drawn verse is cast whether or not the price kills the caster.
         c.register(Verse.of("blood_toll", VerseType.UTILITY, -30, Verse.UNLIMITED, null, 1, Declared.of(1, -7, -7), (r, rec, it) -> {
             r.state().addBeat(-7);
             r.addRest(-7);
-            r.world().payHealth(4.0D);
             r.drawActions(1);
+            r.world().payHealth(4.0D);
             return VerseAction.NONE;
         }));
     }

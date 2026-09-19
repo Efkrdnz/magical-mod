@@ -17,6 +17,9 @@ import org.junit.jupiter.api.Test;
  * the End Clause, else just the next verse. Passing with an Otherwise: from the Otherwise through the
  * End Clause; with no End Clause only the Otherwise itself; with another Clause before any End,
  * from the Otherwise to the end of the pile. The scan stops at the next Clause. Then draw one.
+ *
+ * <p>The two counting Clauses ask the world about a radius, not about the whole level, so a crowd
+ * standing further out than the sixteen blocks they name does not answer them.
  */
 class ClauseTest {
 
@@ -109,5 +112,33 @@ class ClauseTest {
         assertEquals(List.of("needle"), bodies(press(session("clause_crowded", "needle", "otherwise", "ember"), 1, PLENTY, sky).root()));
         sky.projectiles = 11;
         assertEquals(List.of("ember"), bodies(press(session("clause_crowded", "needle", "otherwise", "ember"), 1, PLENTY, sky).root()));
+    }
+
+    @Test
+    void outnumberedAsksAboutSixteenBlocksAndNoFurther() {
+        FixedWorld far = new FixedWorld();
+        far.enemies = 6;
+        far.enemyRange = 17.0D;
+        assertEquals(List.of("ember"), bodies(press(session("clause_outnumbered", "needle", "otherwise", "ember"), 1, PLENTY, far).root()),
+                "six hostiles standing seventeen blocks out are not six within sixteen");
+        FixedWorld near = new FixedWorld();
+        near.enemies = 6;
+        near.enemyRange = 16.0D;
+        assertEquals(List.of("needle"), bodies(press(session("clause_outnumbered", "needle", "otherwise", "ember"), 1, PLENTY, near).root()),
+                "the same six at sixteen are inside the radius the Clause names");
+    }
+
+    @Test
+    void crowdedSkyAsksAboutSixteenBlocksAndNoFurther() {
+        FixedWorld far = new FixedWorld();
+        far.projectiles = 12;
+        far.projectileRange = 17.0D;
+        assertEquals(List.of("ember"), bodies(press(session("clause_crowded", "needle", "otherwise", "ember"), 1, PLENTY, far).root()),
+                "twelve bodies seventeen blocks out are not twelve within sixteen");
+        FixedWorld near = new FixedWorld();
+        near.projectiles = 12;
+        near.projectileRange = 16.0D;
+        assertEquals(List.of("needle"), bodies(press(session("clause_crowded", "needle", "otherwise", "ember"), 1, PLENTY, near).root()),
+                "the same twelve at sixteen are inside the radius the Clause names");
     }
 }
