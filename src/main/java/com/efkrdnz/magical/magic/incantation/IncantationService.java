@@ -127,12 +127,16 @@ public final class IncantationService {
         return true;
     }
 
-    /** The plan a press would produce, without pressing: the uses are spent on a copy and the session is left alone. */
-    public static RecitePlan preview(ServerPlayer player, PlayerMagicState state, int slot) {
+    /**
+     * The plan a press would produce, without pressing: the uses are spent on a copy, the session is
+     * left alone, and the world is the assumed one (nobody near, full health, a fixed random, no
+     * price paid), so a preview moves nothing - not the Grimoire's toggle, not a heart.
+     */
+    public static RecitePlan preview(PlayerMagicState state, int slot) {
         Incantation copy = new Incantation();
         copy.copyFrom(state.grimoire().incantation(slot));
         ReciteSession session = ReciteSession.of(copy, VerseContent.CATALOGUE);
-        return Reciter.recite(session, copy.breath(), state.mana(), 1.0D, new LevelReciteWorld(player, state, slot));
+        return Reciter.recite(session, copy.breath(), state.mana(), 1.0D, new PreviewReciteWorld(state.grimoire(), slot, VerseContent.CATALOGUE));
     }
 
     /** {@code needle} and {@code magical:needle} both name the needle; anything unparsable makes the whole list null. */

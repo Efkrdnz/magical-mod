@@ -4,7 +4,6 @@ import com.efkrdnz.magical.entity.verse.VerseBodyEntity;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.blood.BloodDamageTypes;
 import com.efkrdnz.magical.magic.service.SkillTargets;
-import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -64,22 +63,10 @@ public final class LevelReciteWorld implements ReciteWorld {
         return state.grimoire().knows(id);
     }
 
-    /** The verses written in the other three slots, in slot order, each as many times as it is written. */
+    /** The verses written in the other three slots, in slot order, each as many times as it is written: the preview reads the same list. */
     @Override
     public List<Verse> otherIncantationVerses() {
-        List<Verse> verses = new ArrayList<>();
-        for (int other = 0; other < Grimoire.SLOTS; other++) {
-            if (other == slot) {
-                continue;
-            }
-            for (Incantation.Entry entry : state.grimoire().incantation(other).entries()) {
-                Verse verse = VerseContent.get(entry.id());
-                if (verse != null) {
-                    verses.add(verse);
-                }
-            }
-        }
-        return verses;
+        return PreviewReciteWorld.otherVerses(state.grimoire(), slot, VerseContent.CATALOGUE);
     }
 
     /** Blood Toll pays in flesh through the Blood school's true damage: no armour, no resistance, no barrier. */
