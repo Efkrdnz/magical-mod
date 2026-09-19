@@ -1066,7 +1066,7 @@ git commit -m "feat: the steering arithmetic behind a body's behaviours"
 
 **Interfaces:**
 - Consumes: Tasks 1–4; `MagicDamageService.hurt(LivingEntity, DamageSource, float, ResourceLocation)`; `MagicCounterService.offerCounter(ServerPlayer, CounterableSkillThreat, Vec3, int)`, `hasActivePrompt(ServerPlayer, CounterableSkillThreat)`, `expirePrompt(ServerPlayer, CounterableSkillThreat)`, `spawnClash(ServerLevel, Vec3, int, int)`; `SkillTargets.hostilesWithin(ServerLevel, Entity, Vec3, double)`, `shove(LivingEntity, Vec3, double, double)`; `SafeSpotSearch.standableNear/liftClear/place`; `SpellFx.impact(ServerLevel, MagicSkillDefinition, Vec3, Vec3, Entity, Entity, float)`; `AimResolver.resolve(ServerLevel, LivingEntity, Vec3, double, double, boolean, int, Predicate<Entity>)` → `.point()`, `AimResolver.groundBelow(ServerLevel, Vec3, int)`; `UnwakingCapabilities.refuseMovement(ServerPlayer)`; `SpellEntityVisibility`.
-- Produces: `VerseBodyEntity.spawn(ServerLevel, LivingEntity caster, ProjectilePlan, Vec3 position, Vec3 direction, ResourceLocation skillId) -> VerseBodyEntity`; `ownedBy(ServerLevel, LivingEntity, AABB) -> List<VerseBodyEntity>`; accessors `plan(), prototype(), school(), radius(), life(), behaviourMask(), wakeMask(), direction(), seed(), skillId(), livingOwner(), has(Behaviour)`; `markRelayed()`. `VerseBodySpawner.spawn(ServerLevel, LivingEntity, ShotPlan, Vec3 origin, Vec3 aim, ResourceLocation)`, `release(ServerLevel, LivingEntity, ShotPlan, Vec3 at, Vec3 travel, ResourceLocation)`, `relay(ServerLevel, VerseBodyEntity, Vec3)`, all returning `List<VerseBodyEntity>` (relay one). `MagicalEntities.VERSE_BODY`. Task 6's renderer reads the accessors; Task 7's service calls `VerseBodySpawner.spawn`.
+- Produces: `VerseBodyEntity.spawn(ServerLevel, LivingEntity caster, ProjectilePlan, Vec3 position, Vec3 direction, ResourceLocation skillId) -> VerseBodyEntity`; `ownedBy(ServerLevel, LivingEntity, AABB) -> List<VerseBodyEntity>`; the synced accessors a renderer may read on either side, `prototype(), school(), radius(), life(), behaviourMask(), wakeMask(), direction(), seed(), has(Behaviour)`; the server-only `plan(), skillId(), livingOwner()` (the plan is NBT and the owner a UUID lookup, so both are null on a client); `markRelayed()`. `VerseBodySpawner.spawn(ServerLevel, LivingEntity, ShotPlan, Vec3 origin, Vec3 aim, ResourceLocation)`, `release(ServerLevel, LivingEntity, ShotPlan, Vec3 at, Vec3 travel, ResourceLocation)`, `relay(ServerLevel, VerseBodyEntity, Vec3)`, all returning `List<VerseBodyEntity>` (relay one). `MagicalEntities.VERSE_BODY`. Task 6's renderer reads the accessors; Task 7's service calls `VerseBodySpawner.spawn`.
 
 - [ ] **Step 1: Write the shared fake-player factory and the failing gametests**
 
@@ -1432,6 +1432,8 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
     static final int WAKE_FROST_TICKS = 20;
     static final double PIT_PULL = 0.08D;
     static final int COUNTER_WINDOW_TICKS = 13;
+    /** How far ahead of a body a player is warned, when no wall comes first. */
+    static final double COUNTER_WARNING_BLOCKS = 9.0D;
 
     private UUID ownerUuid;
     private ResourceLocation skillId = MagicContent.STARTER_SKILL;
@@ -1567,9 +1569,9 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
         // Puncture strikes and flies on, and then the wall has its turn in the same tick.
         BlockHitResult blockHit = level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
         Vec3 reach = blockHit.getType() == HitResult.Type.MISS ? to : blockHit.getLocation();
-        offerApproachCounters(from, reach);
+        offerApproachCounters(level, from);
         LivingEntity hit = firstEntityHit(from, reach);
-        if (hit != null) {
+        while (hit != null) {
             if (hit instanceof ServerPlayer player && MagicCounterService.hasActivePrompt(player, this)) {
                 MagicCounterService.expirePrompt(player, this);
             }
@@ -1578,6 +1580,9 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
                 end(level, new Vec3(hit.getX(), hit.getY(0.55D), hit.getZ()), PayloadKind.LATCH);
                 return;
             }
+            // A Puncture takes everything on the segment: what it struck is in the set now, so the
+            // next call finds the next body along the line, or nothing.
+            hit = firstEntityHit(from, reach);
         }
         if (blockHit.getType() != HitResult.Type.MISS) {
             if (bouncesLeft > 0) {
@@ -1732,7 +1737,9 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
             }
         }
         if (plan.prototype().look() == VersePrototype.Look.PIT) {
-            for (VerseBodyEntity other : level.getEntitiesOfClass(VerseBodyEntity.class, getBoundingBox().inflate(radius), body -> body != this && !body.plan().prototype().isStatic())) {
+            // The synced prototype, not the plan: a body loaded with a prototype the game no longer
+            // knows carries no plan and discards itself on its next tick, and must not crash a pit first.
+            for (VerseBodyEntity other : level.getEntitiesOfClass(VerseBodyEntity.class, getBoundingBox().inflate(radius), body -> body != this && !body.prototype().isStatic())) {
                 Vec3 pull = position().subtract(other.position());
                 if (pull.lengthSqr() > 1.0E-4D) {
                     other.velocity = other.velocity.add(pull.normalize().scale(PIT_PULL)).normalize().scale(Math.max(other.speed, 1.0E-3D));
@@ -1844,14 +1851,20 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
 
     // ------------------------------------------------------------------ counters
 
-    private void offerApproachCounters(Vec3 from, Vec3 to) {
+    /** A counter is offered to any player on the line ahead, as far as the next wall and no further. */
+    private void offerApproachCounters(ServerLevel level, Vec3 from) {
         if (damage() <= 0.0D || velocity.lengthSqr() < 1.0E-6D) {
             return;
         }
         Entity owner = ownerEntity();
         Vec3 heading = velocity.normalize();
-        AABB warningPath = new AABB(from, from.add(heading.scale(9.0D))).inflate(2.0D + radius());
-        for (Entity entity : level().getEntities(this, warningPath, target -> target instanceof ServerPlayer player && player.isAlive() && target != owner)) {
+        Vec3 far = from.add(heading.scale(COUNTER_WARNING_BLOCKS));
+        BlockHitResult wall = level.clip(new ClipContext(from, far, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
+        if (wall.getType() != HitResult.Type.MISS) {
+            far = wall.getLocation();
+        }
+        AABB warningPath = new AABB(from, far).inflate(2.0D + radius());
+        for (Entity entity : level.getEntities(this, warningPath, target -> target instanceof ServerPlayer player && player.isAlive() && target != owner)) {
             ServerPlayer player = (ServerPlayer) entity;
             if (player.getEyePosition().subtract(from).dot(heading) < 0.0D) {
                 continue;
@@ -1901,8 +1914,8 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
         return !has(Behaviour.UNDYING) && tickCount >= life();
     }
 
-    /** {@code prototype.damage + damageAdd}, nothing under Blunt, never negative. */
-    public double damage() {
+    /** {@code prototype.damage + damageAdd}, nothing under Blunt, never negative. Server only: it reads the plan. */
+    double damage() {
         ShotState s = plan.stamped();
         return s.nullsDamage() ? 0.0D : Math.max(0.0D, plan.prototype().damage() + s.damageAdd());
     }
@@ -1917,6 +1930,7 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
 
     // ------------------------------------------------------------------ accessors
 
+    /** The plan this body flies. Server only: it is NBT, never synced, so on a client it is null. */
     public ProjectilePlan plan() {
         return plan;
     }
@@ -1991,6 +2005,7 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
         return serverLevel.getEntity(ownerUuid);
     }
 
+    /** The owner as a living thing, or null. Server only: a client cannot look an entity up by UUID. */
     public LivingEntity livingOwner() {
         return ownerEntity() instanceof LivingEntity living ? living : null;
     }
