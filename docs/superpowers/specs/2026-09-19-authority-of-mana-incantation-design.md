@@ -656,3 +656,21 @@ has not been billed.
    not name the same true damage differently.
 4. The HUD line for the next unread verse: a card annotation on the sigil rather than an actionbar
    string, once the Grimoire screen exists.
+5. Hand-offs from the core's review, for Plan 2 and Plan 3:
+   - The spawner applies `prototype.hit()` (Ember's BURN, Arc Bolt's SHOCK) as well as the stamped
+     `hitEffects`, or those two bodies silently lose their effect.
+   - An Impose's declared "draw 1" is its carrier's payload draw, and a Clause's holds in both
+     branches; the tooltip should say so ("payload: 1").
+   - `Reciter.recite` writes uses back to the incantation it was built from and calls
+     `ReciteWorld.payHealth` mid-recital (Blood Toll draws first, then pays, as the Lua does); a
+     preview session is built from a copy, and the service clamps `manaLeft` to the pool, because a
+     refund (Wellspring, Blood Toll) can push it past.
+   - `MAX_STEPS` bounds work, not stack depth: a chain of drawing modifiers nests about six frames a
+     step, so the service guards the call or the constant is justified in a comment.
+6. Known minor gaps left after review, none load-bearing: `ShotPlan`/`ProjectilePlan` hand out the
+   live `ShotState` (document it read-only, or freeze it); `Grimoire.incantation(slot)` clamps instead
+   of rejecting an out-of-range slot; `Verse.bodies()` above 1 and the Refrain collapses at 4 and 3 are
+   untested; the Wild knowledge gate is pinned only for Wild Verse; `copyQuiet` restores `dontDraw` to
+   false and a Wild pick past 100 rolls restarts the recursion budget, both Lua-identical;
+   `ControlVerses.impose` keeps a `default` arm the other two carrier switches spell out;
+   `Recital.Frame.draw`, `depth()` and `drawDisabled()` have no caller yet.
