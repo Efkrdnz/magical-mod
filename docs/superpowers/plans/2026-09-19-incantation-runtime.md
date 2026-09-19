@@ -1114,6 +1114,11 @@ public final class GameTestPlayers {
         player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
         // A player is invulnerable until their client reports the world loaded; a fake one never does.
         player.setClientLoaded(true);
+        // The second gate, and the one a caster's own spell falls foul of: ServerPlayer.hurt refuses
+        // any blow whose damage source names a player when PVP is off, and a caster is the named
+        // entity of their own blast. An integrated server turns PVP on; the gametest server leaves
+        // it off, so a fake player would be immune to everything they cast at their own feet.
+        server.setPvpAllowed(true);
         Vec3 stand = onFloor(helper, at);
         player.teleportTo(stand.x, stand.y, stand.z);
         return player;
@@ -1557,17 +1562,13 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
         Vec3 from = position();
         Vec3 step = flightStep(level);
         Vec3 to = from.add(step);
+        // The wall bounds the step, and anything living between here and it is met first: a body
+        // fired at an enemy standing against a wall hits the enemy, not the wall behind them. A
+        // Puncture strikes and flies on, and then the wall has its turn in the same tick.
         BlockHitResult blockHit = level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
-        if (blockHit.getType() != HitResult.Type.MISS) {
-            if (bouncesLeft > 0) {
-                bounce(level, blockHit);
-                return;
-            }
-            end(level, blockHit.getLocation(), PayloadKind.LATCH);
-            return;
-        }
-        offerApproachCounters(from, to);
-        LivingEntity hit = firstEntityHit(from, to);
+        Vec3 reach = blockHit.getType() == HitResult.Type.MISS ? to : blockHit.getLocation();
+        offerApproachCounters(from, reach);
+        LivingEntity hit = firstEntityHit(from, reach);
         if (hit != null) {
             if (hit instanceof ServerPlayer player && MagicCounterService.hasActivePrompt(player, this)) {
                 MagicCounterService.expirePrompt(player, this);
@@ -1577,6 +1578,14 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
                 end(level, new Vec3(hit.getX(), hit.getY(0.55D), hit.getZ()), PayloadKind.LATCH);
                 return;
             }
+        }
+        if (blockHit.getType() != HitResult.Type.MISS) {
+            if (bouncesLeft > 0) {
+                bounce(level, blockHit);
+                return;
+            }
+            end(level, blockHit.getLocation(), PayloadKind.LATCH);
+            return;
         }
         setPos(to.x, to.y, to.z);
         setDirection(velocity);
@@ -1813,15 +1822,24 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
         if (living instanceof ServerPlayer player && UnwakingCapabilities.refuseMovement(player)) {
             return;
         }
-        Vec3 feet = SafeSpotSearch.standableNear(level, at, 2, 3, living.getBbWidth(), living.getBbHeight());
+        Vec3 feet = placeNear(level, at, living);
         if (feet == null) {
-            feet = SafeSpotSearch.liftClear(level, at, living.getBbWidth(), living.getBbHeight(), 2.0D);
+            // A block hit ends on the face it struck, and that point floors into the struck block
+            // itself, so both searches are looking up and down a column of solid wall. The last
+            // point the body stood in is the same impact one step back, and it is in open air.
+            feet = placeNear(level, position(), living);
         }
         if (feet == null) {
             return;
         }
         SafeSpotSearch.place(living, feet, living.getYRot(), living.getXRot(), false);
         level.playSound(null, feet.x, feet.y, feet.z, SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 0.6F, 1.4F);
+    }
+
+    /** Somewhere a body of this size can stand at {@code wanted}: on the ground under it, else lifted clear of it. */
+    private static Vec3 placeNear(ServerLevel level, Vec3 wanted, LivingEntity living) {
+        Vec3 feet = SafeSpotSearch.standableNear(level, wanted, 2, 3, living.getBbWidth(), living.getBbHeight());
+        return feet != null ? feet : SafeSpotSearch.liftClear(level, wanted, living.getBbWidth(), living.getBbHeight(), 2.0D);
     }
 
     // ------------------------------------------------------------------ counters
