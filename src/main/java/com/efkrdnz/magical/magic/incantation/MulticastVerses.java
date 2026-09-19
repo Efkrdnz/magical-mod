@@ -8,6 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 public final class MulticastVerses {
 
     public static final ResourceLocation COUPLET = VerseIds.of("couplet");
+    public static final ResourceLocation EPIC = VerseIds.of("epic");
 
     private MulticastVerses() {
     }
@@ -22,5 +23,21 @@ public final class MulticastVerses {
 
     static void register(VerseCatalogue c) {
         c.register(multicast("couplet", 0, Verse.UNLIMITED, 2, s -> { }));
+        c.register(multicast("tercet", 2, Verse.UNLIMITED, 3, s -> { }));
+        c.register(multicast("quatrain", 4, Verse.UNLIMITED, 4, s -> { }));
+        c.register(multicast("octave", 12, Verse.UNLIMITED, 8, s -> { }));
+        c.register(multicast("loose_couplet", 0, Verse.UNLIMITED, 2, s -> s.addSpread(10.0D)));
+        c.register(multicast("loose_tercet", 1, Verse.UNLIMITED, 3, s -> s.addSpread(20.0D)));
+        c.register(multicast("cleft", 2, Verse.UNLIMITED, 2, s -> { s.setPattern(45.0D); s.addSpread(-8.0D); }));
+        c.register(multicast("trident", 3, Verse.UNLIMITED, 3, s -> { s.setPattern(20.0D); s.addSpread(-5.0D); }));
+        c.register(multicast("mirror", 0, Verse.UNLIMITED, 2, s -> { s.setPattern(180.0D); s.addSpread(-5.0D); }));
+        c.register(multicast("column", 3, Verse.UNLIMITED, 3, s -> { s.setPattern(90.0D); s.addSpread(-8.0D); }));
+        c.register(multicast("pentacle", 5, Verse.UNLIMITED, 5, s -> { s.setPattern(180.0D); s.addSpread(-12.0D); }));
+        c.register(multicast("hexad", 6, Verse.UNLIMITED, 6, s -> { s.setPattern(180.0D); s.addSpread(-15.0D); }));
+        // BURST_X: draw whatever is left in the unread pile.
+        c.register(Verse.of("epic", VerseType.MULTICAST, 20, 10, null, 1, Declared.of(Declared.ALL, 0, 0), (r, rec, it) -> {
+            r.drawActions(r.deck().size());
+            return VerseAction.NONE;
+        }));
     }
 }
