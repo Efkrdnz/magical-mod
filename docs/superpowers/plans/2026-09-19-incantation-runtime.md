@@ -4211,6 +4211,14 @@ import com.efkrdnz.magical.magic.incantation.Verse;
 import com.efkrdnz.magical.magic.incantation.VerseContent;
 ```
 
+In the `reset` handler (the `Commands.literal("reset")` block), directly after `player.setData(MagicalAttachments.MAGIC_STATE, new PlayerMagicState());`, add:
+
+```java
+                                IncantationService.forget(player.getUUID());
+```
+
+so a session built on the incantation of the discarded state cannot recite it; every other Grimoire write goes through `setIncantation`, which resets the session itself.
+
 In the `magical` chain, directly before the comment `// Capture tooling, and nothing else: a screenshot of an avalanche needs a` that precedes `.then(Commands.literal("pile")` (line 556), add:
 
 ```java
