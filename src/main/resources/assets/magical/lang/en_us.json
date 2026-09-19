@@ -74,6 +74,7 @@
   "screen.magical.skill_detail": "Skill Detail",
   "screen.magical.no_owned_skills": "No owned skills",
   "screen.magical.tier": "Tier %s",
+  "screen.magical.authority_row": "Authority",
   "screen.magical.negative_tier": "Tier %s",
   "tier.magical.below.1": "Blood",
   "tier.magical.below.2": "Dark",

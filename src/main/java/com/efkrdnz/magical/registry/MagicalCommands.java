@@ -24,6 +24,11 @@ import com.efkrdnz.magical.magic.SpaceAuthorityService;
 import com.efkrdnz.magical.magic.SpaceRuleCategory;
 import com.efkrdnz.magical.magic.SpaceRuleOperation;
 import com.efkrdnz.magical.magic.SpaceTargetGroup;
+import com.efkrdnz.magical.magic.incantation.IncantationService;
+import com.efkrdnz.magical.magic.incantation.ReciteCaps;
+import com.efkrdnz.magical.magic.incantation.RecitePlan;
+import com.efkrdnz.magical.magic.incantation.Verse;
+import com.efkrdnz.magical.magic.incantation.VerseContent;
 import com.efkrdnz.magical.network.MagicalNetwork;
 import com.efkrdnz.magical.network.OpenSpellCreatorPayload;
 import com.efkrdnz.magical.network.SpaceRuleAppliedPayload;
@@ -178,6 +183,7 @@ public final class MagicalCommands {
                     .then(Commands.literal("reset")
                             .executes(context -> withPlayer(context.getSource(), player -> {
                                 player.setData(MagicalAttachments.MAGIC_STATE, new PlayerMagicState());
+                                IncantationService.forget(player.getUUID());
                                 player.getData(MagicalAttachments.MAGIC_STATE).sync(player);
                                 return 1;
                             })))
@@ -553,6 +559,31 @@ public final class MagicalCommands {
                                         player.displayClientMessage(Component.translatable("message.magical.authority_cleared"), false);
                                         return 1;
                                     }))))
+                    // The Grimoire by hand, until the editor screen: write a slot, learn verses,
+                    // read a slot back, and see what a press would cast without pressing. Slots
+                    // are one-based here, as the skills are named (Incantation I is slot 1).
+                    .then(Commands.literal("incantation")
+                            .then(Commands.literal("set")
+                                    .then(Commands.argument("slot", IntegerArgumentType.integer(1, IncantationService.SLOTS))
+                                            .then(Commands.argument("breath", IntegerArgumentType.integer(ReciteCaps.MIN_BREATH, ReciteCaps.MAX_BREATH))
+                                                    .then(Commands.argument("verses", StringArgumentType.greedyString())
+                                                            .executes(context -> withPlayer(context.getSource(), player -> incantationSet(player,
+                                                                    IntegerArgumentType.getInteger(context, "slot"),
+                                                                    IntegerArgumentType.getInteger(context, "breath"),
+                                                                    StringArgumentType.getString(context, "verses"))))))))
+                            .then(Commands.literal("know")
+                                    .then(Commands.argument("verse", StringArgumentType.word())
+                                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(versePaths(), builder))
+                                            .executes(context -> withPlayer(context.getSource(), player -> incantationKnow(player,
+                                                    StringArgumentType.getString(context, "verse"))))))
+                            .then(Commands.literal("show")
+                                    .then(Commands.argument("slot", IntegerArgumentType.integer(1, IncantationService.SLOTS))
+                                            .executes(context -> withPlayer(context.getSource(), player -> incantationShow(player,
+                                                    IntegerArgumentType.getInteger(context, "slot"))))))
+                            .then(Commands.literal("preview")
+                                    .then(Commands.argument("slot", IntegerArgumentType.integer(1, IncantationService.SLOTS))
+                                            .executes(context -> withPlayer(context.getSource(), player -> incantationPreview(player,
+                                                    IntegerArgumentType.getInteger(context, "slot")))))))
                     // Capture tooling, and nothing else: a screenshot of an avalanche needs a
                     // loaded field, and building one honestly means pressing Burden thirty times.
                     // The skill is the only real way to make a Pile; this only seeds one.
@@ -794,6 +825,11 @@ public final class MagicalCommands {
                                     .executes(context -> debugCastSkill(context.getSource(), net.minecraft.commands.arguments.ResourceLocationArgument.getId(context, "id"), false))
                                     .then(Commands.literal("sneak")
                                             .executes(context -> debugCastSkill(context.getSource(), net.minecraft.commands.arguments.ResourceLocationArgument.getId(context, "id"), true)))))
+                    // A press on Incantation <slot> with the unlock, the cooldown and the pool taken care of.
+                    .then(Commands.literal("recite")
+                            .then(Commands.argument("slot", IntegerArgumentType.integer(1, IncantationService.SLOTS))
+                                    .executes(context -> debugCastSkill(context.getSource(),
+                                            IncantationService.skillFor(IntegerArgumentType.getInteger(context, "slot") - 1).id(), false))))
                     .then(Commands.literal("scenario")
                             .then(Commands.literal("judgement")
                                     .executes(context -> withPlayer(context.getSource(), player -> {
@@ -893,6 +929,78 @@ public final class MagicalCommands {
                 return spawned ? 1 : 0;
             });
         }
+
+    /** "all" first, then every verse path, for the know command's suggestions. */
+    private static java.util.List<String> versePaths() {
+        java.util.List<String> names = new java.util.ArrayList<>();
+        names.add("all");
+        for (Verse verse : VerseContent.CATALOGUE.all()) {
+            names.add(verse.path());
+        }
+        return names;
+    }
+
+    private static int incantationSet(ServerPlayer player, int slot, int breath, String verses) {
+        java.util.List<String> raw = java.util.Arrays.asList(verses.trim().split("\\s+"));
+        java.util.List<ResourceLocation> ids = IncantationService.parseIds(raw);
+        if (ids == null) {
+            player.displayClientMessage(Component.translatable("message.magical.incantation_unknown_verse", verses), false);
+            return 0;
+        }
+        return IncantationService.setIncantation(player, slot - 1, breath, ids) ? 1 : 0;
+    }
+
+    private static int incantationKnow(ServerPlayer player, String verse) {
+        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+        if ("all".equalsIgnoreCase(verse)) {
+            state.grimoire().learnAll(VerseContent.CATALOGUE.all().stream().map(Verse::id).toList());
+        } else {
+            java.util.List<ResourceLocation> ids = IncantationService.parseIds(java.util.List.of(verse));
+            if (ids == null || !VerseContent.CATALOGUE.contains(ids.get(0))) {
+                player.displayClientMessage(Component.translatable("message.magical.incantation_unknown_verse", verse), false);
+                return 0;
+            }
+            state.grimoire().learn(ids.get(0));
+        }
+        state.sync(player);
+        int known = state.grimoire().known().size();
+        player.displayClientMessage(Component.translatable("message.magical.incantation_known", known), false);
+        return known;
+    }
+
+    private static int incantationShow(ServerPlayer player, int slot) {
+        var incantation = player.getData(MagicalAttachments.MAGIC_STATE).grimoire().incantation(slot - 1);
+        if (incantation.isEmpty()) {
+            player.displayClientMessage(Component.translatable("message.magical.incantation_empty", slot), false);
+            return 0;
+        }
+        net.minecraft.network.chat.MutableComponent line = Component.literal("Incantation " + slot + " (breath " + incantation.breath() + "): ");
+        boolean first = true;
+        for (var entry : incantation.entries()) {
+            if (!first) {
+                line.append(Component.literal(", "));
+            }
+            first = false;
+            line.append(Component.translatable("verse.magical." + entry.id().getPath()));
+            if (entry.usesRemaining() >= 0) {
+                line.append(Component.literal(" (" + entry.usesRemaining() + ")"));
+            }
+        }
+        player.displayClientMessage(line, false);
+        return incantation.size();
+    }
+
+    private static int incantationPreview(ServerPlayer player, int slot) {
+        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+        if (state.grimoire().incantation(slot - 1).isEmpty()) {
+            player.displayClientMessage(Component.translatable("message.magical.incantation_empty", slot), false);
+            return 0;
+        }
+        RecitePlan plan = IncantationService.preview(state, slot - 1);
+        player.displayClientMessage(Component.translatable("message.magical.incantation_preview",
+                slot, plan.bodies().size(), plan.manaSpent(), plan.cooldownTicks()), false);
+        return plan.bodies().size();
+    }
 
         /**
      * Presses {@code amount} of stress into every solid block in a cube around the caster.

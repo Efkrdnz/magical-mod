@@ -22,6 +22,12 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
     public static final int BUTTON_BELOW_TIER_BASE = 120;
     /** The Authority row: its own layer below every school, not a forbidden school of its own. */
     public static final int AUTHORITY_TIER = -6;
+
+    /** The heading over the Authority row: the held Authority's name, or a plain word when none is held. */
+    public static String authorityRowLabelKey(ResourceLocation authorityId) {
+        com.efkrdnz.magical.magic.AuthorityDefinition held = authorityId == null ? null : com.efkrdnz.magical.magic.AuthorityContent.get(authorityId);
+        return held == null ? "screen.magical.authority_row" : held.nameKey();
+    }
     /**
      * The skill list is the one band whose width is the size of the roster, so it is the one band
      * that grows every time content is added. It sits above every fixed control for that reason -

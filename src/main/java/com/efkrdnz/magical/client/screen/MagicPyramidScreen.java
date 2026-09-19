@@ -423,7 +423,8 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
                 name = Component.translatable("screen.magical.tier", tier + 1);
                 color = 0xECF5FF;
             } else if (tier == AUTHORITY_TIER) {
-                name = Component.translatable("authority.magical.authority_of_space");
+                PlayerMagicState held = ClientMagicState.get();
+                name = Component.translatable(MagicPyramidMenu.authorityRowLabelKey(held == null ? null : held.authorityId()));
                 color = 0xE5FBFF;
             } else {
                 name = negativeTierLabel(tier);
