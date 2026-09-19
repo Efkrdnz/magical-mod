@@ -2464,8 +2464,10 @@ import net.minecraft.world.phys.Vec3;
  * Draws a verse body: the {@link VerseLooks} row for its prototype in its school's colour, a small
  * glyph orbiting it per behaviour it carries, a filament trailing behind it per wake, and a wider
  * bloom when it is a Lantern. A static fades in and out over its life; a flying body is full
- * until it ends. Everything is drawn through the existing painters, so the budget and the LOD are
- * theirs.
+ * until it ends. A bolt also wears a head: its tube is two ribbons along the flight line, and
+ * the caster it left sees that line end-on, where a ribbon is a point, so the billboarded head
+ * is what a first-person frame shows. Everything is drawn through the existing painters, so the
+ * budget and the LOD are theirs.
  */
 public final class VerseBodyRenderer extends EntityRenderer<VerseBodyEntity, VerseBodyRenderer.State> {
 
@@ -2478,6 +2480,14 @@ public final class VerseBodyRenderer extends EntityRenderer<VerseBodyEntity, Ver
     private static final float WAKE_OPACITY = 0.7F;
     private static final float LANTERN_SCALE = 3.0F;
     private static final float LANTERN_OPACITY = 0.35F;
+    /**
+     * The beam shader's reveal window: 0.5 shows the whole length, 1.0 has receded to nothing (the
+     * end of a hitscan flash). A body is a whole bolt for as long as it flies.
+     */
+    private static final float BEAM_WHOLE = 0.5F;
+    /** The head a bolt wears, on its drawn size; the caster sees the tube end-on and this is what shows. */
+    private static final float BOLT_HEAD_SCALE = 1.5F;
+    private static final float BOLT_HEAD_OPACITY = 0.9F;
 
     public VerseBodyRenderer(EntityRendererProvider.Context context) {
         super(context);
@@ -2550,8 +2560,9 @@ public final class VerseBodyRenderer extends EntityRenderer<VerseBodyEntity, Ver
                 poseStack.pushPose();
                 FilamentPainter.orientAlong(poseStack, state.direction);
                 poseStack.translate(0.0D, 0.0D, -row.length() * 0.5D);
-                FilamentPainter.beam(ctx, row.filament(), size, row.length(), rgb, fade * row.opacity(), 1.0F, row.count(), row.paramB());
+                FilamentPainter.beam(ctx, row.filament(), size, row.length(), rgb, fade * row.opacity(), BEAM_WHOLE, row.count(), row.paramB());
                 poseStack.popPose();
+                OrbPainter.billboard(ctx, FxKinds.Orb.PLASMA, size * BOLT_HEAD_SCALE, rgb, fade * row.opacity() * BOLT_HEAD_OPACITY, ctx.phase, 3, 8);
             }
             case ORB -> OrbPainter.billboard(ctx, row.orb(), size, rgb, fade * row.opacity(), ctx.phase, row.count(), row.paramB());
             case MARK -> {
@@ -2604,7 +2615,7 @@ public final class VerseBodyRenderer extends EntityRenderer<VerseBodyEntity, Ver
             }
             poseStack.pushPose();
             FilamentPainter.orientAlong(poseStack, back);
-            FilamentPainter.beam(ctx, VerseLooks.wake(wake), size * WAKE_WIDTH, WAKE_LENGTH, VerseLooks.wakeColor(wake), fade * WAKE_OPACITY, 1.0F, 4, 6);
+            FilamentPainter.beam(ctx, VerseLooks.wake(wake), size * WAKE_WIDTH, WAKE_LENGTH, VerseLooks.wakeColor(wake), fade * WAKE_OPACITY, BEAM_WHOLE, 4, 6);
             poseStack.popPose();
         }
     }
@@ -4339,13 +4350,13 @@ Directly before `seedPile` (its javadoc begins `/**` a few lines above line 904;
 
 Run: `.\gradlew build` - green.
 
-Then the first launch that recites for real. It clears the beach, takes the Authority, learns every verse, writes a trident of needles into slot 1 and an orb with a fuse that releases a rime ring into slot 2, and presses each. Midnight, because the bodies are additive light:
+Then the first launch that recites for real. It clears the beach, takes the Authority, learns every verse, writes a trident of needles into slot 1 and an orb with a fuse that releases a rime ring into slot 2, and presses each. Midnight, because the bodies are additive light. The golem stands thirty blocks out: a needle flies 1.6 blocks a tick and an orb 1.0 with an eight-tick fuse, so anything nearer is hit before there is a frame to photograph and before the fuse can run; and a press reaches the client two or three ticks after its command tick (chat to server, spawn packet back), so no screenshot sits within three ticks of a press:
 
 ```powershell
-.\gradlew runClient -PquickPlay="New World" -PwindowSize=1280x720 -PautoCommands="gamerule sendCommandFeedback false;gamerule doMobSpawning false;kill @e[type=!player];magical reset;magical hud race human;magical class unlock mystic;magical unlockall;magical authority set authority_of_mana;magical incantation know all;magical incantation set 1 1 trident needle needle needle;magical incantation set 2 1 orb_fuse rime_ring;time set midnight;tp @s ~ ~ ~ 0 0;summon iron_golem ~ ~ ~6 {NoAI:1b};121:magical-debug recite 1;181:magical-debug recite 2" -PautoScreenshot=123,125,183,192,215 -PautoExit
+.\gradlew runClient -PquickPlay="New World" -PwindowSize=1280x720 -PautoCommands="gamerule sendCommandFeedback false;gamerule doMobSpawning false;kill @e[type=!player];magical reset;magical hud race human;magical class unlock mystic;magical unlockall;magical authority set authority_of_mana;magical incantation know all;magical incantation set 1 1 trident needle needle needle;magical incantation set 2 1 orb_fuse rime_ring;time set midnight;tp @s ~ ~ ~ 0 0;summon iron_golem ~ ~ ~30 {NoAI:1b};121:magical-debug recite 1;181:magical-debug recite 2" -PautoScreenshot=126,134,186,193,215 -PautoExit
 ```
 
-Look at the five captures in `run/screenshots/` (the newest five). Expected: at 123 and 125 three needles fanned twenty degrees apart flying at the golem; at 183 an orb a few blocks out; at 192 the orb gone and a ring standing on the sand where its fuse ran out; at 215 the ring still there, fading. If the bodies are invisible, check `MagicalClientEvents.registerRenderers` has the `VERSE_BODY` line (Task 6) before anything else. If the screen shows the class chooser, `magical class unlock mystic` did not land before the tick-40 batch: the onboarding note in CLAUDE.md applies.
+Look at the five captures in `run/screenshots/` (the newest five). Expected: at 126 and 134 three needle heads fanned round the crosshair flying at the golem, a handful of blocks out and then well down the beach (a bolt is seen end-on by its own caster, so its head glow is what a first-person frame shows, shrinking with distance); at 186 an orb a few blocks out; at 193 the orb gone and a rime ring standing on the sand about eight blocks out where its fuse ran; at 215 the ring still there. If the bodies are invisible, check `MagicalClientEvents.registerRenderers` has the `VERSE_BODY` line (Task 6) before anything else. If the screen shows the class chooser, `magical class unlock mystic` did not land before the tick-40 batch: the onboarding note in CLAUDE.md applies.
 
 - [ ] **Step 7: CLAUDE.md**
 
@@ -4354,7 +4365,7 @@ In `CLAUDE.md`, before `### Sin system`, add:
 ```markdown
 ### Authority of Mana: incantations
 
-Layer -6 with the other authorities. The kit is four skills, `incantation_1..4` (Incantation I to IV), and each is a press that recites one slot of the wielder's **Grimoire** (`magic/incantation/Grimoire`, on `PlayerMagicState`, saved with it): a *verse* is a card, an *incantation* is up to twenty of them in an order with a *breath* (1-8) that says how many are read per press, and the core in `magic/incantation/` (`Reciter`, pure, no Minecraft in it) turns the read verses into a `RecitePlan` - the bodies of one shot with the modifiers stamped on them, the mana they cost, the beat that becomes the cooldown. `IncantationService.recite` bills it through `MagicSinService.spendManaForSkill` (a negative bill is a refund), spawns it through `entity/verse/VerseBodySpawner` (the fan from the pattern, a deviation within the spread, statics a block ahead of the hand and dropped to the floor, Near Word on the caster, twins twelve degrees apart), and keeps the deck per wielder and per dimension, never saved. One entity, `entity/verse/VerseBodyEntity` (`verse_body`): it reads its prototype, its stamped `ShotState` and its payload off a `ProjectilePlan` (server NBT through `ShotPlanCodec`), and **ends one way and releases the payload of that way** - a hit its Latch, its fuse its Fuse, its expiry its Epitaph; every end fires the explosion it carries and carries the caster if it is a Blink; a bounce is not an end. The renderer (`client/renderer/verse/VerseBodyRenderer`, one `VerseLooks` row per prototype look) draws it with the existing FX painters in its school's colour, a glyph per behaviour orbiting it and a filament per wake behind it. Commands: `/magical incantation set <slot 1-4> <breath 1-8> <verses...>` writes a slot (bare paths are `magical:`), `know all|<verse>` learns, `show <slot>` reads it back, `preview <slot>` says what a press would cast; `magical-debug recite <slot>` presses it with the unlock, the cooldown and the pool taken care of. Capture, a trident of needles then an orb whose fuse releases a rime ring: `.\gradlew runClient -PquickPlay="New World" -PwindowSize=1280x720 -PautoCommands="gamerule sendCommandFeedback false;gamerule doMobSpawning false;kill @e[type=!player];magical reset;magical hud race human;magical class unlock mystic;magical unlockall;magical authority set authority_of_mana;magical incantation know all;magical incantation set 1 1 trident needle needle needle;magical incantation set 2 1 orb_fuse rime_ring;time set midnight;tp @s ~ ~ ~ 0 0;summon iron_golem ~ ~ ~6 {NoAI:1b};121:magical-debug recite 1;181:magical-debug recite 2" -PautoScreenshot=123,125,183,192,215 -PautoExit`. Designs: `docs/superpowers/specs/2026-09-19-authority-of-mana-incantation-design.md`; plans: `docs/superpowers/plans/2026-09-19-incantation-core.md` (the core), `docs/superpowers/plans/2026-09-19-incantation-runtime.md` (the body and the Authority).
+Layer -6 with the other authorities. The kit is four skills, `incantation_1..4` (Incantation I to IV), and each is a press that recites one slot of the wielder's **Grimoire** (`magic/incantation/Grimoire`, on `PlayerMagicState`, saved with it): a *verse* is a card, an *incantation* is up to twenty of them in an order with a *breath* (1-8) that says how many are read per press, and the core in `magic/incantation/` (`Reciter`, pure, no Minecraft in it) turns the read verses into a `RecitePlan` - the bodies of one shot with the modifiers stamped on them, the mana they cost, the beat that becomes the cooldown. `IncantationService.recite` bills it through `MagicSinService.spendManaForSkill` (a negative bill is a refund), spawns it through `entity/verse/VerseBodySpawner` (the fan from the pattern, a deviation within the spread, statics a block ahead of the hand and dropped to the floor, Near Word on the caster, twins twelve degrees apart), and keeps the deck per wielder and per dimension, never saved. One entity, `entity/verse/VerseBodyEntity` (`verse_body`): it reads its prototype, its stamped `ShotState` and its payload off a `ProjectilePlan` (server NBT through `ShotPlanCodec`), and **ends one way and releases the payload of that way** - a hit its Latch, its fuse its Fuse, its expiry its Epitaph; every end fires the explosion it carries and carries the caster if it is a Blink; a bounce is not an end. The renderer (`client/renderer/verse/VerseBodyRenderer`, one `VerseLooks` row per prototype look) draws it with the existing FX painters in its school's colour, a glyph per behaviour orbiting it and a filament per wake behind it. Commands: `/magical incantation set <slot 1-4> <breath 1-8> <verses...>` writes a slot (bare paths are `magical:`), `know all|<verse>` learns, `show <slot>` reads it back, `preview <slot>` says what a press would cast; `magical-debug recite <slot>` presses it with the unlock, the cooldown and the pool taken care of. Capture, a trident of needles then an orb whose fuse releases a rime ring (the golem thirty blocks out, or the needles land before a frame and the orb latches before its fuse; no screenshot within three ticks of a press, which reaches the client two or three ticks after its command tick): `.\gradlew runClient -PquickPlay="New World" -PwindowSize=1280x720 -PautoCommands="gamerule sendCommandFeedback false;gamerule doMobSpawning false;kill @e[type=!player];magical reset;magical hud race human;magical class unlock mystic;magical unlockall;magical authority set authority_of_mana;magical incantation know all;magical incantation set 1 1 trident needle needle needle;magical incantation set 2 1 orb_fuse rime_ring;time set midnight;tp @s ~ ~ ~ 0 0;summon iron_golem ~ ~ ~30 {NoAI:1b};121:magical-debug recite 1;181:magical-debug recite 2" -PautoScreenshot=126,134,186,193,215 -PautoExit`. Designs: `docs/superpowers/specs/2026-09-19-authority-of-mana-incantation-design.md`; plans: `docs/superpowers/plans/2026-09-19-incantation-core.md` (the core), `docs/superpowers/plans/2026-09-19-incantation-runtime.md` (the body and the Authority).
 ```
 
 - [ ] **Step 8: Commit**
