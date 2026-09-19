@@ -19,15 +19,17 @@ public final class ReciteSession {
     private List<VerseCard> hand = new ArrayList<>();
     private List<VerseCard> discard = new ArrayList<>();
     private final List<VerseCard> all = new ArrayList<>();
+    private final Incantation source;
     private boolean firstShot = true;
     private int restCarry;
 
-    private ReciteSession() {
+    private ReciteSession(Incantation source) {
+        this.source = source;
     }
 
     /** {@code _add_card_to_deck} for every entry; an id the catalogue no longer holds is skipped, its index kept. */
     public static ReciteSession of(Incantation incantation, VerseCatalogue catalogue) {
-        ReciteSession session = new ReciteSession();
+        ReciteSession session = new ReciteSession(incantation);
         List<Incantation.Entry> entries = incantation.entries();
         for (int i = 0; i < entries.size(); i++) {
             Verse verse = catalogue.get(entries.get(i).id());
@@ -95,6 +97,12 @@ public final class ReciteSession {
         return List.copyOf(all);
     }
 
+    /** The uses back onto the incantation this session was built from: what every press does. */
+    public void writeBack() {
+        writeBack(source);
+    }
+
+    /** The same, onto a copy the caller holds rather than the one the session came from. */
     public void writeBack(Incantation incantation) {
         for (VerseCard card : all) {
             incantation.setUses(card.deckIndex(), card.usesRemaining());

@@ -82,4 +82,11 @@ class OverrunTest {
         session.writeBack(without);
         assertEquals(14, without.entries().get(0).usesRemaining());
     }
+
+    @Test
+    void everyPressWritesItsUsesBack() {
+        Incantation incantation = tape(1, "ember");
+        press(ReciteSession.of(incantation, VerseContent.CATALOGUE), 1, PLENTY, new FixedWorld());
+        assertEquals(14, incantation.entries().get(0).usesRemaining(), "the press wrote the spent charge back on its own");
+    }
 }

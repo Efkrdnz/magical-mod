@@ -9,13 +9,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
  * Noita runs its draw on one player's frame; this runs on a server tick for every wielder. Past a
  * cap the recite frays, deterministically: drawing stops, what was planned still comes back, and
- * the same tape, mana, breath and world always give the same plan and the same events.
+ * the same tape, mana, breath and world always give the same plan and the same events. The caps are
+ * the machine's, not the caller's, so the press clamps what it is handed before it draws anything.
  */
 class CapsTest {
 
@@ -80,5 +82,19 @@ class CapsTest {
         RecitePlan more = press(session("needle", "needle"), ReciteCaps.MAX_BREATH, PLENTY, new FixedWorld());
         assertEquals(2, more.bodies().size());
         assertTrue(more.rests());
+    }
+
+    @Test
+    void theBreathIsClampedAndNegativeManaIsNone() {
+        String[] needles = new String[ReciteCaps.MAX_BREATH + 2];
+        Arrays.fill(needles, "needle");
+        assertEquals(ReciteCaps.MAX_BREATH, press(session(needles), 99, PLENTY, new FixedWorld()).bodies().size(),
+                "a breath past the cap draws the cap, not ninety-nine");
+        assertEquals(ReciteCaps.MIN_BREATH, press(session(needles), 0, PLENTY, new FixedWorld()).bodies().size(),
+                "a breath of nothing still draws one");
+        RecitePlan broke = press(session(needles), 4, -50, new FixedWorld());
+        assertTrue(broke.bodies().isEmpty(), "negative mana is no mana, so every needle falters");
+        assertEquals(0, broke.manaLeft());
+        assertEquals(0, broke.manaSpent());
     }
 }
