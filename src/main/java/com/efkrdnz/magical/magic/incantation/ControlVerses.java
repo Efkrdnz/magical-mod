@@ -24,6 +24,7 @@ public final class ControlVerses {
         registerRecalls(c);
         registerWild(c);
         registerRefrains(c);
+        registerImposes(c);
     }
 
     // ---- the Recall family ---------------------------------------------------------------------
@@ -313,6 +314,67 @@ public final class ControlVerses {
             s.addExplosionRadius(-radiusPenalty);
             s.setPattern(5.0D);
             return iterMax;
+        };
+    }
+
+    public static final ResourceLocation IMPOSE_LATCH = VerseIds.of("impose_latch");
+    public static final ResourceLocation IMPOSE_FUSE = VerseIds.of("impose_fuse");
+    public static final ResourceLocation IMPOSE_EPITAPH = VerseIds.of("impose_epitaph");
+
+    static boolean isImpose(Verse verse) {
+        return verse.id().equals(IMPOSE_LATCH) || verse.id().equals(IMPOSE_FUSE) || verse.id().equals(IMPOSE_EPITAPH);
+    }
+
+    // ---- the Imposes -------------------------------------------------------------------------
+
+    private static void registerImposes(VerseCatalogue c) {
+        // ADD_TRIGGER / ADD_TIMER (20 frames) / ADD_DEATH_TRIGGER.
+        c.register(control("impose_latch", 4, Verse.UNLIMITED, Declared.of(1, 0, 0), impose(PayloadKind.LATCH, 0)));
+        c.register(control("impose_fuse", 6, Verse.UNLIMITED, Declared.of(1, 0, 0), impose(PayloadKind.FUSE, 7)));
+        c.register(control("impose_epitaph", 6, Verse.UNLIMITED, Declared.of(1, 0, 0), impose(PayloadKind.EPITAPH, 0)));
+    }
+
+    private static VerseAction impose(PayloadKind kind, int fuseTicks) {
+        return (r, recursion, iteration) -> {
+            List<VerseCard> deck = r.deck();
+            if (deck.isEmpty()) {
+                return VerseAction.NONE;
+            }
+            int howMany = 1;
+            VerseCard data = deck.get(0);
+            while (deck.size() >= howMany && data != null && data.type().imposeScans()) {
+                if (!data.spent() && !isImpose(data.verse()) && data.type() == VerseType.MODIFIER) {
+                    copyQuiet(r, data.verse(), 0);
+                }
+                howMany++;
+                data = deck.size() >= howMany ? deck.get(howMany - 1) : null;
+            }
+            if (data == null || !data.verse().hasPrototype() || data.spent()) {
+                return VerseAction.NONE;
+            }
+            VersePrototype target = data.verse().prototype();
+            int bodies = data.verse().bodies();
+            r.discardTop(howMany);
+            boolean valid = false;
+            for (VerseCard check : deck) {
+                if (check.type().payloadWorthy()) {
+                    valid = true;
+                    break;
+                }
+            }
+            data.consumeUse();
+            if (valid) {
+                for (int i = 0; i < bodies; i++) {
+                    switch (kind) {
+                        case LATCH -> r.addProjectileLatch(target, 1);
+                        case FUSE -> r.addProjectileFuse(target, fuseTicks, 1);
+                        default -> r.addProjectileEpitaph(target, 1);
+                    }
+                }
+            } else {
+                copyQuiet(r, data.verse(), 0);
+            }
+            return VerseAction.NONE;
         };
     }
 }
