@@ -63,12 +63,7 @@ public final class MagicSinService {
         }
 
         MagicSkillResolvedStats adjusted = new MagicSkillResolvedStats(stats.definition(), stats.tuning(), damage, stats.speed(), size, mana, cooldown, stats.durationTicks(), knockback, stats.barrierRestore(), stats.costScale());
-        // Last word goes to the Ledgers of the world. This is the one line every cast in the mod
-        // resolves its numbers on and the only place both the caster and the spell are in hand,
-        // which is why all six writable aspects bite here rather than two of them biting at the
-        // till. A caster nobody has legislated against gets their own stats object straight back.
-        return com.efkrdnz.magical.magic.mana.WritLaw.apply(player,
-                ClassPassiveEffects.adjustCast(player, state, adjusted));
+        return ClassPassiveEffects.adjustCast(player, state, adjusted);
     }
 
     public static boolean spendManaForSkill(ServerPlayer player, PlayerMagicState state, int amount) {
@@ -106,9 +101,6 @@ public final class MagicSinService {
         // nowhere else: a cast that was refused never reaches this line, so a failed cast - out of
         // mana, on cooldown, locked - cannot shut the player out of their own switcher.
         state.armLoadoutSwapLock();
-        // Anyone nearby holding an open Ledger just watched this happen, and may legislate it
-        // from now on. A refused cast never reaches this line, so nothing unseen is ever entered.
-        com.efkrdnz.magical.magic.mana.ManaLedgerService.witnessCast(player, definition);
         BlackFlamesService.onSuccessfulSkillCast(player, definition);
         ClassPassiveEffects.afterCast(player, state, definition);
         if (isOffensive(definition)) {

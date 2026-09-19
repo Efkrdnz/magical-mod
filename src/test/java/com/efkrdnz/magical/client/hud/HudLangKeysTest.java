@@ -21,6 +21,9 @@ class HudLangKeysTest {
             "hud.magical.mana", "hud.magical.mana_vault", "hud.magical.barrier", "hud.magical.proficiency",
             "hud.magical.wheel", "hud.magical.active", "hud.magical.no_preset",
             "message.magical.space_rule_applied",
+            // The Ledger kit of the Authority of Mana, replaced by the incantations.
+            "skill.magical.open_ledger", "skill.magical.writ", "skill.magical.mana_form",
+            "message.magical.writ_silenced", "message.magical.ledger_opened", "message.magical.mana_form_entered",
             // The codex creator branch and its picker, replaced by the Spell Creator screen.
             "screen.magical.spell_creator_hint", "screen.magical.fusion_slot_one", "screen.magical.fusion_slot_two",
             "screen.magical.fusion_empty_slot", "screen.magical.fusion_incomplete", "screen.magical.fusion_pick_hint",

@@ -208,13 +208,6 @@ public final class MagicalNetwork {
                                 ForgeComboService.onStrike(player, payload);
                             }
                         }))
-                .playToServer(ApplyWritPayload.TYPE, ApplyWritPayload.STREAM_CODEC, (payload, context) ->
-                        context.enqueueWork(() -> {
-                            if (context.player() instanceof net.minecraft.server.level.ServerPlayer player) {
-                                com.efkrdnz.magical.magic.mana.ManaLedgerService.inscribe(
-                                        player, payload.target(), payload.aspect(), payload.operation(), payload.subject());
-                            }
-                        }))
                 .playToServer(ApplyFracturePayload.TYPE, ApplyFracturePayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> {
                             if (context.player() instanceof net.minecraft.server.level.ServerPlayer player) {
@@ -400,10 +393,6 @@ public final class MagicalNetwork {
 
     public static void sendForgeCombo(ServerPlayer player, ForgeComboSyncPayload payload) {
         PacketDistributor.sendToPlayer(player, payload);
-    }
-
-    public static void sendWrit(String target, int aspect, int operation, int subject) {
-        PacketDistributor.sendToServer(new ApplyWritPayload(target, aspect, operation, subject));
     }
 
     /** The whole Fracture at once: a half-authored sequence should never exist on the server. */

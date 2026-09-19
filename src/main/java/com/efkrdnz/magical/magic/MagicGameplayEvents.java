@@ -59,7 +59,6 @@ public final class MagicGameplayEvents {
             state.tickServer(player);
             return;
         }
-        com.efkrdnz.magical.magic.mana.ManaFormService.tick(player, state);
         MagicSinService.tickPlayer(player, state);
         if (state.isPassiveEnabled(MagicPassiveContent.HEAT_RESISTANCE.id()) && state.passiveLevel(MagicPassiveContent.HEAT_RESISTANCE.id()) >= 5) {
             player.clearFire();
@@ -241,18 +240,6 @@ public final class MagicGameplayEvents {
             return;
         }
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
-        // A wielder who has put the body down cannot be struck by anything that needs a body to
-        // strike. It is not a ward and there is nothing to break - there is simply no one there.
-        // A wielder who put the body down has no flesh for this to land on, but the blow is not
-        // free: it is billed to the pool they are currently made of, and emptying that pool is
-        // the only thing that ends them in this state.
-        if (state.inManaForm()
-                && com.efkrdnz.magical.magic.mana.ManaFormService.absorb(player, state,
-                        event.getContainer().getNewDamage())) {
-            event.getContainer().setNewDamage(0.0F);
-            event.setCanceled(true);
-            return;
-        }
         if (event.getSource().is(com.efkrdnz.magical.magic.blood.BloodDamageTypes.BLOOD_PRICE)) {
             // The price of blood magic is paid in flesh. No Mana Skin, no sin soak, no passive
             // reduction and above all no barrier: the number the caller asked for is the number that

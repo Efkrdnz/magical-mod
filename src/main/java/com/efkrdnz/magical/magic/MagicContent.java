@@ -95,10 +95,7 @@ public final class MagicContent {
     // tier -6, the counter ladder never reaches below -5 (see MagicCounterService), so a dedicated
     // attribute would be an edge that can never fire - and a new school with no SchoolMaterial row
     // falls back to arcane blue anyway, which is what this is being called on purpose.
-    public static final MagicSkillDefinition OPEN_LEDGER = register("open_ledger", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 28, 200, 20, 0.0F, 0, 0xF0F4FF, MagicAttribute.ARCANE);
-    public static final MagicSkillDefinition WRIT = register("writ", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 10, 12, 20, 0.0F, 0, 0xE6ECFF, MagicAttribute.ARCANE);
-    public static final MagicSkillDefinition MANA_FORM = register("mana_form", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 36, 400, 20, 0.0F, 0, 0xFFFFFF, MagicAttribute.ARCANE);
-    // The four incantations replace the Ledger kit below (removed once these are live). Base mana
+    // The four incantations. Base mana
     // and cooldown are zero on purpose: the Reciter bills the verses it reads and turns the beat
     // into the cooldown, so the definition carries no price of its own. Same ARCANE reasoning.
     public static final MagicSkillDefinition INCANTATION_1 = register("incantation_1", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 0, 0, 20, 0.0F, 0, 0xF0F4FF, MagicAttribute.ARCANE);
@@ -219,7 +216,6 @@ public final class MagicContent {
     private static final int STARTER_SPACE_WALKER_LUCKY_WEIGHT = 6;
     public static final Set<ResourceLocation> STARTER_UNLOCKS = Set.of(STARTER_SKILL);
     public static final Set<ResourceLocation> AUTHORITY_SKILLS = Set.of(CREATE_SUBSPACE.id(), MANIPULATE_SPACE.id(), POCKET_DIMENSION.id(), SPATIAL_ARSENAL.id(), SOUL_VOW.id(),
-            OPEN_LEDGER.id(), WRIT.id(), MANA_FORM.id(),
             INCANTATION_1.id(), INCANTATION_2.id(), INCANTATION_3.id(), INCANTATION_4.id(),
             BURDEN.id(), FRACTURE.id(), LAST_GRAIN.id(), CRITICALITY.id());
     public static final Set<ResourceLocation> CLASS_REWARD_SKILLS = Set.of(

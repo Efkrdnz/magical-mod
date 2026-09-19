@@ -53,14 +53,6 @@ public final class MagicCastContentKept {
         SkillCastRegistry.register(MagicContent.BLACK_FLAMES, SkillCastRegistry.holdHint("message.magical.black_flames_hold"));
         SkillCastRegistry.register(MagicContent.SPATIAL_ARSENAL, SkillCastRegistry.holdHint("message.magical.spatial_arsenal_hold"));
         SkillCastRegistry.register(MagicContent.SOUL_VOW, SkillCastRegistry.holdHint("message.magical.soul_vow_hold"));
-        // Authority of Mana. Opening the book is self-managed and doubles as shutting it. A writ
-        // is a hold, because the player is choosing a spell out of everything they have ever
-        // witnessed, then an aspect, an operation and a subject - not pressing a button.
-        SkillCastRegistry.register(MagicContent.OPEN_LEDGER, SkillCastRegistry.selfManaged(ctx ->
-                com.efkrdnz.magical.magic.mana.ManaLedgerService.openOrClose(ctx.player(), ctx.state())));
-        SkillCastRegistry.register(MagicContent.WRIT, SkillCastRegistry.holdHint("message.magical.writ_hold"));
-        SkillCastRegistry.register(MagicContent.MANA_FORM, SkillCastRegistry.selfManaged(ctx ->
-                com.efkrdnz.magical.magic.mana.ManaFormService.toggle(ctx.player(), ctx.state())));
         // A press on Incantation k recites slot k. Self-managed: the service bills the verses it
         // read and sets the cooldown from the beat, so the registry's mana and cooldown never apply.
         SkillCastRegistry.register(MagicContent.INCANTATION_1, SkillCastRegistry.selfManaged(ctx ->

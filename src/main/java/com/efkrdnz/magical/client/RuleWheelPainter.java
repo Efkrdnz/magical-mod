@@ -16,7 +16,7 @@ import net.minecraft.util.Mth;
  *
  * <p>This was {@code SpaceManipulationOverlay}'s own painting until Manipulate Space moved to
  * scrolling columns. It is lifted out rather than deleted because the Weave rule overlay borrows
- * it - {@link WritOverlay} draws three of these for aspect, operation and subject - and a
+ * it - the Writ overlay drew three of these for aspect, operation and subject - and a
  * painter owned by an overlay that no longer uses it is a trap for whoever edits it next.
  *
  * <p>Moved verbatim: every radius, colour and angle is the one the wheels have always had, so the
