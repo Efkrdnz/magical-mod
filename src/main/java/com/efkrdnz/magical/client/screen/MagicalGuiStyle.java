@@ -2,7 +2,9 @@ package com.efkrdnz.magical.client.screen;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
 /**
@@ -23,12 +25,29 @@ public final class MagicalGuiStyle {
     public static final int TEXT_PRIMARY = 0xF4F9FF;
     public static final int TEXT_MUTED = 0x8292AB;
 
+    /**
+     * The weave behind every full-size screen, repeated from one small tile.
+     *
+     * <p>It is handed to {@code blit} as the texture size while the panel is handed as the drawn
+     * size, so u and v run past 1 and the sampler wraps - the same way vanilla lays its own menu
+     * background. A GUI texture clamps only when its mcmeta says so, and this one has none.
+     */
+    public static final ResourceLocation BACKDROP =
+            ResourceLocation.fromNamespaceAndPath("magical", "textures/gui/screen_backdrop.png");
+
+    /** The tile is square, so one number is both the texture width and the texture height. */
+    public static final int BACKDROP_TILE = 64;
+
     private MagicalGuiStyle() {}
 
-    /** Full-screen backdrop: vertical night gradient with a lit top edge. */
+    /** Full-screen backdrop: the tiled weave, sunk toward the bottom, with a lit top edge. */
     public static void screenBackground(GuiGraphics g, int x0, int y0, int x1, int y1) {
         g.fill(x0 - 1, y0 - 1, x1 + 1, y1 + 1, 0xFF03060C);
-        g.fillGradient(x0, y0, x1, y1, 0xF80C1322, 0xF804070F);
+        g.blit(RenderType::guiTextured, BACKDROP, x0, y0, 0.0F, 0.0F, x1 - x0, y1 - y0, BACKDROP_TILE, BACKDROP_TILE);
+        // The tile is one flat weave. The fall-off the old fill carried is kept over it rather
+        // than baked into it, so the panel still reads as lit from above at any height and the
+        // tile stays usable anywhere else.
+        g.fillGradient(x0, y0, x1, y1, 0x00000000, 0x8C000000);
         g.fill(x0, y0, x1, y0 + 1, 0xFF31435F);
         g.fill(x0, y0 + 1, x1, y0 + 2, 0x66233450);
         g.fill(x0, y0, x0 + 1, y1, 0xFF16213A);
