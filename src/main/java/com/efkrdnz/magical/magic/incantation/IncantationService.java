@@ -25,9 +25,9 @@ import net.minecraft.world.phys.Vec3;
  * and tells the wielder what comes next.
  *
  * <p>Sessions (the deck, the hand, the discard) live here, keyed by UUID, and are never saved:
- * rebuilt from the Grimoire on first use, dropped on logout, respawn, a change of dimension
- * and when the Authority is cleared, as {@code PileService} drops its Piles. A session that
- * outlived its dimension is rebuilt too.
+ * rebuilt from the Grimoire on first use, dropped on logout, respawn and a change of dimension,
+ * as {@code PileService} drops its Piles. A session that outlived its dimension is rebuilt too;
+ * a cleared Authority needs no hook, because its emptied incantation refuses the next press.
  */
 public final class IncantationService {
 
@@ -182,7 +182,7 @@ public final class IncantationService {
         }
     }
 
-    /** Logout, respawn, a change of dimension, the Authority cleared: the deck goes, the Grimoire stays. */
+    /** Logout, respawn, a change of dimension: the deck goes, the Grimoire stays. A cleared Authority needs no call - its emptied incantation refuses the next press. */
     public static void forget(UUID wielder) {
         SESSIONS.remove(wielder);
     }

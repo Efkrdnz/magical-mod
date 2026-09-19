@@ -11,8 +11,8 @@ import net.minecraft.world.entity.projectile.Projectile;
 
 /**
  * The world as a clause verse sees it: the questions {@link ReciteWorld} asks, answered off a
- * real player and level. This and {@link IncantationService} are the only files in the package
- * that know Minecraft; the Reciter never does.
+ * real player and level. This and {@link IncantationService} are the only files in the package,
+ * its gametests aside, that know Minecraft; the Reciter never does.
  */
 public final class LevelReciteWorld implements ReciteWorld {
     private final ServerPlayer player;
