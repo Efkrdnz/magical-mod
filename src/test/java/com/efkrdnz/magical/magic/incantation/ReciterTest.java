@@ -17,7 +17,8 @@ import org.junit.jupiter.api.Test;
 /**
  * The draw. A modifier reaches every body drawn after it in the same shot and none before, the
  * breath is the root budget and the verses decide the rest, a verse you cannot afford is skipped
- * rather than failing the press, and uses follow the body.
+ * rather than failing the press, uses follow the body, and what a body does on its own account is
+ * its prototype's and never the shot's.
  */
 class ReciterTest {
 
@@ -39,6 +40,17 @@ class ReciterTest {
         assertEquals(0.0D, plan.bodies().get(0).stamped().damageAdd(), 1e-9);
         assertEquals(2.5D, plan.bodies().get(1).stamped().damageAdd(), 1e-9);
         assertTrue(plan.rests(), "the root draw ran dry, so the press rests");
+    }
+
+    @Test
+    void aBodysOwnHitEffectIsItsPrototypesNotTheShots() {
+        ReciteSession session = session("couplet", "ember", "needle");
+        RecitePlan plan = press(session);
+        assertEquals(List.of("ember", "needle"), bodies(plan.root()));
+        assertEquals(HitEffect.BURN, VersePrototypes.EMBER.hit(), "the Ember body is on fire of itself");
+        assertEquals(HitEffect.SHOCK, VersePrototypes.ARC.hit());
+        assertTrue(plan.bodies().get(0).stamped().hitEffects().isEmpty(), "and does not write the burn into the shot");
+        assertTrue(plan.bodies().get(1).stamped().hitEffects().isEmpty(), "so the needle behind it is not set alight");
     }
 
     @Test

@@ -21,17 +21,18 @@ public final class UtilityVerses {
             r.refreshPage();
             return VerseAction.NONE;
         }).asRecursive());
-        // LONG_DISTANCE_CAST: an expiration-trigger utility, -5 frames.
+        // LONG_DISTANCE_CAST: an expiration-trigger utility, -5 frames. Deltas first, as everywhere else,
+        // so the word is stamped with its own beat.
         c.register(Verse.of("far_word", VerseType.UTILITY, 0, Verse.UNLIMITED, VersePrototypes.WORD_FAR, 1, Declared.of(1, -2, 0), (r, rec, it) -> {
-            r.addProjectileEpitaph(VersePrototypes.WORD_FAR, 1);
             r.state().addBeat(-2);
+            r.addProjectileEpitaph(VersePrototypes.WORD_FAR, 1);
             return VerseAction.NONE;
         }));
         // TELEPORT_CAST: the carrier carries the caster to where it dies, then the payload fires there.
         c.register(Verse.of("step_word", VerseType.UTILITY, 18, Verse.UNLIMITED, VersePrototypes.WORD_STEP, 1, Declared.of(1, 7, 0), (r, rec, it) -> {
-            r.addProjectileEpitaph(VersePrototypes.WORD_STEP, 1);
             r.state().addBeat(7);
             r.state().addSpread(24.0D);
+            r.addProjectileEpitaph(VersePrototypes.WORD_STEP, 1);
             return VerseAction.NONE;
         }));
         // CASTER_CAST: the next bodies spawn on the caster.

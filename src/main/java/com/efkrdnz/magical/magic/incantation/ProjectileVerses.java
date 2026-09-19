@@ -13,7 +13,12 @@ public final class ProjectileVerses {
     private ProjectileVerses() {
     }
 
-    /** Deltas onto the state, then the body, exactly as Spark Bolt is written. */
+    /**
+     * Deltas onto the state, <em>then</em> the body. The Lua calls {@code add_projectile} first and
+     * writes its deltas after, so a Spark Bolt is stamped without its own spread or crit; the design's
+     * deviation 11 inverts that on purpose, so a body always carries the numbers of the verse that
+     * made it, and {@code ReciterTest} pins it.
+     */
     static Verse projectile(String path, int mana, int uses, VersePrototype prototype, int beat, int rest,
                             Consumer<ShotState> effect) {
         return Verse.of(path, VerseType.PROJECTILE, mana, uses, prototype, 1, Declared.of(0, beat, rest), (r, rec, it) -> {
@@ -37,7 +42,7 @@ public final class ProjectileVerses {
                 case LATCH -> r.addProjectileLatch(prototype, draw);
                 case FUSE -> r.addProjectileFuse(prototype, fuseTicks, draw);
                 case EPITAPH -> r.addProjectileEpitaph(prototype, draw);
-                default -> r.addProjectile(prototype);
+                case NONE -> r.addProjectile(prototype);
             }
             return VerseAction.NONE;
         });
@@ -48,10 +53,10 @@ public final class ProjectileVerses {
             s.addSpread(-1.0D);
             s.addCrit(5.0D);
         }));
+        // The burn is the body's own, written on the prototype, so it never reaches the verses behind it.
         c.register(projectile("ember", 14, 15, VersePrototypes.EMBER, 12, 0, s -> {
             s.addSpread(4.0D);
             s.addRecoil(20.0D);
-            s.hitEffect(HitEffect.BURN);
         }));
         c.register(carrier("needle_latch", 6, Verse.UNLIMITED, VersePrototypes.NEEDLE, 1, PayloadKind.LATCH, 0, 1, s -> s.addCrit(5.0D)));
         c.register(carrier("needle_fuse", 6, Verse.UNLIMITED, VersePrototypes.NEEDLE, 1, PayloadKind.FUSE, 4, 1, s -> s.addCrit(5.0D)));
@@ -62,10 +67,8 @@ public final class ProjectileVerses {
         c.register(carrier("orb_epitaph", 9, Verse.UNLIMITED, VersePrototypes.ORB, 2, PayloadKind.EPITAPH, 0, 1, s -> s.addCrit(5.0D)));
         c.register(projectile("balm_dart", 8, 20, VersePrototypes.DART, 1, 0, s -> s.addSpread(2.0D)));
         c.register(projectile("shard", 12, Verse.UNLIMITED, VersePrototypes.SHARD, 4, 0, s -> s.addKnockback(1.0D)));
-        c.register(projectile("arc_bolt", 16, Verse.UNLIMITED, VersePrototypes.ARC, 17, 0, s -> {
-            s.addRecoil(60.0D);
-            s.hitEffect(HitEffect.SHOCK);
-        }));
+        // Likewise the shock: lightning.xml carries it, the shot state does not.
+        c.register(projectile("arc_bolt", 16, Verse.UNLIMITED, VersePrototypes.ARC, 17, 0, s -> s.addRecoil(60.0D)));
         // CHAINSAW: the beat is set to nothing, not added to.
         c.register(projectile("whisper", 1, Verse.UNLIMITED, VersePrototypes.WHISPER, 0, -3, s -> {
             s.setBeat(0);
