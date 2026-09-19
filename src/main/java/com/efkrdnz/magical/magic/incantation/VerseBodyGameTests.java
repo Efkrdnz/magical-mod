@@ -27,8 +27,9 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * line and hurts what it meets, a ring stands on the floor and pulses over its radius for its
  * duration, a detonation spares no one in its radius, a fuse releases its payload where the body
  * is, a bounce is not an end, a blink carries its caster, a twin path spawns two, a naught body is
- * gone at once. What a unit test can hold (the fan, the codec, the effect order, the steering) is
- * held in {@code entity/verse}; this is what only a level shows.
+ * gone at once, a Puncture takes every body on its line, a pit turns a body flying past it toward
+ * itself. What a unit test can hold (the fan, the codec, the effect order, the steering) is held
+ * in {@code entity/verse}; this is what only a level shows.
  */
 @GameTestHolder(MagicalMod.MODID)
 @PrefixGameTestTemplate(false)
@@ -38,6 +39,8 @@ public final class VerseBodyGameTests {
     /** The template is five blocks of air in a barrier shell: the stand at its middle, the victim two blocks on, the far wall half a block past that. */
     private static final BlockPos STAND = new BlockPos(2, 2, 2);
     private static final BlockPos VICTIM = new BlockPos(4, 2, 2);
+    /** Halfway between the two: a second husk in front of the first, so one line can hold both. */
+    private static final BlockPos NEAR_VICTIM = new BlockPos(3, 2, 2);
     /** Any registered skill will do for a hand-built plan; the recite skills arrive with the Authority. */
     private static final ResourceLocation SKILL = MagicContent.ARCANE_SNAP.id();
 
@@ -54,8 +57,13 @@ public final class VerseBodyGameTests {
         return player;
     }
 
+    /** A husk on the floor of {@code at}, still as a post; never a zombie, which burns in the test world's day. */
+    private static Zombie husk(GameTestHelper helper, BlockPos at) {
+        return helper.spawnWithNoFreeWill(EntityType.HUSK, helper.relativeVec(GameTestPlayers.onFloor(helper, at)));
+    }
+
     private static Zombie victim(GameTestHelper helper, ServerPlayer player) {
-        Zombie zombie = helper.spawnWithNoFreeWill(EntityType.HUSK, helper.relativeVec(GameTestPlayers.onFloor(helper, VICTIM)));
+        Zombie zombie = husk(helper, VICTIM);
         player.lookAt(EntityAnchorArgument.Anchor.EYES, zombie.getEyePosition());
         return zombie;
     }
@@ -191,6 +199,58 @@ public final class VerseBodyGameTests {
         helper.runAtTickTime(1, () -> VerseBodySpawner.spawn(helper.getLevel(), player, shot(needle), player.getEyePosition(), new Vec3(1.0D, 0.0D, 0.0D), SKILL));
         helper.runAtTickTime(4, () -> {
             helper.assertTrue(bodies(helper, player).isEmpty(), "a naught body never flies");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "verse_9")
+    public static void aPunctureNeedleTakesEveryBodyOnItsLine(GameTestHelper helper) {
+        ServerPlayer player = caster(helper, STAND);
+        // Two husks a block apart on the line, and a needle at its own speed: 1.6 blocks a tick
+        // carries the first step from the hand at x 2.5 to x 4.1, which is past both of them, so
+        // the loop has to find the second one on the tick it struck the first, and then the wall
+        // past them ends the flight. The loop terminates because a struck body is remembered and
+        // never offered again; break that instead and the tick never ends, which no timeout can
+        // interrupt, so the flag is the only safe thing to mutate to prove this test has teeth.
+        Zombie near = husk(helper, NEAR_VICTIM);
+        Zombie far = husk(helper, VICTIM);
+        float nearHealth = near.getHealth();
+        float farHealth = far.getHealth();
+        ProjectilePlan needle = body(VersePrototypes.NEEDLE, s -> s.behaviour(Behaviour.PUNCTURE), PayloadKind.NONE, 0, null);
+        helper.runAtTickTime(1, () -> VerseBodySpawner.spawn(helper.getLevel(), player, shot(needle), player.getEyePosition(), new Vec3(1.0D, 0.0D, 0.0D), SKILL));
+        helper.runAtTickTime(8, () -> {
+            helper.assertTrue(near.getHealth() < nearHealth, "the needle hurt the near husk: " + near.getHealth() + " of " + nearHealth);
+            helper.assertTrue(far.getHealth() < farHealth, "and went on through it into the far one: " + far.getHealth() + " of " + farHealth);
+            helper.assertTrue(bodies(helper, player).isEmpty(), "and ended on the wall behind them both");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 60, batch = "verse_10")
+    public static void aPitTurnsAPassingNeedleTowardItself(GameTestHelper helper) {
+        ServerPlayer player = caster(helper, STAND);
+        // The pit stands a block east of the hand and drops to the floor; its radius of 2.5 covers
+        // the whole interior, so a body anywhere in the room is inside it. The needle goes off
+        // along z at a sixteenth of its speed, which keeps it in the air and clear of every wall
+        // well past the pit's tenth tick, when a static first pulses. Along z is x exactly zero,
+        // so any x in the heading afterwards is the pit's doing and nothing else's.
+        Vec3 launch = new Vec3(0.0D, 0.0D, 1.0D);
+        ProjectilePlan pit = body(VersePrototypes.PIT, s -> { }, PayloadKind.NONE, 0, null);
+        ProjectilePlan needle = body(VersePrototypes.NEEDLE, s -> s.multiplySpeed(0.0625D), PayloadKind.NONE, 0, null);
+        helper.runAtTickTime(1, () -> {
+            VerseBodySpawner.spawn(helper.getLevel(), player, shot(pit), player.getEyePosition(), new Vec3(1.0D, 0.0D, 0.0D), SKILL);
+            VerseBodySpawner.spawn(helper.getLevel(), player, shot(needle), player.getEyePosition(), launch, SKILL);
+        });
+        helper.runAtTickTime(20, () -> {
+            List<VerseBodyEntity> live = bodies(helper, player);
+            helper.assertTrue(live.size() == 2, "the pit stands and the needle still flies: " + live.size());
+            VerseBodyEntity standing = live.stream().filter(b -> b.prototype().isStatic()).findFirst().orElseThrow();
+            VerseBodyEntity flying = live.stream().filter(b -> !b.prototype().isStatic()).findFirst().orElseThrow();
+            Vec3 heading = flying.direction();
+            helper.assertTrue(heading.x > 0.05D, "the needle leaned toward the pit it was flying past: x " + heading.x);
+            Vec3 toPit = standing.position().subtract(flying.position()).normalize();
+            helper.assertTrue(heading.dot(toPit) > launch.dot(toPit),
+                    "and points nearer it than the heading it set out on: " + heading.dot(toPit) + " over " + launch.dot(toPit));
             helper.succeed();
         });
     }
