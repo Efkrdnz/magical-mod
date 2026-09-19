@@ -221,6 +221,14 @@ public final class MagicalNetwork {
                                 com.efkrdnz.magical.magic.chaos.ChaosAuthorityService.setFracture(player, payload.ordinals());
                             }
                         }))
+                .playToServer(SetIncantationPayload.TYPE, SetIncantationPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> {
+                            if (context.player() instanceof net.minecraft.server.level.ServerPlayer player) {
+                                com.efkrdnz.magical.magic.incantation.IncantationService.setIncantation(
+                                        player, payload.slot(), payload.breath(),
+                                        com.efkrdnz.magical.magic.incantation.IncantationService.parseIds(payload.ids()));
+                            }
+                        }))
                 .playToServer(ApplySpaceRulePayload.TYPE, ApplySpaceRulePayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> {
                             if (context.player() instanceof ServerPlayer player) {
@@ -405,6 +413,19 @@ public final class MagicalNetwork {
         }
         PacketDistributor.sendToServer(new ApplyFracturePayload(
                 ordinals[0], ordinals[1], ordinals[2], ordinals[3], ordinals[4]));
+    }
+
+    /** The editor's whole incantation to the server; refused here if it could not fit on the wire. */
+    public static void sendIncantation(int slot, int breath, java.util.List<String> ids) {
+        if (ids == null || ids.size() > com.efkrdnz.magical.magic.incantation.SetIncantationPayloadCaps.MAX_IDS) {
+            return;
+        }
+        for (String id : ids) {
+            if (id == null || id.length() > com.efkrdnz.magical.magic.incantation.SetIncantationPayloadCaps.MAX_ID_LENGTH) {
+                return;
+            }
+        }
+        PacketDistributor.sendToServer(new SetIncantationPayload(slot, breath, java.util.List.copyOf(ids)));
     }
 
     public static void sendSpaceRule(int category, int operation, int targetGroup) {
