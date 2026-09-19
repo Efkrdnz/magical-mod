@@ -95,9 +95,9 @@ public final class MagicContent {
     // tier -6, the counter ladder never reaches below -5 (see MagicCounterService), so a dedicated
     // attribute would be an edge that can never fire - and a new school with no SchoolMaterial row
     // falls back to arcane blue anyway, which is what this is being called on purpose.
-    // The four incantations. Base mana
-    // and cooldown are zero on purpose: the Reciter bills the verses it reads and turns the beat
-    // into the cooldown, so the definition carries no price of its own. Same ARCANE reasoning.
+    // The four incantations. Base mana and cooldown are zero on purpose: the Reciter bills the
+    // verses it reads and turns the beat into the cooldown, so the definition carries no price of
+    // its own. Same ARCANE reasoning.
     public static final MagicSkillDefinition INCANTATION_1 = register("incantation_1", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 0, 0, 20, 0.0F, 0, 0xF0F4FF, MagicAttribute.ARCANE);
     public static final MagicSkillDefinition INCANTATION_2 = register("incantation_2", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 0, 0, 20, 0.0F, 0, 0xF0F4FF, MagicAttribute.ARCANE);
     public static final MagicSkillDefinition INCANTATION_3 = register("incantation_3", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 0, 0, 20, 0.0F, 0, 0xF0F4FF, MagicAttribute.ARCANE);

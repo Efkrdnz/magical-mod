@@ -10,11 +10,11 @@ import net.minecraft.network.chat.Component;
 /**
  * Five gates in a row, read left to right, and the only thing the Authority of Chaos authors.
  *
- * <p>Deliberately <em>not</em> dials. Manipulate Space is three dials and the Ledger is a page plus
- * three dials; a third ring of wheels would make three Authorities look like one Authority with
- * three vocabularies, which is the complaint this whole system exists to answer. A Fracture is a
- * sequence, so it is drawn as one: position one is what the first generation of an avalanche does,
- * position five is what every generation after the fifth keeps doing.
+ * <p>Deliberately <em>not</em> dials. Manipulate Space is three scrolling columns; another ring of
+ * wheels would make two Authorities look like one Authority with two vocabularies, which is the
+ * complaint this whole system exists to answer. A Fracture is a sequence, so it is drawn as one:
+ * position one is what the first generation of an avalanche does, position five is what every
+ * generation after the fifth keeps doing.
  */
 public final class FractureOverlay {
 
