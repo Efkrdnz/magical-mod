@@ -23,6 +23,7 @@ public final class ControlVerses {
     static void register(VerseCatalogue c) {
         registerRecalls(c);
         registerWild(c);
+        registerRefrains(c);
     }
 
     // ---- the Recall family ---------------------------------------------------------------------
@@ -265,5 +266,53 @@ public final class ControlVerses {
         List<VerseCard> discard = r.discard();
         int rest = index - deck.size();
         return rest < discard.size() ? discard.get(rest) : null;
+    }
+
+    // ---- the Refrains ------------------------------------------------------------------------
+
+    private static void registerRefrains(VerseCatalogue c) {
+        // DIVIDE_2 / _3 / _4 / _10: count, the iteration the count collapses at, beat, rest, and the penalty.
+        c.register(control("refrain_2", 10, Verse.UNLIMITED, Declared.of(0, 7, 0), refrain(2, 5, 7, 0, 1.0D, 1.0D)));
+        c.register(control("refrain_3", 20, Verse.UNLIMITED, Declared.of(0, 10, 0), refrain(3, 4, 10, 0, 2.0D, 2.0D)));
+        c.register(control("refrain_4", 30, Verse.UNLIMITED, Declared.of(0, 13, 0), refrain(4, 4, 13, 0, 3.0D, 4.0D)));
+        c.register(control("refrain_10", 50, 5, Declared.of(0, 27, 7), refrain(10, 3, 27, 7, 7.5D, 8.0D)));
+    }
+
+    private static VerseAction refrain(int count, int collapseAt, int beat, int rest, double damagePenalty, double radiusPenalty) {
+        return (r, recursion, iteration) -> {
+            ShotState s = r.state();
+            s.addBeat(beat);
+            r.addRest(rest);
+            int iter = Math.max(1, iteration);
+            int iterMax = iter;
+            List<VerseCard> deck = r.deck();
+            VerseCard data = deck.size() >= iter ? deck.get(iter - 1) : null;
+            int copies = iter >= collapseAt ? 1 : count;
+            int rec = data == null ? recursion : r.checkRecursion(data.verse(), recursion);
+            if (data != null && rec > -1 && !data.spent()) {
+                int beatBefore = s.beatTicks();
+                int restBefore = r.rest();
+                for (int i = 1; i <= copies; i++) {
+                    if (i == 1) {
+                        r.setDrawDisabled(true);
+                    }
+                    int imax = r.call(data.verse(), rec, iter + 1);
+                    r.setDrawDisabled(false);
+                    if (imax != VerseAction.NONE) {
+                        iterMax = imax;
+                    }
+                }
+                data.consumeUse();
+                if (iter == 1) {
+                    s.setBeat(beatBefore);
+                    r.setRest(restBefore);
+                    r.discardTop(iterMax);
+                }
+            }
+            s.addDamage(-damagePenalty);
+            s.addExplosionRadius(-radiusPenalty);
+            s.setPattern(5.0D);
+            return iterMax;
+        };
     }
 }
