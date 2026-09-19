@@ -2,6 +2,7 @@ package com.efkrdnz.magical.magic.incantation;
 
 import com.efkrdnz.magical.magic.incantation.Verse.Declared;
 import java.util.List;
+import java.util.function.Predicate;
 import net.minecraft.resources.ResourceLocation;
 
 /**
@@ -25,6 +26,7 @@ public final class ControlVerses {
         registerWild(c);
         registerRefrains(c);
         registerImposes(c);
+        registerClauses(c);
     }
 
     // ---- the Recall family ---------------------------------------------------------------------
@@ -376,5 +378,76 @@ public final class ControlVerses {
             }
             return VerseAction.NONE;
         };
+    }
+
+    public static final ResourceLocation OTHERWISE = VerseIds.of("otherwise");
+    public static final ResourceLocation END_CLAUSE = VerseIds.of("end_clause");
+
+    /** {@code string.sub(v.id, 1, 3) == "IF_"} and not the two markers. */
+    static boolean isClause(Verse verse) {
+        return verse.id().getPath().startsWith("clause_");
+    }
+
+    // ---- the Clauses -------------------------------------------------------------------------
+
+    private static void registerClauses(VerseCatalogue c) {
+        // IF_ENEMY (15 within 240 px), IF_PROJECTILE (20 within 160 px), IF_HP (below a quarter), IF_HALF.
+        c.register(clause("clause_outnumbered", w -> w.enemiesWithin(16.0D) >= 6));
+        c.register(clause("clause_crowded", w -> w.projectilesWithin(16.0D) >= 12));
+        c.register(clause("clause_wounded", w -> w.healthFraction() <= 0.25D));
+        c.register(clause("clause_every_other", w -> !w.everyOtherSkipAndFlip()));
+        // IF_ELSE and IF_END are markers: drawn transparently, they draw one.
+        c.register(control("otherwise", 0, Verse.UNLIMITED, Declared.of(1, 0, 0), (r, rec, it) -> {
+            r.drawActions(1);
+            return VerseAction.NONE;
+        }));
+        c.register(control("end_clause", 0, Verse.UNLIMITED, Declared.of(1, 0, 0), (r, rec, it) -> {
+            r.drawActions(1);
+            return VerseAction.NONE;
+        }));
+    }
+
+    /**
+     * The Requirement body, with the Lua's one-based envelope kept in the arithmetic: the condition
+     * is asked first (Every Other flips even on an empty pile), then the scan, then the discard.
+     */
+    private static Verse clause(String path, Predicate<ReciteWorld> passes) {
+        return control(path, 0, Verse.UNLIMITED, Declared.of(1, 0, 0), (r, recursion, it) -> {
+            boolean doskip = !passes.test(r.world());
+            List<VerseCard> deck = r.deck();
+            int endpoint = -1;
+            int elsepoint = -1;
+            for (int i = 0; i < deck.size(); i++) {
+                Verse v = deck.get(i).verse();
+                if (isClause(v)) {
+                    endpoint = -1;
+                    break;
+                }
+                if (v.id().equals(OTHERWISE)) {
+                    endpoint = i + 1;
+                    elsepoint = i + 1;
+                }
+                if (v.id().equals(END_CLAUSE)) {
+                    endpoint = i + 1;
+                    break;
+                }
+            }
+            if (!deck.isEmpty()) {
+                if (doskip) {
+                    int envelopeMax = 1;
+                    if (elsepoint > 0) {
+                        envelopeMax = elsepoint;
+                    } else if (endpoint > 0) {
+                        envelopeMax = endpoint;
+                    }
+                    r.discardTop(envelopeMax);
+                } else if (elsepoint > 0) {
+                    int envelopeMax = endpoint > 0 ? endpoint : deck.size();
+                    r.discardAt(elsepoint - 1, envelopeMax - elsepoint + 1);
+                }
+            }
+            r.drawActions(1);
+            return VerseAction.NONE;
+        });
     }
 }

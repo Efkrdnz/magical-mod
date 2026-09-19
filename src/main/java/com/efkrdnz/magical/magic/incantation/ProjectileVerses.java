@@ -60,6 +60,7 @@ public final class ProjectileVerses {
         c.register(carrier("orb_latch", 9, Verse.UNLIMITED, VersePrototypes.ORB, 2, PayloadKind.LATCH, 0, 1, s -> s.addCrit(5.0D)));
         c.register(carrier("orb_fuse", 9, Verse.UNLIMITED, VersePrototypes.ORB, 2, PayloadKind.FUSE, 8, 1, s -> s.addCrit(5.0D)));
         c.register(carrier("orb_epitaph", 9, Verse.UNLIMITED, VersePrototypes.ORB, 2, PayloadKind.EPITAPH, 0, 1, s -> s.addCrit(5.0D)));
+        c.register(projectile("balm_dart", 8, 20, VersePrototypes.DART, 1, 0, s -> s.addSpread(2.0D)));
         // RANDOM_PROJECTILE: a known projectile verse, run in this one's place.
         c.register(Verse.of("wild_bolt", VerseType.PROJECTILE, 6, Verse.UNLIMITED, null, 1, Declared.NONE, (r, rec, it) -> {
             ControlVerses.wild(r, rec, VerseType.PROJECTILE);
