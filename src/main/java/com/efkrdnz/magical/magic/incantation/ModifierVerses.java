@@ -34,5 +34,10 @@ public final class ModifierVerses {
         c.register(modifier("haste", 2, Verse.UNLIMITED, 0, 0, s -> s.multiplySpeed(2.5D)));
         c.register(modifier("undying", 20, 3, 4, 0, s -> s.behaviour(Behaviour.UNDYING)));
         c.register(modifier("second_wind", 5, Verse.UNLIMITED, -3, -7, s -> { }));
+        // RANDOM_MODIFIER: a known modifier verse, which does the drawing.
+        c.register(Verse.of("wild_mark", VerseType.MODIFIER, 6, Verse.UNLIMITED, null, 1, Declared.of(1, 0, 0), (r, rec, it) -> {
+            ControlVerses.wild(r, rec, VerseType.MODIFIER);
+            return VerseAction.NONE;
+        }).asRecursive());
     }
 }
