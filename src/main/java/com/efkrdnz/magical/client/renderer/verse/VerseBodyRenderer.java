@@ -27,8 +27,10 @@ import net.minecraft.world.phys.Vec3;
  * Draws a verse body: the {@link VerseLooks} row for its prototype in its school's colour, a small
  * glyph orbiting it per behaviour it carries, a filament trailing behind it per wake, and a wider
  * bloom when it is a Lantern. A static fades in and out over its life; a flying body is full
- * until it ends. Everything is drawn through the existing painters, so the budget and the LOD are
- * theirs.
+ * until it ends. A bolt also wears a head: its tube is two ribbons along the flight line, and
+ * the caster it left sees that line end-on, where a ribbon is a point, so the billboarded head
+ * is what a first-person frame shows. Everything is drawn through the existing painters, so the
+ * budget and the LOD are theirs.
  */
 public final class VerseBodyRenderer extends EntityRenderer<VerseBodyEntity, VerseBodyRenderer.State> {
 
@@ -41,6 +43,14 @@ public final class VerseBodyRenderer extends EntityRenderer<VerseBodyEntity, Ver
     private static final float WAKE_OPACITY = 0.7F;
     private static final float LANTERN_SCALE = 3.0F;
     private static final float LANTERN_OPACITY = 0.35F;
+    /**
+     * The beam shader's reveal window: 0.5 shows the whole length, 1.0 has receded to nothing (the
+     * end of a hitscan flash). A body is a whole bolt for as long as it flies.
+     */
+    private static final float BEAM_WHOLE = 0.5F;
+    /** The head a bolt wears, on its drawn size; the caster sees the tube end-on and this is what shows. */
+    private static final float BOLT_HEAD_SCALE = 1.5F;
+    private static final float BOLT_HEAD_OPACITY = 0.9F;
 
     public VerseBodyRenderer(EntityRendererProvider.Context context) {
         super(context);
@@ -113,8 +123,9 @@ public final class VerseBodyRenderer extends EntityRenderer<VerseBodyEntity, Ver
                 poseStack.pushPose();
                 FilamentPainter.orientAlong(poseStack, state.direction);
                 poseStack.translate(0.0D, 0.0D, -row.length() * 0.5D);
-                FilamentPainter.beam(ctx, row.filament(), size, row.length(), rgb, fade * row.opacity(), 1.0F, row.count(), row.paramB());
+                FilamentPainter.beam(ctx, row.filament(), size, row.length(), rgb, fade * row.opacity(), BEAM_WHOLE, row.count(), row.paramB());
                 poseStack.popPose();
+                OrbPainter.billboard(ctx, FxKinds.Orb.PLASMA, size * BOLT_HEAD_SCALE, rgb, fade * row.opacity() * BOLT_HEAD_OPACITY, ctx.phase, 3, 8);
             }
             case ORB -> OrbPainter.billboard(ctx, row.orb(), size, rgb, fade * row.opacity(), ctx.phase, row.count(), row.paramB());
             case MARK -> {
@@ -167,7 +178,7 @@ public final class VerseBodyRenderer extends EntityRenderer<VerseBodyEntity, Ver
             }
             poseStack.pushPose();
             FilamentPainter.orientAlong(poseStack, back);
-            FilamentPainter.beam(ctx, VerseLooks.wake(wake), size * WAKE_WIDTH, WAKE_LENGTH, VerseLooks.wakeColor(wake), fade * WAKE_OPACITY, 1.0F, 4, 6);
+            FilamentPainter.beam(ctx, VerseLooks.wake(wake), size * WAKE_WIDTH, WAKE_LENGTH, VerseLooks.wakeColor(wake), fade * WAKE_OPACITY, BEAM_WHOLE, 4, 6);
             poseStack.popPose();
         }
     }
