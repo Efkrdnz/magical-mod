@@ -68,10 +68,10 @@ public final class MagicSinService {
 
     public static boolean spendManaForSkill(ServerPlayer player, PlayerMagicState state, int amount) {
         if (amount <= 0) {
-            // A writ may have set the price to zero, or below it: INVERT hands the mana back
-            // rather than taking it, which is the point of legislating a price rather than
-            // merely raising one. The billing itself stays dumb - the Ledger already had its say
-            // in adjustStatsBeforeCast, where the skill being cast is actually known.
+            // A bill may arrive at zero or below it: a RecitePlan whose verses include a Wellspring
+            // hands mana back rather than taking it, and IncantationService.recite puts that
+            // negative number straight through here. The billing itself stays dumb - it clamps the
+            // refund to the pool and does nothing else, because the plan already settled the number.
             if (amount < 0) {
                 state.setMana(Math.min(state.maxMana(), state.mana() - amount));
             }

@@ -14,13 +14,11 @@ import net.minecraft.util.Mth;
 /**
  * The radial rule wheel: a ring of labels round a hub, one wheel per choice.
  *
- * <p>This was {@code SpaceManipulationOverlay}'s own painting until Manipulate Space moved to
- * scrolling columns. It is lifted out rather than deleted because the Weave rule overlay borrows
- * it - the Writ overlay drew three of these for aspect, operation and subject - and a
- * painter owned by an overlay that no longer uses it is a trap for whoever edits it next.
- *
- * <p>Moved verbatim: every radius, colour and angle is the one the wheels have always had, so the
- * Weave overlay is pixel-identical across this change.
+ * <p>Nothing calls it at present. It was {@code SpaceManipulationOverlay}'s own painting until
+ * Manipulate Space moved to scrolling columns, and the Writ overlay drew three of these - aspect,
+ * operation and subject - until the Ledger kit went with the incantations. It is kept as the mod's
+ * one radial dial painter, verbatim: every radius, colour and angle is the one the wheels always
+ * had, so a hold overlay that wants dials rather than columns need not rebuild them.
  */
 public final class RuleWheelPainter {
 
