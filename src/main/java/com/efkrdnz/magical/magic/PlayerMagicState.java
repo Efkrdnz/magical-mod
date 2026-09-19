@@ -48,6 +48,10 @@ public final class PlayerMagicState {
     // The wielder half of the Authority of Chaos. The Pile is out in the world and is deliberately
     // never saved; this is, because it is the only part of that Authority the player authored.
     private final com.efkrdnz.magical.magic.chaos.Fracture fracture = new com.efkrdnz.magical.magic.chaos.Fracture();
+    // The wielder half of the Authority of Mana: what they know and the four incantations they
+    // wrote. Saved with the state; the recite sessions that read it are held by IncantationService
+    // and are never saved, so a body in flight across a save is just a body.
+    private final com.efkrdnz.magical.magic.incantation.Grimoire grimoire = new com.efkrdnz.magical.magic.incantation.Grimoire();
     private int manaFormTicks;
     private String anchorSigilDimension = "";
     private int anchorSigilX;
@@ -500,6 +504,10 @@ public final class PlayerMagicState {
 
     public com.efkrdnz.magical.magic.chaos.Fracture fracture() {
         return fracture;
+    }
+
+    public com.efkrdnz.magical.magic.incantation.Grimoire grimoire() {
+        return grimoire;
     }
 
     /** Ticks spent as the pool rather than a body. Zero means the wielder has a body. */
@@ -1128,6 +1136,7 @@ public final class PlayerMagicState {
         activeSubspaceEntityId = -1;
         manaLedger.clear();
         fracture.reset();
+        grimoire.clear();
         manaFormTicks = 0;
         clearSoulBond();
     }
@@ -2055,6 +2064,7 @@ public final class PlayerMagicState {
         copy.activeSubspaceEntityId = activeSubspaceEntityId;
         copy.manaLedger.copyFrom(manaLedger);
         copy.fracture.copyFrom(fracture);
+        copy.grimoire.copyFrom(grimoire);
         copy.manaFormTicks = manaFormTicks;
         copy.anchorSigilDimension = anchorSigilDimension;
         copy.anchorSigilX = anchorSigilX;
@@ -2166,6 +2176,7 @@ public final class PlayerMagicState {
         tag.putInt("activeSubspaceEntityId", activeSubspaceEntityId);
         tag.put("manaLedger", manaLedger.save());
         tag.put("fracture", fracture.save());
+        tag.put("grimoire", grimoire.save());
         tag.putInt("manaFormTicks", manaFormTicks);
         tag.putString("anchorSigilDimension", anchorSigilDimension);
         tag.putInt("anchorSigilX", anchorSigilX);
@@ -2329,6 +2340,7 @@ public final class PlayerMagicState {
         state.activeSubspaceEntityId = tag.contains("activeSubspaceEntityId") ? tag.getInt("activeSubspaceEntityId") : -1;
         state.manaLedger.load(tag.getCompound("manaLedger"));
         state.fracture.load(tag.getList("fracture", com.efkrdnz.magical.magic.chaos.Fracture.tagType()));
+        state.grimoire.load(tag.getCompound("grimoire"));
         state.manaFormTicks = tag.contains("manaFormTicks") ? tag.getInt("manaFormTicks") : 0;
         state.anchorSigilDimension = tag.getString("anchorSigilDimension");
         state.anchorSigilX = tag.getInt("anchorSigilX");

@@ -194,6 +194,7 @@ public final class MagicGameplayEvents {
             BlacksmithForgeService.forget(player);
             // Stress is never saved, so a wielder who logs out leaves no minefield behind them.
             com.efkrdnz.magical.magic.chaos.PileService.forget(player.getUUID());
+            com.efkrdnz.magical.magic.incantation.IncantationService.forget(player.getUUID());
         }
     }
 
@@ -201,6 +202,7 @@ public final class MagicGameplayEvents {
     public static void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+            com.efkrdnz.magical.magic.incantation.IncantationService.forget(player.getUUID());
             SpaceAuthorityService.closeAllDomains(player, state, false);
             ForgeComboService.reset(player);
             state.sync(player);
@@ -212,6 +214,7 @@ public final class MagicGameplayEvents {
     public static void onPlayerDimensionChange(PlayerEvent.PlayerChangedDimensionEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+            com.efkrdnz.magical.magic.incantation.IncantationService.forget(player.getUUID());
             SpaceAuthorityService.closeAllDomains(player, state, false);
             ForgeComboService.reset(player);
             state.sync(player);
