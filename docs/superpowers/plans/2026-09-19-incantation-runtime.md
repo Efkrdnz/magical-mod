@@ -3362,7 +3362,8 @@ public final class IncantationGameTests {
         write(player, 1, MulticastVerses.COUPLET, ProjectileVerses.NEEDLE, ProjectileVerses.NEEDLE);
         int max = state(player).maxMana();
         helper.runAtTickTime(1, () -> press(player));
-        helper.runAtTickTime(3, () -> {
+        // One flight tick in: by the second the needles (1.6 blocks a tick) have crossed the 2.1 blocks of air to the far wall and ended there.
+        helper.runAtTickTime(2, () -> {
             helper.assertTrue(bodies(helper, player).size() == 2, "a couplet of needles is two bodies: " + bodies(helper, player).size());
             // A needle is 4 mana and a couplet nothing, at the cost scale a fresh state resolves to.
             helper.assertTrue(state(player).mana() == max - 8, "two needles billed: " + state(player).mana() + " of " + max);
