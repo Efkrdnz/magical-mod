@@ -2647,6 +2647,7 @@ Phase A ends with a body that can be flown by hand and by test, and nothing in t
 - Create: `src/main/java/com/efkrdnz/magical/magic/incantation/PreviewReciteWorld.java`
 - Create: `src/test/java/com/efkrdnz/magical/magic/incantation/PreviewReciteWorldTest.java`
 - Create: `src/main/java/com/efkrdnz/magical/magic/incantation/IncantationService.java`
+- Create: `src/test/java/com/efkrdnz/magical/magic/incantation/IncantationPreviewTest.java`
 - Modify: `src/main/java/com/efkrdnz/magical/magic/MagicGameplayEvents.java` (`onPlayerLogout` line 188, `onPlayerRespawn` line 201, `onPlayerDimensionChange` line 212)
 
 **Interfaces:**
@@ -2788,8 +2789,8 @@ import net.minecraft.world.entity.projectile.Projectile;
 
 /**
  * The world as a clause verse sees it: the questions {@link ReciteWorld} asks, answered off a
- * real player and level. This and {@link IncantationService} are the only files in the package
- * that know Minecraft; the Reciter never does.
+ * real player and level. This and {@link IncantationService} are the only files in the package,
+ * its gametests aside, that know Minecraft; the Reciter never does.
  */
 public final class LevelReciteWorld implements ReciteWorld {
     private final ServerPlayer player;
@@ -3058,9 +3059,9 @@ import net.minecraft.world.phys.Vec3;
  * and tells the wielder what comes next.
  *
  * <p>Sessions (the deck, the hand, the discard) live here, keyed by UUID, and are never saved:
- * rebuilt from the Grimoire on first use, dropped on logout, respawn, a change of dimension
- * and when the Authority is cleared, as {@code PileService} drops its Piles. A session that
- * outlived its dimension is rebuilt too.
+ * rebuilt from the Grimoire on first use, dropped on logout, respawn and a change of dimension,
+ * as {@code PileService} drops its Piles. A session that outlived its dimension is rebuilt too;
+ * a cleared Authority needs no hook, because its emptied incantation refuses the next press.
  */
 public final class IncantationService {
 
@@ -3215,7 +3216,7 @@ public final class IncantationService {
         }
     }
 
-    /** Logout, respawn, a change of dimension, the Authority cleared: the deck goes, the Grimoire stays. */
+    /** Logout, respawn, a change of dimension: the deck goes, the Grimoire stays. A cleared Authority needs no call - its emptied incantation refuses the next press. */
     public static void forget(UUID wielder) {
         SESSIONS.remove(wielder);
     }
@@ -3223,6 +3224,64 @@ public final class IncantationService {
 ```
 
 `message.magical.not_enough_mana` is an existing key (the casting service uses it); the new keys are added in Task 9, and the build stays green in the meantime because a missing lang key is only a raw string in the actionbar.
+
+- [ ] **Step 6b: Pin the preview to its copy**
+
+The fix that made the preview pure (Step 5c) rests on `Incantation.copyFrom` and on `Reciter.recite` writing back to the session's own copy; a later change to either would start spending the Grimoire's uses on every preview with every test still green. One bootstrap test holds it. A fresh state has its full pool (the constructor reads the config's maximum), so the ember is affordable and the plan carries a body.
+
+`src/test/java/com/efkrdnz/magical/magic/incantation/IncantationPreviewTest.java`:
+
+```java
+package com.efkrdnz.magical.magic.incantation;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.efkrdnz.magical.magic.PlayerMagicState;
+import java.util.List;
+import net.minecraft.SharedConstants;
+import net.minecraft.server.Bootstrap;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
+/** A preview spends its uses on a copy: the Grimoire reads the same after two previews as before the first. */
+class IncantationPreviewTest {
+
+    private static final int SLOT = 0;
+
+    @BeforeAll
+    static void bootstrap() {
+        SharedConstants.tryDetectVersion();
+        Bootstrap.bootStrap();
+    }
+
+    private static PlayerMagicState withAnEmber() {
+        PlayerMagicState state = new PlayerMagicState();
+        state.grimoire().learnAll(List.of(ProjectileVerses.EMBER));
+        assertTrue(state.grimoire().incantation(SLOT).write(List.of(ProjectileVerses.EMBER), 1, VerseContent.CATALOGUE), "the slot takes the ember");
+        assertTrue(state.mana() >= 14, "a fresh pool affords an ember");
+        return state;
+    }
+
+    private static int usesLeft(PlayerMagicState state) {
+        return state.grimoire().incantation(SLOT).entries().get(0).usesRemaining();
+    }
+
+    @Test
+    void twoPreviewsLeaveTheUsesWhereTheyWere() {
+        PlayerMagicState state = withAnEmber();
+        assertEquals(15, usesLeft(state), "an ember is written with its fifteen uses");
+        RecitePlan first = IncantationService.preview(state, SLOT);
+        RecitePlan second = IncantationService.preview(state, SLOT);
+        assertEquals(1, first.bodies().size(), "the preview plans the ember");
+        assertEquals(1, second.bodies().size(), "and plans it again, the copy having been fresh");
+        assertEquals(15, usesLeft(state), "and the Grimoire spent none");
+    }
+}
+```
+
+Run: `.\gradlew test --tests "com.efkrdnz.magical.magic.incantation.IncantationPreviewTest"`
+Expected: 1 test passes. It is written against code that already exists, so it has no red step; its worth is the regression it would catch.
 
 - [ ] **Step 7: Drop the sessions where the Pile is dropped**
 
@@ -3256,7 +3315,7 @@ Expected: green. Nothing calls `recite` yet; the four skills that do arrive in T
 - [ ] **Step 9: Commit**
 
 ```bash
-git add src/main/java/com/efkrdnz/magical/magic/PlayerMagicState.java src/test/java/com/efkrdnz/magical/magic/PlayerMagicStateGrimoireTest.java src/main/java/com/efkrdnz/magical/magic/incantation/LevelReciteWorld.java src/main/java/com/efkrdnz/magical/magic/incantation/PreviewReciteWorld.java src/test/java/com/efkrdnz/magical/magic/incantation/PreviewReciteWorldTest.java src/main/java/com/efkrdnz/magical/magic/incantation/IncantationService.java src/main/java/com/efkrdnz/magical/magic/MagicGameplayEvents.java
+git add src/main/java/com/efkrdnz/magical/magic/PlayerMagicState.java src/test/java/com/efkrdnz/magical/magic/PlayerMagicStateGrimoireTest.java src/main/java/com/efkrdnz/magical/magic/incantation/LevelReciteWorld.java src/main/java/com/efkrdnz/magical/magic/incantation/PreviewReciteWorld.java src/test/java/com/efkrdnz/magical/magic/incantation/PreviewReciteWorldTest.java src/test/java/com/efkrdnz/magical/magic/incantation/IncantationPreviewTest.java src/main/java/com/efkrdnz/magical/magic/incantation/IncantationService.java src/main/java/com/efkrdnz/magical/magic/MagicGameplayEvents.java
 git commit -m "feat: the Grimoire on the state, and the service that recites it"
 ```
 
@@ -3510,6 +3569,20 @@ In `src/main/java/com/efkrdnz/magical/magic/incantation/IncantationService.java`
             default -> com.efkrdnz.magical.magic.MagicContent.INCANTATION_1;
         };
     }
+```
+
+and, in the same file, make `preview` price at the slot's tuned scale as the press does (the sin adjustment passes `costScale` through untouched, so no player is needed and a preview shows the shot a press would make): replace its last line
+
+```java
+        return Reciter.recite(session, copy.breath(), state.mana(), 1.0D, new PreviewReciteWorld(state.grimoire(), slot, VerseContent.CATALOGUE));
+```
+
+with
+
+```java
+        com.efkrdnz.magical.magic.MagicSkillDefinition skill = skillFor(slot);
+        double costScale = skill.resolve(state.tuningFor(skill.id())).costScale();
+        return Reciter.recite(session, copy.breath(), state.mana(), costScale, new PreviewReciteWorld(state.grimoire(), slot, VerseContent.CATALOGUE));
 ```
 
 - [ ] **Step 5: A card icon for each**
