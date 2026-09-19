@@ -217,17 +217,13 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
         Vec3 from = position();
         Vec3 step = flightStep(level);
         Vec3 to = from.add(step);
+        // The wall bounds the step, and anything living between here and it is met first: a body
+        // fired at an enemy standing against a wall hits the enemy, not the wall behind them. A
+        // Puncture strikes and flies on, and then the wall has its turn in the same tick.
         BlockHitResult blockHit = level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
-        if (blockHit.getType() != HitResult.Type.MISS) {
-            if (bouncesLeft > 0) {
-                bounce(level, blockHit);
-                return;
-            }
-            end(level, blockHit.getLocation(), PayloadKind.LATCH);
-            return;
-        }
-        offerApproachCounters(from, to);
-        LivingEntity hit = firstEntityHit(from, to);
+        Vec3 reach = blockHit.getType() == HitResult.Type.MISS ? to : blockHit.getLocation();
+        offerApproachCounters(from, reach);
+        LivingEntity hit = firstEntityHit(from, reach);
         if (hit != null) {
             if (hit instanceof ServerPlayer player && MagicCounterService.hasActivePrompt(player, this)) {
                 MagicCounterService.expirePrompt(player, this);
@@ -237,6 +233,14 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
                 end(level, new Vec3(hit.getX(), hit.getY(0.55D), hit.getZ()), PayloadKind.LATCH);
                 return;
             }
+        }
+        if (blockHit.getType() != HitResult.Type.MISS) {
+            if (bouncesLeft > 0) {
+                bounce(level, blockHit);
+                return;
+            }
+            end(level, blockHit.getLocation(), PayloadKind.LATCH);
+            return;
         }
         setPos(to.x, to.y, to.z);
         setDirection(velocity);
