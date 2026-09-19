@@ -184,6 +184,7 @@ public final class MagicalClientEvents {
         event.registerEntityRenderer(MagicalEntities.SPELL_EFFECT.get(), com.efkrdnz.magical.client.renderer.fx.ProfileRendererShell::new);
         event.registerEntityRenderer(MagicalEntities.BLOOD_HARVEST.get(), com.efkrdnz.magical.client.renderer.BloodHarvestRenderer::new);
         event.registerEntityRenderer(MagicalEntities.ELDRITCH_CONSTRUCT.get(), com.efkrdnz.magical.client.renderer.eldritch.EldritchConstructRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.VERSE_BODY.get(), com.efkrdnz.magical.client.renderer.verse.VerseBodyRenderer::new);
         event.registerEntityRenderer(MagicalEntities.SOLID_CONSTRUCT.get(), com.efkrdnz.magical.client.renderer.fx.ProfileRendererShell::new);
         event.registerEntityRenderer(MagicalEntities.THROWN_SPELL.get(), com.efkrdnz.magical.client.renderer.fx.ProfileRendererShell::new);
         event.registerEntityRenderer(MagicalEntities.ROLLING_BODY.get(), com.efkrdnz.magical.client.renderer.fx.ProfileRendererShell::new);
