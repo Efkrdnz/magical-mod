@@ -61,6 +61,17 @@ public final class ProjectileVerses {
         c.register(carrier("orb_fuse", 9, Verse.UNLIMITED, VersePrototypes.ORB, 2, PayloadKind.FUSE, 8, 1, s -> s.addCrit(5.0D)));
         c.register(carrier("orb_epitaph", 9, Verse.UNLIMITED, VersePrototypes.ORB, 2, PayloadKind.EPITAPH, 0, 1, s -> s.addCrit(5.0D)));
         c.register(projectile("balm_dart", 8, 20, VersePrototypes.DART, 1, 0, s -> s.addSpread(2.0D)));
+        c.register(projectile("shard", 12, Verse.UNLIMITED, VersePrototypes.SHARD, 4, 0, s -> s.addKnockback(1.0D)));
+        c.register(projectile("arc_bolt", 16, Verse.UNLIMITED, VersePrototypes.ARC, 17, 0, s -> {
+            s.addRecoil(60.0D);
+            s.hitEffect(HitEffect.SHOCK);
+        }));
+        // CHAINSAW: the beat is set to nothing, not added to.
+        c.register(projectile("whisper", 1, Verse.UNLIMITED, VersePrototypes.WHISPER, 0, -3, s -> {
+            s.setBeat(0);
+            s.addSpread(6.0D);
+        }));
+        c.register(projectile("blink_dart", 10, Verse.UNLIMITED, VersePrototypes.BLINK, 3, 0, s -> { }));
         // RANDOM_PROJECTILE: a known projectile verse, run in this one's place.
         c.register(Verse.of("wild_bolt", VerseType.PROJECTILE, 6, Verse.UNLIMITED, null, 1, Declared.NONE, (r, rec, it) -> {
             ControlVerses.wild(r, rec, VerseType.PROJECTILE);
