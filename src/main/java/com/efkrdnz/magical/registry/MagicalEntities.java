@@ -278,6 +278,15 @@ public final class MagicalEntities {
                     .updateInterval(1)
                     .build(key("eldritch_construct")));
 
+    /** One body of a recited incantation: the Authority of Mana's only entity. */
+    public static final DeferredHolder<EntityType<?>, EntityType<com.efkrdnz.magical.entity.verse.VerseBodyEntity>> VERSE_BODY = ENTITY_TYPES.register(
+            "verse_body",
+            () -> EntityType.Builder.<com.efkrdnz.magical.entity.verse.VerseBodyEntity>of(com.efkrdnz.magical.entity.verse.VerseBodyEntity::new, MobCategory.MISC)
+                    .sized(0.4F, 0.4F)
+                    .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
+                    .updateInterval(1)
+                    .build(key("verse_body")));
+
     public static final DeferredHolder<EntityType<?>, EntityType<com.efkrdnz.magical.entity.fx.SolidConstructEntity>> SOLID_CONSTRUCT = ENTITY_TYPES.register(
             "solid_construct",
             () -> EntityType.Builder.<com.efkrdnz.magical.entity.fx.SolidConstructEntity>of(com.efkrdnz.magical.entity.fx.SolidConstructEntity::new, MobCategory.MISC)
