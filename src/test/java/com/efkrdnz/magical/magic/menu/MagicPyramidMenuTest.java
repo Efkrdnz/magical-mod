@@ -1,7 +1,9 @@
 package com.efkrdnz.magical.magic.menu;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
@@ -35,6 +37,18 @@ class MagicPyramidMenuTest {
         state.unlockAll(Set.of(MagicContent.GRASP_OF_THE_DEEP.id()));
         state.equip(0, MagicContent.GRASP_OF_THE_DEEP.id());
         assertNull(MagicPyramidMenu.skillForSlot(state, 1), "an empty card selects nothing, so the cursor just moves");
+    }
+
+    @Test
+    void theFirstPressOnACardOnlyMovesTheCursor() {
+        assertFalse(MagicPyramidMenu.cardPressOpensSkill(2, 0),
+                "pointing at a key must not throw the pyramid and the detail panel at whatever is already in it");
+    }
+
+    @Test
+    void aSecondPressOnTheSameCardOpensItsSkill() {
+        assertTrue(MagicPyramidMenu.cardPressOpensSkill(2, 2),
+                "the card the cursor is already on is the one a press reads");
     }
 
     @Test

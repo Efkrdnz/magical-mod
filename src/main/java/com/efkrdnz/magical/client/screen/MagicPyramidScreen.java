@@ -1460,11 +1460,13 @@ public final class MagicPyramidScreen extends AbstractContainerScreen<MagicPyram
         }
         int slot = CodexLayout.cardAt(lx, ly);
         if (slot >= 0) {
+            // Read the cursor before the press: the server is what moves it, a tick later.
+            boolean opensSkill = MagicPyramidMenu.cardPressOpensSkill(slot, menu.selectedSlot());
             press(MagicPyramidMenu.BUTTON_SLOT_BASE + slot);
             // The menu answers a tick later, so the view the click implies is set here: a card
             // bound below the line turns the pyramid over, and the list scrolls to the row the
             // detail panel is about to fill.
-            MagicSkillDefinition bound = MagicPyramidMenu.skillForSlot(ClientMagicState.get(), slot);
+            MagicSkillDefinition bound = opensSkill ? MagicPyramidMenu.skillForSlot(ClientMagicState.get(), slot) : null;
             if (bound != null) {
                 detailScroll = 0;
                 belowPyramidOpen = bound.tier() < 0;

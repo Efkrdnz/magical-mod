@@ -109,6 +109,22 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
         return true;
     }
 
+    /**
+     * Whether a press on a cast card should select the skill bound to it as well as the slot.
+     *
+     * <p>It should not on the first press. Moving the cursor onto a key used to drag the pyramid,
+     * the owned-skill list and the detail panel over to whatever was already bound there, so a
+     * player who had picked a skill and reached for the key to put it on lost the skill on the
+     * way. The first press only says which key; pressing the key the cursor is already on is the
+     * one that reads it.
+     *
+     * <p>Both sides ask this one question - the menu, which owns the selection, and the screen,
+     * which has to guess the same answer a tick early so the pyramid does not flip after the fact.
+     */
+    public static boolean cardPressOpensSkill(int pressedSlot, int selectedSlot) {
+        return pressedSlot == selectedSlot;
+    }
+
     @Override
     public boolean clickMenuButton(Player player, int id) {
         if (id >= BUTTON_TIER_BASE && id < BUTTON_TIER_BASE + MagicContent.maxTier() + 1) {
@@ -138,10 +154,12 @@ public final class MagicPyramidMenu extends AbstractContainerMenu {
             return true;
         }
         if (id >= BUTTON_SLOT_BASE && id < BUTTON_SLOT_BASE + MagicContent.LOADOUT_SIZE) {
-            selectedSlot = id - BUTTON_SLOT_BASE;
-            // Pointing at a card points at its skill too, so the detail panel and the points below
-            // it follow the key the player is about to change. An empty card only moves the cursor.
-            MagicSkillDefinition bound = skillForSlot(state, selectedSlot);
+            int pressed = id - BUTTON_SLOT_BASE;
+            boolean opensSkill = cardPressOpensSkill(pressed, selectedSlot);
+            selectedSlot = pressed;
+            // The second press points at the skill too, so the detail panel and the points below it
+            // follow the key the player is about to change. An empty card only moves the cursor.
+            MagicSkillDefinition bound = opensSkill ? skillForSlot(state, selectedSlot) : null;
             if (bound != null) {
                 selectedTier = bound.tier();
                 selectedSkillIndex = MagicContent.skillIndex(bound.id());
