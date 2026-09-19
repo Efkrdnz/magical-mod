@@ -1013,9 +1013,18 @@ public final class VerseBehaviours {
         return velocity.subtract(normal.scale(2.0D * velocity.dot(normal)));
     }
 
-    /** A twin's heading: the body's, turned {@link #TWIN_YAW_DEGREES} either way. */
+    /**
+     * A twin's heading: the body's, turned {@link #TWIN_YAW_DEGREES} either way about the vertical
+     * axis, with the same convention as {@code Vec3.yRot} but in double precision: {@code yRot}
+     * takes its sine and cosine from float tables, and the two twins would otherwise differ by a
+     * few parts in a hundred thousand instead of mirroring each other.
+     */
     public static Vec3 twin(Vec3 direction, boolean left) {
-        return direction.normalize().yRot((float) Math.toRadians(left ? TWIN_YAW_DEGREES : -TWIN_YAW_DEGREES));
+        double radians = Math.toRadians(left ? TWIN_YAW_DEGREES : -TWIN_YAW_DEGREES);
+        double cos = Math.cos(radians);
+        double sin = Math.sin(radians);
+        Vec3 d = direction.normalize();
+        return new Vec3(d.x * cos + d.z * sin, d.y, d.z * cos - d.x * sin);
     }
 
     public static int mask(Collection<Behaviour> behaviours) {
