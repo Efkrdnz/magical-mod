@@ -22,7 +22,7 @@
 - **Damage** is `prototype.damage + damageAdd` (0 under Blunt, never negative), a crit multiplies it by `CRIT_MULTIPLIER` (5, Noita's). Hit effects are the prototype's own (`hit()`, or `pulse()` for a static) followed by the stamped `hitEffects()`, each applied once, in that order (§14 item 5's first hand-off).
 - **No new art.** Every look is an existing `FxKinds` kind drawn by an existing painter (`OrbPainter.billboard`, `FilamentPainter.beam`, `MarkPainter.mark`); colour is the school's `SchoolMaterial` ramp. No vanilla projectile or particle stands for a body.
 - **Sync is the state blob.** The Grimoire rides in `PlayerMagicState.save()` under `"grimoire"`, so `PlayerMagicStatePayload` carries it and no new play-to-client payload exists. Sessions are never saved.
-- **Tests** use `org.junit.jupiter.api.Assertions` static imports, four-space indent, a Javadoc thesis on the class, names that state the rule. Gametests: `@GameTestHolder(MagicalMod.MODID)`, `@PrefixGameTestTemplate(false)`, template `"unwaking_empty"`, one batch per test, a fake player named `*-test` created per class exactly as `EldritchGameTests.eldritchMage` does (it never receives a `PlayerTickEvent`, so cooldowns it sets never tick down), everything a test relies on inside the template's interior cells `(1..3, 2, 1..3)`, victims are husks (zombies burn in the test world's daylight).
+- **Tests** use `org.junit.jupiter.api.Assertions` static imports, four-space indent, a Javadoc thesis on the class, names that state the rule. Gametests: `@GameTestHolder(MagicalMod.MODID)`, `@PrefixGameTestTemplate(false)`, template `"unwaking_empty"`, one batch per test, a fake player named `*-test` made by `gametest/GameTestPlayers.survival` (Task 5 lifts it out of `EldritchGameTests.eldritchMage`, which stays as it is; a fake player never receives a `PlayerTickEvent`, so cooldowns it sets never tick down), everything a test relies on inside the template's five blocks of air (relative 0..4 on every axis, the stand at (2,2,2) and the victim at (4,2,2) as `EldritchGameTests` has them; the runner wraps the template in a barrier shell), victims are husks (zombies burn in the test world's daylight).
 - **Line numbers in this plan are as of `cb3e3a5`;** anchor every edit on the quoted text, not the number.
 - **Commit messages** are `<type>: <description>` in the repo's voice and end with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`. Never `git add` `gradlew` or `.claude/settings.local.json`. Run `.\gradlew test` (or the single class named in the step) before every commit; `.\gradlew runGameTestServer` where a task adds gametests.
 
@@ -1052,13 +1052,74 @@ git commit -m "feat: the steering arithmetic behind a body's behaviours"
 - Create: `src/main/java/com/efkrdnz/magical/entity/verse/VerseBodyEntity.java`
 - Create: `src/main/java/com/efkrdnz/magical/entity/verse/VerseBodySpawner.java`
 - Modify: `src/main/java/com/efkrdnz/magical/registry/MagicalEntities.java` (after `ELDRITCH_CONSTRUCT`, line 279)
+- Create: `src/main/java/com/efkrdnz/magical/gametest/GameTestPlayers.java` (the fake-player factory, shared with Task 8's gametests)
 - Create: `src/main/java/com/efkrdnz/magical/magic/incantation/VerseBodyGameTests.java`
 
 **Interfaces:**
 - Consumes: Tasks 1–4; `MagicDamageService.hurt(LivingEntity, DamageSource, float, ResourceLocation)`; `MagicCounterService.offerCounter(ServerPlayer, CounterableSkillThreat, Vec3, int)`, `hasActivePrompt(ServerPlayer, CounterableSkillThreat)`, `expirePrompt(ServerPlayer, CounterableSkillThreat)`, `spawnClash(ServerLevel, Vec3, int, int)`; `SkillTargets.hostilesWithin(ServerLevel, Entity, Vec3, double)`, `shove(LivingEntity, Vec3, double, double)`; `SafeSpotSearch.standableNear/liftClear/place`; `SpellFx.impact(ServerLevel, MagicSkillDefinition, Vec3, Vec3, Entity, Entity, float)`; `AimResolver.resolve(ServerLevel, LivingEntity, Vec3, double, double, boolean, int, Predicate<Entity>)` → `.point()`, `AimResolver.groundBelow(ServerLevel, Vec3, int)`; `UnwakingCapabilities.refuseMovement(ServerPlayer)`; `SpellEntityVisibility`.
 - Produces: `VerseBodyEntity.spawn(ServerLevel, LivingEntity caster, ProjectilePlan, Vec3 position, Vec3 direction, ResourceLocation skillId) -> VerseBodyEntity`; `ownedBy(ServerLevel, LivingEntity, AABB) -> List<VerseBodyEntity>`; accessors `plan(), prototype(), school(), radius(), life(), behaviourMask(), wakeMask(), direction(), seed(), skillId(), livingOwner(), has(Behaviour)`; `markRelayed()`. `VerseBodySpawner.spawn(ServerLevel, LivingEntity, ShotPlan, Vec3 origin, Vec3 aim, ResourceLocation)`, `release(ServerLevel, LivingEntity, ShotPlan, Vec3 at, Vec3 travel, ResourceLocation)`, `relay(ServerLevel, VerseBodyEntity, Vec3)`, all returning `List<VerseBodyEntity>` (relay one). `MagicalEntities.VERSE_BODY`. Task 6's renderer reads the accessors; Task 7's service calls `VerseBodySpawner.spawn`.
 
-- [ ] **Step 1: Write the failing gametests**
+- [ ] **Step 1: Write the shared fake-player factory and the failing gametests**
+
+The factory is `EldritchGameTests.eldritchMage` with the skill unlock left to the caller, in a package of its own so every gametest class can use it instead of carrying a copy. `EldritchGameTests` keeps its own copy for now; switching it over is not this task.
+
+```java
+package com.efkrdnz.magical.gametest;
+
+import com.efkrdnz.magical.magic.cast.AimResolver;
+import java.util.List;
+import java.util.UUID;
+import net.minecraft.core.BlockPos;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * Fake players for gametests, made the way {@code EldritchGameTests.eldritchMage} makes them: a
+ * survival player on the floor of a template cell, client-loaded so damage reaches them, with
+ * every earlier test's leftover player removed first (fake players outlive their tests and stand
+ * in the neighbouring structures, as hostile as any other player). A fake player never receives
+ * a {@code PlayerTickEvent}, so cooldowns it sets never tick down; and no client moves one, so
+ * gravity never sets it down either, which is why it is put on the floor by hand.
+ */
+public final class GameTestPlayers {
+
+    private GameTestPlayers() {
+    }
+
+    /** A survival player called {@code name} (end it in {@code -test}, so the next test can find and remove it) standing on the floor under {@code at}. */
+    public static ServerPlayer survival(GameTestHelper helper, BlockPos at, String name) {
+        var server = helper.getLevel().getServer();
+        for (ServerPlayer leftover : List.copyOf(helper.getLevel().players())) {
+            if (leftover.getGameProfile().getName().endsWith("-test")) {
+                server.getPlayerList().remove(leftover);
+            }
+        }
+        var cookie = net.minecraft.server.network.CommonListenerCookie.createInitial(
+                new com.mojang.authlib.GameProfile(UUID.randomUUID(), name), false);
+        var player = new ServerPlayer(server, helper.getLevel(), cookie.gameProfile(), cookie.clientInformation());
+        var connection = new net.minecraft.network.Connection(net.minecraft.network.protocol.PacketFlow.SERVERBOUND);
+        new io.netty.channel.embedded.EmbeddedChannel(connection);
+        net.neoforged.neoforge.network.registration.NetworkRegistry.configureMockConnection(connection);
+        server.getPlayerList().placeNewPlayer(connection, player, cookie);
+        player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        // A player is invulnerable until their client reports the world loaded; a fake one never does.
+        player.setClientLoaded(true);
+        Vec3 stand = onFloor(helper, at);
+        player.teleportTo(stand.x, stand.y, stand.z);
+        return player;
+    }
+
+    /** The floor under a template cell, absolute: a thing put there starts where it would land. */
+    public static Vec3 onFloor(GameTestHelper helper, BlockPos at) {
+        Vec3 above = helper.absoluteVec(Vec3.atBottomCenterOf(at));
+        Vec3 floor = AimResolver.groundBelow(helper.getLevel(), above, 8);
+        return floor != null ? floor : above;
+    }
+}
+```
+
+The gametests:
 
 ```java
 package com.efkrdnz.magical.magic.incantation;
@@ -1066,11 +1127,11 @@ package com.efkrdnz.magical.magic.incantation;
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.entity.verse.VerseBodyEntity;
 import com.efkrdnz.magical.entity.verse.VerseBodySpawner;
+import com.efkrdnz.magical.gametest.GameTestPlayers;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.List;
-import java.util.UUID;
 import java.util.function.Consumer;
 import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
@@ -1110,38 +1171,15 @@ public final class VerseBodyGameTests {
         return player.getData(MagicalAttachments.MAGIC_STATE);
     }
 
-    /** A survival player standing on the floor at {@code at}, client-loaded so a detonation can reach them. */
+    /** A survival player standing on the floor at {@code at}, full of mana, client-loaded so a detonation can reach them. */
     private static ServerPlayer caster(GameTestHelper helper, BlockPos at) {
-        var server = helper.getLevel().getServer();
-        for (ServerPlayer leftover : List.copyOf(helper.getLevel().players())) {
-            if (leftover.getGameProfile().getName().endsWith("-test")) {
-                server.getPlayerList().remove(leftover);
-            }
-        }
-        var cookie = net.minecraft.server.network.CommonListenerCookie.createInitial(
-                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "verse-test"), false);
-        var player = new ServerPlayer(server, helper.getLevel(), cookie.gameProfile(), cookie.clientInformation());
-        var connection = new net.minecraft.network.Connection(net.minecraft.network.protocol.PacketFlow.SERVERBOUND);
-        new io.netty.channel.embedded.EmbeddedChannel(connection);
-        net.neoforged.neoforge.network.registration.NetworkRegistry.configureMockConnection(connection);
-        server.getPlayerList().placeNewPlayer(connection, player, cookie);
-        player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
-        // A player is invulnerable until their client reports the world loaded; a fake one never does.
-        player.setClientLoaded(true);
-        Vec3 stand = onFloor(helper, at);
-        player.teleportTo(stand.x, stand.y, stand.z);
+        ServerPlayer player = GameTestPlayers.survival(helper, at, "verse-test");
         state(player).refillMana();
         return player;
     }
 
-    private static Vec3 onFloor(GameTestHelper helper, BlockPos at) {
-        Vec3 above = helper.absoluteVec(Vec3.atBottomCenterOf(at));
-        Vec3 floor = com.efkrdnz.magical.magic.cast.AimResolver.groundBelow(helper.getLevel(), above, 8);
-        return floor != null ? floor : above;
-    }
-
     private static Zombie victim(GameTestHelper helper, ServerPlayer player) {
-        Zombie zombie = helper.spawnWithNoFreeWill(EntityType.HUSK, helper.relativeVec(onFloor(helper, VICTIM)));
+        Zombie zombie = helper.spawnWithNoFreeWill(EntityType.HUSK, helper.relativeVec(GameTestPlayers.onFloor(helper, VICTIM)));
         player.lookAt(EntityAnchorArgument.Anchor.EYES, zombie.getEyePosition());
         return zombie;
     }
@@ -1181,7 +1219,7 @@ public final class VerseBodyGameTests {
     public static void aRingStandsOnTheFloorAndPulsesOverItsRadiusForItsDuration(GameTestHelper helper) {
         ServerPlayer player = caster(helper, STAND);
         Zombie zombie = victim(helper, player);
-        double floorY = onFloor(helper, STAND).y;
+        double floorY = GameTestPlayers.onFloor(helper, STAND).y;
         helper.runAtTickTime(1, () -> spawnFromHand(helper, player, shot(body(VersePrototypes.RING_RIME, s -> { }, PayloadKind.NONE, 0, null))));
         helper.runAtTickTime(3, () -> {
             List<VerseBodyEntity> rings = bodies(helper, player);
@@ -2143,7 +2181,7 @@ Run: `.\gradlew runGameTestServer` — Expected: the eight `VerseBodyGameTests` 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/main/java/com/efkrdnz/magical/entity/verse/VerseBodyEntity.java src/main/java/com/efkrdnz/magical/entity/verse/VerseBodySpawner.java src/main/java/com/efkrdnz/magical/registry/MagicalEntities.java src/main/java/com/efkrdnz/magical/magic/incantation/VerseBodyGameTests.java
+git add src/main/java/com/efkrdnz/magical/entity/verse/VerseBodyEntity.java src/main/java/com/efkrdnz/magical/entity/verse/VerseBodySpawner.java src/main/java/com/efkrdnz/magical/registry/MagicalEntities.java src/main/java/com/efkrdnz/magical/gametest/GameTestPlayers.java src/main/java/com/efkrdnz/magical/magic/incantation/VerseBodyGameTests.java
 git commit -m "feat: the verse body, the one entity of the Authority of Mana, and its spawner"
 ```
 
@@ -3040,19 +3078,18 @@ package com.efkrdnz.magical.magic.incantation;
 
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.entity.verse.VerseBodyEntity;
+import com.efkrdnz.magical.gametest.GameTestPlayers;
 import com.efkrdnz.magical.magic.AuthorityContent;
 import com.efkrdnz.magical.magic.MagicCastingService;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.List;
-import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -3079,25 +3116,7 @@ public final class IncantationGameTests {
 
     /** A survival wielder of the Authority of Mana, on the floor, full of mana, knowing every verse. */
     private static ServerPlayer wielder(GameTestHelper helper) {
-        var server = helper.getLevel().getServer();
-        for (ServerPlayer leftover : List.copyOf(helper.getLevel().players())) {
-            if (leftover.getGameProfile().getName().endsWith("-test")) {
-                server.getPlayerList().remove(leftover);
-            }
-        }
-        var cookie = net.minecraft.server.network.CommonListenerCookie.createInitial(
-                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "mana-test"), false);
-        var player = new ServerPlayer(server, helper.getLevel(), cookie.gameProfile(), cookie.clientInformation());
-        var connection = new net.minecraft.network.Connection(net.minecraft.network.protocol.PacketFlow.SERVERBOUND);
-        new io.netty.channel.embedded.EmbeddedChannel(connection);
-        net.neoforged.neoforge.network.registration.NetworkRegistry.configureMockConnection(connection);
-        server.getPlayerList().placeNewPlayer(connection, player, cookie);
-        player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
-        player.setClientLoaded(true);
-        Vec3 above = helper.absoluteVec(Vec3.atBottomCenterOf(STAND));
-        Vec3 floor = com.efkrdnz.magical.magic.cast.AimResolver.groundBelow(helper.getLevel(), above, 8);
-        Vec3 stand = floor != null ? floor : above;
-        player.teleportTo(stand.x, stand.y, stand.z);
+        ServerPlayer player = GameTestPlayers.survival(helper, STAND, "mana-test");
         // Look along +x, into the two and a half blocks of air before the far wall.
         player.setYRot(-90.0F);
         player.setXRot(0.0F);
