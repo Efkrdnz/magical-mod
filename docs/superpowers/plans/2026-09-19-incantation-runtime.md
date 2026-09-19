@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **Packages.** The body and everything that serves it: `com.efkrdnz.magical.entity.verse` (`VerseBodyEntity`, `VerseBehaviours`, `VerseHitEffects`, `VerseBodySpawner`, `VerseFan`, `ShotPlanCodec`). The renderer: `com.efkrdnz.magical.client.renderer.verse` (`VerseBodyRenderer`, `VerseLooks`). The service and the world: `com.efkrdnz.magical.magic.incantation` (`IncantationService`, `LevelReciteWorld`), which are the **only** two files in that package allowed to import Minecraft beyond `ResourceLocation` and `net.minecraft.nbt`; the core files Plan 1 listed stay pure. Gametests live in `src/main/java` (as `EldritchGameTests` does): `magic/incantation/VerseBodyGameTests`, `magic/incantation/IncantationGameTests`. The payload: `com.efkrdnz.magical.network.SetIncantationPayload`.
+- **Packages.** The body and everything that serves it: `com.efkrdnz.magical.entity.verse` (`VerseBodyEntity`, `VerseBehaviours`, `VerseHitEffects`, `VerseBodySpawner`, `VerseFan`, `ShotPlanCodec`). The renderer: `com.efkrdnz.magical.client.renderer.verse` (`VerseBodyRenderer`, `VerseLooks`). The service and the world: `com.efkrdnz.magical.magic.incantation` (`IncantationService`, `LevelReciteWorld`), which, with the two gametest classes below, are the **only** files in that package allowed to import Minecraft beyond `ResourceLocation` and `net.minecraft.nbt`; the core files Plan 1 listed stay pure, and so does `PreviewReciteWorld`. Gametests live in `src/main/java` (as `EldritchGameTests` does): `magic/incantation/VerseBodyGameTests`, `magic/incantation/IncantationGameTests`. The payload: `com.efkrdnz.magical.network.SetIncantationPayload`.
 - **Units** are the core's: ticks, half-hearts, blocks per tick, degrees, blocks per tick squared.
 - **Every hit funnels through `MagicDamageService.hurt(target, source, amount, skillId)`** with `damageSources().indirectMagic(body, caster)` and the recite skill's id, so wards, passives and Tier Five attribution see it. Healing is `LivingEntity.heal`. Blood Toll's price is `BloodDamageTypes.price(player)`, the Blood school's true damage (§14 item 3 asks that the two systems name it once).
 - **The server never writes a player's velocity** (the Space law lesson in `CLAUDE.md`). DISPLACE and a body that carries its caster move a player only through `SafeSpotSearch.place`; the Void Pit pulls mobs and bodies, never players.
@@ -41,6 +41,7 @@
 | `client/renderer/verse/VerseBodyRenderer.java` | One renderer, a function of the synced state |
 | `client/MagicalClientEvents.java` | `registerRenderers` `+1` |
 | `magic/incantation/LevelReciteWorld.java` | `ReciteWorld` answered over the level and the Grimoire |
+| `magic/incantation/PreviewReciteWorld.java` | `ReciteWorld` as a preview assumes it: nobody near, full health, a fixed random, no price paid. Pure. |
 | `magic/incantation/IncantationService.java` | Sessions per wielder, `recite`, `setIncantation`, `preview`, `forget`, `parseIds`, `skillFor` |
 | `magic/PlayerMagicState.java` | The `grimoire` slot: field, accessor, save, load, copy, clear |
 | `magic/MagicGameplayEvents.java` | Sessions dropped on logout, respawn and dimension change |
@@ -2643,12 +2644,14 @@ Phase A ends with a body that can be flown by hand and by test, and nothing in t
 - Modify: `src/main/java/com/efkrdnz/magical/magic/PlayerMagicState.java` (six anchors, listed in Step 3)
 - Create: `src/test/java/com/efkrdnz/magical/magic/PlayerMagicStateGrimoireTest.java`
 - Create: `src/main/java/com/efkrdnz/magical/magic/incantation/LevelReciteWorld.java`
+- Create: `src/main/java/com/efkrdnz/magical/magic/incantation/PreviewReciteWorld.java`
+- Create: `src/test/java/com/efkrdnz/magical/magic/incantation/PreviewReciteWorldTest.java`
 - Create: `src/main/java/com/efkrdnz/magical/magic/incantation/IncantationService.java`
 - Modify: `src/main/java/com/efkrdnz/magical/magic/MagicGameplayEvents.java` (`onPlayerLogout` line 188, `onPlayerRespawn` line 201, `onPlayerDimensionChange` line 212)
 
 **Interfaces:**
 - Consumes: `Grimoire` (`SLOTS`, `incantation(int)`, `known()`, `learnAll`, `everyOtherSkipAndFlip()`, `clear()`, `copyFrom`, `save()`, `load(CompoundTag)`); `Incantation` (`entries()`, `breath()`, `size()`, `isEmpty()`, `write(List<ResourceLocation>, int, VerseCatalogue) -> boolean`, `copyFrom`); `ReciteSession.of(Incantation, VerseCatalogue)`, `unreadCount()`, `nextUnread()`; `Reciter.recite(ReciteSession, int breath, int mana, double costScale, ReciteWorld) -> RecitePlan`; `RecitePlan` (`root()`, `manaSpent()`, `frayed()`, `cooldownTicks()`, `bodies()`); `IncantationValidator.problems(List<ResourceLocation>, int, Set<ResourceLocation>, VerseCatalogue) -> List<Finding>`; `VerseContent.CATALOGUE`, `VerseContent.get(ResourceLocation)`; `VerseIds.of(String)`; `CastContext` (`player()`, `state()`, `definition()`, `stats()`, `aimDirection()`); `MagicSinService.adjustStatsBeforeCast(ServerPlayer, PlayerMagicState, MagicSkillResolvedStats)`, `spendManaForSkill(ServerPlayer, PlayerMagicState, int) -> boolean`, `afterSuccessfulCast(ServerPlayer, PlayerMagicState, MagicSkillDefinition)`; `MagicSkillResolvedStats.costScale()`; `PlayerMagicState.mana()`, `isSkillOnCooldown`, `setSkillCooldown`, `sync(ServerPlayer)`; `VerseBodySpawner.spawn` (Task 5); `SkillTargets.hostilesWithin`; `BloodDamageTypes.price(LivingEntity)`.
-- Produces: `PlayerMagicState.grimoire() -> Grimoire`; `IncantationService.recite(CastContext, int slot)`, `setIncantation(ServerPlayer, int slot, int breath, List<ResourceLocation> ids) -> boolean`, `preview(ServerPlayer, PlayerMagicState, int slot) -> RecitePlan`, `parseIds(List<String>) -> List<ResourceLocation>` (null on a bad id), `forget(UUID)`, `resetSession(UUID, int slot)`, `SLOTS`; `LevelReciteWorld(ServerPlayer, PlayerMagicState, int slot)`. Task 8 adds `IncantationService.skillFor(int)` and the four registrations; Tasks 10 and 11 call `setIncantation`, `parseIds` and `preview`.
+- Produces: `PlayerMagicState.grimoire() -> Grimoire`; `IncantationService.recite(CastContext, int slot)`, `setIncantation(ServerPlayer, int slot, int breath, List<ResourceLocation> ids) -> boolean`, `preview(PlayerMagicState, int slot) -> RecitePlan`, `parseIds(List<String>) -> List<ResourceLocation>` (null on a bad id), `forget(UUID)`, `resetSession(UUID, int slot)`, `SLOTS`; `LevelReciteWorld(ServerPlayer, PlayerMagicState, int slot)`; `PreviewReciteWorld(Grimoire, int slot, VerseCatalogue)` (pure, with the package-private `otherVerses(Grimoire, int, VerseCatalogue)` the level world shares). Task 8 adds `IncantationService.skillFor(int)` and the four registrations; Tasks 10 and 11 call `setIncantation`, `parseIds` and `preview`.
 
 - [ ] **Step 1: Write the failing state test**
 
@@ -2767,7 +2770,7 @@ Six edits to `src/main/java/com/efkrdnz/magical/magic/PlayerMagicState.java`, ea
 - [ ] **Step 4: Run the state test**
 
 Run: `.\gradlew test --tests "com.efkrdnz.magical.magic.PlayerMagicStateGrimoireTest"`
-Expected: 3 tests pass. Also run `.\gradlew test --tests "com.efkrdnz.magical.magic.PlayerStateSyncCostTest"` - it prints the payload size and passes; the Grimoire adds a few bytes to an empty state.
+Expected: 3 tests pass. Also run `.\gradlew test --tests "com.efkrdnz.magical.network.PlayerStateSyncCostTest"` - it prints the payload size and passes; the Grimoire adds a few bytes to an empty state.
 
 - [ ] **Step 5: Write the level-backed world**
 
@@ -2778,7 +2781,6 @@ import com.efkrdnz.magical.entity.verse.VerseBodyEntity;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.blood.BloodDamageTypes;
 import com.efkrdnz.magical.magic.service.SkillTargets;
-import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -2838,22 +2840,10 @@ public final class LevelReciteWorld implements ReciteWorld {
         return state.grimoire().knows(id);
     }
 
-    /** The verses written in the other three slots, in slot order, each as many times as it is written. */
+    /** The verses written in the other three slots, in slot order, each as many times as it is written: the preview reads the same list. */
     @Override
     public List<Verse> otherIncantationVerses() {
-        List<Verse> verses = new ArrayList<>();
-        for (int other = 0; other < Grimoire.SLOTS; other++) {
-            if (other == slot) {
-                continue;
-            }
-            for (Incantation.Entry entry : state.grimoire().incantation(other).entries()) {
-                Verse verse = VerseContent.get(entry.id());
-                if (verse != null) {
-                    verses.add(verse);
-                }
-            }
-        }
-        return verses;
+        return PreviewReciteWorld.otherVerses(state.grimoire(), slot, VerseContent.CATALOGUE);
     }
 
     /** Blood Toll pays in flesh through the Blood school's true damage: no armour, no resistance, no barrier. */
@@ -2865,6 +2855,178 @@ public final class LevelReciteWorld implements ReciteWorld {
     }
 }
 ```
+
+- [ ] **Step 5b: Write the failing preview-world test**
+
+A preview runs the real Reciter on a copy of the incantation (design section 4), so the only thing about it that may be unreal is the world it asks. `LevelReciteWorld` would flip the Grimoire's Every Other toggle and pay Blood Toll in real hearts; the preview world assumes instead: nobody near, nothing in flight, full health, a private toggle, a random that always answers zero, and a price that is never collected. Pure, like the core, so its test needs no bootstrap.
+
+`src/test/java/com/efkrdnz/magical/magic/incantation/PreviewReciteWorldTest.java`:
+
+```java
+package com.efkrdnz.magical.magic.incantation;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import net.minecraft.resources.ResourceLocation;
+import org.junit.jupiter.api.Test;
+
+/** A preview assumes its world and touches nothing real: not the Grimoire's toggle, not a random, not a heart. */
+class PreviewReciteWorldTest {
+
+    private static final ResourceLocation NEEDLE = VerseIds.of("needle");
+    private static final ResourceLocation EMBER = VerseIds.of("ember");
+    private static final ResourceLocation WEIGHT = VerseIds.of("weight");
+
+    private static Grimoire grimoire() {
+        Grimoire grimoire = new Grimoire();
+        grimoire.learnAll(List.of(NEEDLE, EMBER, WEIGHT));
+        assertTrue(grimoire.incantation(0).write(List.of(NEEDLE, NEEDLE), 1, VerseContent.CATALOGUE), "slot one takes two needles");
+        assertTrue(grimoire.incantation(2).write(List.of(EMBER, WEIGHT), 2, VerseContent.CATALOGUE), "slot three takes a weighted ember");
+        return grimoire;
+    }
+
+    @Test
+    void theToggleIsPrivateToThePreview() {
+        Grimoire grimoire = grimoire();
+        PreviewReciteWorld world = new PreviewReciteWorld(grimoire, 1, VerseContent.CATALOGUE);
+        assertFalse(world.everyOtherSkipAndFlip(), "the first ask casts");
+        assertTrue(world.everyOtherSkipAndFlip(), "the second skips");
+        assertFalse(grimoire.everyOtherSkipAndFlip(), "the Grimoire toggle never moved");
+    }
+
+    @Test
+    void theWorldIsAssumedAndTheRandomIsFixed() {
+        PreviewReciteWorld world = new PreviewReciteWorld(grimoire(), 1, VerseContent.CATALOGUE);
+        assertEquals(0, world.enemiesWithin(16.0D));
+        assertEquals(0, world.projectilesWithin(16.0D));
+        assertEquals(1.0D, world.healthFraction());
+        for (int i = 0; i < 5; i++) {
+            assertEquals(0, world.random(7), "fixed, so two previews of one incantation agree");
+        }
+        // Nobody to hurt: the call must be harmless, and there is nothing to observe.
+        world.payHealth(4.0D);
+        assertTrue(world.isKnown(NEEDLE));
+        assertFalse(world.isKnown(VerseIds.of("couplet")));
+        assertEquals(VerseContent.CATALOGUE.size(), world.allVerses().size());
+    }
+
+    @Test
+    void theOtherIncantationsAreReadInSlotOrderWithoutTheOwn() {
+        List<Verse> fromSlotOne = new PreviewReciteWorld(grimoire(), 0, VerseContent.CATALOGUE).otherIncantationVerses();
+        assertEquals(List.of(EMBER, WEIGHT), fromSlotOne.stream().map(Verse::id).toList());
+        List<Verse> fromSlotThree = new PreviewReciteWorld(grimoire(), 2, VerseContent.CATALOGUE).otherIncantationVerses();
+        assertEquals(List.of(NEEDLE, NEEDLE), fromSlotThree.stream().map(Verse::id).toList());
+    }
+}
+```
+
+Run: `.\gradlew test --tests "com.efkrdnz.magical.magic.incantation.PreviewReciteWorldTest"`
+Expected: FAIL to compile - `PreviewReciteWorld` does not exist.
+
+- [ ] **Step 5c: Write the preview world**
+
+`src/main/java/com/efkrdnz/magical/magic/incantation/PreviewReciteWorld.java`:
+
+```java
+package com.efkrdnz.magical.magic.incantation;
+
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.resources.ResourceLocation;
+
+/**
+ * The world a preview assumes: nobody near, nothing in flight, full health, the Every Other toggle
+ * read off a private copy, a random that always answers zero, and a Blood Toll that is never paid.
+ * A preview runs the real Reciter on a copy of the incantation (design section 4), so the only
+ * thing about it that may be unreal is the world - this is that world, and it is pure.
+ */
+public final class PreviewReciteWorld implements ReciteWorld {
+    private final Grimoire grimoire;
+    private final int slot;
+    private final VerseCatalogue catalogue;
+    private boolean everyOtherSkip;
+
+    public PreviewReciteWorld(Grimoire grimoire, int slot, VerseCatalogue catalogue) {
+        this.grimoire = grimoire;
+        this.slot = slot;
+        this.catalogue = catalogue;
+    }
+
+    @Override
+    public int enemiesWithin(double blocks) {
+        return 0;
+    }
+
+    @Override
+    public int projectilesWithin(double blocks) {
+        return 0;
+    }
+
+    @Override
+    public double healthFraction() {
+        return 1.0D;
+    }
+
+    /** A private toggle, so a preview never moves the Grimoire's. */
+    @Override
+    public boolean everyOtherSkipAndFlip() {
+        boolean skip = everyOtherSkip;
+        everyOtherSkip = !everyOtherSkip;
+        return skip;
+    }
+
+    /** Fixed: the first choice, every time, so two previews of one incantation agree. */
+    @Override
+    public int random(int bound) {
+        return 0;
+    }
+
+    @Override
+    public List<Verse> allVerses() {
+        return List.copyOf(catalogue.all());
+    }
+
+    @Override
+    public boolean isKnown(ResourceLocation id) {
+        return grimoire.knows(id);
+    }
+
+    @Override
+    public List<Verse> otherIncantationVerses() {
+        return otherVerses(grimoire, slot, catalogue);
+    }
+
+    /** Nothing is paid: the plan shows the price, the press collects it. */
+    @Override
+    public void payHealth(double halfHearts) {
+    }
+
+    /** The verses written in the other slots, in slot order, each as many times as it is written. The level world reads the same list. */
+    static List<Verse> otherVerses(Grimoire grimoire, int slot, VerseCatalogue catalogue) {
+        List<Verse> verses = new ArrayList<>();
+        for (int other = 0; other < Grimoire.SLOTS; other++) {
+            if (other == slot) {
+                continue;
+            }
+            for (Incantation.Entry entry : grimoire.incantation(other).entries()) {
+                Verse verse = catalogue.get(entry.id());
+                if (verse != null) {
+                    verses.add(verse);
+                }
+            }
+        }
+        return verses;
+    }
+}
+```
+
+`LevelReciteWorld.otherIncantationVerses` (Step 5) delegates to `otherVerses`, so the two worlds cannot drift on what "the other incantations" means.
+
+Run: `.\gradlew test --tests "com.efkrdnz.magical.magic.incantation.PreviewReciteWorldTest"`
+Expected: 3 tests pass.
 
 - [ ] **Step 6: Write the service**
 
@@ -2998,12 +3160,16 @@ public final class IncantationService {
         return true;
     }
 
-    /** The plan a press would produce, without pressing: the uses are spent on a copy and the session is left alone. */
-    public static RecitePlan preview(ServerPlayer player, PlayerMagicState state, int slot) {
+    /**
+     * The plan a press would produce, without pressing: the uses are spent on a copy, the session is
+     * left alone, and the world is the assumed one (nobody near, full health, a fixed random, no
+     * price paid), so a preview moves nothing - not the Grimoire's toggle, not a heart.
+     */
+    public static RecitePlan preview(PlayerMagicState state, int slot) {
         Incantation copy = new Incantation();
         copy.copyFrom(state.grimoire().incantation(slot));
         ReciteSession session = ReciteSession.of(copy, VerseContent.CATALOGUE);
-        return Reciter.recite(session, copy.breath(), state.mana(), 1.0D, new LevelReciteWorld(player, state, slot));
+        return Reciter.recite(session, copy.breath(), state.mana(), 1.0D, new PreviewReciteWorld(state.grimoire(), slot, VerseContent.CATALOGUE));
     }
 
     /** {@code needle} and {@code magical:needle} both name the needle; anything unparsable makes the whole list null. */
@@ -3090,7 +3256,7 @@ Expected: green. Nothing calls `recite` yet; the four skills that do arrive in T
 - [ ] **Step 9: Commit**
 
 ```bash
-git add src/main/java/com/efkrdnz/magical/magic/PlayerMagicState.java src/test/java/com/efkrdnz/magical/magic/PlayerMagicStateGrimoireTest.java src/main/java/com/efkrdnz/magical/magic/incantation/LevelReciteWorld.java src/main/java/com/efkrdnz/magical/magic/incantation/IncantationService.java src/main/java/com/efkrdnz/magical/magic/MagicGameplayEvents.java
+git add src/main/java/com/efkrdnz/magical/magic/PlayerMagicState.java src/test/java/com/efkrdnz/magical/magic/PlayerMagicStateGrimoireTest.java src/main/java/com/efkrdnz/magical/magic/incantation/LevelReciteWorld.java src/main/java/com/efkrdnz/magical/magic/incantation/PreviewReciteWorld.java src/test/java/com/efkrdnz/magical/magic/incantation/PreviewReciteWorldTest.java src/main/java/com/efkrdnz/magical/magic/incantation/IncantationService.java src/main/java/com/efkrdnz/magical/magic/MagicGameplayEvents.java
 git commit -m "feat: the Grimoire on the state, and the service that recites it"
 ```
 
@@ -3238,7 +3404,7 @@ public final class IncantationGameTests {
         ServerPlayer player = wielder(helper);
         write(player, 1, ProjectileVerses.EMBER);
         helper.runAtTickTime(1, () -> {
-            RecitePlan plan = IncantationService.preview(player, state(player), SLOT);
+            RecitePlan plan = IncantationService.preview(state(player), SLOT);
             helper.assertTrue(plan.bodies().size() == 1, "the preview plans the ember");
             helper.assertTrue(usesLeft(player, 0) == 15, "and spends none of its fifteen uses: " + usesLeft(player, 0));
             press(player);
@@ -4080,7 +4246,7 @@ Directly before `seedPile` (its javadoc begins `/**` a few lines above line 904;
             player.displayClientMessage(Component.translatable("message.magical.incantation_empty", slot), false);
             return 0;
         }
-        RecitePlan plan = IncantationService.preview(player, state, slot - 1);
+        RecitePlan plan = IncantationService.preview(state, slot - 1);
         player.displayClientMessage(Component.translatable("message.magical.incantation_preview",
                 slot, plan.bodies().size(), plan.manaSpent(), plan.cooldownTicks()), false);
         return plan.bodies().size();
