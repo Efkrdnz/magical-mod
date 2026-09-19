@@ -53,5 +53,12 @@ public final class ProjectileVerses {
             s.addRecoil(20.0D);
             s.hitEffect(HitEffect.BURN);
         }));
+        c.register(carrier("needle_latch", 6, Verse.UNLIMITED, VersePrototypes.NEEDLE, 1, PayloadKind.LATCH, 0, 1, s -> s.addCrit(5.0D)));
+        c.register(carrier("needle_fuse", 6, Verse.UNLIMITED, VersePrototypes.NEEDLE, 1, PayloadKind.FUSE, 4, 1, s -> s.addCrit(5.0D)));
+        c.register(carrier("needle_twin_latch", 8, Verse.UNLIMITED, VersePrototypes.NEEDLE, 1, PayloadKind.LATCH, 0, 2, s -> s.addCrit(5.0D)));
+        c.register(projectile("orb", 7, Verse.UNLIMITED, VersePrototypes.ORB, 2, 0, s -> s.addCrit(5.0D)));
+        c.register(carrier("orb_latch", 9, Verse.UNLIMITED, VersePrototypes.ORB, 2, PayloadKind.LATCH, 0, 1, s -> s.addCrit(5.0D)));
+        c.register(carrier("orb_fuse", 9, Verse.UNLIMITED, VersePrototypes.ORB, 2, PayloadKind.FUSE, 8, 1, s -> s.addCrit(5.0D)));
+        c.register(carrier("orb_epitaph", 9, Verse.UNLIMITED, VersePrototypes.ORB, 2, PayloadKind.EPITAPH, 0, 1, s -> s.addCrit(5.0D)));
     }
 }

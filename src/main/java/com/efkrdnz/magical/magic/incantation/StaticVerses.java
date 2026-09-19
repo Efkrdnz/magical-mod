@@ -36,5 +36,6 @@ public final class StaticVerses {
 
     static void register(VerseCatalogue c) {
         c.register(stationary("detonation", 20, Verse.UNLIMITED, VersePrototypes.BURST, 1, s -> s.addScreenshake(1.0D)));
+        c.register(carrier("held_word", 8, Verse.UNLIMITED, VersePrototypes.WORD_HELD, 3, PayloadKind.EPITAPH, 3));
     }
 }

@@ -18,5 +18,11 @@ public final class UtilityVerses {
             r.refreshPage();
             return VerseAction.NONE;
         }).asRecursive());
+        // LONG_DISTANCE_CAST: an expiration-trigger utility, -5 frames.
+        c.register(Verse.of("far_word", VerseType.UTILITY, 0, Verse.UNLIMITED, VersePrototypes.WORD_FAR, 1, Declared.of(1, -2, 0), (r, rec, it) -> {
+            r.addProjectileEpitaph(VersePrototypes.WORD_FAR, 1);
+            r.state().addBeat(-2);
+            return VerseAction.NONE;
+        }));
     }
 }
