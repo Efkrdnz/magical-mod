@@ -3,7 +3,6 @@ package com.efkrdnz.magical.client.screen.grimoire;
 import com.efkrdnz.magical.client.screen.CodexLayout.Rect;
 import com.efkrdnz.magical.magic.incantation.Grimoire;
 import com.efkrdnz.magical.magic.incantation.ReciteCaps;
-import com.efkrdnz.magical.magic.incantation.VerseType;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,8 +28,6 @@ import java.util.List;
 public final class GrimoireLayout {
 
     public static final int TAB_COUNT = Grimoire.SLOTS;
-    /** All, then one per verse type. */
-    public static final int CATEGORY_COUNT = VerseType.values().length + 1;
     public static final int SLOT_COUNT = ReciteCaps.MAX_VERSES;
 
     public static final int SCREEN_MARGIN = 6;
@@ -306,9 +303,9 @@ public final class GrimoireLayout {
     // ---- the controls and the reading -------------------------------------------------------------
 
     /** The breath at the row's left end, Save and Clear at its right. */
-    public record Controls(Rect breathLabel, Rect minus, Rect value, Rect plus, Rect save, Rect clear) {
+    public record Controls(Rect breathLabel, Rect minus, Rect value, Rect plus, Rect hint, Rect save, Rect clear) {
         public List<Rect> all() {
-            return List.of(breathLabel, minus, value, plus, save, clear);
+            return List.of(breathLabel, minus, value, plus, hint, save, clear);
         }
     }
 
@@ -316,8 +313,13 @@ public final class GrimoireLayout {
         return slotsY(visibleRows) + SLOT_H + CONTROLS_GAP;
     }
 
+    /**
+     * The breath and its steps at the row's left end, then a word on what the breath is where the
+     * row has room for it before the actions (zero wide where it has not), Save and Clear at the
+     * right end.
+     */
     public static Controls controls(int blockWidth, int visibleRows, int breathW, int minusW, int valueW, int plusW,
-            int saveW, int clearW) {
+            int hintW, int saveW, int clearW) {
         int y = controlsY(visibleRows);
         Rect row = slotsRow(blockWidth, visibleRows);
         int x = row.x();
@@ -328,9 +330,12 @@ public final class GrimoireLayout {
         Rect value = new Rect("value", x, y, valueW, LINE_H);
         x += valueW + CONTROL_GAP;
         Rect plus = new Rect("plus", x, y, plusW, LINE_H);
+        x += plusW + CONTROL_GAP;
         Rect clear = new Rect("clear", row.right() - clearW, y, clearW, LINE_H);
         Rect save = new Rect("save", clear.x() - ACTION_GAP - saveW, y, saveW, LINE_H);
-        return new Controls(breath, minus, value, plus, save, clear);
+        int room = save.x() - ACTION_GAP - x;
+        Rect hint = new Rect("hint", x, y, hintW <= room ? hintW : 0, LINE_H);
+        return new Controls(breath, minus, value, plus, hint, save, clear);
     }
 
     public static Rect reading(int blockWidth, int visibleRows) {

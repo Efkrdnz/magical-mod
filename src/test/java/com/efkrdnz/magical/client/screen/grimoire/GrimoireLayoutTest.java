@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.efkrdnz.magical.client.screen.CodexLayout.Rect;
 import com.efkrdnz.magical.magic.incantation.Grimoire;
 import com.efkrdnz.magical.magic.incantation.ReciteCaps;
-import com.efkrdnz.magical.magic.incantation.VerseType;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -26,7 +25,8 @@ class GrimoireLayoutTest {
     /** INCANTATION I to IV in capitals. */
     private static final int[] TAB_WIDTHS = {70, 74, 78, 76};
     /** All, Projectile, Static, Modifier, Multicast, Material, Control, Utility, Passive. */
-    private static final int[] CATEGORY_WORDS = {12, 51, 28, 39, 43, 39, 37, 27, 38};
+    /** All and the six types the catalogue has verses of, as the words measure. */
+    private static final int[] CATEGORY_WORDS = {12, 51, 28, 39, 43, 37, 27};
     private static final int COUNT = 100;
 
     private static void assertDisjoint(List<Rect> rects) {
@@ -68,14 +68,13 @@ class GrimoireLayoutTest {
     }
 
     private static GrimoireLayout.Controls controls(int blockWidth, int visibleRows) {
-        return GrimoireLayout.controls(blockWidth, visibleRows, 36, 6, 6, 6, 24, 27);
+        return GrimoireLayout.controls(blockWidth, visibleRows, 36, 6, 6, 6, 155, 24, 27);
     }
 
     @Test
     void theRowHasASlotForEveryVerseAnIncantationMayHoldAndATabPerSlot() {
         assertEquals(ReciteCaps.MAX_VERSES, GrimoireLayout.SLOT_COUNT);
         assertEquals(Grimoire.SLOTS, GrimoireLayout.TAB_COUNT);
-        assertEquals(VerseType.values().length + 1, GrimoireLayout.CATEGORY_COUNT);
     }
 
     @Test
@@ -150,7 +149,7 @@ class GrimoireLayoutTest {
     @Test
     void theCategoriesKeepTheirWordsWhereTheyFitAndGiveThemUpWhereTheyDoNot() {
         assertTrue(GrimoireLayout.categoriesFitWithWords(GrimoireLayout.blockWidth(640), CATEGORY_WORDS));
-        assertFalse(GrimoireLayout.categoriesFitWithWords(GrimoireLayout.blockWidth(427), CATEGORY_WORDS));
+        assertFalse(GrimoireLayout.categoriesFitWithWords(GrimoireLayout.blockWidth(320), CATEGORY_WORDS));
         int[] glyphsOnly = categoryWidths(GrimoireLayout.blockWidth(320));
         for (int w : glyphsOnly) {
             assertEquals(GrimoireLayout.ICON, w);
@@ -249,11 +248,20 @@ class GrimoireLayoutTest {
             assertEquals(row.x(), controls.breathLabel().x(), "the breath starts where the row does");
             assertEquals(row.right(), controls.clear().right(), "Clear ends where the row does");
             assertTrue(controls.plus().right() < controls.save().x(), "the breath runs into the actions at " + guiWidth);
+            if (guiWidth >= 640) {
+                assertTrue(controls.hint().w() > 0, "the wide row has room to say what the breath is");
+                assertTrue(controls.hint().right() + GrimoireLayout.ACTION_GAP <= controls.save().x(), "and the word keeps clear of Save");
+            } else if (guiWidth <= 320) {
+                assertEquals(0, controls.hint().w(), "the narrow row drops the word rather than run it into Save");
+            }
             for (Rect control : controls.all()) {
+                if (control.w() == 0) {
+                    continue;
+                }
                 assertTrue(GrimoireLayout.hit(control, cx(control), cy(control)), control.name() + " misses its own centre");
                 assertFalse(GrimoireLayout.hit(control, control.right() + 0.5D, cy(control)), control.name() + " answers past its edge");
             }
-            assertEquals(4, GrimoireLayout.indexAt(controls.all(), cx(controls.save()), cy(controls.save())));
+            assertEquals(5, GrimoireLayout.indexAt(controls.all(), cx(controls.save()), cy(controls.save())));
         }
     }
 

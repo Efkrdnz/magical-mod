@@ -1,6 +1,5 @@
 package com.efkrdnz.magical.client.screen.grimoire;
 
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.CATEGORY_COUNT;
 import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.CAPTION_LINES;
 import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.CATEGORY_GLYPH_GAP;
 import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.ICON;
@@ -153,7 +152,10 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured, H
     private static final int PENDING_TIMEOUT_TICKS = 60;
     private static final float LONG_AGO = -1.0e6F;
 
-    private static final VerseType[] TYPES = VerseType.values();
+    /** The types the catalogue has verses of, in their order: a category with nothing in it is not shown. */
+    private static final VerseType[] TYPES = VerseContent.CATALOGUE.types().toArray(new VerseType[0]);
+    /** All, then one per type shown. */
+    private static final int CATEGORY_COUNT = TYPES.length + 1;
     private static final VerseSymbols.Symbol[] CATEGORY_SYMBOLS = categorySymbols();
 
     /** Where the press in hand came from. */
@@ -301,7 +303,10 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured, H
         all.sort(Comparator.comparingInt((Verse verse) -> verse.type().ordinal()).thenComparing(Verse::path));
         Arrays.fill(counts, 0);
         for (Verse verse : all) {
-            counts[verse.type().ordinal()]++;
+            int index = typeIndex(verse.type());
+            if (index >= 0) {
+                counts[index]++;
+            }
         }
         library = all;
         if (category < 0) {
@@ -309,7 +314,7 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured, H
         } else {
             List<Verse> picked = new ArrayList<>(counts[category]);
             for (Verse verse : all) {
-                if (verse.type().ordinal() == category) {
+                if (verse.type() == TYPES[category]) {
                     picked.add(verse);
                 }
             }
@@ -483,9 +488,23 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured, H
         return Component.translatable("screen.magical.grimoire.clear").getString();
     }
 
+    private String breathHint() {
+        return Component.translatable("screen.magical.grimoire.breath_hint").getString();
+    }
+
     private Controls controlRects(Frame f) {
         return controls(f.width(), f.visibleRows(), font.width(breathLabel()), font.width("-"),
-                font.width(String.valueOf(breaths[slot])), font.width("+"), font.width(saveLabel()), font.width(clearLabel()));
+                font.width(String.valueOf(breaths[slot])), font.width("+"), font.width(breathHint()), font.width(saveLabel()),
+                font.width(clearLabel()));
+    }
+
+    private static int typeIndex(VerseType type) {
+        for (int i = 0; i < TYPES.length; i++) {
+            if (TYPES[i] == type) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     // ---- drawing --------------------------------------------------------------------------------
@@ -723,6 +742,9 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured, H
         g.drawString(font, String.valueOf(breaths[slot]), x0 + c.value().x(), y0 + c.value().y(), ink(TEXT_BRIGHT, fade), true);
         g.drawString(font, "+", x0 + c.plus().x(), y0 + c.plus().y(),
                 ink(canPlus ? (hit(c.plus(), lx, ly) ? TEXT_BRIGHT : TEXT_MUTED) : TEXT_FAINT, fade), true);
+        if (c.hint().w() > 0) {
+            g.drawString(font, breathHint(), x0 + c.hint().x(), y0 + c.hint().y(), ink(TEXT_FAINT, fade), true);
+        }
 
         boolean canSave = dirty[slot] && problem == null && pending[slot] < 0;
         boolean overSave = canSave && hit(c.save(), lx, ly);

@@ -43,6 +43,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.util.Mth;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -464,7 +465,11 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
         MagicDamageService.hurt(target, damageSources().indirectMagic(this, source), (float) amount, skillId);
     }
 
-    /** Everything living in the radius, the caster included, with falloff. */
+    /**
+     * Everything living in the radius, the caster included, with falloff measured from the nearest
+     * point of each body's box: a burst at a chest is a burst on that body, not on its feet a block
+     * and a half below, so a body lands what the reading says it lands.
+     */
     private void explode(ServerLevel level, Vec3 at, double radius, double damage) {
         Entity owner = ownerEntity();
         Entity source = owner == null ? this : owner;
@@ -474,7 +479,9 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
         }
         level.playSound(null, at.x, at.y, at.z, SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 0.6F, 1.3F);
         for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, new AABB(at, at).inflate(radius), LivingEntity::isAlive)) {
-            double distance = Math.sqrt(target.distanceToSqr(at));
+            AABB box = target.getBoundingBox();
+            Vec3 nearest = new Vec3(Mth.clamp(at.x, box.minX, box.maxX), Mth.clamp(at.y, box.minY, box.maxY), Mth.clamp(at.z, box.minZ, box.maxZ));
+            double distance = nearest.distanceTo(at);
             if (distance > radius) {
                 continue;
             }

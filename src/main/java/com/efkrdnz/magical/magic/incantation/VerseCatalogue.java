@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.magic.incantation;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -34,6 +35,11 @@ public final class VerseCatalogue {
 
     public List<Verse> ofType(VerseType type) {
         return verses.values().stream().filter(verse -> verse.type() == type).toList();
+    }
+
+    /** The types with at least one verse, in their declared order: what a category row shows. */
+    public List<VerseType> types() {
+        return Arrays.stream(VerseType.values()).filter(type -> !ofType(type).isEmpty()).toList();
     }
 
     public int size() {

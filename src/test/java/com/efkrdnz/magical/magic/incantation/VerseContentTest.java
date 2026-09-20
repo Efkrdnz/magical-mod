@@ -61,6 +61,8 @@ class VerseContentTest {
         assertEquals(25, c.ofType(VerseType.CONTROL).size());
         assertEquals(0, c.ofType(VerseType.MATERIAL).size());
         assertEquals(0, c.ofType(VerseType.PASSIVE).size());
+        assertEquals(java.util.List.of(VerseType.PROJECTILE, VerseType.STATIC, VerseType.MODIFIER, VerseType.MULTICAST,
+                VerseType.CONTROL, VerseType.UTILITY), c.types(), "the categories are the types with verses");
         assertEquals(100, c.size());
     }
 

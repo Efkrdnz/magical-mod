@@ -298,4 +298,28 @@ public final class VerseBodyGameTests {
             helper.succeed();
         });
     }
+
+    /**
+     * An orb carrying an explosion, on a golem: the golem takes the hit and the whole explosion,
+     * which is what the reading says it lands, because falloff is measured from the nearest point
+     * of the body reached and not from its feet, a block and a half below the burst.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "verse_12")
+    public static void aBodyLandsWhatTheReadingSays(GameTestHelper helper) {
+        ServerPlayer player = caster(helper, NEAR_STAND);
+        IronGolem golem = golem(helper, NEAR_VICTIM);
+        player.lookAt(EntityAnchorArgument.Anchor.EYES, golem.getEyePosition());
+        float health = golem.getHealth();
+        ShotPlan orb = shot(body(VersePrototypes.ORB, s -> {
+            s.addExplosionRadius(2.0D);
+            s.addExplosionDamage(3.0D);
+        }, PayloadKind.NONE, 0, null));
+        double reading = Landing.of(orb).damage();
+        helper.runAtTickTime(1, () -> spawnFromHand(helper, player, orb));
+        helper.runAtTickTime(10, () -> {
+            double landed = health - golem.getHealth();
+            helper.assertTrue(Math.abs(landed - reading) < 0.01D, "the golem took what the reading says, " + reading + ", not " + landed);
+            helper.succeed();
+        });
+    }
 }

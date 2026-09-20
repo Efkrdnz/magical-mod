@@ -678,6 +678,7 @@
   "screen.magical.grimoire.none_of_type": "You know no %s verses yet.",
   "screen.magical.grimoire.row_full": "The row is full: twenty verses is all a press can hold.",
   "screen.magical.grimoire.breath": "Breath",
+  "screen.magical.grimoire.breath_hint": "how many verses one press reads",
   "screen.magical.grimoire.empty_reading": "An empty row casts nothing.",
   "screen.magical.grimoire.would_cast": "A press would cast %s",
   "screen.magical.grimoire.bodies": "%s bodies",
