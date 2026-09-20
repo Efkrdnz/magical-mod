@@ -104,7 +104,10 @@ public final class HudLayers {
     static LayeredDraw.Layer gated(String section, LayeredDraw.Layer inner) {
         return (graphics, delta) -> {
             Minecraft minecraft = Minecraft.getInstance();
-            if (minecraft.player == null || minecraft.level == null || minecraft.options.hideGui) {
+            // A HudQuiet screen (the Grimoire) dims the world with no plate under it, so every
+            // layer steps aside while it is open rather than reading through its glyphs.
+            if (minecraft.player == null || minecraft.level == null || minecraft.options.hideGui
+                    || minecraft.screen instanceof HudQuiet) {
                 return;
             }
             ProfilerFiller profiler = Profiler.get();

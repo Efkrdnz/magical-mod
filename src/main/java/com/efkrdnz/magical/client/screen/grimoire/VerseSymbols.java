@@ -272,6 +272,17 @@ public final class VerseSymbols {
             ".##...##.",
             ".........",
             ".........");
+    /** The category row's first entry: every verse there is, as a grid of them. */
+    private static final Glyph EVERY = glyph("EVERY",
+            "##.##.##.",
+            "##.##.##.",
+            ".........",
+            "##.##.##.",
+            "##.##.##.",
+            ".........",
+            "##.##.##.",
+            "##.##.##.",
+            ".........");
 
     // ---- the glyphs verses own outright ----------------------------------------------------------
 
@@ -878,9 +889,14 @@ public final class VerseSymbols {
         return new Symbol(TYPES.get(type), null, 0);
     }
 
-    /** The glyph the rail shows for a type, and the last fallback for a verse of it. */
+    /** The glyph the category row shows for a type, and the last fallback for a verse of it. */
     public static Glyph forType(VerseType type) {
         return TYPES.get(type);
+    }
+
+    /** The glyph of the category that is no filter at all. */
+    public static Glyph all() {
+        return EVERY;
     }
 
     /** The glyph a body of this look wears when its verse has no row of its own. */

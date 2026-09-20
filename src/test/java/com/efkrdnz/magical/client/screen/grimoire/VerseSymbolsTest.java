@@ -66,14 +66,17 @@ class VerseSymbolsTest {
     }
 
     @Test
-    void theRailHasADistinctGlyphPerType() {
+    void theCategoryRowHasADistinctGlyphPerTypeAndOneForAll() {
         Set<String> names = new HashSet<>();
         for (VerseType type : VerseType.values()) {
             VerseSymbols.Glyph glyph = VerseSymbols.forType(type);
-            assertNotNull(glyph, type + " has no rail glyph");
-            assertTrue(glyph.litCount() > 0, type + " has a blank rail glyph");
-            assertTrue(names.add(glyph.name()), type + " shares its rail glyph " + glyph.name());
+            assertNotNull(glyph, type + " has no category glyph");
+            assertTrue(glyph.litCount() > 0, type + " has a blank category glyph");
+            assertTrue(names.add(glyph.name()), type + " shares its category glyph " + glyph.name());
         }
+        VerseSymbols.Glyph all = VerseSymbols.all();
+        assertTrue(all.litCount() > 0, "All has a blank glyph");
+        assertTrue(names.add(all.name()), "All shares a type's glyph");
     }
 
     @Test

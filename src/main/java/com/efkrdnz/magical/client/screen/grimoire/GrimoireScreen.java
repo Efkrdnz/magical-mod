@@ -1,59 +1,53 @@
 package com.efkrdnz.magical.client.screen.grimoire;
 
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.BREATH_LABEL_Y;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.LINES;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.LINE_STRIDE;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.MARGIN_X;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.PAGE_LABEL_Y;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.PAGE_W;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.PAGE_X;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.PAGE_Y;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.PANEL_H;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.PANEL_W;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.RAIL_BUTTON;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.RAIL_COUNT;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.RAIL_X;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.SHELF_LABEL_Y;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.SHELF_ROWS;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.SHELF_STRIDE;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.SHELF_W;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.SHELF_X;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.SHELF_Y;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.CATEGORY_COUNT;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.CATEGORY_GLYPH_GAP;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.ICON;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.LINE_H;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.RULE_H;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.SLOT_COUNT;
 import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.TAB_COUNT;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.TOOLTIP_W;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.back;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.breathMinus;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.breathPlus;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.breathValue;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.clampScroll;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.clear;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.TAB_Y;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.approach;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.block;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.blockWidth;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.caption;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.categories;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.categoriesFitWithWords;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.categoryWidth;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.clampGridScroll;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.controls;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.ease;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.easeOut;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.gridArea;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.gridCell;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.gridColumns;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.gridIcon;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.gridIndexAt;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.gridRows;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.gridRowsVisible;
 import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.hit;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.insertionIndexAt;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.line;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.lineAt;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.lineStrike;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.overPage;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.pageHint;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.railAt;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.railButton;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.indexAt;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.overRow;
 import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.reading;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.save;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.shelfHint;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.shelfRow;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.shelfRowAt;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.shelfScrollbar;
-import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.tabAt;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.slot;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.slotAt;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.slotBar;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.slotInsertionAt;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.slotStride;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.slotSymbol;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.tabRule;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.tabs;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.tabsFitWithWords;
 
 import com.efkrdnz.magical.client.ClientMagicState;
 import com.efkrdnz.magical.client.hud.HudDebug;
+import com.efkrdnz.magical.client.hud.HudQuiet;
+import com.efkrdnz.magical.client.hud.MagicalClientConfig;
 import com.efkrdnz.magical.client.screen.CodexLayout.Rect;
-import com.efkrdnz.magical.client.screen.MagicalGuiStyle;
-import com.efkrdnz.magical.client.screen.ScreenChrome;
-import com.efkrdnz.magical.magic.AuthorityContent;
-import com.efkrdnz.magical.magic.AuthorityDefinition;
+import com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.Controls;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.PlayerMagicState;
-import com.efkrdnz.magical.magic.incantation.Grimoire;
 import com.efkrdnz.magical.magic.incantation.Incantation;
 import com.efkrdnz.magical.magic.incantation.IncantationService;
 import com.efkrdnz.magical.magic.incantation.IncantationValidator;
@@ -79,87 +73,131 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.Mth;
 
 /**
- * The Grimoire: where the four incantations are written by hand.
+ * The Grimoire: where the four incantations are written, over the world.
  *
- * <p>A plain {@link Screen} with no menu behind it, like the creator. It reads the synced player
- * state (the Grimoire rides in it) and the one thing it changes goes over
- * {@code SetIncantationPayload}, which the server validates again before a byte is written. Each
- * tab is one incantation slot; the rail on the far left is one glyph per verse type and filters the
- * shelf beside it, which is every verse the wielder knows; the page in the middle is the lines
- * written so far, and the margin carries the breath, the reading and the buttons. The reading is
- * the real evaluator: the pure {@code Reciter} run on a copy of the page against the assumed world,
- * so the screen says on every change exactly what the server would cast.
+ * <p>Drawn the way the Manipulate Space selector is: no panel, no plate and no frame. The world is
+ * dimmed and everything is text and glyphs on it, every string with vanilla's drop shadow, which is
+ * what lets it sit on daylight terrain unbacked. The modded HUD stands down while it is open
+ * ({@link HudQuiet}). One line of tabs, one incantation each; one line of categories, All and the
+ * eight types; the verses the wielder knows as a grid of their {@link VerseSymbols} symbols, spaced,
+ * in their types' colours; a caption naming whatever the cursor is over; and the incantation itself
+ * as a <b>row of twenty slots</b>, each an underline to be written on, the first {@code breath} of
+ * them lit because those are what one press reads. Under it the breath, Save and Clear as words,
+ * and the reading: the pure {@code Reciter} run on a copy of the row, so the screen says on every
+ * change exactly what the server would cast.
  *
- * <p>Writing is drag and drop. A press on a shelf verse or a page line is held in hand; once it has
- * travelled {@link #DRAG_THRESHOLD} it is a drag, and where it is released decides: a shelf verse
- * dropped on the page is written at the line boundary nearest the cursor
- * ({@link GrimoireLayout#insertionIndexAt}), a line dropped elsewhere on the page moves there, a
- * line dropped off the page is struck. A press that never travels is a click: a shelf verse is
- * written at the end, the x at the end of a line strikes it. Every verse is drawn with its
- * {@link VerseSymbols} symbol, so the page reads as a line of glyphs before a name is read.
+ * <p>Writing is drag and drop. Press a verse in the grid, or a written slot, and it is in hand; once
+ * the cursor has travelled {@link #DRAG_THRESHOLD} it is a drag and a ghost of the verse rides
+ * beside the cursor. Over the row the written verses <em>part</em> to make a place for it, sliding
+ * one slot right of the boundary nearest the cursor, and the empty underline there brightens; let go
+ * and it is set down with a small overshoot. A slot dragged elsewhere on the row is reordered the
+ * same way; dragged off the row it falls away and the row closes over it. A press that never travels
+ * is a click: a grid verse is written at the end, and a right-click on a slot strikes it.
  *
- * <p>Edits live on the screen per slot until Save sends them; the saved copy is reloaded from the
- * state only for a slot with nothing pending, so a mana tick arriving mid-edit clobbers nothing.
+ * <p>Everything else that moves says what just happened and nothing more: the grid deals its
+ * symbols in when the category changes, the tab mark slides to the tab that was chosen, a hovered
+ * symbol grows, Save runs one bright sweep along the underlines as the incantation is read, and
+ * reduced motion cuts every one of these to its final frame.
+ *
+ * <p>Edits live on the screen per tab until Save sends them; the saved copy is reloaded from the
+ * state only for a tab with nothing pending, so a mana tick arriving mid-edit clobbers nothing.
  */
-public final class GrimoireScreen extends Screen implements HudDebug.Captured {
-    private static final int SLOTS = Grimoire.SLOTS;
-    private static final int PENDING_TIMEOUT_TICKS = 60;
-    private static final int ACCENT = MagicalGuiStyle.ACCENT_ARCANE;
-    private static final int SAVE_BASE = 0xFF6A3F84;
-    private static final int DISABLED_BASE = 0xFF27354A;
-    private static final int BLOCKED_BASE = 0xFF4A2730;
-    private static final int CLEAR_BASE = 0xFF2A1A20;
-    private static final int STEP_BASE = 0xFF27354A;
-    private static final int RAIL_BASE = 0xFF1B2433;
-    private static final int RAIL_HOVER_BASE = 0xFF27354A;
-    private static final int RAIL_LIT_BASE = 0xFF3A5A8A;
-    private static final int BADGE_BACK = 0xFF0B0F16;
-    private static final int GHOST_BACK = 0xE60F151F;
+public final class GrimoireScreen extends Screen implements HudDebug.Captured, HudQuiet {
+
+    /** One colour for the whole thing: the Authority of Mana's own light. */
+    private static final int ACCENT = 0xF0F4FF;
+    /** The world is dimmed rather than covered; the same scrim as the rule selector. */
+    private static final int SCRIM = 0xA6060B14;
+    private static final int TEXT_BRIGHT = 0xFFFFFF;
+    private static final int TEXT_NEAR = 0xC9D8E6;
+    private static final int TEXT_MUTED = 0x8494A6;
+    private static final int TEXT_FAINT = 0x55626F;
+    /** An empty slot's underline, and what a glyph fades toward: the dimmed world behind it. */
+    private static final int BLANK_INK = 0x3A4450;
+    private static final int BADGE_BACK = 0x0B0F16;
     private static final int REFUSED_RED = 0xFF6B7B;
     private static final int FRAYED_ORANGE = 0xFFB86C;
     private static final int REFUND_GREEN = 0x8FE3A0;
-    private static final int LINE_PX = 11;
-    private static final int LINE_TEXT_DY = 1;
-    private static final int LINE_SYMBOL_DX = 2;
-    private static final int LINE_SYMBOL_DY = 1;
-    private static final int LINE_TEXT_DX = 13;
-    private static final int SHELF_SYMBOL_DX = 3;
-    private static final int SHELF_SYMBOL_DY = 5;
-    private static final int SHELF_TEXT_DX = 16;
-    private static final int RAIL_SYMBOL_D = (RAIL_BUTTON - VerseSymbols.SIZE) / 2;
-    private static final int BADGE_PAD = 1;
-    private static final int GHOST_H = 13;
-    private static final int GHOST_DX = 10;
+
+    // ---- motion, in ticks -------------------------------------------------------------------------
+
+    private static final float FADE_IN_TICKS = 4.0F;
+    /** A symbol dealt onto the grid or the row rises this far into its place. */
+    private static final float DEAL_TICKS = 5.0F;
+    private static final float DEAL_RISE = 5.0F;
+    private static final float DEAL_STAGGER = 0.12F;
+    private static final int DEAL_STAGGER_CAP = 48;
+    private static final float SLOT_STAGGER = 0.5F;
+    private static final float HOVER_SCALE = 1.6F;
+    private static final float HOVER_HALF_LIFE = 1.2F;
+    /** How fast the row parts and closes. */
+    private static final float PART_HALF_LIFE = 1.0F;
+    private static final float LAND_TICKS = 6.0F;
+    private static final float FALL_TICKS = 5.0F;
+    private static final float FALL_DROP = 8.0F;
+    private static final float FOCUS_SLIDE_TICKS = 4.0F;
+    private static final float SWEEP_TICKS = 3.0F;
+    private static final float SWEEP_STAGGER = 0.35F;
+    private static final float PULSE_PERIOD = 14.0F;
+    private static final float GHOST_SCALE = 1.6F;
+    private static final int GHOST_DX = 12;
     /** A press that travels this far becomes a drag; short of it, it is a click. */
     private static final double DRAG_THRESHOLD = 3.0D;
+    private static final int PENDING_TIMEOUT_TICKS = 60;
+    private static final float LONG_AGO = -1.0e6F;
+
     private static final VerseType[] TYPES = VerseType.values();
-    private static final VerseSymbols.Symbol[] RAIL_SYMBOLS = railSymbols();
+    private static final VerseSymbols.Symbol[] CATEGORY_SYMBOLS = categorySymbols();
 
     /** Where the press in hand came from. */
-    private enum DragSource { SHELF, PAGE }
+    private enum DragSource { GRID, ROW }
 
-    private int leftPos;
-    private int topPos;
+    private record Line(String text, int rgb) {}
+
+    /** The block this frame: its width, the grid's shape, and where it sits on the screen. */
+    private record Frame(int width, int columns, int rows, int visibleRows, int x0, int y0) {}
+
     private int slot;
-    /** Every verse the wielder knows, in shelf order. */
+    /** -1 for All, else the ordinal of the one type shown. */
+    private int category = -1;
+    /** Every verse the wielder knows, by type then name. */
     private List<Verse> library = List.of();
-    /** The library, or the one type of it the rail has picked. */
+    /** The library, or the one type of it the category row has picked. */
     private List<Verse> shelf = List.of();
-    private final int[] counts = new int[RAIL_COUNT];
-    /** The type the rail has picked, null for all of them. */
-    private VerseType category;
-    private int shelfScroll;
-    private final List<List<ResourceLocation>> pages = new ArrayList<>(SLOTS);
-    private final int[] breaths = new int[SLOTS];
-    private final boolean[] dirty = new boolean[SLOTS];
-    /** Ticks since Save sent a slot, -1 when nothing is in flight. */
-    private final int[] pending = new int[SLOTS];
+    private final int[] counts = new int[TYPES.length];
+    private int gridScroll;
+    /** How far each grid symbol has grown toward its hovered size, 0..1. */
+    private float[] grow = new float[0];
+    private final List<List<ResourceLocation>> pages = new ArrayList<>(TAB_COUNT);
+    private final int[] breaths = new int[TAB_COUNT];
+    private final boolean[] dirty = new boolean[TAB_COUNT];
+    /** Ticks since Save sent a tab, -1 when nothing is in flight. */
+    private final int[] pending = new int[TAB_COUNT];
     private int seenVersion = Integer.MIN_VALUE;
-    private RecitePlan reading;
+    private RecitePlan plan;
     private IncantationValidator.Finding problem;
+
+    // clocks
+    private boolean opened;
+    private float openedAt;
+    private float gridDealtAt;
+    private float slotsDealtAt;
+    private float focusAt;
+    private int focusFrom;
+    private float lastFrame;
+    private float savedAt = LONG_AGO;
+    /** Where each written symbol is drawn relative to its slot, gliding toward where it belongs. */
+    private final float[] slotShift = new float[SLOT_COUNT];
+    private final float[] landedAt = new float[SLOT_COUNT];
+    /** A struck symbol on its way down. */
+    private Verse fallen;
+    private float fallX;
+    private float fallY;
+    private float fallAt = LONG_AGO;
+
     // the press in hand
     private DragSource dragSource;
     private ResourceLocation dragId;
@@ -168,15 +206,14 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured {
     private double pressY;
     private boolean dragging;
 
-    private record Line(Component text, int color) {}
-
     public GrimoireScreen() {
         super(Component.translatable("screen.magical.grimoire"));
-        for (int s = 0; s < SLOTS; s++) {
+        for (int s = 0; s < TAB_COUNT; s++) {
             pages.add(new ArrayList<>());
             breaths[s] = ReciteCaps.MIN_BREATH;
             pending[s] = -1;
         }
+        Arrays.fill(landedAt, LONG_AGO);
     }
 
     /** The one way in. Closes whatever container is open first, which also tells the server. */
@@ -193,11 +230,18 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured {
 
     @Override
     protected void init() {
-        leftPos = (width - PANEL_W) / 2;
-        topPos = (height - PANEL_H) / 2;
+        float now = now();
+        if (!opened) {
+            opened = true;
+            openedAt = now;
+            gridDealtAt = now;
+            slotsDealtAt = now;
+            focusAt = LONG_AGO;
+            lastFrame = now;
+        }
         seenVersion = ClientMagicState.version();
         refreshShelf();
-        for (int s = 0; s < SLOTS; s++) {
+        for (int s = 0; s < TAB_COUNT; s++) {
             if (!dirty[s] && pending[s] < 0) {
                 load(s);
             }
@@ -219,7 +263,7 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured {
             seenVersion = ClientMagicState.version();
             refreshShelf();
         }
-        for (int s = 0; s < SLOTS; s++) {
+        for (int s = 0; s < TAB_COUNT; s++) {
             if (pending[s] >= 0) {
                 if (changed && matchesState(s)) {
                     pending[s] = -1;
@@ -241,7 +285,7 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured {
 
     // ---- state -----------------------------------------------------------------------------------
 
-    /** The library from the state, sorted by type then name, and the shelf as the rail filters it. */
+    /** The library from the state, sorted by type then name, and the grid as the category row filters it. */
     private void refreshShelf() {
         List<Verse> all = new ArrayList<>();
         for (ResourceLocation id : state().grimoire().known()) {
@@ -256,18 +300,20 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured {
             counts[verse.type().ordinal()]++;
         }
         library = all;
-        if (category == null) {
+        if (category < 0) {
             shelf = all;
         } else {
-            List<Verse> picked = new ArrayList<>(counts[category.ordinal()]);
+            List<Verse> picked = new ArrayList<>(counts[category]);
             for (Verse verse : all) {
-                if (verse.type() == category) {
+                if (verse.type().ordinal() == category) {
                     picked.add(verse);
                 }
             }
             shelf = picked;
         }
-        shelfScroll = clampScroll(shelfScroll, shelf.size(), SHELF_ROWS);
+        grow = new float[shelf.size()];
+        Frame f = frame();
+        gridScroll = clampGridScroll(gridScroll, f.rows(), f.visibleRows());
     }
 
     private void load(int s) {
@@ -281,7 +327,7 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured {
         dirty[s] = false;
     }
 
-    /** Whether the state now holds exactly what the screen sent for a slot: the write landed. */
+    /** Whether the state now holds exactly what the screen sent for a tab: the write landed. */
     private boolean matchesState(int s) {
         Incantation incantation = state().grimoire().incantation(s);
         List<Incantation.Entry> entries = incantation.entries();
@@ -302,9 +348,9 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured {
     }
 
     /**
-     * Reads the current page the way a press would: the validator first (the same one the server
-     * runs), then the Reciter on a copy against the assumed world, so nothing here spends a use,
-     * a heart or the Grimoire's toggle.
+     * Reads the row the way a press would: the validator first (the same one the server runs),
+     * then the Reciter on a copy against the assumed world, so nothing here spends a use, a heart
+     * or the Grimoire's toggle.
      */
     private void reread() {
         PlayerMagicState state = state();
@@ -312,7 +358,7 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured {
         List<IncantationValidator.Finding> findings =
                 IncantationValidator.problems(page, breaths[slot], state.grimoire().known(), VerseContent.CATALOGUE);
         problem = findings.isEmpty() ? null : findings.get(0);
-        reading = null;
+        plan = null;
         if (problem != null || page.isEmpty()) {
             return;
         }
@@ -322,7 +368,7 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured {
         }
         MagicSkillDefinition skill = IncantationService.skillFor(slot);
         double costScale = skill.resolve(state.tuningFor(skill.id())).costScale();
-        reading = Reciter.recite(ReciteSession.of(copy, VerseContent.CATALOGUE), breaths[slot], state.mana(), costScale,
+        plan = Reciter.recite(ReciteSession.of(copy, VerseContent.CATALOGUE), breaths[slot], state.mana(), costScale,
                 new PreviewReciteWorld(state.grimoire(), slot, VerseContent.CATALOGUE));
     }
 
@@ -341,151 +387,468 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured {
         }
         MagicalNetwork.sendIncantation(slot, breaths[slot], ids);
         pending[slot] = 0;
+        savedAt = now();
+    }
+
+    private void setBreath(int breath) {
+        int clamped = clampBreath(breath);
+        if (clamped != breaths[slot]) {
+            breaths[slot] = clamped;
+            touched();
+        }
+    }
+
+    // ---- geometry ---------------------------------------------------------------------------------
+
+    private Frame frame() {
+        int w = blockWidth(width);
+        int columns = gridColumns(w);
+        int rows = gridRows(shelf.size(), columns);
+        // The block is sized for everything the wielder knows, not for the category shown, so
+        // picking one never moves the row or the words under it.
+        int visible = gridRowsVisible(height, gridRows(library.size(), columns));
+        Rect b = block(width, height, visible);
+        return new Frame(w, columns, rows, visible, b.x(), b.y());
+    }
+
+    /** The incantations' names in capitals, or their numerals alone where four names will not fit the block. */
+    private String[] tabLabels(Frame f) {
+        String[] labels = new String[TAB_COUNT];
+        for (int s = 0; s < TAB_COUNT; s++) {
+            labels[s] = Component.translatable(IncantationService.skillFor(s).nameKey()).getString().toUpperCase(Locale.ROOT);
+        }
+        if (!tabsFitWithWords(f.width(), widths(labels))) {
+            for (int s = 0; s < TAB_COUNT; s++) {
+                int space = labels[s].lastIndexOf(' ');
+                labels[s] = space < 0 ? labels[s] : labels[s].substring(space + 1);
+            }
+        }
+        return labels;
+    }
+
+    private int[] widths(String[] words) {
+        int[] widths = new int[words.length];
+        for (int i = 0; i < words.length; i++) {
+            widths[i] = font.width(words[i]);
+        }
+        return widths;
+    }
+
+    private List<Rect> tabRects(Frame f, String[] labels) {
+        return tabs(f.width(), widths(labels));
+    }
+
+    private String categoryWord(int c) {
+        return c == 0 ? Component.translatable("screen.magical.grimoire.all").getString() : typeName(TYPES[c - 1]).getString();
+    }
+
+    private int[] categoryWordWidths() {
+        int[] widths = new int[CATEGORY_COUNT];
+        for (int c = 0; c < CATEGORY_COUNT; c++) {
+            widths[c] = font.width(categoryWord(c));
+        }
+        return widths;
+    }
+
+    private boolean categoryWordsShown(Frame f) {
+        return categoriesFitWithWords(f.width(), categoryWordWidths());
+    }
+
+    private List<Rect> categoryRects(Frame f) {
+        int[] words = categoryWordWidths();
+        boolean shown = categoriesFitWithWords(f.width(), words);
+        int[] widths = new int[CATEGORY_COUNT];
+        for (int c = 0; c < CATEGORY_COUNT; c++) {
+            widths[c] = shown ? categoryWidth(words[c]) : ICON;
+        }
+        return categories(f.width(), widths);
+    }
+
+    private String breathLabel() {
+        return Component.translatable("screen.magical.grimoire.breath").getString().toUpperCase(Locale.ROOT);
+    }
+
+    private String saveLabel() {
+        if (pending[slot] >= 0) {
+            return Component.translatable("screen.magical.grimoire.saving").getString();
+        }
+        return Component.translatable(dirty[slot] ? "screen.magical.grimoire.save" : "screen.magical.grimoire.saved").getString();
+    }
+
+    private String clearLabel() {
+        return Component.translatable("screen.magical.grimoire.clear").getString();
+    }
+
+    private Controls controlRects(Frame f) {
+        return controls(f.width(), f.visibleRows(), font.width(breathLabel()), font.width("-"),
+                font.width(String.valueOf(breaths[slot])), font.width("+"), font.width(saveLabel()), font.width(clearLabel()));
     }
 
     // ---- drawing --------------------------------------------------------------------------------
 
+    /** Only the scrim: no blur and no vanilla gradient, so the world reads through as it does under the selector. */
+    @Override
+    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partial) {
+        float fade = motion(easeOut((now() - openedAt) / FADE_IN_TICKS));
+        g.fill(0, 0, width, height, withAlpha(SCRIM, Math.round((SCRIM >>> 24) * fade)));
+    }
+
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
         super.render(g, mouseX, mouseY, partial);
-        PlayerMagicState state = state();
-        int x0 = leftPos;
-        int y0 = topPos;
-        double lx = mouseX - x0;
-        double ly = mouseY - y0;
+        float now = now();
+        float dt = Mth.clamp(now - lastFrame, 0.0F, 2.0F);
+        lastFrame = now;
+        float fade = motion(easeOut((now - openedAt) / FADE_IN_TICKS));
+        Frame f = frame();
+        double lx = mouseX - f.x0();
+        double ly = mouseY - f.y0();
+        int hovered = dragging ? -1 : gridIndexAt(f.width(), f.columns(), f.visibleRows(), gridScroll, shelf.size(), lx, ly);
 
-        MagicalGuiStyle.screenBackground(g, x0, y0, x0 + PANEL_W, y0 + PANEL_H);
-        ScreenChrome.paintHeader(g, font, x0, y0, ACCENT, manaFraction(state), Component.translatable("screen.magical.back"));
-        ScreenChrome.paintTabs(g, x0, y0, TAB_COUNT, slot);
-        ScreenChrome.paintBody(g, x0, y0, ACCENT);
-        paintRail(g, x0, y0, lx, ly);
-        paintShelf(g, x0, y0, lx, ly);
-        paintPage(g, x0, y0, lx, ly);
-        paintMargin(g, x0, y0);
-
-        ScreenChrome.textHeader(g, font, x0, y0, getTitle(), authorityName(state), ACCENT, manaLabel(state));
-        ScreenChrome.textTabs(g, font, x0, y0, tabLabels(), slot);
-        textShelf(g, x0, y0);
-        textPage(g, x0, y0, lx, ly);
-        textMargin(g, x0, y0);
-
+        paintTabs(g, f, now, fade, lx, ly);
+        paintCategories(g, f, fade, lx, ly);
+        paintGrid(g, f, now, dt, fade, hovered);
+        paintCaption(g, f, fade, hovered, lx, ly);
+        paintRow(g, f, now, dt, fade, lx, ly);
+        paintControls(g, f, fade, lx, ly);
+        paintReading(g, f, fade);
+        paintFallen(g, now, fade);
         if (dragging) {
             paintGhost(g, mouseX, mouseY);
+        }
+    }
+
+    /** The four incantations as words, the open one lit, the mark part way from the last one to it, and the pool at the block's end. */
+    private void paintTabs(GuiGraphics g, Frame f, float now, float fade, double lx, double ly) {
+        String[] labels = tabLabels(f);
+        List<Rect> rects = tabRects(f, labels);
+        int hoveredTab = dragging ? -1 : indexAt(rects, lx, ly);
+        for (int s = 0; s < TAB_COUNT; s++) {
+            Rect r = rects.get(s);
+            int rgb = s == slot ? ACCENT : s == hoveredTab ? TEXT_NEAR : TEXT_FAINT;
+            String label = font.plainSubstrByWidth(labels[s], r.w());
+            g.drawString(font, label, f.x0() + r.x(), f.y0() + r.y(), ink(rgb, fade), true);
+            if (dirty[s] || pending[s] >= 0) {
+                // A tab with unsaved writing carries a spark after its name.
+                int dx = f.x0() + r.x() + font.width(label) + 3;
+                int dy = f.y0() + r.y() + 3;
+                g.fill(dx, dy, dx + 2, dy + 2, ink(pending[s] >= 0 ? TEXT_MUTED : ACCENT, fade));
+            }
+        }
+        float travel = motion(easeOut((now - focusAt) / FOCUS_SLIDE_TICKS));
+        Rect from = tabRule(rects.get(focusFrom));
+        Rect to = tabRule(rects.get(slot));
+        int x = Math.round(Mth.lerp(travel, from.x(), to.x()));
+        int w = Math.round(Mth.lerp(travel, from.w(), to.w()));
+        g.fill(f.x0() + x, f.y0() + to.y(), f.x0() + x + w, f.y0() + to.y() + RULE_H, ink(ACCENT, fade));
+
+        PlayerMagicState state = state();
+        String pool = Component.translatable("screen.magical.grimoire.mana_pool", state.mana(), state.maxMana()).getString();
+        int poolW = font.width(pool);
+        if (rects.get(TAB_COUNT - 1).right() + 12 <= f.width() - poolW) {
+            g.drawString(font, pool, f.x0() + f.width() - poolW, f.y0() + TAB_Y, ink(TEXT_FAINT, fade), true);
+        }
+    }
+
+    /** All and the eight types, each its glyph in its colour and its word beside it where the row is wide enough. */
+    private void paintCategories(GuiGraphics g, Frame f, float fade, double lx, double ly) {
+        List<Rect> rects = categoryRects(f);
+        boolean words = categoryWordsShown(f);
+        int hoveredCat = dragging ? -1 : indexAt(rects, lx, ly);
+        for (int c = 0; c < CATEGORY_COUNT; c++) {
+            Rect r = rects.get(c);
+            boolean lit = c == 0 ? category < 0 : category == c - 1;
+            boolean known = c == 0 ? !library.isEmpty() : counts[c - 1] > 0;
+            int typeRgb = c == 0 ? TEXT_NEAR : typeColor(TYPES[c - 1]);
+            float strength = lit ? 1.0F : hoveredCat == c ? 0.8F : known ? 0.5F : 0.25F;
+            drawSymbol(g, CATEGORY_SYMBOLS[c], f.x0() + r.x(), f.y0() + r.y(), 1.0F, mix(BLANK_INK, typeRgb, strength), fade);
+            if (words) {
+                int wordRgb = lit ? TEXT_BRIGHT : hoveredCat == c ? TEXT_NEAR : known ? TEXT_MUTED : TEXT_FAINT;
+                String word = font.plainSubstrByWidth(categoryWord(c), Math.max(1, r.w() - ICON - CATEGORY_GLYPH_GAP));
+                g.drawString(font, word, f.x0() + r.x() + ICON + CATEGORY_GLYPH_GAP, f.y0() + r.y(), ink(wordRgb, fade), true);
+            }
+        }
+    }
+
+    /** The known verses as symbols, dealt in with a stagger, the hovered one grown and drawn last so it sits over its neighbours. */
+    private void paintGrid(GuiGraphics g, Frame f, float now, float dt, float fade, int hovered) {
+        if (grow.length != shelf.size()) {
+            grow = new float[shelf.size()];
+        }
+        Rect area = gridArea(f.width(), f.columns(), f.visibleRows());
+        int first = gridScroll * f.columns();
+        int last = Math.min(shelf.size(), first + f.visibleRows() * f.columns());
+        g.enableScissor(f.x0() + area.x(), f.y0() + area.y(), f.x0() + area.right(), f.y0() + area.bottom());
+        for (int i = first; i < last; i++) {
+            grow[i] = approach(grow[i], i == hovered ? 1.0F : 0.0F, dt, halfLife(HOVER_HALF_LIFE));
+            if (i != hovered) {
+                paintGridSymbol(g, f, i, now, fade);
+            }
+        }
+        if (hovered >= first && hovered < last) {
+            paintGridSymbol(g, f, hovered, now, fade);
+        }
+        g.disableScissor();
+    }
+
+    private void paintGridSymbol(GuiGraphics g, Frame f, int i, float now, float fade) {
+        Verse verse = shelf.get(i);
+        Rect icon = gridIcon(gridCell(f.width(), f.columns(), i, gridScroll));
+        float deal = motion(easeOut((now - gridDealtAt - Math.min(i, DEAL_STAGGER_CAP) * DEAL_STAGGER) / DEAL_TICKS));
+        float scale = 1.0F + (HOVER_SCALE - 1.0F) * grow[i];
+        float cx = f.x0() + icon.x() + ICON / 2.0F;
+        float cy = f.y0() + icon.y() + ICON / 2.0F + (1.0F - deal) * DEAL_RISE;
+        drawSymbol(g, VerseSymbols.of(verse), cx - ICON * scale / 2.0F, cy - ICON * scale / 2.0F, scale,
+                typeColor(verse.type()), fade * deal);
+    }
+
+    /** Names what the cursor is over - a grid verse, a written slot, the verse in hand - or says how to begin. */
+    private void paintCaption(GuiGraphics g, Frame f, float fade, int hovered, double lx, double ly) {
+        Rect r = caption(f.width(), f.visibleRows());
+        int cx = f.x0() + f.width() / 2;
+        int y = f.y0() + r.y();
+        List<ResourceLocation> page = pages.get(slot);
+        Verse verse = null;
+        if (dragging) {
+            verse = verse(dragId);
+        } else if (hovered >= 0) {
+            verse = shelf.get(hovered);
+        } else {
+            int over = slotAt(f.width(), f.visibleRows(), lx, ly);
+            if (over >= 0 && over < page.size()) {
+                verse = verse(page.get(over));
+            }
+        }
+        if (verse != null) {
+            if (dragging && dragSource == DragSource.GRID && page.size() >= SLOT_COUNT) {
+                g.drawCenteredString(font, Component.translatable("screen.magical.grimoire.row_full").getString(), cx, y, ink(REFUSED_RED, fade));
+                return;
+            }
+            String name = name(verse.id()).getString();
+            String detail = typeAndMana(verse).getString();
+            int gap = 8;
+            int x = cx - (font.width(name) + gap + font.width(detail)) / 2;
+            g.drawString(font, name, x, y, ink(typeColor(verse.type()), fade), true);
+            g.drawString(font, detail, x + font.width(name) + gap, y, ink(TEXT_MUTED, fade), true);
             return;
         }
-        List<Component> tooltip = tooltipAt(lx, ly);
-        if (!tooltip.isEmpty()) {
-            List<FormattedCharSequence> lines = new ArrayList<>();
-            for (Component line : tooltip) {
-                lines.addAll(font.split(line, TOOLTIP_W));
-            }
-            g.renderTooltip(font, lines, mouseX, mouseY);
+        String hint;
+        if (library.isEmpty()) {
+            hint = Component.translatable("screen.magical.grimoire.no_verses").getString();
+        } else if (shelf.isEmpty()) {
+            hint = Component.translatable("screen.magical.grimoire.none_of_type", typeName(TYPES[category])).getString();
+        } else {
+            hint = Component.translatable("screen.magical.grimoire.hint").getString();
         }
+        g.drawCenteredString(font, font.plainSubstrByWidth(hint, f.width()), cx, y, ink(TEXT_FAINT, fade));
     }
 
-    /** One button per type, its glyph in the type's colour, lit when it is the filter and dim when nothing of it is known. */
-    private void paintRail(GuiGraphics g, int x0, int y0, double lx, double ly) {
-        int hovered = dragging ? -1 : railAt(lx, ly);
-        for (int i = 0; i < RAIL_COUNT; i++) {
-            Rect button = railButton(i);
-            VerseType type = TYPES[i];
-            boolean lit = category == type;
-            int base = lit ? RAIL_LIT_BASE : i == hovered ? RAIL_HOVER_BASE : RAIL_BASE;
-            MagicalGuiStyle.button(g, font, x0 + button.x(), y0 + button.y(), button.w(), button.h(), base, Component.empty());
-            int color = counts[i] == 0 && !lit ? MagicalGuiStyle.TEXT_MUTED : typeColor(type);
-            drawSymbol(g, RAIL_SYMBOLS[i], x0 + button.x() + RAIL_SYMBOL_D, y0 + button.y() + RAIL_SYMBOL_D, color);
-        }
-    }
-
-    private void paintShelf(GuiGraphics g, int x0, int y0, double lx, double ly) {
-        MagicalGuiStyle.inset(g, x0 + SHELF_X - 2, y0 + SHELF_Y - 2, x0 + SHELF_X + SHELF_W + 2, y0 + SHELF_Y + SHELF_ROWS * SHELF_STRIDE);
-        int visible = Math.min(SHELF_ROWS, shelf.size() - shelfScroll);
-        int hovered = dragging ? -1 : shelfRowAt(lx, ly);
-        for (int row = 0; row < visible; row++) {
-            Verse verse = shelf.get(shelfScroll + row);
-            Rect rect = shelfRow(row);
-            int tint = typeColor(verse.type());
-            MagicalGuiStyle.listRow(g, x0 + rect.x(), y0 + rect.y(), rect.w(), rect.h(), row == hovered, 0xFF000000 | tint);
-            drawSymbol(g, VerseSymbols.of(verse), x0 + rect.x() + SHELF_SYMBOL_DX, y0 + rect.y() + SHELF_SYMBOL_DY, tint);
-        }
-        Rect bar = shelfScrollbar();
-        MagicalGuiStyle.scrollbar(g, x0 + bar.x() + 1, y0 + bar.y(), bar.h(), shelf.size(), SHELF_ROWS, shelfScroll);
-    }
-
-    /** The lines, the one in hand dimmed, and while a drag is over the page the caret where it would land. */
-    private void paintPage(GuiGraphics g, int x0, int y0, double lx, double ly) {
-        MagicalGuiStyle.inset(g, x0 + PAGE_X - 2, y0 + PAGE_Y - 2, x0 + PAGE_X + PAGE_W + 2, y0 + PAGE_Y + LINES * LINE_STRIDE);
+    /**
+     * The twenty underlines, the first {@code breath} of them lit, and the symbols written on them.
+     *
+     * <p>While a drag is over the row the written symbols from the boundary nearest the cursor
+     * onward are drawn one slot right, so the place the drop would take is open and its underline
+     * brightens; the shift is eased, so the row parts and closes rather than jumping. A symbol
+     * lifted off the row for a reorder leaves its slot empty and the ones after it close up.
+     */
+    private void paintRow(GuiGraphics g, Frame f, float now, float dt, float fade, double lx, double ly) {
         List<ResourceLocation> page = pages.get(slot);
-        int hovered = dragging ? -1 : lineAt(lx, ly);
-        for (int i = 0; i < page.size(); i++) {
-            Rect rect = line(i);
-            Verse verse = verse(page.get(i));
-            boolean lifted = dragging && dragSource == DragSource.PAGE && i == dragFrom;
-            int tint = verse == null || lifted ? MagicalGuiStyle.TEXT_MUTED : typeColor(verse.type());
-            MagicalGuiStyle.listRow(g, x0 + rect.x(), y0 + rect.y(), rect.w(), rect.h(), i == hovered, 0xFF000000 | tint);
-            if (verse != null && !lifted) {
-                drawSymbol(g, VerseSymbols.of(verse), x0 + rect.x() + LINE_SYMBOL_DX, y0 + rect.y() + LINE_SYMBOL_DY, tint);
+        int stride = slotStride(f.width());
+        boolean over = dragging && overRow(f.width(), f.visibleRows(), lx, ly);
+        int lifted = dragging && dragSource == DragSource.ROW ? dragFrom : -1;
+        int virtualSize = page.size() - (lifted >= 0 ? 1 : 0);
+        boolean room = dragSource == DragSource.ROW || page.size() < SLOT_COUNT;
+        int cursor = over ? slotInsertionAt(f.width(), lx, virtualSize) : -1;
+        int part = room ? cursor : -1;
+        float pulse = 0.5F + 0.5F * Mth.sin(now * (float) (2.0D * Math.PI) / PULSE_PERIOD);
+        boolean reduced = MagicalClientConfig.current().reducedMotion();
+
+        for (int j = 0; j < SLOT_COUNT; j++) {
+            Rect bar = slotBar(slot(f.width(), f.visibleRows(), j));
+            int rgb = j < breaths[slot] ? ACCENT : BLANK_INK;
+            float sweep = now - savedAt - j * SWEEP_STAGGER;
+            if (!reduced && sweep >= 0.0F && sweep < SWEEP_TICKS) {
+                rgb = mix(rgb, TEXT_BRIGHT, 1.0F - sweep / SWEEP_TICKS);
             }
+            int h = RULE_H;
+            if (j == cursor) {
+                rgb = room ? mix(ACCENT, TEXT_BRIGHT, reduced ? 1.0F : pulse) : REFUSED_RED;
+                h = RULE_H + 1;
+            }
+            g.fill(f.x0() + bar.x(), f.y0() + bar.y() - (h - RULE_H), f.x0() + bar.right(), f.y0() + bar.y() + RULE_H, ink(rgb, fade));
         }
-        if (dragging && overPage(lx, ly)) {
-            int at = insertionIndexAt(ly, page.size());
-            boolean room = dragSource == DragSource.PAGE || page.size() < LINES;
-            int cy = y0 + PAGE_Y + at * LINE_STRIDE - 1;
-            g.fill(x0 + PAGE_X, cy, x0 + PAGE_X + PAGE_W, cy + 1, room ? ACCENT : 0xFF000000 | REFUSED_RED);
+
+        for (int j = 0; j < page.size(); j++) {
+            if (j == lifted) {
+                continue;
+            }
+            Verse verse = verse(page.get(j));
+            if (verse == null) {
+                continue;
+            }
+            int virtual = lifted >= 0 && j > lifted ? j - 1 : j;
+            int drawn = virtual + (part >= 0 && virtual >= part ? 1 : 0);
+            slotShift[j] = approach(slotShift[j], (drawn - j) * stride, dt, halfLife(PART_HALF_LIFE));
+            Rect sym = slotSymbol(slot(f.width(), f.visibleRows(), j));
+            float deal = motion(easeOut((now - slotsDealtAt - j * SLOT_STAGGER) / DEAL_TICKS));
+            float land = motion(ease((now - landedAt[j]) / LAND_TICKS));
+            float scale = 1.0F + (GHOST_SCALE - 1.0F) * (1.0F - land);
+            float cx = f.x0() + sym.x() + ICON / 2.0F + slotShift[j];
+            float cy = f.y0() + sym.y() + ICON / 2.0F + (1.0F - deal) * DEAL_RISE;
+            drawSymbol(g, VerseSymbols.of(verse), cx - ICON * scale / 2.0F, cy - ICON * scale / 2.0F, scale,
+                    typeColor(verse.type()), fade * deal);
         }
     }
 
-    private void paintMargin(GuiGraphics g, int x0, int y0) {
-        Rect minus = breathMinus();
-        Rect plus = breathPlus();
-        MagicalGuiStyle.button(g, font, x0 + minus.x(), y0 + minus.y(), minus.w(), minus.h(), STEP_BASE, Component.literal("-"));
-        MagicalGuiStyle.button(g, font, x0 + plus.x(), y0 + plus.y(), plus.w(), plus.h(), STEP_BASE, Component.literal("+"));
-        Rect box = reading();
-        MagicalGuiStyle.inset(g, x0 + box.x(), y0 + box.y(), x0 + box.right(), y0 + box.bottom());
-        Rect saveButton = save();
-        MagicalGuiStyle.button(g, font, x0 + saveButton.x(), y0 + saveButton.y(), saveButton.w(), saveButton.h(), saveBase(), saveLabel());
-        Rect clearButton = clear();
-        MagicalGuiStyle.button(g, font, x0 + clearButton.x(), y0 + clearButton.y(), clearButton.w(), clearButton.h(), CLEAR_BASE,
-                Component.translatable("screen.magical.grimoire.clear"));
+    /** The breath and its steps at the row's left end, Save and Clear at its right, each lit as far as it can be pressed. */
+    private void paintControls(GuiGraphics g, Frame f, float fade, double lx, double ly) {
+        Controls c = controlRects(f);
+        List<ResourceLocation> page = pages.get(slot);
+        int x0 = f.x0();
+        int y0 = f.y0();
+        g.drawString(font, breathLabel(), x0 + c.breathLabel().x(), y0 + c.breathLabel().y(), ink(TEXT_FAINT, fade), true);
+        boolean canMinus = breaths[slot] > ReciteCaps.MIN_BREATH;
+        boolean canPlus = breaths[slot] < ReciteCaps.MAX_BREATH;
+        g.drawString(font, "-", x0 + c.minus().x(), y0 + c.minus().y(),
+                ink(canMinus ? (hit(c.minus(), lx, ly) ? TEXT_BRIGHT : TEXT_MUTED) : TEXT_FAINT, fade), true);
+        g.drawString(font, String.valueOf(breaths[slot]), x0 + c.value().x(), y0 + c.value().y(), ink(TEXT_BRIGHT, fade), true);
+        g.drawString(font, "+", x0 + c.plus().x(), y0 + c.plus().y(),
+                ink(canPlus ? (hit(c.plus(), lx, ly) ? TEXT_BRIGHT : TEXT_MUTED) : TEXT_FAINT, fade), true);
+
+        boolean canSave = dirty[slot] && problem == null && pending[slot] < 0;
+        boolean overSave = canSave && hit(c.save(), lx, ly);
+        int saveRgb = pending[slot] >= 0 ? TEXT_MUTED : canSave ? (overSave ? TEXT_BRIGHT : TEXT_NEAR) : TEXT_FAINT;
+        g.drawString(font, saveLabel(), x0 + c.save().x(), y0 + c.save().y(), ink(saveRgb, fade), true);
+        if (overSave) {
+            underline(g, f, c.save(), fade);
+        }
+        boolean canClear = !page.isEmpty();
+        boolean overClear = canClear && hit(c.clear(), lx, ly);
+        g.drawString(font, clearLabel(), x0 + c.clear().x(), y0 + c.clear().y(),
+                ink(canClear ? (overClear ? TEXT_BRIGHT : TEXT_MUTED) : TEXT_FAINT, fade), true);
+        if (overClear) {
+            underline(g, f, c.clear(), fade);
+        }
     }
 
-    /** The verse in hand beside the cursor: its symbol and its name on a dark card edged in its type's colour. */
+    private void underline(GuiGraphics g, Frame f, Rect word, float fade) {
+        int y = f.y0() + word.bottom() + 2;
+        g.fill(f.x0() + word.x(), y, f.x0() + word.right(), y + RULE_H, ink(ACCENT, fade));
+    }
+
+    private void paintReading(GuiGraphics g, Frame f, float fade) {
+        Rect r = reading(f.width(), f.visibleRows());
+        int cx = f.x0() + f.width() / 2;
+        List<Line> lines = readingLines();
+        for (int i = 0; i < lines.size() && i < GrimoireLayout.READING_LINES; i++) {
+            Line line = lines.get(i);
+            g.drawCenteredString(font, font.plainSubstrByWidth(line.text(), f.width()), cx, f.y0() + r.y() + i * LINE_H,
+                    ink(line.rgb(), fade));
+        }
+    }
+
+    /** What the reading says about the row: refused, empty, or what a press would cast. */
+    private List<Line> readingLines() {
+        List<Line> lines = new ArrayList<>();
+        List<ResourceLocation> page = pages.get(slot);
+        if (page.isEmpty()) {
+            lines.add(new Line(Component.translatable("screen.magical.grimoire.empty_reading").getString(), TEXT_MUTED));
+            return lines;
+        }
+        if (problem != null) {
+            String where = problem.id() == null ? String.valueOf(problem.index() + 1) : name(problem.id()).getString();
+            String what = problem.problem().name().toLowerCase(Locale.ROOT).replace('_', ' ');
+            lines.add(new Line(Component.translatable("screen.magical.grimoire.refused", what, where).getString(), REFUSED_RED));
+            return lines;
+        }
+        if (plan == null) {
+            return lines;
+        }
+        List<ProjectilePlan> bodies = plan.bodies();
+        String what;
+        if (bodies.isEmpty()) {
+            what = Component.translatable("screen.magical.grimoire.no_bodies").getString();
+        } else {
+            Map<ResourceLocation, Integer> counted = new LinkedHashMap<>();
+            for (ProjectilePlan body : bodies) {
+                counted.merge(body.verse(), 1, Integer::sum);
+            }
+            StringBuilder names = new StringBuilder();
+            for (Map.Entry<ResourceLocation, Integer> entry : counted.entrySet()) {
+                if (names.length() > 0) {
+                    names.append(", ");
+                }
+                names.append(name(entry.getKey()).getString());
+                if (entry.getValue() > 1) {
+                    names.append(" x").append(entry.getValue());
+                }
+            }
+            String count = bodies.size() == 1
+                    ? Component.translatable("screen.magical.grimoire.one_body").getString()
+                    : Component.translatable("screen.magical.grimoire.bodies", bodies.size()).getString();
+            what = count + " (" + names + ")";
+        }
+        int mana = plan.manaSpent();
+        String bill = mana < 0
+                ? Component.translatable("screen.magical.grimoire.refund", -mana).getString()
+                : Component.translatable("screen.magical.grimoire.mana", mana).getString();
+        String beat = Component.translatable("screen.magical.grimoire.cooldown", plan.cooldownTicks()).getString();
+        lines.add(new Line(Component.translatable("screen.magical.grimoire.would_cast", what).getString()
+                + " · " + bill + " · " + beat, mana < 0 ? REFUND_GREEN : TEXT_NEAR));
+        if (plan.frayed()) {
+            lines.add(new Line(Component.translatable("screen.magical.grimoire.frayed").getString(), FRAYED_ORANGE));
+        }
+        return lines;
+    }
+
+    /** A struck symbol falls a little way and fades as it goes. */
+    private void paintFallen(GuiGraphics g, float now, float fade) {
+        if (fallen == null) {
+            return;
+        }
+        float t = motion((now - fallAt) / FALL_TICKS);
+        if (t >= 1.0F) {
+            fallen = null;
+            return;
+        }
+        drawSymbol(g, VerseSymbols.of(fallen), fallX, fallY + FALL_DROP * easeOut(t), 1.0F, typeColor(fallen.type()),
+                fade * (1.0F - t));
+    }
+
+    /** The verse in hand, grown, riding beside the cursor with its name. */
     private void paintGhost(GuiGraphics g, int mouseX, int mouseY) {
         Verse verse = verse(dragId);
         if (verse == null) {
             return;
         }
-        String label = name(verse.id()).getString();
-        int tint = typeColor(verse.type());
-        int w = LINE_TEXT_DX + font.width(label) + 4;
-        int gx = mouseX + GHOST_DX;
-        int gy = mouseY - GHOST_H / 2;
-        g.fill(gx - 1, gy - 1, gx + w + 1, gy + GHOST_H + 1, 0xFF000000 | tint);
-        g.fill(gx, gy, gx + w, gy + GHOST_H, GHOST_BACK);
-        drawSymbol(g, VerseSymbols.of(verse), gx + LINE_SYMBOL_DX, gy + (GHOST_H - VerseSymbols.SIZE) / 2, tint);
-        g.drawString(font, label, gx + LINE_TEXT_DX, gy + (GHOST_H - 8) / 2, MagicalGuiStyle.TEXT_PRIMARY, false);
+        float size = ICON * GHOST_SCALE;
+        drawSymbol(g, VerseSymbols.of(verse), mouseX + GHOST_DX, mouseY - size / 2.0F, GHOST_SCALE, typeColor(verse.type()), 1.0F);
+        g.drawString(font, name(verse.id()).getString(), mouseX + GHOST_DX + Math.round(size) + 4, mouseY - 4, TEXT_BRIGHT, true);
     }
 
-    /** A symbol at (x, y): the glyph in the colour, the marks along the top and the badge in the corner in white on a dark backing. */
-    private static void drawSymbol(GuiGraphics g, VerseSymbols.Symbol symbol, int x, int y, int color) {
-        int argb = 0xFF000000 | color;
+    /** A symbol at (x, y), grown by {@code scale}: the glyph in its colour, the marks along the top, the badge in white on a dark backing. */
+    private static void drawSymbol(GuiGraphics g, VerseSymbols.Symbol symbol, float x, float y, float scale, int rgb, float alpha) {
+        g.pose().pushPose();
+        g.pose().translate(x, y, 0.0F);
+        g.pose().scale(scale, scale, 1.0F);
+        int argb = ink(rgb, alpha);
         int[] rows = symbol.glyph().rows();
         for (int row = 0; row < VerseSymbols.SIZE; row++) {
-            drawRuns(g, rows[row], VerseSymbols.SIZE, x, y + row, argb);
+            drawRuns(g, rows[row], VerseSymbols.SIZE, 0, row, argb);
         }
-        int white = 0xFF000000 | MagicalGuiStyle.TEXT_PRIMARY;
+        int white = ink(TEXT_BRIGHT, alpha);
         if (symbol.hasMarks()) {
-            drawRuns(g, VerseSymbols.marksRow(symbol.marks()), VerseSymbols.SIZE, x, y, white);
+            drawRuns(g, VerseSymbols.marksRow(symbol.marks()), VerseSymbols.SIZE, 0, 0, white);
         }
         if (symbol.hasBadge()) {
-            int bx = x + VerseSymbols.SIZE - VerseSymbols.BADGE_SIZE;
-            int by = y + VerseSymbols.SIZE - VerseSymbols.BADGE_SIZE;
-            g.fill(bx - BADGE_PAD, by - BADGE_PAD, bx + VerseSymbols.BADGE_SIZE, by + VerseSymbols.BADGE_SIZE, BADGE_BACK);
+            int corner = VerseSymbols.SIZE - VerseSymbols.BADGE_SIZE;
+            g.fill(corner - 1, corner - 1, VerseSymbols.SIZE, VerseSymbols.SIZE, ink(BADGE_BACK, alpha));
             int[] badge = symbol.badge().rows();
             for (int row = 0; row < VerseSymbols.BADGE_SIZE; row++) {
-                drawRuns(g, badge[row], VerseSymbols.BADGE_SIZE, bx, by + row, white);
+                drawRuns(g, badge[row], VerseSymbols.BADGE_SIZE, corner, corner + row, white);
             }
         }
+        g.pose().popPose();
     }
 
     /** One fill per run of lit pixels in a row of {@code width} bits, the highest bit being the leftmost. */
@@ -504,198 +867,18 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured {
         }
     }
 
-    private int saveBase() {
-        if (pending[slot] >= 0 || !dirty[slot]) {
-            return DISABLED_BASE;
-        }
-        return problem == null ? SAVE_BASE : BLOCKED_BASE;
-    }
-
-    private Component saveLabel() {
-        if (pending[slot] >= 0) {
-            return Component.translatable("screen.magical.grimoire.saving");
-        }
-        return Component.translatable(dirty[slot] ? "screen.magical.grimoire.save" : "screen.magical.grimoire.saved");
-    }
-
-    private void textShelf(GuiGraphics g, int x0, int y0) {
-        MagicalGuiStyle.sectionLabel(g, font, x0 + RAIL_X, y0 + SHELF_LABEL_Y, shelfLabel(), MagicalGuiStyle.TEXT_PRIMARY);
-        if (shelf.isEmpty()) {
-            Component empty = library.isEmpty()
-                    ? Component.translatable("screen.magical.grimoire.no_verses")
-                    : Component.translatable("screen.magical.grimoire.shelf_none_of_type", typeName(category));
-            drawWrapped(g, empty, x0 + SHELF_X + 4, y0 + SHELF_Y + 8, SHELF_W - 8, MagicalGuiStyle.TEXT_MUTED, 5);
-        }
-        int visible = Math.min(SHELF_ROWS, shelf.size() - shelfScroll);
-        for (int row = 0; row < visible; row++) {
-            Verse verse = shelf.get(shelfScroll + row);
-            Rect rect = shelfRow(row);
-            int textX = x0 + rect.x() + SHELF_TEXT_DX;
-            int nameW = rect.w() - SHELF_TEXT_DX - 4;
-            g.drawString(font, font.plainSubstrByWidth(name(verse.id()).getString(), nameW),
-                    textX, y0 + rect.y() + 2, MagicalGuiStyle.TEXT_PRIMARY, false);
-            g.drawString(font, font.plainSubstrByWidth(shelfLine(verse).getString(), nameW),
-                    textX, y0 + rect.y() + 11, MagicalGuiStyle.TEXT_MUTED, false);
-        }
-        Rect hint = shelfHint();
-        g.drawString(font, font.plainSubstrByWidth(Component.translatable("screen.magical.grimoire.shelf_hint").getString(), hint.w()),
-                x0 + hint.x(), y0 + hint.y(), MagicalGuiStyle.TEXT_MUTED, false);
-    }
-
-    /** All verses with their count, or the picked type with how many of it are known. */
-    private Component shelfLabel() {
-        if (category == null) {
-            return Component.translatable("screen.magical.grimoire.shelf_all", library.size());
-        }
-        return Component.translatable("screen.magical.grimoire.shelf_type", typeName(category), shelf.size());
-    }
-
-    private void textPage(GuiGraphics g, int x0, int y0, double lx, double ly) {
-        List<ResourceLocation> page = pages.get(slot);
-        MagicalGuiStyle.sectionLabel(g, font, x0 + PAGE_X, y0 + PAGE_LABEL_Y,
-                Component.translatable("screen.magical.grimoire.page", page.size(), LINES), MagicalGuiStyle.TEXT_PRIMARY);
-        if (page.isEmpty()) {
-            drawWrapped(g, Component.translatable("screen.magical.grimoire.empty_page"),
-                    x0 + PAGE_X + 4, y0 + PAGE_Y + 6, PAGE_W - 8, MagicalGuiStyle.TEXT_MUTED, 4);
-        }
-        int hovered = dragging ? -1 : lineAt(lx, ly);
-        for (int i = 0; i < page.size(); i++) {
-            Rect rect = line(i);
-            Rect strike = lineStrike(i);
-            boolean lifted = dragging && dragSource == DragSource.PAGE && i == dragFrom;
-            String text = (i + 1) + ". " + name(page.get(i)).getString();
-            int color = lifted ? MagicalGuiStyle.TEXT_MUTED : MagicalGuiStyle.TEXT_PRIMARY;
-            g.drawString(font, font.plainSubstrByWidth(text, strike.x() - rect.x() - LINE_TEXT_DX - 3),
-                    x0 + rect.x() + LINE_TEXT_DX, y0 + rect.y() + LINE_TEXT_DY, color, false);
-            boolean onStrike = i == hovered && hit(strike, lx, ly);
-            int strikeColor = onStrike ? MagicalGuiStyle.ACCENT_BLOOD & 0xFFFFFF : MagicalGuiStyle.TEXT_MUTED;
-            g.drawString(font, "x", x0 + strike.x() + 3, y0 + strike.y() + LINE_TEXT_DY, strikeColor, false);
-        }
-        Rect hint = pageHint();
-        g.drawString(font, font.plainSubstrByWidth(Component.translatable("screen.magical.grimoire.page_hint").getString(), hint.w()),
-                x0 + hint.x(), y0 + hint.y(), MagicalGuiStyle.TEXT_MUTED, false);
-    }
-
-    private void textMargin(GuiGraphics g, int x0, int y0) {
-        MagicalGuiStyle.sectionLabel(g, font, x0 + MARGIN_X, y0 + BREATH_LABEL_Y,
-                Component.translatable("screen.magical.grimoire.breath"), MagicalGuiStyle.TEXT_PRIMARY);
-        Rect value = breathValue();
-        g.drawCenteredString(font, String.valueOf(breaths[slot]), x0 + value.x() + value.w() / 2, y0 + value.y() + 3, MagicalGuiStyle.TEXT_PRIMARY);
-        Rect box = reading();
-        int x = x0 + box.x() + 4;
-        int y = y0 + box.y() + 4;
-        int w = box.w() - 8;
-        int maxLines = (box.h() - 8) / LINE_PX;
-        int shown = 0;
-        for (Line line : readingLines()) {
-            if (shown >= maxLines) {
-                break;
-            }
-            shown += drawWrapped(g, line.text(), x, y + shown * LINE_PX, w, line.color(), maxLines - shown) / LINE_PX;
-        }
-    }
-
-    /** What the margin says about the page: refused, empty, or the reading of a press. */
-    private List<Line> readingLines() {
-        List<Line> lines = new ArrayList<>();
-        List<ResourceLocation> page = pages.get(slot);
-        if (page.isEmpty()) {
-            lines.add(new Line(Component.translatable("screen.magical.grimoire.empty_reading"), MagicalGuiStyle.TEXT_MUTED));
-            return lines;
-        }
-        if (problem != null) {
-            String where = problem.id() == null ? String.valueOf(problem.index() + 1) : name(problem.id()).getString();
-            String what = problem.problem().name().toLowerCase(Locale.ROOT).replace('_', ' ');
-            lines.add(new Line(Component.translatable("screen.magical.grimoire.refused", what, where), REFUSED_RED));
-            return lines;
-        }
-        if (reading == null) {
-            return lines;
-        }
-        lines.add(new Line(Component.translatable("screen.magical.grimoire.reading"), MagicalGuiStyle.TEXT_MUTED));
-        List<ProjectilePlan> bodies = reading.bodies();
-        if (bodies.isEmpty()) {
-            lines.add(new Line(Component.translatable("screen.magical.grimoire.no_bodies"), MagicalGuiStyle.TEXT_PRIMARY));
-        } else {
-            Map<ResourceLocation, Integer> counted = new LinkedHashMap<>();
-            for (ProjectilePlan body : bodies) {
-                counted.merge(body.verse(), 1, Integer::sum);
-            }
-            Component headline = bodies.size() == 1
-                    ? Component.translatable("screen.magical.grimoire.one_body")
-                    : Component.translatable("screen.magical.grimoire.bodies", bodies.size());
-            lines.add(new Line(headline, MagicalGuiStyle.TEXT_PRIMARY));
-            for (Map.Entry<ResourceLocation, Integer> entry : counted.entrySet()) {
-                String count = entry.getValue() > 1 ? " x" + entry.getValue() : "";
-                lines.add(new Line(Component.literal("  " + name(entry.getKey()).getString() + count), MagicalGuiStyle.TEXT_PRIMARY));
-            }
-        }
-        int mana = reading.manaSpent();
-        lines.add(mana < 0
-                ? new Line(Component.translatable("screen.magical.grimoire.refund", -mana), REFUND_GREEN)
-                : new Line(Component.translatable("screen.magical.grimoire.mana", mana), MagicalGuiStyle.TEXT_PRIMARY));
-        lines.add(new Line(Component.translatable("screen.magical.grimoire.cooldown", reading.cooldownTicks()), MagicalGuiStyle.TEXT_PRIMARY));
-        if (reading.frayed()) {
-            lines.add(new Line(Component.translatable("screen.magical.grimoire.frayed"), FRAYED_ORANGE));
-        }
-        return lines;
-    }
-
-    /** Draws at most {@code maxLines} wrapped lines and returns the height used. */
-    private int drawWrapped(GuiGraphics g, Component text, int x, int y, int width, int color, int maxLines) {
-        List<FormattedCharSequence> lines = font.split(text, width);
-        int shown = Math.min(lines.size(), Math.max(1, maxLines));
-        for (int i = 0; i < shown; i++) {
-            g.drawString(font, lines.get(i), x, y + i * LINE_PX, color, false);
-        }
-        return shown * LINE_PX;
-    }
-
-    // ---- tooltips ---------------------------------------------------------------------------------
-
-    private List<Component> tooltipAt(double lx, double ly) {
-        int rail = railAt(lx, ly);
-        if (rail >= 0) {
-            VerseType type = TYPES[rail];
-            return List.of(
-                    typeName(type).copy().withColor(typeColor(type)),
-                    Component.translatable("screen.magical.grimoire.rail_tooltip", counts[rail]).withColor(MagicalGuiStyle.TEXT_MUTED));
-        }
-        int row = shelfRowAt(lx, ly);
-        if (row >= 0 && shelfScroll + row < shelf.size()) {
-            return verseTooltip(shelf.get(shelfScroll + row));
-        }
-        int index = lineAt(lx, ly);
-        List<ResourceLocation> page = pages.get(slot);
-        if (index >= 0 && index < page.size()) {
-            Verse verse = verse(page.get(index));
-            return verse == null ? List.of() : verseTooltip(verse);
-        }
-        if (hit(breathValue(), lx, ly) || hit(breathMinus(), lx, ly) || hit(breathPlus(), lx, ly)) {
-            return List.of(Component.translatable("screen.magical.grimoire.breath_tooltip"));
-        }
-        return List.of();
-    }
-
-    private static List<Component> verseTooltip(Verse verse) {
-        return List.of(
-                name(verse.id()).copy().withColor(typeColor(verse.type())),
-                typeAndMana(verse).copy().withColor(MagicalGuiStyle.TEXT_MUTED),
-                Component.translatable("verse.magical." + verse.path() + ".desc"));
-    }
-
     // ---- input ------------------------------------------------------------------------------------
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        double lx = mouseX - leftPos;
-        double ly = mouseY - topPos;
+        Frame f = frame();
+        double lx = mouseX - f.x0();
+        double ly = mouseY - f.y0();
         List<ResourceLocation> page = pages.get(slot);
         if (button == 1) {
-            int index = lineAt(lx, ly);
-            if (index > 0 && index < page.size()) {
-                page.add(index - 1, page.remove(index));
-                touched();
+            int index = slotAt(f.width(), f.visibleRows(), lx, ly);
+            if (index >= 0 && index < page.size()) {
+                strike(f, page, index);
             }
             return true;
         }
@@ -703,58 +886,57 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured {
             return super.mouseClicked(mouseX, mouseY, button);
         }
         release();
-        if (hit(back(), lx, ly)) {
-            MagicalNetwork.sendOpenCodexRequest();
-            return true;
-        }
-        int tabHit = tabAt(lx, ly);
-        if (tabHit >= 0) {
-            if (tabHit != slot) {
-                slot = tabHit;
+        int tab = indexAt(tabRects(f, tabLabels(f)), lx, ly);
+        if (tab >= 0) {
+            if (tab != slot) {
+                focusFrom = slot;
+                focusAt = now();
+                slot = tab;
+                slotsDealtAt = now();
+                Arrays.fill(slotShift, 0.0F);
+                Arrays.fill(landedAt, LONG_AGO);
                 reread();
             }
             return true;
         }
-        int rail = railAt(lx, ly);
-        if (rail >= 0) {
-            VerseType type = TYPES[rail];
-            category = category == type ? null : type;
-            shelfScroll = 0;
-            refreshShelf();
-            return true;
-        }
-        int row = shelfRowAt(lx, ly);
-        if (row >= 0 && shelfScroll + row < shelf.size()) {
-            arm(DragSource.SHELF, shelf.get(shelfScroll + row).id(), shelfScroll + row, lx, ly);
-            return true;
-        }
-        int index = lineAt(lx, ly);
-        if (index >= 0 && index < page.size()) {
-            if (hit(lineStrike(index), lx, ly)) {
-                page.remove(index);
-                touched();
-            } else {
-                arm(DragSource.PAGE, page.get(index), index, lx, ly);
+        int cat = indexAt(categoryRects(f), lx, ly);
+        if (cat >= 0) {
+            int picked = cat - 1;
+            if (picked != category) {
+                category = picked;
+                gridScroll = 0;
+                gridDealtAt = now();
+                refreshShelf();
             }
             return true;
         }
-        if (hit(breathMinus(), lx, ly)) {
-            breaths[slot] = clampBreath(breaths[slot] - 1);
-            touched();
+        int icon = gridIndexAt(f.width(), f.columns(), f.visibleRows(), gridScroll, shelf.size(), lx, ly);
+        if (icon >= 0) {
+            arm(DragSource.GRID, shelf.get(icon).id(), icon, lx, ly);
             return true;
         }
-        if (hit(breathPlus(), lx, ly)) {
-            breaths[slot] = clampBreath(breaths[slot] + 1);
-            touched();
+        int index = slotAt(f.width(), f.visibleRows(), lx, ly);
+        if (index >= 0 && index < page.size()) {
+            arm(DragSource.ROW, page.get(index), index, lx, ly);
             return true;
         }
-        if (hit(save(), lx, ly)) {
+        Controls c = controlRects(f);
+        if (hit(c.minus(), lx, ly)) {
+            setBreath(breaths[slot] - 1);
+            return true;
+        }
+        if (hit(c.plus(), lx, ly)) {
+            setBreath(breaths[slot] + 1);
+            return true;
+        }
+        if (hit(c.save(), lx, ly)) {
             saveCurrent();
             return true;
         }
-        if (hit(clear(), lx, ly)) {
+        if (hit(c.clear(), lx, ly)) {
             if (!page.isEmpty()) {
                 page.clear();
+                Arrays.fill(slotShift, 0.0F);
                 touched();
             }
             return true;
@@ -768,8 +950,9 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured {
             return super.mouseDragged(mouseX, mouseY, button, dx, dy);
         }
         if (!dragging) {
-            double lx = mouseX - leftPos;
-            double ly = mouseY - topPos;
+            Frame f = frame();
+            double lx = mouseX - f.x0();
+            double ly = mouseY - f.y0();
             dragging = Math.hypot(lx - pressX, ly - pressY) >= DRAG_THRESHOLD;
         }
         return true;
@@ -780,16 +963,34 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured {
         if (button != 0 || dragSource == null) {
             return super.mouseReleased(mouseX, mouseY, button);
         }
-        double lx = mouseX - leftPos;
-        double ly = mouseY - topPos;
+        Frame f = frame();
+        double lx = mouseX - f.x0();
+        double ly = mouseY - f.y0();
         List<ResourceLocation> page = pages.get(slot);
-        if (dragSource == DragSource.SHELF) {
-            dropFromShelf(page, lx, ly);
+        if (dragSource == DragSource.GRID) {
+            dropFromGrid(f, page, lx, ly);
         } else if (dragFrom < page.size() && page.get(dragFrom).equals(dragId)) {
-            // A sync can rewrite the page under a drag; a line that is no longer where it was is left alone.
-            dropFromPage(page, lx, ly);
+            // A sync can rewrite the row under a drag; a symbol that is no longer where it was is left alone.
+            dropFromRow(f, page, lx, ly);
         }
         release();
+        return true;
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        Frame f = frame();
+        double lx = mouseX - f.x0();
+        double ly = mouseY - f.y0();
+        int step = (int) Math.signum(scrollY);
+        if (hit(gridArea(f.width(), f.columns(), f.visibleRows()), lx, ly)) {
+            gridScroll = clampGridScroll(gridScroll - step, f.rows(), f.visibleRows());
+            return true;
+        }
+        if (overRow(f.width(), f.visibleRows(), lx, ly)) {
+            setBreath(breaths[slot] + step);
+            return true;
+        }
         return true;
     }
 
@@ -809,63 +1010,164 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured {
         dragging = false;
     }
 
-    /** A shelf verse lands where the cursor is on the page, or at the end for a click; a full page takes nothing. */
-    private void dropFromShelf(List<ResourceLocation> page, double lx, double ly) {
-        if (page.size() >= LINES) {
+    /** A grid verse lands where the cursor is on the row, or at the end for a click; a full row takes nothing. */
+    private void dropFromGrid(Frame f, List<ResourceLocation> page, double lx, double ly) {
+        if (page.size() >= SLOT_COUNT) {
             return;
         }
         if (!dragging) {
-            page.add(dragId);
-            touched();
+            insertAt(f, page, page.size(), dragId);
             return;
         }
-        if (!overPage(lx, ly)) {
+        if (!overRow(f.width(), f.visibleRows(), lx, ly)) {
             return;
         }
-        page.add(insertionIndexAt(ly, page.size()), dragId);
-        touched();
+        insertAt(f, page, slotInsertionAt(f.width(), lx, page.size()), dragId);
     }
 
-    /** A line dragged on the page moves to where the cursor is; dragged off it, it is struck; a click leaves it. */
-    private void dropFromPage(List<ResourceLocation> page, double lx, double ly) {
+    /** A written verse dragged along the row moves to where the cursor is; dragged off it, it falls away; a click leaves it. */
+    private void dropFromRow(Frame f, List<ResourceLocation> page, double lx, double ly) {
         if (!dragging) {
             return;
         }
-        if (!overPage(lx, ly)) {
-            page.remove(dragFrom);
-            touched();
+        if (!overRow(f.width(), f.visibleRows(), lx, ly)) {
+            strike(f, page, dragFrom);
             return;
         }
-        int to = insertionIndexAt(ly, page.size());
-        if (to > dragFrom) {
-            to--;
-        }
+        int to = slotInsertionAt(f.width(), lx, page.size() - 1);
         if (to == dragFrom) {
+            landedAt[dragFrom] = now();
             return;
         }
-        page.add(to, page.remove(dragFrom));
+        float[] drawn = drawnX(f, page, dragFrom);
+        float[] landed = landedAtWithout(dragFrom, page.size());
+        ResourceLocation id = page.remove(dragFrom);
+        page.add(to, id);
+        settle(f, page, drawn, landed, to);
         touched();
     }
 
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        double lx = mouseX - leftPos;
-        double ly = mouseY - topPos;
-        Rect list = new Rect("shelf", SHELF_X, SHELF_Y, SHELF_W, SHELF_ROWS * SHELF_STRIDE);
-        if (hit(list, lx, ly)) {
-            shelfScroll = clampScroll(shelfScroll - (int) Math.signum(scrollY), shelf.size(), SHELF_ROWS);
+    /** Writes a verse at {@code at}: the ones after it are already drawn a slot right, so they keep their places and it lands between them. */
+    private void insertAt(Frame f, List<ResourceLocation> page, int at, ResourceLocation id) {
+        float[] drawn = drawnX(f, page, -1);
+        float[] landed = landedAtWithout(-1, page.size());
+        page.add(at, id);
+        settle(f, page, drawn, landed, at);
+        touched();
+    }
+
+    /** Strikes the verse at {@code at}: it falls away where it was drawn and the row closes over its place. */
+    private void strike(Frame f, List<ResourceLocation> page, int at) {
+        Verse verse = verse(page.get(at));
+        Rect sym = slotSymbol(slot(f.width(), f.visibleRows(), at));
+        fallen = verse;
+        fallX = f.x0() + sym.x() + slotShift[at];
+        fallY = f.y0() + sym.y();
+        fallAt = now();
+        float[] drawn = drawnX(f, page, at);
+        float[] landed = landedAtWithout(at, page.size());
+        page.remove(at);
+        settle(f, page, drawn, landed, -1);
+        touched();
+    }
+
+    /** Where each written symbol is drawn now, block-local, skipping {@code except}. */
+    private float[] drawnX(Frame f, List<ResourceLocation> page, int except) {
+        float[] drawn = new float[page.size()];
+        int k = 0;
+        for (int j = 0; j < page.size(); j++) {
+            if (j == except) {
+                continue;
+            }
+            drawn[k++] = slotSymbol(slot(f.width(), f.visibleRows(), j)).x() + slotShift[j];
         }
-        return true;
+        return Arrays.copyOf(drawn, k);
+    }
+
+    private float[] landedAtWithout(int except, int size) {
+        float[] kept = new float[size];
+        int k = 0;
+        for (int j = 0; j < size; j++) {
+            if (j != except) {
+                kept[k++] = landedAt[j];
+            }
+        }
+        return Arrays.copyOf(kept, k);
+    }
+
+    /**
+     * After the row changed, gives every symbol the drawn place it had so it glides from there to
+     * its new slot rather than jumping; the one at {@code landing} is new and lands where it is.
+     */
+    private void settle(Frame f, List<ResourceLocation> page, float[] drawn, float[] landed, int landing) {
+        float now = now();
+        int old = 0;
+        for (int k = 0; k < page.size(); k++) {
+            if (k == landing) {
+                slotShift[k] = 0.0F;
+                landedAt[k] = now;
+                continue;
+            }
+            float base = slotSymbol(slot(f.width(), f.visibleRows(), k)).x();
+            slotShift[k] = old < drawn.length ? drawn[old] - base : 0.0F;
+            landedAt[k] = old < landed.length ? landed[old] : LONG_AGO;
+            old++;
+        }
+        for (int k = page.size(); k < SLOT_COUNT; k++) {
+            slotShift[k] = 0.0F;
+            landedAt[k] = LONG_AGO;
+        }
     }
 
     // ---- helpers ----------------------------------------------------------------------------------
 
-    private static VerseSymbols.Symbol[] railSymbols() {
-        VerseSymbols.Symbol[] symbols = new VerseSymbols.Symbol[TYPES.length];
-        for (int i = 0; i < TYPES.length; i++) {
-            symbols[i] = new VerseSymbols.Symbol(VerseSymbols.forType(TYPES[i]), null, 0);
+    /** The clock every hold overlay uses: whole ticks plus the fraction of the one being drawn. */
+    private float now() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) {
+            return 0.0F;
+        }
+        return mc.player.tickCount + mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
+    }
+
+    /** An eased value, or its final frame when motion is reduced. */
+    private static float motion(float eased) {
+        return MagicalClientConfig.current().reducedMotion() ? 1.0F : eased;
+    }
+
+    private static float halfLife(float ticks) {
+        return MagicalClientConfig.current().reducedMotion() ? 0.0F : ticks;
+    }
+
+    private static VerseSymbols.Symbol[] categorySymbols() {
+        VerseSymbols.Symbol[] symbols = new VerseSymbols.Symbol[CATEGORY_COUNT];
+        symbols[0] = new VerseSymbols.Symbol(VerseSymbols.all(), null, 0);
+        for (int c = 1; c < CATEGORY_COUNT; c++) {
+            symbols[c] = new VerseSymbols.Symbol(VerseSymbols.forType(TYPES[c - 1]), null, 0);
         }
         return symbols;
+    }
+
+    /** A colour with an alpha, never below the few levels the font treats as opaque. */
+    private static int ink(int rgb, float alpha) {
+        int a = Mth.clamp(Math.round(alpha * 255.0F), 4, 255);
+        return (a << 24) | (rgb & 0xFFFFFF);
+    }
+
+    private static int withAlpha(int argb, int alpha) {
+        return (Mth.clamp(alpha, 0, 255) << 24) | (argb & 0xFFFFFF);
+    }
+
+    /** Mixes {@code to} into {@code from} by {@code amount}, both 24-bit RGB. */
+    private static int mix(int from, int to, float amount) {
+        float t = Mth.clamp(amount, 0.0F, 1.0F);
+        int out = 0;
+        for (int shift = 16; shift >= 0; shift -= 8) {
+            int a = (from >> shift) & 0xFF;
+            int b = (to >> shift) & 0xFF;
+            out |= Math.round(a + (b - a) * t) << shift;
+        }
+        return out;
     }
 
     private static Verse verse(ResourceLocation id) {
@@ -874,11 +1176,6 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured {
 
     private static Component name(ResourceLocation id) {
         return Component.translatable("verse.magical." + id.getPath());
-    }
-
-    /** The shelf row's second line: type and mana; the uses are in the tooltip, where there is room. */
-    private static Component shelfLine(Verse verse) {
-        return Component.translatable("screen.magical.grimoire.type_mana", typeName(verse.type()), verse.mana());
     }
 
     private static Component typeAndMana(Verse verse) {
@@ -892,7 +1189,7 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured {
         return Component.translatable("screen.magical.grimoire.type." + type.name().toLowerCase(Locale.ROOT));
     }
 
-    /** A colour per verse type, so the shelf reads as a deck before a name is read. */
+    /** A colour per verse type, so the grid reads as a deck before a name is read. */
     private static int typeColor(VerseType type) {
         return switch (type) {
             case PROJECTILE -> 0x5FD4FF;
@@ -904,27 +1201,6 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured {
             case UTILITY -> 0x9FE7E7;
             case PASSIVE -> 0xD0D0D0;
         };
-    }
-
-    private static List<Component> tabLabels() {
-        List<Component> labels = new ArrayList<>(TAB_COUNT);
-        for (int s = 0; s < TAB_COUNT; s++) {
-            labels.add(Component.translatable(IncantationService.skillFor(s).nameKey()));
-        }
-        return labels;
-    }
-
-    private static Component authorityName(PlayerMagicState state) {
-        AuthorityDefinition held = state.authorityId() == null ? null : AuthorityContent.get(state.authorityId());
-        return Component.translatable(held == null ? AuthorityContent.AUTHORITY_OF_MANA.nameKey() : held.nameKey());
-    }
-
-    private static float manaFraction(PlayerMagicState state) {
-        return state.maxMana() <= 0 ? 0.0F : Math.min(1.0F, state.mana() / (float) state.maxMana());
-    }
-
-    private static Component manaLabel(PlayerMagicState state) {
-        return Component.translatable("screen.magical.grimoire.mana_pool", state.mana(), state.maxMana());
     }
 
     private static PlayerMagicState state() {
