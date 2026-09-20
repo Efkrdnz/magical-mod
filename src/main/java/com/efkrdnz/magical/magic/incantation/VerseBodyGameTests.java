@@ -17,6 +17,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.IronGolem;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -28,7 +29,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * duration, a detonation spares no one in its radius, a fuse releases its payload where the body
  * is, a bounce is not an end, a blink carries its caster, a twin path spawns two, a naught body is
  * gone at once, a Puncture takes every body on its line, a pit turns a body flying past it toward
- * itself. What a unit test can hold (the fan, the codec, the effect order, the steering) is held
+ * itself, a fan that lands on one body lands whole. What a unit test can hold (the fan, the codec, the effect order, the steering) is held
  * in {@code entity/verse}; this is what only a level shows.
  */
 @GameTestHolder(MagicalMod.MODID)
@@ -41,6 +42,8 @@ public final class VerseBodyGameTests {
     private static final BlockPos VICTIM = new BlockPos(4, 2, 2);
     /** Halfway between the two: a second husk in front of the first, so one line can hold both. */
     private static final BlockPos NEAR_VICTIM = new BlockPos(3, 2, 2);
+    /** A block back from the stand: a golem at the near mark is then a block and a third from the eyes, wide enough for a whole fan. */
+    private static final BlockPos NEAR_STAND = new BlockPos(1, 2, 2);
     /** Any registered skill will do for a hand-built plan; the recite skills arrive with the Authority. */
     private static final ResourceLocation SKILL = MagicContent.ARCANE_SNAP.id();
 
@@ -62,6 +65,11 @@ public final class VerseBodyGameTests {
         return helper.spawnWithNoFreeWill(EntityType.HUSK, helper.relativeVec(GameTestPlayers.onFloor(helper, at)));
     }
 
+    /** A golem on the floor of {@code at}: a body wide enough that every needle of a fan lands on it, and deep enough to take them. */
+    private static IronGolem golem(GameTestHelper helper, BlockPos at) {
+        return helper.spawnWithNoFreeWill(EntityType.IRON_GOLEM, helper.relativeVec(GameTestPlayers.onFloor(helper, at)));
+    }
+
     private static Zombie victim(GameTestHelper helper, ServerPlayer player) {
         Zombie zombie = husk(helper, VICTIM);
         player.lookAt(EntityAnchorArgument.Anchor.EYES, zombie.getEyePosition());
@@ -76,6 +84,13 @@ public final class VerseBodyGameTests {
 
     private static ShotPlan shot(ProjectilePlan... bodies) {
         return new ShotPlan(List.of(bodies), new ShotState());
+    }
+
+    /** The bodies fanned over {@code pattern} degrees, as a trident fans its three. */
+    private static ShotPlan fan(double pattern, ProjectilePlan... bodies) {
+        ShotState group = new ShotState();
+        group.setPattern(pattern);
+        return new ShotPlan(List.of(bodies), group);
     }
 
     private static List<VerseBodyEntity> bodies(GameTestHelper helper, ServerPlayer player) {
@@ -251,6 +266,35 @@ public final class VerseBodyGameTests {
             Vec3 toPit = standing.position().subtract(flying.position()).normalize();
             helper.assertTrue(heading.dot(toPit) > launch.dot(toPit),
                     "and points nearer it than the heading it set out on: " + heading.dot(toPit) + " over " + launch.dot(toPit));
+            helper.succeed();
+        });
+    }
+
+    /**
+     * One needle, then past its hurt cooldown a trident's fan of three on the same tick: the fan
+     * takes three needles' worth, not one. Vanilla keeps a hit for ten ticks and refuses anything
+     * in them that is no stronger, which would make every multicast one body wide.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 60, batch = "verse_11")
+    public static void aFanThatLandsOnOneBodyLandsWhole(GameTestHelper helper) {
+        ServerPlayer player = caster(helper, NEAR_STAND);
+        IronGolem golem = golem(helper, NEAR_VICTIM);
+        player.lookAt(EntityAnchorArgument.Anchor.EYES, golem.getEyePosition());
+        float[] health = {golem.getHealth(), 0.0F};
+        helper.runAtTickTime(1, () -> spawnFromHand(helper, player, shot(body(VersePrototypes.NEEDLE, s -> { }, PayloadKind.NONE, 0, null))));
+        helper.runAtTickTime(8, () -> {
+            health[1] = golem.getHealth();
+            helper.assertTrue(health[1] < health[0], "one needle hurt the golem: " + health[1] + " of " + health[0]);
+        });
+        helper.runAtTickTime(30, () -> spawnFromHand(helper, player, fan(20.0D,
+                body(VersePrototypes.NEEDLE, s -> { }, PayloadKind.NONE, 0, null),
+                body(VersePrototypes.NEEDLE, s -> { }, PayloadKind.NONE, 0, null),
+                body(VersePrototypes.NEEDLE, s -> { }, PayloadKind.NONE, 0, null))));
+        helper.runAtTickTime(38, () -> {
+            float one = health[0] - health[1];
+            float three = health[1] - golem.getHealth();
+            helper.assertTrue(bodies(helper, player).isEmpty(), "every needle of the fan ended on the golem");
+            helper.assertTrue(three > 2.5F * one, "three needles inside one hurt cooldown all landed: " + three + " against " + one + " for one");
             helper.succeed();
         });
     }

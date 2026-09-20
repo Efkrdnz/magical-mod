@@ -347,7 +347,7 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
             if (s.critChance() > 0.0D && random.nextDouble() * 100.0D < s.critChance()) {
                 damage *= CRIT_MULTIPLIER;
             }
-            MagicDamageService.hurt(target, damageSources().indirectMagic(this, source), (float) damage, skillId);
+            wound(target, source, damage);
         }
         if (s.knockback() > 0.0D) {
             SkillTargets.shove(target, position(), 0.25D * s.knockback(), 0.05D);
@@ -377,7 +377,7 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
                 continue;
             }
             if (damage > 0.0D) {
-                MagicDamageService.hurt(target, damageSources().indirectMagic(this, source), (float) damage, skillId);
+                wound(target, source, damage);
             }
             for (HitEffect effect : effects) {
                 VerseHitEffects.apply(effect, target, source, position(), random);
@@ -454,6 +454,16 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
         }
     }
 
+    /**
+     * A body's damage, with the target's hurt cooldown cleared first. A fan of three needles lands
+     * on one body inside one tick, and vanilla would take the first and refuse the rest as no
+     * stronger; every body of a shot counts, the way every beam of a barrage does.
+     */
+    private void wound(LivingEntity target, Entity source, double amount) {
+        target.invulnerableTime = 0;
+        MagicDamageService.hurt(target, damageSources().indirectMagic(this, source), (float) amount, skillId);
+    }
+
     /** Everything living in the radius, the caster included, with falloff. */
     private void explode(ServerLevel level, Vec3 at, double radius, double damage) {
         Entity owner = ownerEntity();
@@ -470,7 +480,7 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
             }
             double falloff = Math.max(0.25D, 1.0D - distance / radius);
             if (damage > 0.0D) {
-                MagicDamageService.hurt(target, damageSources().indirectMagic(this, source), (float) (damage * falloff), skillId);
+                wound(target, source, damage * falloff);
             }
             SkillTargets.shove(target, at, 0.3D * falloff, 0.12D * falloff);
         }
