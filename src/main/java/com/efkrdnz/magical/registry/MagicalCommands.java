@@ -25,6 +25,8 @@ import com.efkrdnz.magical.magic.SpaceRuleCategory;
 import com.efkrdnz.magical.magic.SpaceRuleOperation;
 import com.efkrdnz.magical.magic.SpaceTargetGroup;
 import com.efkrdnz.magical.magic.incantation.IncantationService;
+import com.efkrdnz.magical.magic.incantation.Landing;
+import com.efkrdnz.magical.magic.incantation.LandingText;
 import com.efkrdnz.magical.magic.incantation.ReciteCaps;
 import com.efkrdnz.magical.magic.incantation.RecitePlan;
 import com.efkrdnz.magical.magic.incantation.Verse;
@@ -977,6 +979,10 @@ public final class MagicalCommands {
         RecitePlan plan = IncantationService.preview(state, slot - 1);
         player.displayClientMessage(Component.translatable("message.magical.incantation_preview",
                 slot, plan.bodies().size(), plan.manaSpent(), plan.cooldownTicks()), false);
+        Landing landing = Landing.of(plan.root());
+        if (!landing.isNothing()) {
+            player.displayClientMessage(LandingText.describe(landing), false);
+        }
         return plan.bodies().size();
     }
 

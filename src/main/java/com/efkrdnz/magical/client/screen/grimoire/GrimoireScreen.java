@@ -52,6 +52,8 @@ import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.incantation.Incantation;
 import com.efkrdnz.magical.magic.incantation.IncantationService;
 import com.efkrdnz.magical.magic.incantation.IncantationValidator;
+import com.efkrdnz.magical.magic.incantation.Landing;
+import com.efkrdnz.magical.magic.incantation.LandingText;
 import com.efkrdnz.magical.magic.incantation.PreviewReciteWorld;
 import com.efkrdnz.magical.magic.incantation.ProjectilePlan;
 import com.efkrdnz.magical.magic.incantation.ReciteCaps;
@@ -802,6 +804,10 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured, H
         String beat = Component.translatable("screen.magical.grimoire.cooldown", plan.cooldownTicks()).getString();
         lines.add(new Line(Component.translatable("screen.magical.grimoire.would_cast", what).getString()
                 + " · " + bill + " · " + beat, mana < 0 ? REFUND_GREEN : TEXT_NEAR));
+        Landing landing = Landing.of(plan.root());
+        if (!landing.isNothing()) {
+            lines.add(new Line(LandingText.describe(landing).getString(), TEXT_BRIGHT));
+        }
         if (plan.frayed()) {
             lines.add(new Line(Component.translatable("screen.magical.grimoire.frayed").getString(), FRAYED_ORANGE));
         }

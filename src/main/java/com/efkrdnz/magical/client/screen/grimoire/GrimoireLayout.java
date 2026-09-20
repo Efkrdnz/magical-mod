@@ -71,7 +71,8 @@ public final class GrimoireLayout {
     public static final int CONTROL_GAP = 6;
     public static final int ACTION_GAP = 14;
     public static final int READING_GAP = 4;
-    public static final int READING_LINES = 2;
+    /** What a press casts and costs, what it lands on one target, and the fray when there is one. */
+    public static final int READING_LINES = 3;
 
     /** Everything under the grid, so the grid can be given whatever height is left. */
     public static final int BELOW_GRID = CAPTION_GAP + CAPTION_LINES * LINE_H + SLOTS_GAP + SLOT_H + CONTROLS_GAP + LINE_H
