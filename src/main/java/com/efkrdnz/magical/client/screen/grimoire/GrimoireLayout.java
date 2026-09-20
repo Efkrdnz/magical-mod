@@ -4,6 +4,7 @@ import com.efkrdnz.magical.client.screen.CodexLayout.Rect;
 import com.efkrdnz.magical.client.screen.ScreenChrome;
 import com.efkrdnz.magical.magic.incantation.Grimoire;
 import com.efkrdnz.magical.magic.incantation.ReciteCaps;
+import com.efkrdnz.magical.magic.incantation.VerseType;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.util.Mth;
@@ -11,13 +12,16 @@ import net.minecraft.util.Mth;
 /**
  * Geometry for the Grimoire screen, kept out of the screen so a test can check it.
  *
- * <p>Three columns under the shared chrome: the <b>shelf</b> on the left lists every verse the
- * wielder knows; the <b>page</b> in the middle is the incantation on the selected tab, one line per
- * verse written, as many lines as an incantation may hold; the <b>margin</b> on the right carries
- * the breath, the reading (what a press would cast, from the pure Reciter), and Save and Clear.
- * Every rectangle the screen paints or hit-tests is a function here and every hit-test is a function
- * of the same numbers, so a line can never be drawn in one place and struck in another;
- * {@code GrimoireLayoutTest} asserts that nothing overlaps and everything sits inside the body.
+ * <p>Under the shared chrome: a <b>rail</b> of one glyph per verse type that filters the
+ * <b>shelf</b> beside it, which lists every verse the wielder knows; the <b>page</b> in the middle
+ * is the incantation on the selected tab, one line per verse written, as many lines as an
+ * incantation may hold; the <b>margin</b> on the right carries the breath, the reading (what a
+ * press would cast, from the pure Reciter), and Save and Clear. A verse is dragged from the shelf
+ * onto the page, and a line is dragged to another place on it or off it; {@link #insertionIndexAt}
+ * is where a drop lands. Every rectangle the screen paints or hit-tests is a function here and every
+ * hit-test is a function of the same numbers, so a line can never be drawn in one place and struck
+ * in another; {@code GrimoireLayoutTest} asserts that nothing overlaps and everything sits inside the
+ * body.
  *
  * <p>All coordinates are screen-local: add the screen's left and top to place them.
  */
@@ -32,12 +36,18 @@ public final class GrimoireLayout {
     public static final int TAB_Y = ScreenChrome.TAB_Y;
     public static final int TAB_GAP = ScreenChrome.TAB_GAP;
 
-    // ---- the shelf ------------------------------------------------------------------------------
+    // ---- the rail and the shelf -----------------------------------------------------------------
 
     public static final int SHELF_LABEL_Y = 50;
-    public static final int SHELF_X = 18;
+    public static final int RAIL_X = 18;
+    public static final int RAIL_Y = 64;
+    public static final int RAIL_BUTTON = 14;
+    public static final int RAIL_STRIDE = 18;
+    /** One button per verse type. */
+    public static final int RAIL_COUNT = VerseType.values().length;
+    public static final int SHELF_X = 36;
     public static final int SHELF_Y = 64;
-    public static final int SHELF_W = 160;
+    public static final int SHELF_W = 142;
     public static final int SHELF_ROW_H = 20;
     public static final int SHELF_STRIDE = 22;
     public static final int SHELF_ROWS = 11;
@@ -58,6 +68,8 @@ public final class GrimoireLayout {
     public static final int LINES = ReciteCaps.MAX_VERSES;
     /** The strike mark at the right end of a written line. */
     public static final int LINE_STRIKE_W = 10;
+    /** How far outside the page a drop still counts as on it. */
+    public static final int DROP_SLACK = 8;
 
     // ---- the margin -----------------------------------------------------------------------------
 
@@ -98,7 +110,11 @@ public final class GrimoireLayout {
     // ---- rectangles ------------------------------------------------------------------------------
 
     public static Rect shelfLabel() {
-        return new Rect("shelf label", SHELF_X, SHELF_LABEL_Y, 150, TEXT_H);
+        return new Rect("shelf label", RAIL_X, SHELF_LABEL_Y, 160, TEXT_H);
+    }
+
+    public static Rect railButton(int index) {
+        return new Rect("rail " + index, RAIL_X, RAIL_Y + index * RAIL_STRIDE, RAIL_BUTTON, RAIL_BUTTON);
     }
 
     public static Rect shelfRow(int visibleRow) {
@@ -110,7 +126,7 @@ public final class GrimoireLayout {
     }
 
     public static Rect shelfHint() {
-        return new Rect("shelf hint", SHELF_X, HINT_Y, SHELF_SCROLL_X + SCROLLBAR_W - SHELF_X, TEXT_H);
+        return new Rect("shelf hint", RAIL_X, HINT_Y, SHELF_SCROLL_X + SCROLLBAR_W - RAIL_X, TEXT_H);
     }
 
     public static Rect pageLabel() {
@@ -171,6 +187,9 @@ public final class GrimoireLayout {
     public static List<Rect> bodyRects() {
         List<Rect> rects = new ArrayList<>();
         rects.add(shelfLabel());
+        for (int index = 0; index < RAIL_COUNT; index++) {
+            rects.add(railButton(index));
+        }
         for (int row = 0; row < SHELF_ROWS; row++) {
             rects.add(shelfRow(row));
         }
@@ -201,12 +220,32 @@ public final class GrimoireLayout {
         return ScreenChrome.tabAt(TAB_COUNT, lx, ly);
     }
 
+    public static int railAt(double lx, double ly) {
+        return stripIndex(ly - RAIL_Y, RAIL_BUTTON, RAIL_STRIDE, RAIL_COUNT, lx >= RAIL_X && lx < RAIL_X + RAIL_BUTTON);
+    }
+
     public static int shelfRowAt(double lx, double ly) {
         return stripIndex(ly - SHELF_Y, SHELF_ROW_H, SHELF_STRIDE, SHELF_ROWS, lx >= SHELF_X && lx < SHELF_X + SHELF_W);
     }
 
     public static int lineAt(double lx, double ly) {
         return stripIndex(ly - PAGE_Y, LINE_H, LINE_STRIDE, LINES, lx >= PAGE_X && lx < PAGE_X + PAGE_W);
+    }
+
+    /** Whether a drop at this point lands on the page: its column, with a little slack all round. */
+    public static boolean overPage(double lx, double ly) {
+        return lx >= PAGE_X - DROP_SLACK && lx < PAGE_X + PAGE_W + DROP_SLACK
+                && ly >= PAGE_Y - DROP_SLACK && ly < PAGE_Y + LINES * LINE_STRIDE + DROP_SLACK;
+    }
+
+    /**
+     * Where a dragged verse lands on a page of {@code size} lines: the line boundary nearest the
+     * cursor, so a drop on the top half of a line goes before it and on the bottom half after it,
+     * clamped to the page's end.
+     */
+    public static int insertionIndexAt(double ly, int size) {
+        int at = (int) Math.floor((ly - PAGE_Y + LINE_STRIDE / 2.0D) / LINE_STRIDE);
+        return Mth.clamp(at, 0, Math.min(size, LINES));
     }
 
     /** Which cell of a strip of {@code count} cells, {@code size} long every {@code stride}, a coordinate lands in; -1 in a gap or outside. */

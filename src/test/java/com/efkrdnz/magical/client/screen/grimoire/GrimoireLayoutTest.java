@@ -1,20 +1,23 @@
 package com.efkrdnz.magical.client.screen.grimoire;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.efkrdnz.magical.client.screen.CodexLayout.Rect;
 import com.efkrdnz.magical.magic.incantation.Grimoire;
 import com.efkrdnz.magical.magic.incantation.ReciteCaps;
+import com.efkrdnz.magical.magic.incantation.VerseType;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
  * The Grimoire screen laid out on paper: nothing drawn lands on anything else, everything sits
  * inside the body that frames it, and every hit-test answers for exactly the rectangle it is drawn
- * as. The page has as many lines as an incantation may hold and as many tabs as the Grimoire has
- * slots, so a change to either cap moves this layout and this test says so before a launched game
- * would.
+ * as. The page has as many lines as an incantation may hold, the rail as many buttons as there are
+ * verse types and the tabs as many as the Grimoire has slots, so a change to any of those caps moves
+ * this layout and this test says so before a launched game would. A drop lands on the line boundary
+ * nearest the cursor, and never past the end of the page.
  */
 class GrimoireLayoutTest {
 
@@ -84,6 +87,21 @@ class GrimoireLayoutTest {
     }
 
     @Test
+    void theRailHasOneButtonPerTypeBesideTheShelf() {
+        assertEquals(VerseType.values().length, GrimoireLayout.RAIL_COUNT);
+        for (int index = 0; index < GrimoireLayout.RAIL_COUNT; index++) {
+            Rect button = GrimoireLayout.railButton(index);
+            assertTrue(button.right() <= GrimoireLayout.SHELF_X, "rail " + index + " runs into the shelf");
+            assertTrue(button.bottom() <= GrimoireLayout.shelfHint().y(), "rail " + index + " runs into the hint");
+            assertEquals(index, GrimoireLayout.railAt(cx(button), cy(button)));
+            assertEquals(-1, GrimoireLayout.railAt(cx(button), button.bottom() + 0.5D), "the gap under rail " + index + " hits a button");
+        }
+        Rect first = GrimoireLayout.railButton(0);
+        assertEquals(-1, GrimoireLayout.railAt(first.right() + 1, cy(first)));
+        assertEquals(-1, GrimoireLayout.shelfRowAt(cx(first), cy(first)), "the rail is not the shelf");
+    }
+
+    @Test
     void everyShelfRowIsHitByItsOwnCentreOnly() {
         for (int row = 0; row < GrimoireLayout.SHELF_ROWS; row++) {
             Rect rect = GrimoireLayout.shelfRow(row);
@@ -112,6 +130,30 @@ class GrimoireLayoutTest {
         assertEquals(-1, GrimoireLayout.lineAt(first.x() - 1, cy(first)));
         assertEquals(-1, GrimoireLayout.lineAt(first.right() + 1, cy(first)));
         assertEquals(-1, GrimoireLayout.lineAt(cx(first), first.y() - 1));
+    }
+
+    @Test
+    void aDropLandsOnTheNearestLineBoundaryAndNeverPastTheEnd() {
+        int size = 5;
+        assertEquals(0, GrimoireLayout.insertionIndexAt(GrimoireLayout.PAGE_Y - 100, size), "far above the page");
+        assertEquals(0, GrimoireLayout.insertionIndexAt(GrimoireLayout.line(0).y() + 1, size), "the top of the first line");
+        assertEquals(2, GrimoireLayout.insertionIndexAt(GrimoireLayout.line(2).y() + 2, size), "the top half of line 2 goes before it");
+        assertEquals(3, GrimoireLayout.insertionIndexAt(GrimoireLayout.line(2).bottom() - 1, size), "the bottom half of line 2 goes after it");
+        assertEquals(size, GrimoireLayout.insertionIndexAt(GrimoireLayout.line(size).y() + 2, size), "just under the last line is the end");
+        assertEquals(size, GrimoireLayout.insertionIndexAt(GrimoireLayout.PAGE_Y + 10_000, size), "far below the page");
+        assertEquals(GrimoireLayout.LINES, GrimoireLayout.insertionIndexAt(GrimoireLayout.PAGE_Y + 10_000, GrimoireLayout.LINES), "a full page ends at its cap");
+    }
+
+    @Test
+    void theDropZoneIsThePageWithALittleSlackAndNoMore() {
+        Rect first = GrimoireLayout.line(0);
+        Rect last = GrimoireLayout.line(GrimoireLayout.LINES - 1);
+        assertTrue(GrimoireLayout.overPage(cx(first), cy(first)));
+        assertTrue(GrimoireLayout.overPage(first.x() - 1, first.y() - 1), "a little slack above and left");
+        assertTrue(GrimoireLayout.overPage(last.right() + 1, last.bottom() + 1), "a little slack below and right");
+        assertFalse(GrimoireLayout.overPage(cx(GrimoireLayout.shelfRow(0)), cy(GrimoireLayout.shelfRow(0))), "the shelf is not the page");
+        assertFalse(GrimoireLayout.overPage(cx(GrimoireLayout.reading()), cy(GrimoireLayout.reading())), "the margin is not the page");
+        assertFalse(GrimoireLayout.overPage(cx(first), GrimoireLayout.pageHint().bottom() + 1), "under the hint is not the page");
     }
 
     @Test
