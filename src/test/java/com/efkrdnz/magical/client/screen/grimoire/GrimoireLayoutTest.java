@@ -127,6 +127,14 @@ class GrimoireLayoutTest {
     }
 
     @Test
+    void theCaptionHasALineForTheNameAndTwoForWhatItDoes() {
+        assertEquals(3, GrimoireLayout.CAPTION_LINES);
+        Rect caption = GrimoireLayout.caption(GrimoireLayout.blockWidth(640), 4);
+        assertEquals(3 * GrimoireLayout.LINE_H, caption.h());
+        assertEquals(caption.bottom() + GrimoireLayout.SLOTS_GAP, GrimoireLayout.slotsY(4), "the row sits under the whole caption");
+    }
+
+    @Test
     void theTabsKeepTheirNamesWhereTheyFitAndFallBackToTheirNumerals() {
         assertTrue(GrimoireLayout.tabsFitWithWords(GrimoireLayout.blockWidth(640), TAB_WIDTHS));
         assertFalse(GrimoireLayout.tabsFitWithWords(GrimoireLayout.blockWidth(320), TAB_WIDTHS));

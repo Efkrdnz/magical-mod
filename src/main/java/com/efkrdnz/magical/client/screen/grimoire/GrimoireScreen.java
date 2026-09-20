@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.client.screen.grimoire;
 
 import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.CATEGORY_COUNT;
+import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.CAPTION_LINES;
 import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.CATEGORY_GLYPH_GAP;
 import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.ICON;
 import static com.efkrdnz.magical.client.screen.grimoire.GrimoireLayout.LINE_H;
@@ -73,6 +74,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 
 /**
@@ -622,14 +624,19 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured, H
         if (verse != null) {
             if (dragging && dragSource == DragSource.GRID && page.size() >= SLOT_COUNT) {
                 g.drawCenteredString(font, Component.translatable("screen.magical.grimoire.row_full").getString(), cx, y, ink(REFUSED_RED, fade));
-                return;
+            } else {
+                String name = name(verse.id()).getString();
+                String detail = typeAndMana(verse).getString();
+                int gap = 8;
+                int x = cx - (font.width(name) + gap + font.width(detail)) / 2;
+                g.drawString(font, name, x, y, ink(typeColor(verse.type()), fade), true);
+                g.drawString(font, detail, x + font.width(name) + gap, y, ink(TEXT_MUTED, fade), true);
             }
-            String name = name(verse.id()).getString();
-            String detail = typeAndMana(verse).getString();
-            int gap = 8;
-            int x = cx - (font.width(name) + gap + font.width(detail)) / 2;
-            g.drawString(font, name, x, y, ink(typeColor(verse.type()), fade), true);
-            g.drawString(font, detail, x + font.width(name) + gap, y, ink(TEXT_MUTED, fade), true);
+            // What the verse does, under its name, over the lines the caption keeps for it.
+            List<FormattedCharSequence> lines = font.split(description(verse.id()), f.width());
+            for (int i = 0; i < lines.size() && i < CAPTION_LINES - 1; i++) {
+                g.drawCenteredString(font, lines.get(i), cx, y + (i + 1) * LINE_H, ink(TEXT_NEAR, fade));
+            }
             return;
         }
         String hint;
@@ -1176,6 +1183,11 @@ public final class GrimoireScreen extends Screen implements HudDebug.Captured, H
 
     private static Component name(ResourceLocation id) {
         return Component.translatable("verse.magical." + id.getPath());
+    }
+
+    /** The line every verse carries in the lang file, the one the codex and the commands read too. */
+    private static Component description(ResourceLocation id) {
+        return Component.translatable("verse.magical." + id.getPath() + ".desc");
     }
 
     private static Component typeAndMana(Verse verse) {

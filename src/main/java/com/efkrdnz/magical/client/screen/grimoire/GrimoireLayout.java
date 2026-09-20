@@ -54,6 +54,8 @@ public final class GrimoireLayout {
     public static final int GRID_ROWS_MAX = 8;
 
     public static final int CAPTION_GAP = 4;
+    /** The name of what the cursor is over and its price on one line, then what it does over two. */
+    public static final int CAPTION_LINES = 3;
     public static final int SLOTS_GAP = 14;
     public static final int SLOT_STRIDE_MAX = 24;
     /** Twenty slots must fit the narrowest block, so the floor is the symbol plus a pixel each side. */
@@ -72,7 +74,7 @@ public final class GrimoireLayout {
     public static final int READING_LINES = 2;
 
     /** Everything under the grid, so the grid can be given whatever height is left. */
-    public static final int BELOW_GRID = CAPTION_GAP + LINE_H + SLOTS_GAP + SLOT_H + CONTROLS_GAP + LINE_H
+    public static final int BELOW_GRID = CAPTION_GAP + CAPTION_LINES * LINE_H + SLOTS_GAP + SLOT_H + CONTROLS_GAP + LINE_H
             + READING_GAP + READING_LINES * LINE_H;
 
     private static final float OVERSHOOT = 2.4F;
@@ -239,7 +241,7 @@ public final class GrimoireLayout {
     }
 
     public static Rect caption(int blockWidth, int visibleRows) {
-        return new Rect("caption", 0, captionY(visibleRows), blockWidth, LINE_H);
+        return new Rect("caption", 0, captionY(visibleRows), blockWidth, CAPTION_LINES * LINE_H);
     }
 
     // ---- the row ----------------------------------------------------------------------------------
@@ -253,7 +255,7 @@ public final class GrimoireLayout {
     }
 
     public static int slotsY(int visibleRows) {
-        return captionY(visibleRows) + LINE_H + SLOTS_GAP;
+        return captionY(visibleRows) + CAPTION_LINES * LINE_H + SLOTS_GAP;
     }
 
     public static Rect slot(int blockWidth, int visibleRows, int index) {
