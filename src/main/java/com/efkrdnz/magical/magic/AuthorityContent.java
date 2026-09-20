@@ -28,7 +28,8 @@ public final class AuthorityContent {
             MANA,
             0xF0F4FF,
             List.of(MagicContent.INCANTATION_1.id(), MagicContent.INCANTATION_2.id(),
-                    MagicContent.INCANTATION_3.id(), MagicContent.INCANTATION_4.id()));
+                    MagicContent.INCANTATION_3.id(), MagicContent.INCANTATION_4.id(),
+                    MagicContent.GRIMOIRE.id()));
 
     public static final AuthorityDefinition AUTHORITY_OF_CHAOS = register(
             CHAOS,

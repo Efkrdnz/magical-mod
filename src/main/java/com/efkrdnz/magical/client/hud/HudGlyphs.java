@@ -39,6 +39,7 @@ public final class HudGlyphs {
         fallback("incantation_2", StampId.BAR.atlasCell());
         fallback("incantation_3", StampId.TRIANGLE.atlasCell());
         fallback("incantation_4", StampId.SQUARE.atlasCell());
+        fallback("grimoire", StampId.DIAMOND.atlasCell());
         fallback("vault_of_avarice", StampId.SQUARE.atlasCell());
         fallback("create_subspace", StampId.RING.atlasCell());
         fallback("manipulate_space", StampId.LINK.atlasCell());

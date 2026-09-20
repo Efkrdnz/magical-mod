@@ -102,6 +102,8 @@ public final class MagicContent {
     public static final MagicSkillDefinition INCANTATION_2 = register("incantation_2", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 0, 0, 20, 0.0F, 0, 0xF0F4FF, MagicAttribute.ARCANE);
     public static final MagicSkillDefinition INCANTATION_3 = register("incantation_3", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 0, 0, 20, 0.0F, 0, 0xF0F4FF, MagicAttribute.ARCANE);
     public static final MagicSkillDefinition INCANTATION_4 = register("incantation_4", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 0, 0, 20, 0.0F, 0, 0xF0F4FF, MagicAttribute.ARCANE);
+    /** The Grimoire: a press opens the book the four incantations are written in. No price; the screen is the skill. */
+    public static final MagicSkillDefinition GRIMOIRE = register("grimoire", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 0, 0, 20, 0.0F, 0, 0xF0F4FF, MagicAttribute.ARCANE);
     // The Authority of Chaos. Its own school and its own attribute, unlike Mana above: CHAOS has a
     // SchoolMaterial row already, so these four inherit the magenta facet-band cast circle instead
     // of falling back to arcane blue. Three of them carry no damage at all - every number this
@@ -216,7 +218,7 @@ public final class MagicContent {
     private static final int STARTER_SPACE_WALKER_LUCKY_WEIGHT = 6;
     public static final Set<ResourceLocation> STARTER_UNLOCKS = Set.of(STARTER_SKILL);
     public static final Set<ResourceLocation> AUTHORITY_SKILLS = Set.of(CREATE_SUBSPACE.id(), MANIPULATE_SPACE.id(), POCKET_DIMENSION.id(), SPATIAL_ARSENAL.id(), SOUL_VOW.id(),
-            INCANTATION_1.id(), INCANTATION_2.id(), INCANTATION_3.id(), INCANTATION_4.id(),
+            INCANTATION_1.id(), INCANTATION_2.id(), INCANTATION_3.id(), INCANTATION_4.id(), GRIMOIRE.id(),
             BURDEN.id(), FRACTURE.id(), LAST_GRAIN.id(), CRITICALITY.id());
     public static final Set<ResourceLocation> CLASS_REWARD_SKILLS = Set.of(
             HEATED_IRON.id(),

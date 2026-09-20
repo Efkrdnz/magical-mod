@@ -47,6 +47,8 @@ public final class MagicalNetwork {
                         context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToClient(OpenSpellCreatorPayload.TYPE, OpenSpellCreatorPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> handleClientPayload(payload)))
+                .playToClient(OpenGrimoirePayload.TYPE, OpenGrimoirePayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToServer(CreateSkillPayload.TYPE, CreateSkillPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> {
                             if (context.player() instanceof ServerPlayer player) {
@@ -286,6 +288,11 @@ public final class MagicalNetwork {
     /** Opens the creator screen on the client; the class check happens before this is called. */
     public static void sendOpenSpellCreator(ServerPlayer player, OpenSpellCreatorPayload payload) {
         PacketDistributor.sendToPlayer(player, payload);
+    }
+
+    /** Opens the Grimoire screen on the client: a press on the Grimoire skill, or {@code /magical grimoire}. */
+    public static void sendOpenGrimoire(ServerPlayer player) {
+        PacketDistributor.sendToPlayer(player, new OpenGrimoirePayload());
     }
 
     public static void sendCreateSkill(ResourceLocation first, ResourceLocation second) {

@@ -174,6 +174,12 @@ public final class MagicalCommands {
                                     .executes(context -> spawnCloneOpponent(context.getSource(), 2))
                                     .then(Commands.argument("difficulty", IntegerArgumentType.integer(0, AscendantTier.MAX_TIER))
                                             .executes(context -> spawnCloneOpponent(context.getSource(), IntegerArgumentType.getInteger(context, "difficulty"))))))
+                    // The Grimoire screen, for captures and for a wielder who has not put the skill on a key.
+                    .then(Commands.literal("grimoire")
+                            .executes(context -> withPlayer(context.getSource(), player -> {
+                                MagicalNetwork.sendOpenGrimoire(player);
+                                return 1;
+                            })))
                     .then(Commands.literal("codex")
                             .executes(context -> withPlayer(context.getSource(), player -> {
                                 MagicCodexService.open(player);

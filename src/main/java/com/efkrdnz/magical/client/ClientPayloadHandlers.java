@@ -53,6 +53,10 @@ public final class ClientPayloadHandlers {
         SpellCreatorScreen.open(payload.tab(), payload.first().orElse(null), payload.second().orElse(null));
     }
 
+    public static void handle(com.efkrdnz.magical.network.OpenGrimoirePayload payload) {
+        com.efkrdnz.magical.client.screen.grimoire.GrimoireScreen.open();
+    }
+
     public static void handle(CounterPromptPayload payload) {
         ClientCounterPrompt.receive(payload);
     }

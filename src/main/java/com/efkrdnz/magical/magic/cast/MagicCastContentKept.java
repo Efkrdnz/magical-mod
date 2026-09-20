@@ -63,6 +63,12 @@ public final class MagicCastContentKept {
                 com.efkrdnz.magical.magic.incantation.IncantationService.recite(ctx, 2)));
         SkillCastRegistry.register(MagicContent.INCANTATION_4, SkillCastRegistry.selfManaged(ctx ->
                 com.efkrdnz.magical.magic.incantation.IncantationService.recite(ctx, 3)));
+        // The Grimoire: a press opens the book. Self-managed, so opening it costs no mana and starts no cooldown.
+        SkillCastRegistry.register(MagicContent.GRIMOIRE, SkillCastRegistry.selfManaged(ctx -> {
+            if (ctx.player() != null) {
+                com.efkrdnz.magical.network.MagicalNetwork.sendOpenGrimoire(ctx.player());
+            }
+        }));
         // The Authority of Chaos. Three presses and a hold, and all three presses are deliberately
         // tiny: Burden places one grain, the Last Grain places one more, and Criticality has no
         // damage of its own at all. Everything that happens afterwards comes out of the Pile.
