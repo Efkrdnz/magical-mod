@@ -1,5 +1,7 @@
 package com.efkrdnz.magical.client;
 
+import com.efkrdnz.magical.client.hud.MagicalClientConfig;
+import com.efkrdnz.magical.client.screen.CodexLayout.Rect;
 import com.efkrdnz.magical.client.screen.MagicalGuiStyle;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicLoadout;
@@ -18,21 +20,63 @@ import net.minecraft.resources.ResourceLocation;
  * hold something like Defensive Rotation legibly at any radius, so it is a vertical column against
  * the left edge instead - names read straight and the list grows downward rather than crowding.
  *
+ * <p>It is a <b>rail</b> now and not a panel. It was the last overlay in the mod still wearing a
+ * frame, and the frame was also hiding a bug: the caption was drawn with no truncation at all, so
+ * thirty-four characters of "Scroll to choose, release to switch" ran out through the right wall
+ * of a 148px box and sat unbacked on the sky. The geometry moved to {@link LoadoutSwitcherLayout},
+ * where a test can reach it, and nothing is drawn now without a measured width.
+ *
+ * <p><b>Frameless here means a scrim, not bare text</b>, and that distinction is the design. A
+ * drop shadow preserves the shape of a glyph and does nothing for its contrast, so over noon
+ * daylight sand the pale "this one is selected" ink is actually <i>fainter</i> than the grey it is
+ * supposed to stand out from: the highlight inverts on bright ground and the list becomes a
+ * riddle. Every other frameless surface in the mod dims the world first for exactly this reason
+ * ({@code SpaceManipulationOverlay} at 0xA6, {@code FractureOverlay} at 0x76), so this one does
+ * too, at a weight between them. The world goes dark; the rail is bright on it; there is still no
+ * plate, no border and no box anywhere.
+ *
+ * <p>Three readings share the rail and none of them may be mistaken for another, so each gets its
+ * own channel. Where the wheel is pointing is <b>position and brightness</b>: a mark in the gutter
+ * and the only white text on screen. Which loadout is actually worn is <b>hue</b>: gold, with a
+ * hairline under the name. Whether a release will do anything is the <b>accent colour</b> of the
+ * mark plus a word on the caption line. Position, brightness and hue are independent, so all three
+ * read at once - which they must, because {@code highlighted} opens on the active row.
+ *
  * <p>The key is shared with the parry prompt, which always wins: {@link MagicalClientEvents} asks
  * {@link ClientCounterPrompt} first and only passes the key through when the counter did not
  * consume it. During a counter the window is a handful of ticks, and a list opening instead of a
  * parry would lose the exchange.
  */
 public final class MagicWheelOverlay {
-    private static final int ROW_H = 22;
-    private static final int PANEL_W = 148;
-    private static final int MARGIN = 10;
-    private static final int PIP = 5;
     private static final float FADE_STEP = 0.22F;
     private static final int ACCENT_OPEN = 0xFF5FD4FF;
     private static final int ACCENT_LOCKED = 0xFFE06470;
     private static final int ACCENT_ACTIVE = 0xFFF7D774;
-    private static final int PIP_EMPTY = 0xFF2A3446;
+
+    /**
+     * The world, dimmed. Between the Manipulate Space selector at 0xA6 and the Fracture overlay at
+     * 0x76: the switcher is a list you read rather than something you aim through, but it is still
+     * a two-second hold and not an editor.
+     */
+    private static final int SCRIM = 0x8C060B14;
+
+    /** The mark in the gutter that says which row a release would take. */
+    private static final String MARK = ">";
+
+    /**
+     * A row you are not pointing at.
+     *
+     * <p>Not {@code TEXT_MUTED}, which is tuned for dark panel gradients and falls to about 1.4:1
+     * on dimmed daylight ground - a ghost. This sits a clear step under the white of the
+     * highlighted row, which is the only job the contrast between the two has.
+     */
+    private static final int INK_REST = 0xFFC2CCD9;
+
+    /** An unbound slot: a dash, not a dark dot, because a dark dot on dark ground is nothing. */
+    private static final int PIP_EMPTY = 0xFF99A6B8;
+
+    /** How far the rail slides in from the left as it opens. */
+    private static final int SLIDE = 5;
 
     private static boolean active;
     private static boolean keyWasDown;
@@ -118,51 +162,123 @@ public final class MagicWheelOverlay {
         if (loadouts.isEmpty()) {
             return;
         }
+        int guiWidth = guiGraphics.guiWidth();
+        int guiHeight = guiGraphics.guiHeight();
+        int count = loadouts.size();
         int alpha = (int) (fade * 255.0F);
-        int height = loadouts.size() * ROW_H + 24;
-        int x = MARGIN;
-        int y = (guiGraphics.guiHeight() - height) / 2;
 
         // The lock is predicted here rather than streamed: the server sent its value with the sync
         // the cast already triggered, and it counts down locally instead of costing a packet a tick.
         boolean locked = ClientMagicState.get().loadoutSwapLockTicks() > 0;
+        int accent = locked ? ACCENT_LOCKED : ACCENT_OPEN;
 
-        MagicalGuiStyle.panel(guiGraphics, x, y, x + PANEL_W, y + height,
-                MagicalGuiStyle.withAlpha(locked ? ACCENT_LOCKED : ACCENT_OPEN, alpha));
-        guiGraphics.drawString(minecraft.font,
-                Component.translatable(locked ? "screen.magical.loadout_locked" : "screen.magical.loadout_switch"),
-                x + 8, y + 7, MagicalGuiStyle.withAlpha(MagicalGuiStyle.TEXT_MUTED, alpha), false);
+        guiGraphics.fill(0, 0, guiWidth, guiHeight,
+                MagicalGuiStyle.withAlpha(SCRIM, (int) (fade * (SCRIM >>> 24))));
+
+        // The rail arrives from the left rather than only fading up. With no plate under it, alpha
+        // alone reads as the terrain showing through the letters instead of as the list appearing.
+        int slide = MagicalClientConfig.current().reducedMotion()
+                ? 0
+                : Math.round(SLIDE * (1.0F - easeOut(fade)));
 
         int activeIndex = ClientMagicState.get().activeLoadoutIndex();
-        for (int index = 0; index < loadouts.size(); index++) {
+        for (int index = 0; index < count; index++) {
             MagicLoadout loadout = loadouts.get(index);
-            int rowY = y + 20 + index * ROW_H;
             boolean chosen = index == highlighted;
-            MagicalGuiStyle.listRow(guiGraphics, x + 5, rowY, PANEL_W - 10, ROW_H - 3, chosen,
-                    MagicalGuiStyle.withAlpha(index == activeIndex ? ACCENT_ACTIVE : ACCENT_OPEN, alpha));
-            guiGraphics.drawString(minecraft.font,
-                    minecraft.font.plainSubstrByWidth(loadout.name(), PANEL_W - 52),
-                    x + 11, rowY + 4,
-                    MagicalGuiStyle.withAlpha(chosen ? MagicalGuiStyle.TEXT_PRIMARY : MagicalGuiStyle.TEXT_MUTED, alpha),
-                    false);
-            drawPips(guiGraphics, loadout, x + PANEL_W - 13 - MagicContent.LOADOUT_SIZE * (PIP + 2), rowY + 6, alpha);
+            boolean worn = index == activeIndex;
+
+            if (chosen) {
+                Rect mark = LoadoutSwitcherLayout.mark(index, count, guiHeight);
+                guiGraphics.drawString(minecraft.font, MARK, mark.x() - slide, mark.y(),
+                        MagicalGuiStyle.withAlpha(accent, alpha), true);
+            }
+
+            drawPips(guiGraphics, loadout, index, count, guiWidth, guiHeight, slide, alpha);
+
+            String name = fit(minecraft, loadout.name(), guiWidth);
+            int measured = minecraft.font.width(name);
+            Rect row = LoadoutSwitcherLayout.name(index, measured, count, guiWidth, guiHeight);
+            guiGraphics.drawString(minecraft.font, name, row.x() - slide, row.y(),
+                    MagicalGuiStyle.withAlpha(ink(chosen, worn), alpha), true);
+
+            if (worn) {
+                Rect rule = LoadoutSwitcherLayout.activeRule(index, measured, count, guiWidth, guiHeight);
+                guiGraphics.fill(rule.x() - slide, rule.y(), rule.right() - slide, rule.bottom(),
+                        MagicalGuiStyle.withAlpha(ACCENT_ACTIVE, alpha));
+            }
+        }
+
+        // The caption line is reserved whether or not anything is on it: the cast keys still fire
+        // while the switcher is held, so a lock can land mid-list, and a list that jumps half a
+        // line at that moment is a list you lose your place in.
+        if (locked) {
+            Rect caption = LoadoutSwitcherLayout.caption(count, guiWidth, guiHeight);
+            String text = fit(minecraft,
+                    Component.translatable("screen.magical.loadout_locked").getString(), guiWidth);
+            guiGraphics.drawString(minecraft.font, text, caption.x() - slide, caption.y(),
+                    MagicalGuiStyle.withAlpha(ACCENT_LOCKED, alpha), true);
         }
     }
 
     /**
-     * Four colour dots per row, one per slot.
-     *
-     * <p>They make a loadout recognisable without reading it, which is the point of holding the key
-     * rather than cycling blind - and an empty slot shows as a dim dot rather than as nothing, so a
-     * half-built loadout is visibly half-built.
+     * Brightness for where the wheel is, hue for what is worn, and both at once on the row that is
+     * both - which is the row the list opens on, so it is the common case and not the corner one.
      */
-    private static void drawPips(GuiGraphics guiGraphics, MagicLoadout loadout, int x, int y, int alpha) {
+    private static int ink(boolean chosen, boolean worn) {
+        if (worn) {
+            return chosen ? MagicalGuiStyle.brighten(ACCENT_ACTIVE, 1.18F) : ACCENT_ACTIVE;
+        }
+        return chosen ? 0xFF000000 | MagicalGuiStyle.TEXT_PRIMARY : INK_REST;
+    }
+
+    /**
+     * A string cut to what the rail allows on this screen, with dots to say it was cut.
+     *
+     * <p>Never wrapped, because a second line would land on the row below, and never scaled,
+     * because a second text size in a two-second glance is noise. The dots are three periods
+     * rather than an ellipsis so the glyph comes off the font page every resource pack has.
+     */
+    private static String fit(Minecraft minecraft, String text, int guiWidth) {
+        int limit = LoadoutSwitcherLayout.textLimit(guiWidth);
+        if (minecraft.font.width(text) <= limit) {
+            return text;
+        }
+        String dots = "...";
+        return minecraft.font.plainSubstrByWidth(text, limit - minecraft.font.width(dots)) + dots;
+    }
+
+    /** Settles without overshooting, the curve the other hold overlays open on. */
+    private static float easeOut(float t) {
+        float clamped = Math.max(0.0F, Math.min(1.0F, t));
+        return 1.0F - (1.0F - clamped) * (1.0F - clamped);
+    }
+
+    /**
+     * Four colour dots per row, one per slot, leading the row rather than trailing it.
+     *
+     * <p>They make a loadout recognisable without reading it, which is the point of holding the
+     * key rather than cycling blind. They lead now because a trailing run needs a right edge to
+     * hang off and the right edge was the frame; as a leading run they also line up into one
+     * colour grid down the rail, so the shape of a loadout is legible before any word is.
+     *
+     * <p>An empty slot is a dash across the middle of the dot rather than a dark dot. It differs
+     * by shape as well as by tone, so a half-built loadout is visibly half-built even where the
+     * ground behind it defeats the tone.
+     */
+    private static void drawPips(GuiGraphics guiGraphics, MagicLoadout loadout, int row, int count,
+            int guiWidth, int guiHeight, int slide, int alpha) {
         for (int slot = 0; slot < MagicContent.LOADOUT_SIZE; slot++) {
             ResourceLocation id = loadout.slot(slot);
             MagicSkillDefinition skill = id == null ? null : MagicContent.get(id);
-            int rgb = skill == null ? PIP_EMPTY : skill.color();
-            int dotX = x + slot * (PIP + 2);
-            guiGraphics.fill(dotX, y, dotX + PIP, y + PIP, MagicalGuiStyle.withAlpha(rgb, alpha));
+            Rect pip = LoadoutSwitcherLayout.pip(row, slot, count, guiWidth, guiHeight);
+            int x = pip.x() - slide;
+            if (skill == null) {
+                int y = pip.y() + pip.h() / 2;
+                guiGraphics.fill(x, y, x + pip.w(), y + 1, MagicalGuiStyle.withAlpha(PIP_EMPTY, alpha));
+            } else {
+                guiGraphics.fill(x, pip.y(), x + pip.w(), pip.bottom(),
+                        MagicalGuiStyle.withAlpha(0xFF000000 | skill.color(), alpha));
+            }
         }
     }
 }

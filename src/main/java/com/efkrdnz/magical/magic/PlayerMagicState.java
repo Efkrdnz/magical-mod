@@ -724,6 +724,11 @@ public final class PlayerMagicState {
         loadoutSwapLockTicks = MagicContent.LOADOUT_SWAP_LOCK_TICKS;
     }
 
+    /** Debug only: holds the switcher shut for a fixed spell, so the locked rail can be captured. */
+    public void setLoadoutSwapLockTicks(int ticks) {
+        loadoutSwapLockTicks = Math.max(0, ticks);
+    }
+
     /**
      * Switch loadouts. Server-authoritative: a client that ignores the lock is refused here.
      *

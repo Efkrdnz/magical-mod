@@ -413,6 +413,17 @@ public final class MagicalCommands {
                                                 data.sync(player);
                                                 return 1;
                                             }))))
+                            // The switcher refuses a swap for a second after a cast. A cast arms it
+                            // as a side effect, which is no use to a capture: you cannot press a cast
+                            // key and hold the switcher key in the same unattended run.
+                            .then(Commands.literal("swaplock")
+                                    .then(Commands.argument("ticks", IntegerArgumentType.integer(0, 200))
+                                            .executes(context -> withPlayer(context.getSource(), player -> {
+                                                PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+                                                data.setLoadoutSwapLockTicks(IntegerArgumentType.getInteger(context, "ticks"));
+                                                data.sync(player);
+                                                return 1;
+                                            }))))
                             .then(Commands.literal("status")
                                     .then(Commands.argument("status", StringArgumentType.word())
                                             .then(Commands.argument("ticks", IntegerArgumentType.integer(0))

@@ -21,6 +21,9 @@ class HudLangKeysTest {
             "hud.magical.mana", "hud.magical.mana_vault", "hud.magical.barrier", "hud.magical.proficiency",
             "hud.magical.wheel", "hud.magical.active", "hud.magical.no_preset",
             "message.magical.space_rule_applied",
+            // The switcher caption, deleted with the panel it used to overflow: it told the
+            // player to scroll and release while they were already holding the key to do it.
+            "screen.magical.loadout_switch",
             // The Ledger kit of the Authority of Mana, replaced by the incantations.
             "skill.magical.open_ledger", "skill.magical.writ", "skill.magical.mana_form",
             "message.magical.writ_silenced", "message.magical.ledger_opened", "message.magical.mana_form_entered",
