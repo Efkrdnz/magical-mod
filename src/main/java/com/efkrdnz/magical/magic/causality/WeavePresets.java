@@ -21,7 +21,7 @@ import java.util.Locale;
  */
 public final class WeavePresets {
 
-    /** The design doc worked counterattack: bank what the marked does to you, then hand it back. */
+    /** The design doc worked counterattack: bank everything that lands on you, then hand it back. */
     public static final String COUNTER = "counter";
     /** A melee blow goes back to whoever swung it. Two pins, and nearly no paradox. */
     public static final String THORNS = "thorns";
@@ -43,26 +43,35 @@ public final class WeavePresets {
     }
 
     /**
-     * {@code Take Damage -> from the Marked -> Store all of it}, and
-     * {@code Ledger reaches 20 -> Step behind the Marked -> Spend 25 on them}.
+     * {@code Take Damage -> Store all of it}, and
+     * {@code Ledger reaches 20 -> Spend 25 on whatever is nearest}.
      *
      * <p>Two chains rather than one, joined through the ledger rather than through a wire, because
      * the second half has to happen on a different event from the first. That is the lesson: the
      * ledger is how a board talks to itself across time, and {@link Cause#BRIM} is the ear.
+     *
+     * <p>The bank is unconditional. A cause may feed an effect directly ({@code NodeKind.mayFeed}
+     * asks only that the rank does not go backwards), and a Store breaks no conservation, so this
+     * half costs nothing in paradox and asks nothing of the wielder beforehand - it fills on the
+     * first hit of any fight rather than only against a body already wearing the Mark. The payout
+     * asks for no Mark either, so the whole board works the day the Authority is taken.
+     *
+     * <p>Not {@link Scope#OTHER}, which would read better and would do nothing at all: a BRIM is
+     * built by {@code CausalEvent.of(Cause.BRIM)} with an {@code otherId} of -1, because crossing a
+     * threshold in the ledger has no second party the way a blow does. That is the price of the
+     * ledger being how a board talks to itself across time - the participants do not make the trip.
+     * {@code OTHER} would resolve to an empty target list and the payout would silently never land,
+     * so the nearest body is the honest aim, and a tick after a hit that is the thing that threw it.
      */
     private static Weave counter() {
         Weave weave = new Weave();
         CausalNode hurt = weave.add(CausalNode.of(0, Cause.HURT, 30, 30));
-        CausalNode from = weave.add(CausalNode.of(0, Condition.FROM_MARKED, 120, 30));
         CausalNode store = weave.add(CausalNode.of(0, Effect.STORE, 210, 30).withParam(100));
-        weave.connect(hurt.id(), from.id());
-        weave.connect(from.id(), store.id());
+        weave.connect(hurt.id(), store.id());
 
         CausalNode brim = weave.add(CausalNode.of(0, Cause.BRIM, 30, 110).withParam(20));
-        CausalNode step = weave.add(CausalNode.of(0, Effect.STEP, 130, 96).withScope(Scope.MARKED));
-        CausalNode spend = weave.add(CausalNode.of(0, Effect.SPEND, 130, 134)
-                .withParam(25).withScope(Scope.MARKED));
-        weave.connect(brim.id(), step.id());
+        CausalNode spend = weave.add(CausalNode.of(0, Effect.SPEND, 130, 110)
+                .withParam(25).withScope(Scope.NEAREST));
         weave.connect(brim.id(), spend.id());
         return weave;
     }

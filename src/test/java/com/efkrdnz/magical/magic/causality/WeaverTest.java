@@ -112,6 +112,20 @@ class WeaverTest {
     }
 
     @Test
+    void theCounterPresetBanksAHitFromAnythingAtAll() {
+        // The bank half used to sit behind FROM_MARKED, so a wielder who had not spent an Anchor
+        // yet took hits, banked nothing, and had no way to tell a working board from a broken one -
+        // the condition is invisible at runtime and the ledger simply never moved. A cause may feed
+        // an effect directly and a Store breaks no conservation, so leaving it open costs nothing.
+        Fake world = new Fake();
+        world.mark = false;
+        Resolution answer = Weaver.resolve(WeavePresets.of(WeavePresets.COUNTER), blow(20.0F), world);
+        assertEquals(20.0F, only(answer).magnitude(), 1.0E-4F, "the whole blow is banked");
+        assertEquals(0.0F, answer.magnitude(), 1.0E-4F, "and none of it is left to land");
+        assertEquals(0.0F, answer.paradox(), 1.0E-4F, "banking moves a number and invents nothing");
+    }
+
+    @Test
     void theSignalIsLiveSoTwoStoresTakeHalfAndThenHalfOfTheRest() {
         // The rule that makes a second wire an honest addition rather than a way to double-spend one
         // blow. Half of twenty is ten; half of what is left is five; three quarters is banked.

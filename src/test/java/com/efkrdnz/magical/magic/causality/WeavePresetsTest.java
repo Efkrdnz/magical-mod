@@ -47,6 +47,16 @@ class WeavePresetsTest {
     }
 
     @Test
+    void theCounterPresetAsksNothingOfAWielderWhoHasNeverPlacedAMark() {
+        // Both halves of it used to want one - the Store behind FROM_MARKED and the payout scoped
+        // MARKED - so the doc's own worked example did nothing whatsoever until an Anchor had been
+        // spent, and did it silently. The other two presets never wanted a Mark; this holds the one
+        // that did to the same standard, on the review that does not assume a Mark is out there.
+        assertTrue(WeaveReview.issues(WeavePresets.of(WeavePresets.COUNTER), false).isEmpty(),
+                "counter still wants a Mark: " + WeaveReview.issues(WeavePresets.of(WeavePresets.COUNTER), false));
+    }
+
+    @Test
     void everyChainOfEveryPresetIsInsideTheDepthCeiling() {
         for (String name : WeavePresets.NAMES) {
             for (WeaveReview.Chain chain : WeaveReview.chains(WeavePresets.of(name))) {
