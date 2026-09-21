@@ -140,6 +140,38 @@ The weapon's own numbers show: element owns colour and ornament (`ForgeElementAc
 
 Captures: a strike is born from a left click, and `-PautoClick` only reaches an open screen while `-PautoHold` only reaches a registered key mapping, so neither can press attack. `forge/ForgeStrikeBench` spawns one through the real `ForgeStrikeMath.resolve` and `ForgeStrikeEntity.spawn`: `magical-debug forge strike <form> <element> [class] [grade] [heavy]` for one, `magical-debug forge bench <element> [class] [grade] [heavy]` for one of every family at once (`heavy` is a literal, not a boolean). Judge colour at **midnight** - additive over daylight sand clips to white by construction, which every glowing effect in the mod shares - and judge shape in **first person**, which is how it is played and the angle every arc is most nearly edge-on at. The wave is the exception and needs a second camera off the flight line — a dome and a flat disc are the same picture seen down their own axis, so face-on says nothing about whether it curves; throw it facing `0 0`, then `tp @s ~-4 ~1 ~-9 -20 25` a tick or two later for the three-quarter view that shows the cup. Forms live 3 to 6 ticks (a wave 20), so a screenshot lands one or two ticks after the spawn: `.\gradlew runClient -PquickPlay="New World" -PwindowSize=1280x720 -PautoCommands="gamerule sendCommandFeedback false;magical reset;magical hud race human;magical class unlock blacksmith;time set midnight;tp @s ~ ~ ~ 0 0;140:magical-debug forge strike magical:slash magical:fire sword divine;150:magical-debug forge strike magical:cleave magical:fire sword divine;160:magical-debug forge strike magical:thrust magical:frost sword divine;170:magical-debug forge strike magical:spin magical:fire sword divine;180:magical-debug forge strike magical:slam magical:fire sword divine;190:magical-debug forge strike magical:wave magical:void sword divine;215:magical-debug forge strike magical:rising magical:fire sword divine;225:magical-debug forge strike magical:flurry magical:fire sword divine" -PautoScreenshot=141,151,161,171,181,193,216,227 -PautoExit`; add `-PautoCamera=third_back` for the same run seen from outside.
 
+### Weapon item models
+
+Every weapon in `forge/weapon/MagicalWeapons` ships three files under its own path -
+`assets/magical/items/<path>.json`, `models/item/<path>.json`, `textures/item/<path>.png` - and
+`MagicalWeaponsTest.everyWeaponHasItsThreeAssetFiles` checks all three exist. There is no datagen
+for them; they are written by hand.
+
+All of them are one flat quad on `minecraft:item/handheld` wearing a 16x16 icon, **except
+Duskfall**, which is a real 130-cuboid Blockbench export (source project and previews at
+`D:\bb\eclipse_reaver`, authored as a standalone 1.21.4 pack). Importing one of those is easy to
+get wrong in ways that never fail a build, so `WeaponModelAssetsTest` pins the three that matter
+for every weapon model at once. **The namespace**: an export carries its own pack namespace on
+every texture reference, and a reference into a namespace this mod does not ship resolves to the
+missing texture while the model loads perfectly - so `eclipse_reaver:item/eclipse_reaver` had to
+become `magical:item/duskfall`, and that rename is the one thing the test caught. **The UV space**:
+`texture_size` is a Blockbench field that vanilla does not read at all, so UVs are always 0..16 no
+matter how many pixels the sheet has; an export that leaves them in texture pixels samples a
+two-pixel corner across the whole sword and the parser accepts it, because any float is a valid UV.
+**The bounds**: vanilla refuses an element outside -16..32 or a rotation that is not 0, +/-22.5 or
++/-45 on one axis, and that refusal is a load-time log line, not a test failure, so the weapon
+simply has no model in the finished game.
+
+The display transforms need retuning on import and the test cannot help, because nothing about them
+is wrong in the abstract - they are wrong relative to this mod. A standalone pack tunes its hero
+item to fill the frame; here the same numbers made a sword 31 model units tall (about twice a
+vanilla blade) cover a third of the screen in first person. First person went 0.72 -> **0.42**,
+which puts its on-screen footprint beside a netherite sword, and the GUI went 0.46 -> **0.55** with
+the translation pulled back toward centre. The GUI scale has a hard ceiling: the slot is 16 units,
+the blade rotated -35 degrees runs along the slot diagonal at 22.6, so 0.62 clips the tip and the
+grip out of the slot and 0.55 is the last value that does not. Third person was left exactly as
+authored; it was already right.
+
 ### Visual conventions (from SKILL_CREATION_NOTES.md)
 
 - No reused vanilla projectiles, fireballs, or particles as main identity.
