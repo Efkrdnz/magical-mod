@@ -2290,5 +2290,17 @@
   "message.magical.weave_no_preset": "There is no board called %s.",
   "message.magical.paradox_rung": "Reality is %s.",
   "message.magical.paradox_collapse": "Paradox. The board comes apart, %s falls due, and nothing fires for %ss.",
-  "message.magical.paradox_shut": "The board is still coming back together."
+  "message.magical.paradox_shut": "The board is still coming back together.",
+  "message.magical.anchor_hold": "Hold to choose a body, release to set your Mark.",
+  "message.magical.weave_nothing_in_reach": "Nothing living is close enough to mark.",
+  "anchor.magical.nothing": "Nothing living within reach.",
+  "anchor.magical.reach": "Your Mark carries %s blocks.",
+  "anchor.magical.body": "%s   %sm",
+  "anchor.magical.worn": "Already wears your Mark",
+  "anchor.magical.unworn": "Unmarked",
+  "anchor.magical.wakes_none": "Nothing on your board is waiting for a Mark",
+  "anchor.magical.wakes_one": "One pin on your board wakes",
+  "anchor.magical.wakes": "%s pins on your board wake",
+  "anchor.magical.pick": "%s of %s   scroll to choose, release to mark",
+  "anchor.magical.cooling": "Your Mark is still gathering   %ss"
 }

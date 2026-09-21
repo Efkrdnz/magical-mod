@@ -217,6 +217,12 @@ public final class MagicalClientEvents {
                 if (FractureOverlay.active()) {
                     FractureOverlay.finish();
                 }
+                if (CausalAnchorOverlay.active()) {
+                    // Cancelled rather than finished: a screen opening over the hold is not the
+                    // wielder choosing a body, and spending the Mark on whatever the rail happened
+                    // to be resting on would be the exact fumble the hold exists to prevent.
+                    CausalAnchorOverlay.cancel();
+                }
                 FirstPersonEffects.tick(minecraft);
                 com.efkrdnz.magical.client.fx.TransientVisuals.tick();
                 com.efkrdnz.magical.client.fx.SpellParticles.tick();
@@ -249,6 +255,12 @@ public final class MagicalClientEvents {
                 if (ChaosAuthorityInput.tickSlot(minecraft, i)) {
                     while (MagicalKeyMappings.CAST_SLOTS[i].consumeClick()) {
                         // A Fracture is five gates read left to right, not a press.
+                    }
+                    continue;
+                }
+                if (CausalityAuthorityInput.tickSlot(minecraft, i)) {
+                    while (MagicalKeyMappings.CAST_SLOTS[i].consumeClick()) {
+                        // A Mark is chosen off the bodies in reach, not taken off the crosshair.
                     }
                     continue;
                 }
@@ -310,6 +322,7 @@ public final class MagicalClientEvents {
             if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_CUTOUT_BLOCKS) {
                 renderHolyFieldsBeforeEntities(event, minecraft);
                 com.efkrdnz.magical.client.fx.TransientVisuals.renderThroughTerrain(event, minecraft);
+                com.efkrdnz.magical.client.renderer.causality.AnchorMarkRenderer.render(event, minecraft);
                 return;
             }
             if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) {
@@ -413,12 +426,14 @@ public final class MagicalClientEvents {
                     || SoulVowInput.handleScroll(scrollDeltaY)
                     || SpaceManipulationOverlay.handleScroll(scrollDeltaY)
                     || FractureOverlay.handleScroll(scrollDeltaY)
+                    || CausalAnchorOverlay.handleScroll(scrollDeltaY)
                     || MagicWheelOverlay.handleScroll(scrollDeltaY);
         }
 
         /** The same for a mouse button, in the same order the event handler used. */
         public static boolean dispatchMouseButton(int button, int action) {
-            return FractureOverlay.handleMouseButton(button, action)
+            return CausalAnchorOverlay.handleMouseButton(button, action)
+                    || FractureOverlay.handleMouseButton(button, action)
                     || SpaceManipulationOverlay.handleMouseButton(button, action);
         }
 

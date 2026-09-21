@@ -1,6 +1,9 @@
 package com.efkrdnz.magical.magic.causality;
 
 import com.efkrdnz.magical.magic.MagicDamageService;
+import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
+import com.efkrdnz.magical.magic.MagicSinService;
+import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.ArrayList;
@@ -557,6 +560,52 @@ public final class CausalityService {
             player.displayClientMessage(Component.translatable("message.magical.weave_no_target"), true);
             return false;
         }
+        return placeMark(player, state, target);
+    }
+
+    /**
+     * The body the anchor hold was released on.
+     *
+     * <p>The client picked it, so the server asks every question again from scratch: that the id is
+     * a living body at all, that it is not the wielder, that it is alive and that it is inside the
+     * reach <em>now</em> rather than when the hold opened. A packet naming a body across the map is
+     * refused exactly like a hold released on nothing.
+     */
+    public static boolean anchorOn(ServerPlayer player, int entityId) {
+        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+        if (!holds(state)) {
+            return false;
+        }
+        Entity found = player.serverLevel().getEntity(entityId);
+        if (!(found instanceof LivingEntity target) || !target.isAlive() || target == player
+                || target.position().distanceTo(player.getEyePosition()) > Anchor.REACH) {
+            player.displayClientMessage(Component.translatable("message.magical.weave_no_target"), true);
+            return false;
+        }
+        return placeMark(player, state, target);
+    }
+
+    /**
+     * Places the Mark and pays for it.
+     *
+     * <p>The paying is here rather than in the cast path because a self-managed handler returns
+     * before {@code MagicCastingService} resolves a single stat - which is the whole point of one,
+     * and which meant the Anchor was quietly free until the hold gave it somewhere honest to be
+     * billed. A Mark that costs nothing is a Mark you re-place every few seconds, and the weight of
+     * 3 the marked causes carry was written on the assumption that you cannot.
+     */
+    private static boolean placeMark(ServerPlayer player, PlayerMagicState state, LivingEntity target) {
+        if (state.isSkillOnCooldown(MagicContent.CAUSAL_ANCHOR.id())) {
+            player.displayClientMessage(Component.translatable("message.magical.skill_cooling"), true);
+            return false;
+        }
+        MagicSkillResolvedStats stats = MagicContent.CAUSAL_ANCHOR.resolve(
+                state.tuningFor(MagicContent.CAUSAL_ANCHOR.id()));
+        if (!MagicSinService.spendManaForSkill(player, state, stats.manaCost())) {
+            player.displayClientMessage(Component.translatable("message.magical.not_enough_mana"), true);
+            return false;
+        }
+        state.setSkillCooldown(MagicContent.CAUSAL_ANCHOR.id(), stats.cooldownTicks());
         state.anchor().place(target.getId(), player.level().dimension().location().toString(),
                 player.level().getGameTime());
         state.sync(player);

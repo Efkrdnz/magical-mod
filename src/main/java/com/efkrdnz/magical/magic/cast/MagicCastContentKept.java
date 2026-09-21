@@ -86,8 +86,10 @@ public final class MagicCastContentKept {
                 com.efkrdnz.magical.network.MagicalNetwork.sendOpenCausalBoard(ctx.player());
             }
         }));
-        SkillCastRegistry.register(MagicContent.CAUSAL_ANCHOR, SkillCastRegistry.selfManaged(ctx ->
-                com.efkrdnz.magical.magic.causality.CausalityService.anchor(ctx.player(), ctx.state())));
+        // The Mark is chosen off the bodies in reach, not taken off the crosshair: the press only
+        // hints, and CausalAnchorOverlay sends the body the hold was released on.
+        SkillCastRegistry.register(MagicContent.CAUSAL_ANCHOR,
+                SkillCastRegistry.holdHint("message.magical.anchor_hold"));
         SkillCastRegistry.register(MagicContent.DECREE, SkillCastRegistry.selfManaged(ctx ->
                 com.efkrdnz.magical.magic.causality.CausalityService.decree(ctx.player(), ctx.state())));
         SkillCastRegistry.register(MagicContent.RECOMPENSE, SkillCastRegistry.selfManaged(ctx ->

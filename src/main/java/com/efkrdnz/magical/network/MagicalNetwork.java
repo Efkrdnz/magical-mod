@@ -57,6 +57,12 @@ public final class MagicalNetwork {
                                 com.efkrdnz.magical.magic.causality.CausalityService.applyWeave(player, payload.data());
                             }
                         }))
+                .playToServer(AnchorTargetPayload.TYPE, AnchorTargetPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> {
+                            if (context.player() instanceof ServerPlayer player) {
+                                com.efkrdnz.magical.magic.causality.CausalityService.anchorOn(player, payload.entityId());
+                            }
+                        }))
                 .playToServer(CreateSkillPayload.TYPE, CreateSkillPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> {
                             if (context.player() instanceof ServerPlayer player) {
@@ -308,6 +314,11 @@ public final class MagicalNetwork {
         if (data != null) {
             PacketDistributor.sendToServer(new SetWeavePayload(data));
         }
+    }
+
+    /** The body the anchor hold was released on. Nothing about it is trusted on the far side. */
+    public static void sendAnchorTarget(int entityId) {
+        PacketDistributor.sendToServer(new AnchorTargetPayload(entityId));
     }
 
     public static void sendOpenGrimoire(ServerPlayer player) {
