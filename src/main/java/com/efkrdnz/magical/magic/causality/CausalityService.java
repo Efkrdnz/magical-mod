@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.magic.causality;
 
 import com.efkrdnz.magical.magic.MagicDamageService;
+import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
 import com.efkrdnz.magical.magic.MagicSinService;
 import com.efkrdnz.magical.magic.MagicContent;
@@ -594,18 +595,42 @@ public final class CausalityService {
      * billed. A Mark that costs nothing is a Mark you re-place every few seconds, and the weight of
      * 3 the marked causes carry was written on the assumption that you cannot.
      */
-    private static boolean placeMark(ServerPlayer player, PlayerMagicState state, LivingEntity target) {
-        if (state.isSkillOnCooldown(MagicContent.CAUSAL_ANCHOR.id())) {
+    /**
+     * The cooldown and the mana for one of the five presses, and whether the press may go ahead.
+     *
+     * <p>Every skill in the Authority is registered {@code selfManaged} or {@code holdGated}, and
+     * both of those return out of {@code MagicCastingService.castViaRegistry} <em>before</em> it
+     * resolves a stat, spends a point of mana or starts a clock. That is the whole point of such a
+     * handler - it is how the board opens without paying a toll and how a hold bills on release
+     * rather than on press - but it means every number on these five definitions is decoration
+     * until somebody writes this call, and for a while nobody had. All five were free.
+     *
+     * <p>Free mattered. A Mark you re-place every few seconds is not the scarce thing the weight of
+     * 3 on the marked causes was priced against; a Decree with no clock is a cause you can fire in
+     * a loop; and a Suspend with no clock lets you flicker the board off and on again inside your
+     * own cascade, which is the one thing {@code Weave.SUSPENDED_COOLING} exists to stop.
+     *
+     * <p>Called after a skill has established it has something to do and before it does it, so a
+     * press that refuses itself is never charged for.
+     */
+    private static boolean payFor(ServerPlayer player, PlayerMagicState state, MagicSkillDefinition skill) {
+        if (state.isSkillOnCooldown(skill.id())) {
             player.displayClientMessage(Component.translatable("message.magical.skill_cooling"), true);
             return false;
         }
-        MagicSkillResolvedStats stats = MagicContent.CAUSAL_ANCHOR.resolve(
-                state.tuningFor(MagicContent.CAUSAL_ANCHOR.id()));
+        MagicSkillResolvedStats stats = skill.resolve(state.tuningFor(skill.id()));
         if (!MagicSinService.spendManaForSkill(player, state, stats.manaCost())) {
             player.displayClientMessage(Component.translatable("message.magical.not_enough_mana"), true);
             return false;
         }
-        state.setSkillCooldown(MagicContent.CAUSAL_ANCHOR.id(), stats.cooldownTicks());
+        state.setSkillCooldown(skill.id(), stats.cooldownTicks());
+        return true;
+    }
+
+    private static boolean placeMark(ServerPlayer player, PlayerMagicState state, LivingEntity target) {
+        if (!payFor(player, state, MagicContent.CAUSAL_ANCHOR)) {
+            return false;
+        }
         state.anchor().place(target.getId(), player.level().dimension().location().toString(),
                 player.level().getGameTime());
         state.sync(player);
@@ -635,6 +660,12 @@ public final class CausalityService {
             player.displayClientMessage(Component.translatable("message.magical.paradox_shut"), true);
             return false;
         }
+        if (!payFor(player, state, MagicContent.DECREE)) {
+            return false;
+        }
+        // The press is billed for speaking; whatever the board then does bills itself through
+        // settle. So a Decree onto a board that resolves to nothing still costs the 4, the way a
+        // bolt that hits nothing still costs its cast.
         dispatch(player, CausalEvent.of(Cause.DECREE));
         player.level().playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME,
                 SoundSource.PLAYERS, 0.7F, 1.2F);
@@ -657,11 +688,17 @@ public final class CausalityService {
             player.displayClientMessage(Component.translatable("message.magical.weave_no_target"), true);
             return false;
         }
-        float owed = state.ledger().drain();
-        if (owed <= 0.0F) {
+        // Asked before it is emptied, and paid for before it is emptied. Draining first meant a
+        // refusal on the next line had already thrown the ledger away, and once there was a bill
+        // after it, a wielder short of mana would have lost the whole ledger for nothing.
+        if (state.ledger().held() <= 0.0F) {
             player.displayClientMessage(Component.translatable("message.magical.weave_ledger_empty"), true);
             return false;
         }
+        if (!payFor(player, state, MagicContent.RECOMPENSE)) {
+            return false;
+        }
+        float owed = state.ledger().drain();
         MagicDamageService.hurt(target, player.damageSources().indirectMagic(player, player), owed);
         state.sync(player);
         player.level().playSound(null, target.blockPosition(), SoundEvents.TOTEM_USE, SoundSource.PLAYERS, 0.8F, 0.7F);
@@ -683,6 +720,12 @@ public final class CausalityService {
      * that is <em>decided</em> about.
      */
     public static boolean suspend(ServerPlayer player, PlayerMagicState state) {
+        // Costs nothing and still has to be paid for: the clock is the point. Without it the board
+        // can be shut and reopened inside a single cascade, which is exactly the re-entrancy every
+        // other guard in this file is built to refuse.
+        if (!payFor(player, state, MagicContent.SUSPEND)) {
+            return false;
+        }
         boolean off = !state.weave().suspended();
         state.weave().setSuspended(off);
         state.sync(player);

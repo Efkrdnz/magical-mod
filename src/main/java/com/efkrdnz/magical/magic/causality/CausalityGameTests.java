@@ -3,6 +3,11 @@ package com.efkrdnz.magical.magic.causality;
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.magic.AuthorityContent;
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.EntityType;
+import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
+import com.efkrdnz.magical.magic.MagicSkillDefinition;
+import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.List;
 import java.util.UUID;
@@ -162,6 +167,64 @@ public final class CausalityGameTests {
                     "and the hit should have landed in full");
             helper.succeed();
         });
+    }
+
+    /**
+     * The gap that made this test necessary: every skill in the Authority is registered
+     * {@code selfManaged} or {@code holdGated}, and both of those return out of the cast path
+     * before it resolves a stat, spends a point of mana or starts a clock. So the numbers on the
+     * five definitions were decoration - the Authority was entirely free - and nothing anywhere
+     * said so, because a cost that is never taken looks exactly like a cost that is never needed.
+     *
+     * <p>Only the Board is exempt, and deliberately: it is a screen, priced at nothing and cooled
+     * for nothing, so there is no number on it that could be silently ignored.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 100, batch = "causality_6")
+    public static void everyPressInTheAuthorityIsPaidFor(GameTestHelper helper) {
+        ServerPlayer player = wielder(helper);
+        PlayerMagicState state = state(player);
+        storeRule(state, 100);
+        // onFloor answers in absolute coordinates and spawnWithNoFreeWill wants them relative, so
+        // the conversion runs exactly once - handing it a vec that was already relative walks the
+        // husk eleven million blocks out of the template.
+        LivingEntity victim = helper.spawnWithNoFreeWill(EntityType.HUSK,
+                helper.relativeVec(onFloor(helper, new BlockPos(2, 2, 3))));
+
+        helper.runAtTickTime(2, () -> {
+            helper.assertTrue(victim.isAlive()
+                            && victim.position().distanceTo(player.getEyePosition()) <= Anchor.REACH,
+                    "the victim is not a body this wielder could mark: alive " + victim.isAlive()
+                            + ", " + victim.position().distanceTo(player.getEyePosition()) + " away");
+            spend(helper, player, state, MagicContent.CAUSAL_ANCHOR,
+                    () -> CausalityService.anchorOn(player, victim.getId()));
+            spend(helper, player, state, MagicContent.DECREE,
+                    () -> CausalityService.decree(player, state));
+            state.ledger().set(30.0F);
+            spend(helper, player, state, MagicContent.RECOMPENSE,
+                    () -> CausalityService.recompense(player, state));
+            // Free, and still has to start a clock: without one the board can be shut and reopened
+            // inside a single cascade.
+            spend(helper, player, state, MagicContent.SUSPEND,
+                    () -> CausalityService.suspend(player, state));
+            helper.succeed();
+        });
+    }
+
+    /** Runs one press with a full pool and checks the definition actually got its way. */
+    private static void spend(GameTestHelper helper, ServerPlayer player, PlayerMagicState state,
+            MagicSkillDefinition skill, java.util.function.BooleanSupplier press) {
+        state.setMana(state.maxMana());
+        state.setSkillCooldown(skill.id(), 0);
+        int before = state.mana();
+        MagicSkillResolvedStats stats = skill.resolve(state.tuningFor(skill.id()));
+        helper.assertTrue(before >= stats.manaCost(),
+                skill.id() + " cannot be tested: the pool holds " + before + " of " + stats.manaCost());
+        helper.assertTrue(press.getAsBoolean(), skill.id() + " refused a press it should have taken"
+                + " (pool " + before + ", cooling " + state.isSkillOnCooldown(skill.id()) + ")");
+        helper.assertTrue(before - state.mana() == stats.manaCost(),
+                skill.id() + " billed " + (before - state.mana()) + " mana of " + stats.manaCost());
+        helper.assertTrue(state.isSkillOnCooldown(skill.id()) == stats.cooldownTicks() > 0,
+                skill.id() + " left its " + stats.cooldownTicks() + " tick clock unstarted");
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 100, batch = "causality_5")
