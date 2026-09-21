@@ -79,6 +79,21 @@ public final class MagicCastContentKept {
                 com.efkrdnz.magical.magic.chaos.ChaosAuthorityService.lastGrain(ctx.player(), ctx.state())));
         SkillCastRegistry.register(MagicContent.CRITICALITY, SkillCastRegistry.selfManaged(ctx ->
                 com.efkrdnz.magical.magic.chaos.ChaosAuthorityService.criticality(ctx.player(), ctx.state())));
+        // The Authority of Causality. The Board opens free and starts no cooldown, exactly as the
+        // Grimoire does; the other four are self-managed because the service bills them itself.
+        SkillCastRegistry.register(MagicContent.CAUSAL_BOARD, SkillCastRegistry.selfManaged(ctx -> {
+            if (ctx.player() != null) {
+                com.efkrdnz.magical.network.MagicalNetwork.sendOpenCausalBoard(ctx.player());
+            }
+        }));
+        SkillCastRegistry.register(MagicContent.CAUSAL_ANCHOR, SkillCastRegistry.selfManaged(ctx ->
+                com.efkrdnz.magical.magic.causality.CausalityService.anchor(ctx.player(), ctx.state())));
+        SkillCastRegistry.register(MagicContent.DECREE, SkillCastRegistry.selfManaged(ctx ->
+                com.efkrdnz.magical.magic.causality.CausalityService.decree(ctx.player(), ctx.state())));
+        SkillCastRegistry.register(MagicContent.RECOMPENSE, SkillCastRegistry.selfManaged(ctx ->
+                com.efkrdnz.magical.magic.causality.CausalityService.recompense(ctx.player(), ctx.state())));
+        SkillCastRegistry.register(MagicContent.SUSPEND, SkillCastRegistry.selfManaged(ctx ->
+                com.efkrdnz.magical.magic.causality.CausalityService.suspend(ctx.player(), ctx.state())));
         // Circle Arsenal is hold/release like Gabriel and Black Flames: the press only hints.
         SkillCastRegistry.register(MagicContent.CIRCLE_ARSENAL, new SkillCastHandler() {
             @Override

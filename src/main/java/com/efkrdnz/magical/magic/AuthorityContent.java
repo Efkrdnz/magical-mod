@@ -13,6 +13,7 @@ public final class AuthorityContent {
     public static final ResourceLocation SOUL = ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "authority_of_soul");
     public static final ResourceLocation MANA = ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "authority_of_mana");
     public static final ResourceLocation CHAOS = ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "authority_of_chaos");
+    public static final ResourceLocation CAUSALITY = ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "authority_of_causality");
 
     public static final AuthorityDefinition AUTHORITY_OF_SPACE = register(
             SPACE,
@@ -36,6 +37,12 @@ public final class AuthorityContent {
             0xFF4FD8,
             List.of(MagicContent.BURDEN.id(), MagicContent.FRACTURE.id(), MagicContent.LAST_GRAIN.id(),
                     MagicContent.CRITICALITY.id()));
+
+    public static final AuthorityDefinition AUTHORITY_OF_CAUSALITY = register(
+            CAUSALITY,
+            0xE8A33D,
+            List.of(MagicContent.CAUSAL_BOARD.id(), MagicContent.CAUSAL_ANCHOR.id(),
+                    MagicContent.DECREE.id(), MagicContent.RECOMPENSE.id(), MagicContent.SUSPEND.id()));
 
     private AuthorityContent() {}
 

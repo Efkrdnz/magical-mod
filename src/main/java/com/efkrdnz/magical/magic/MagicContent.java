@@ -112,6 +112,16 @@ public final class MagicContent {
     public static final MagicSkillDefinition FRACTURE = register("fracture", MagicSchool.CHAOS, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 0, 100, 20, 0.0F, 0, 0xFF9BEC, MagicAttribute.CHAOS);
     public static final MagicSkillDefinition LAST_GRAIN = register("last_grain", MagicSchool.CHAOS, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 4, 10, 20, 0.0F, 0, 0xC81FA6, MagicAttribute.CHAOS);
     public static final MagicSkillDefinition CRITICALITY = register("criticality", MagicSchool.CHAOS, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 72, 1200, 20, 0.0F, 0, 0xE05ACB, MagicAttribute.CHAOS);
+
+    // The Authority of Causality. Four presses and a board, and the presses are deliberately
+    // small: the Anchor opens a door, the Decree pulls a trigger somebody else built, Recompense
+    // hands back what was banked and Suspend switches the machine off. Everything that actually
+    // happens comes out of the Weave, which is to say out of an afternoon of thinking.
+    public static final MagicSkillDefinition CAUSAL_BOARD = register("causal_board", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 0, 0, 20, 0.0F, 0, 0xE8A33D, MagicAttribute.ARCANE);
+    public static final MagicSkillDefinition CAUSAL_ANCHOR = register("causal_anchor", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 8, 60, 20, 0.0F, 0, 0xFFC85C, MagicAttribute.ARCANE);
+    public static final MagicSkillDefinition DECREE = register("decree", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 4, 20, 20, 0.0F, 0, 0xE8C05A, MagicAttribute.ARCANE);
+    public static final MagicSkillDefinition RECOMPENSE = register("recompense", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 20, 300, 20, 0.0F, 0, 0xE8615C, MagicAttribute.ARCANE);
+    public static final MagicSkillDefinition SUSPEND = register("suspend", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 0, 40, 20, 0.0F, 0, 0x7FC8E8, MagicAttribute.ARCANE);
     public static final MagicSkillDefinition SOUL_VOW = register("soul_vow", MagicSchool.SOUL, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 18, 80, 20, 0.0F, 0, 0xD8F0FF, MagicAttribute.SOUL);
     public static final MagicSkillDefinition SOUL_VALLEY = register("soul_valley", MagicSchool.SOUL, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 74, 1600, 20, 0.0F, 0, 0xD8F0FF, MagicAttribute.SOUL);
 
@@ -219,7 +229,8 @@ public final class MagicContent {
     public static final Set<ResourceLocation> STARTER_UNLOCKS = Set.of(STARTER_SKILL);
     public static final Set<ResourceLocation> AUTHORITY_SKILLS = Set.of(CREATE_SUBSPACE.id(), MANIPULATE_SPACE.id(), POCKET_DIMENSION.id(), SPATIAL_ARSENAL.id(), SOUL_VOW.id(),
             INCANTATION_1.id(), INCANTATION_2.id(), INCANTATION_3.id(), INCANTATION_4.id(), GRIMOIRE.id(),
-            BURDEN.id(), FRACTURE.id(), LAST_GRAIN.id(), CRITICALITY.id());
+            BURDEN.id(), FRACTURE.id(), LAST_GRAIN.id(), CRITICALITY.id(),
+            CAUSAL_BOARD.id(), CAUSAL_ANCHOR.id(), DECREE.id(), RECOMPENSE.id(), SUSPEND.id());
     public static final Set<ResourceLocation> CLASS_REWARD_SKILLS = Set.of(
             HEATED_IRON.id(),
             DAWNHAMMER.id(),

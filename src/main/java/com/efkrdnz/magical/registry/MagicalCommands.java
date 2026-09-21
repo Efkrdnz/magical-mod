@@ -176,6 +176,54 @@ public final class MagicalCommands {
                                     .executes(context -> spawnCloneOpponent(context.getSource(), 2))
                                     .then(Commands.argument("difficulty", IntegerArgumentType.integer(0, AscendantTier.MAX_TIER))
                                             .executes(context -> spawnCloneOpponent(context.getSource(), IntegerArgumentType.getInteger(context, "difficulty"))))))
+                    // The Authority of Causality: the board, a reading of it, and the knobs a capture
+                    // needs. A preset is a whole worked board, which is also how the three examples in
+                    // WeavePresets get exercised against a real player rather than only in a test.
+                    .then(Commands.literal("causality")
+                            .then(Commands.literal("board")
+                                    .executes(context -> withPlayer(context.getSource(), player -> {
+                                        MagicalNetwork.sendOpenCausalBoard(player);
+                                        return 1;
+                                    })))
+                            .then(Commands.literal("show")
+                                    .executes(context -> withPlayer(context.getSource(), MagicalCommands::showWeave)))
+                            .then(Commands.literal("anchor")
+                                    .executes(context -> withPlayer(context.getSource(), player ->
+                                            com.efkrdnz.magical.magic.causality.CausalityService.anchor(player,
+                                                    player.getData(MagicalAttachments.MAGIC_STATE)) ? 1 : 0)))
+                            .then(Commands.literal("decree")
+                                    .executes(context -> withPlayer(context.getSource(), player ->
+                                            com.efkrdnz.magical.magic.causality.CausalityService.decree(player,
+                                                    player.getData(MagicalAttachments.MAGIC_STATE)) ? 1 : 0)))
+                            .then(Commands.literal("clear")
+                                    .executes(context -> withPlayer(context.getSource(), player -> {
+                                        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+                                        state.weave().clear();
+                                        state.sync(player);
+                                        return 1;
+                                    })))
+                            .then(Commands.literal("ledger")
+                                    .then(Commands.argument("amount", IntegerArgumentType.integer(0, com.efkrdnz.magical.magic.causality.Ledger.MAX))
+                                            .executes(context -> withPlayer(context.getSource(), player -> {
+                                                PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+                                                state.ledger().set(IntegerArgumentType.getInteger(context, "amount"));
+                                                state.sync(player);
+                                                return 1;
+                                            }))))
+                            .then(Commands.literal("paradox")
+                                    .then(Commands.argument("amount", IntegerArgumentType.integer(0, com.efkrdnz.magical.magic.causality.Paradox.MAX))
+                                            .executes(context -> withPlayer(context.getSource(), player -> {
+                                                PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+                                                state.paradox().set(IntegerArgumentType.getInteger(context, "amount"));
+                                                state.sync(player);
+                                                return 1;
+                                            }))))
+                            .then(Commands.literal("preset")
+                                    .then(Commands.argument("name", StringArgumentType.word())
+                                            .suggests((context, builder) -> net.minecraft.commands.SharedSuggestionProvider
+                                                    .suggest(com.efkrdnz.magical.magic.causality.WeavePresets.NAMES, builder))
+                                            .executes(context -> withPlayer(context.getSource(), player ->
+                                                    loadPreset(player, StringArgumentType.getString(context, "name")))))))
                     // The Grimoire screen, for captures and for a wielder who has not put the skill on a key.
                     .then(Commands.literal("grimoire")
                             .executes(context -> withPlayer(context.getSource(), player -> {
@@ -1221,4 +1269,32 @@ public final class MagicalCommands {
         return out.toString();
     }
 
+
+    /** Every chain on the board, said out loud, plus what it weighs and what is wrong with it. */
+    private static int showWeave(net.minecraft.server.level.ServerPlayer player) {
+        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+        com.efkrdnz.magical.magic.causality.Weave weave = state.weave();
+        player.sendSystemMessage(com.efkrdnz.magical.magic.causality.WeaveText.summary(weave));
+        for (com.efkrdnz.magical.magic.causality.WeaveReview.Chain chain : com.efkrdnz.magical.magic.causality.WeaveReview.chains(weave)) {
+            player.sendSystemMessage(com.efkrdnz.magical.magic.causality.WeaveText.chain(chain));
+        }
+        boolean marked = com.efkrdnz.magical.magic.causality.LevelCausalWorld.marked(player, state) != null;
+        for (com.efkrdnz.magical.magic.causality.WeaveReview.Issue issue : com.efkrdnz.magical.magic.causality.WeaveReview.issues(weave, marked)) {
+            player.sendSystemMessage(com.efkrdnz.magical.magic.causality.WeaveText.issue(issue, weave));
+        }
+        return 1;
+    }
+
+    /** A whole worked board onto the wielder, replacing whatever was there. */
+    private static int loadPreset(net.minecraft.server.level.ServerPlayer player, String name) {
+        com.efkrdnz.magical.magic.causality.Weave preset = com.efkrdnz.magical.magic.causality.WeavePresets.of(name);
+        if (preset == null) {
+            player.displayClientMessage(Component.translatable("message.magical.weave_no_preset", name), true);
+            return 0;
+        }
+        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+        state.weave().copyFrom(preset);
+        state.sync(player);
+        return showWeave(player);
+    }
 }

@@ -230,6 +230,25 @@ public final class MagicGameplayEvents {
             return;
         }
         SoulAuthorityService.onSoulDamage(living, event.getSource().getEntity() == null ? event.getSource().getDirectEntity() : event.getSource().getEntity());
+        // The Authority of Causality, first: a body whose cause and effect have been pulled apart
+        // authors nothing at all, and the three causes that watch a blow rather than receive one
+        // have to rewrite the damage before anything downstream reads it.
+        java.util.function.Supplier<net.minecraft.world.entity.Entity> author = () ->
+                event.getSource().getEntity() != null ? event.getSource().getEntity() : event.getSource().getDirectEntity();
+        if (com.efkrdnz.magical.magic.causality.CausalityService.consumeSeverance(author.get(), living.level().getGameTime())) {
+            event.getContainer().setNewDamage(0.0F);
+            event.setCanceled(true);
+            return;
+        }
+        float causal = event.getContainer().getNewDamage();
+        if (event.getSource().getEntity() instanceof ServerPlayer striker && striker != living) {
+            causal = com.efkrdnz.magical.magic.causality.CausalityEvents.strike(striker, living, event.getSource(), causal);
+        }
+        if (event.getSource().getEntity() instanceof LivingEntity swinging && swinging != living) {
+            causal = com.efkrdnz.magical.magic.causality.CausalityEvents.markedStrikes(swinging, living, event.getSource(), causal);
+        }
+        causal = com.efkrdnz.magical.magic.causality.CausalityEvents.markedHurt(living, event.getSource(), causal);
+        event.getContainer().setNewDamage(causal);
         float originalDamage = event.getContainer().getNewDamage();
         float damage = SovereignAegisEntity.rewriteIncomingDamage(living, event.getSource(), originalDamage);
         if (originalDamage > 0.0F && damage <= 0.0F) {
@@ -263,9 +282,18 @@ public final class MagicGameplayEvents {
         damage = absorbWithManaSkin(state, damage);
         damage = MagicSinService.beforeBarrierDamage(player, state, event.getSource(), damage);
         damage = ClassPassiveEffects.incomingDamage(player, state, event.getSource(), damage);
+        // Causality runs here and not a line later: a chain that stores half of a hit must take
+        // that half before the barrier is asked to eat it, or storing would cost the wielder the
+        // barrier it was meant to save. Break then fires on the far side, because it is about the
+        // barrier having gone.
+        damage = com.efkrdnz.magical.magic.causality.CausalityEvents.hurt(player, event.getSource(), damage);
+        int barrierBefore = state.barrier();
         float beforeBarrier = damage;
         float remaining = state.absorbDamage(damage);
         ClassPassiveEffects.onBarrierAbsorb(player, state, beforeBarrier - remaining, event.getSource());
+        if (barrierBefore > 0 && state.barrier() <= 0 && remaining > 0.0F) {
+            com.efkrdnz.magical.magic.causality.CausalityEvents.broke(player, event.getSource(), remaining);
+        }
         // Last stop before a death: a passive may buy the player out of it.
         if (remaining >= player.getHealth() && ClassPassiveEffects.cheatDeath(player, state, event.getSource(), remaining)) {
             event.getContainer().setNewDamage(0.0F);

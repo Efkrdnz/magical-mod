@@ -403,6 +403,9 @@ public final class MagicCastingService {
                 state.setSkillCooldown(definition.id(), state.consumeCooldownEcho(definition.id()) ? 0 : stats.cooldownTicks());
                 MagicSinService.afterSuccessfulCast(player, state, definition);
                 ClassXpService.onSpellCast(player);
+                // Casting is a thing a wielder of Causality can build on, and it is the one cause
+                // that fires only for something they chose to do. Last, so the cast is finished.
+                com.efkrdnz.magical.magic.causality.CausalityEvents.invoked(player, stats.manaCost());
                 state.sync(player);
             }
             case HANDLED -> state.sync(player);

@@ -51,6 +51,14 @@ public final class PlayerMagicState {
     // wrote. Saved with the state; the recite sessions that read it are held by IncantationService
     // and are never saved, so a body in flight across a save is just a body.
     private final com.efkrdnz.magical.magic.incantation.Grimoire grimoire = new com.efkrdnz.magical.magic.incantation.Grimoire();
+    // The wielder half of the Authority of Causality. All four are saved: the board is the whole
+    // of what that Authority owns, and the ledger is consequence the world is owed, which a logout
+    // would otherwise cancel for free. The gate clocks ONCE_PER reads are not here and are not
+    // saved, because they are per-session bookkeeping rather than anything the wielder authored.
+    private final com.efkrdnz.magical.magic.causality.Weave weave = new com.efkrdnz.magical.magic.causality.Weave();
+    private final com.efkrdnz.magical.magic.causality.Ledger ledger = new com.efkrdnz.magical.magic.causality.Ledger();
+    private final com.efkrdnz.magical.magic.causality.Paradox paradox = new com.efkrdnz.magical.magic.causality.Paradox();
+    private final com.efkrdnz.magical.magic.causality.Anchor anchor = new com.efkrdnz.magical.magic.causality.Anchor();
     private String anchorSigilDimension = "";
     private int anchorSigilX;
     private int anchorSigilY;
@@ -492,6 +500,22 @@ public final class PlayerMagicState {
 
     public com.efkrdnz.magical.magic.chaos.Fracture fracture() {
         return fracture;
+    }
+
+    public com.efkrdnz.magical.magic.causality.Weave weave() {
+        return weave;
+    }
+
+    public com.efkrdnz.magical.magic.causality.Ledger ledger() {
+        return ledger;
+    }
+
+    public com.efkrdnz.magical.magic.causality.Paradox paradox() {
+        return paradox;
+    }
+
+    public com.efkrdnz.magical.magic.causality.Anchor anchor() {
+        return anchor;
     }
 
     public com.efkrdnz.magical.magic.incantation.Grimoire grimoire() {
@@ -1120,6 +1144,10 @@ public final class PlayerMagicState {
         activeSubspaceEntityId = -1;
         fracture.reset();
         grimoire.clear();
+        weave.clear();
+        ledger.clear();
+        paradox.clear();
+        anchor.clear();
         clearSoulBond();
     }
 
@@ -2042,6 +2070,10 @@ public final class PlayerMagicState {
         copy.activeSubspaceEntityId = activeSubspaceEntityId;
         copy.fracture.copyFrom(fracture);
         copy.grimoire.copyFrom(grimoire);
+        copy.weave.copyFrom(weave);
+        copy.ledger.copyFrom(ledger);
+        copy.paradox.copyFrom(paradox);
+        copy.anchor.copyFrom(anchor);
         copy.anchorSigilDimension = anchorSigilDimension;
         copy.anchorSigilX = anchorSigilX;
         copy.anchorSigilY = anchorSigilY;
@@ -2152,6 +2184,12 @@ public final class PlayerMagicState {
         tag.putInt("activeSubspaceEntityId", activeSubspaceEntityId);
         tag.put("fracture", fracture.save());
         tag.put("grimoire", grimoire.save());
+        tag.put("weave", weave.save());
+        tag.putFloat("ledger", ledger.held());
+        tag.putFloat("paradox", paradox.value());
+        tag.putLong("paradoxFired", paradox.lastFired());
+        tag.putLong("paradoxShut", paradox.shutUntil());
+        tag.put("causalAnchor", anchor.save());
         tag.putString("anchorSigilDimension", anchorSigilDimension);
         tag.putInt("anchorSigilX", anchorSigilX);
         tag.putInt("anchorSigilY", anchorSigilY);
@@ -2314,6 +2352,12 @@ public final class PlayerMagicState {
         state.activeSubspaceEntityId = tag.contains("activeSubspaceEntityId") ? tag.getInt("activeSubspaceEntityId") : -1;
         state.fracture.load(tag.getList("fracture", com.efkrdnz.magical.magic.chaos.Fracture.tagType()));
         state.grimoire.load(tag.getCompound("grimoire"));
+        state.weave.load(tag.getCompound("weave"));
+        state.ledger.set(tag.getFloat("ledger"));
+        state.paradox.restore(tag.getFloat("paradox"),
+                tag.contains("paradoxFired") ? tag.getLong("paradoxFired") : Long.MIN_VALUE,
+                tag.contains("paradoxShut") ? tag.getLong("paradoxShut") : Long.MIN_VALUE);
+        state.anchor.load(tag.getCompound("causalAnchor"));
         state.anchorSigilDimension = tag.getString("anchorSigilDimension");
         state.anchorSigilX = tag.getInt("anchorSigilX");
         state.anchorSigilY = tag.getInt("anchorSigilY");

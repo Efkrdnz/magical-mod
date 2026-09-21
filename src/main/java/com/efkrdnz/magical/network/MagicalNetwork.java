@@ -49,6 +49,14 @@ public final class MagicalNetwork {
                         context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToClient(OpenGrimoirePayload.TYPE, OpenGrimoirePayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> handleClientPayload(payload)))
+                .playToClient(OpenCausalBoardPayload.TYPE, OpenCausalBoardPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> handleClientPayload(payload)))
+                .playToServer(SetWeavePayload.TYPE, SetWeavePayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> {
+                            if (context.player() instanceof ServerPlayer player) {
+                                com.efkrdnz.magical.magic.causality.CausalityService.applyWeave(player, payload.data());
+                            }
+                        }))
                 .playToServer(CreateSkillPayload.TYPE, CreateSkillPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> {
                             if (context.player() instanceof ServerPlayer player) {
@@ -291,6 +299,17 @@ public final class MagicalNetwork {
     }
 
     /** Opens the Grimoire screen on the client: a press on the Grimoire skill, or {@code /magical grimoire}. */
+    public static void sendOpenCausalBoard(ServerPlayer player) {
+        PacketDistributor.sendToPlayer(player, new OpenCausalBoardPayload());
+    }
+
+    /** The whole board to the server. Re-read and re-validated there before a byte of it lands. */
+    public static void sendWeave(net.minecraft.nbt.CompoundTag data) {
+        if (data != null) {
+            PacketDistributor.sendToServer(new SetWeavePayload(data));
+        }
+    }
+
     public static void sendOpenGrimoire(ServerPlayer player) {
         PacketDistributor.sendToPlayer(player, new OpenGrimoirePayload());
     }
