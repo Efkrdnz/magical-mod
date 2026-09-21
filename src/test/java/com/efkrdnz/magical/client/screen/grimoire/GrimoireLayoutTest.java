@@ -26,7 +26,8 @@ class GrimoireLayoutTest {
     private static final int[] TAB_WIDTHS = {70, 74, 78, 76};
     /** All, Projectile, Static, Modifier, Multicast, Material, Control, Utility, Passive. */
     /** All and the six types the catalogue has verses of, as the words measure. */
-    private static final int[] CATEGORY_WORDS = {12, 51, 28, 39, 43, 37, 27};
+    /** All and the eight types in their order: All, Projectile, Static, Modifier, Multicast, Material, Control, Utility, Passive. */
+    private static final int[] CATEGORY_WORDS = {12, 51, 28, 39, 43, 39, 37, 27, 38};
     private static final int COUNT = 100;
 
     private static void assertDisjoint(List<Rect> rects) {

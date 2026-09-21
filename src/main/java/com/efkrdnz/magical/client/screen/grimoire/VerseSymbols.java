@@ -698,6 +698,90 @@ public final class VerseSymbols {
             "#.#...#.#",
             "#########",
             ".........");
+    /** A nozzle at the bottom left, droplets fanning up and right. */
+    private static final Glyph SPRAY = glyph("SPRAY",
+            ".......#.",
+            "....#..#.",
+            ".....#...",
+            "..#..#.#.",
+            "...#.....",
+            "..###....",
+            ".###.....",
+            "##.......",
+            "#........");
+    /** A horizon over two swells. */
+    private static final Glyph SEA = glyph("SEA",
+            ".........",
+            ".........",
+            "#########",
+            ".........",
+            "..##..##.",
+            ".#..##..#",
+            ".........",
+            "##..##..#",
+            "..##..##.");
+    private static final Glyph HAND = glyph("HAND",
+            "..#.#.#..",
+            "..#.#.#..",
+            "#.#.#.#..",
+            "#.#####..",
+            ".#######.",
+            ".#######.",
+            "..#####..",
+            "...####..",
+            "....##...");
+    private static final Glyph CLOD = glyph("CLOD",
+            ".........",
+            ".........",
+            "...###...",
+            "..#.###..",
+            ".##.####.",
+            "####.####",
+            "#####.###",
+            ".########",
+            ".........");
+    private static final Glyph CANDLE = glyph("CANDLE",
+            "....#....",
+            "...###...",
+            "...###...",
+            "....#....",
+            "...###...",
+            "....#....",
+            "....#....",
+            "....#....",
+            "..#####..");
+    /** A ring round a figure: head, shoulders, arms out. */
+    private static final Glyph HALO = glyph("HALO",
+            "..#####..",
+            ".#.....#.",
+            "#..###..#",
+            "#..###..#",
+            "#...#...#",
+            "#..###..#",
+            "#.#.#.#.#",
+            ".#.....#.",
+            "..#####..");
+    /** The ring's forward half, and the figure it stands ahead of. */
+    private static final Glyph HALF_HALO = glyph("HALF_HALO",
+            "....##...",
+            ".....##..",
+            "......#..",
+            "......##.",
+            "..#...##.",
+            "......##.",
+            "......#..",
+            ".....##..",
+            "....##...");
+    private static final Glyph GHOST = glyph("GHOST",
+            "...###...",
+            "..#####..",
+            ".##.#.##.",
+            ".#######.",
+            ".#######.",
+            ".#######.",
+            ".#######.",
+            ".#.###.#.",
+            "#...#...#");
 
     // ---- the badges ------------------------------------------------------------------------------
 
@@ -729,6 +813,9 @@ public final class VerseSymbols {
     private static final Badge SPREAD = badge("SPREAD", "#..", ".#.", "..#");
     private static final Badge CROWD = badge("CROWD", "#.#", "#.#", "#.#");
     private static final Badge BOOM = badge("BOOM", "###", ".#.", "###");
+    private static final Badge MOLTEN = badge("MOLTEN", "#.#", "###", "#.#");
+    private static final Badge BRICK = badge("BRICK", "###", "...", "###");
+    private static final Badge PANE = badge("PANE", ".#.", "...", ".#.");
 
     // ---- the tables ------------------------------------------------------------------------------
 
@@ -865,6 +952,23 @@ public final class VerseSymbols {
         put("near_word", WORD, DOT);
         put("step_word", WORD, STAIRS);
         put("blood_toll", DROP, CROSS);
+        // materials
+        put("spray_water", SPRAY, WAVE);
+        put("spray_flame", SPRAY, FLAME_MARK);
+        put("sea_water", SEA, WAVE);
+        put("sea_flame", SEA, FLAME_MARK);
+        put("sea_lava", SEA, MOLTEN);
+        put("touch_stone", HAND, BRICK);
+        put("touch_glass", HAND, PANE);
+        put("touch_water", HAND, WAVE);
+        put("touch_ice", HAND, SNOW);
+        put("clod", CLOD);
+        // passives
+        put("taper", CANDLE);
+        put("storm_taper", CANDLE, BOLT);
+        put("halo", HALO);
+        put("half_halo", HALF_HALO);
+        put("familiar", GHOST);
     }
 
     private VerseSymbols() {

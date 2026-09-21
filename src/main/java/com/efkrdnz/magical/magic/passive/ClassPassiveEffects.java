@@ -35,7 +35,8 @@ public final class ClassPassiveEffects {
             new RacePassives(),
             new BloodPassives(),
             new DarkPassives(),
-            new EldritchPassives(), new SacrificePassives());
+            new EldritchPassives(), new SacrificePassives(),
+            new com.efkrdnz.magical.magic.incantation.VersePassives());
 
     private ClassPassiveEffects() {}
 
@@ -204,6 +205,13 @@ public final class ClassPassiveEffects {
             }
         }
         return false;
+    }
+
+    /** The per-tick effects. Nearly nothing lives here; the slow tick is the rule. */
+    public static void tick(ServerPlayer player, PlayerMagicState state) {
+        for (ClassPassiveHandler handler : HANDLERS) {
+            handler.tick(player, state);
+        }
     }
 
     /** Runs the periodic effects and refreshes the derived pool bonuses in one pass. */

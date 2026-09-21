@@ -65,6 +65,7 @@ public final class SkillClashEffectRenderer extends EntityRenderer<SkillClashEff
         state.incomingColor = entity.incomingColor();
         state.counterColor = entity.counterColor();
         state.life = entity.life();
+        state.scale = entity.scale();
         state.seed = entity.getId();
         state.cameraDistance = (float) entity.position()
                 .distanceTo(Minecraft.getInstance().gameRenderer.getMainCamera().getPosition());
@@ -72,9 +73,9 @@ public final class SkillClashEffectRenderer extends EntityRenderer<SkillClashEff
             // One shot, on the first frame this effect is drawn. Grit the shaders cannot give: real
             // particles that outlive the entity and fall.
             Vec3 at = entity.position();
-            SpellParticles.burst(FxKinds.Smoke.GLASS_SPLINTER, at, Vec3.ZERO, 26, 0.42F, 0.16F, 26,
+            SpellParticles.burst(FxKinds.Smoke.GLASS_SPLINTER, at, Vec3.ZERO, scaled(26, state.scale), 0.42F * state.scale, 0.16F, 26,
                     state.incomingColor, 1.0F, 26);
-            SpellParticles.burst(FxKinds.Smoke.SPARK_STREAK, at, Vec3.ZERO, 18, 0.55F, 0.12F, 18,
+            SpellParticles.burst(FxKinds.Smoke.SPARK_STREAK, at, Vec3.ZERO, scaled(18, state.scale), 0.55F * state.scale, 0.12F, 18,
                     state.counterColor, 1.0F, 26);
         }
     }
@@ -88,12 +89,13 @@ public final class SkillClashEffectRenderer extends EntityRenderer<SkillClashEff
                 .timing(age, life, state.seed);
         float progress = age / life;
         float near = Mth.clamp(state.cameraDistance / NEAR_FADE_BLOCKS, 0.0F, 1.0F);
+        float s = state.scale;
 
         // 1. The clang. Full size on the first frame and gone in a third of a second - an impact
         //    that eases in has already stopped reading as an impact.
         if (age < FLASH_TICKS) {
             float t = age / FLASH_TICKS;
-            OrbPainter.billboard(ctx, FxKinds.Orb.BLOOM_FLASH, 0.9F + 1.9F * easeOut(t),
+            OrbPainter.billboard(ctx, FxKinds.Orb.BLOOM_FLASH, (0.9F + 1.9F * easeOut(t)) * s,
                     0xFFFFFF, (1.0F - t * t) * near, t, 8, 12);
         }
 
@@ -101,20 +103,20 @@ public final class SkillClashEffectRenderer extends EntityRenderer<SkillClashEff
         //    something, never a sliver seen edge-on.
         if (age < LENS_TICKS) {
             float t = age / LENS_TICKS;
-            OrbPainter.billboard(ctx, FxKinds.Orb.HEX_LENS, 1.4F + 1.3F * easeOut(t),
+            OrbPainter.billboard(ctx, FxKinds.Orb.HEX_LENS, (1.4F + 1.3F * easeOut(t)) * s,
                     state.counterColor, (1.0F - t) * (1.0F - t) * near, t, 6, 10);
         }
 
         // 3. Two waves leaving the point of contact, the guard's ahead of the attack's.
-        OrbPainter.billboard(ctx, FxKinds.Orb.THIN_HALO, 0.9F + 5.6F * easeOut(progress),
+        OrbPainter.billboard(ctx, FxKinds.Orb.THIN_HALO, (0.9F + 5.6F * easeOut(progress)) * s,
                 state.counterColor, fadeOut(progress, 2.0F), progress, 4, 8);
-        OrbPainter.billboard(ctx, FxKinds.Orb.THIN_HALO, 0.5F + 3.6F * easeOut(progress),
+        OrbPainter.billboard(ctx, FxKinds.Orb.THIN_HALO, (0.5F + 3.6F * easeOut(progress)) * s,
                 state.incomingColor, fadeOut(progress, 1.6F) * 0.75F, progress, 4, 6);
 
         // 4. The attack coming apart, in its own colour so it is legible as the thing that lost.
         if (age < SHARD_TICKS) {
             float t = age / SHARD_TICKS;
-            float distance = 0.6F + 4.0F * easeOut(t);
+            float distance = (0.6F + 4.0F * easeOut(t)) * s;
             for (int i = 0; i < SHARDS; i++) {
                 float yaw = Mth.TWO_PI * i / SHARDS + state.seed * 0.7F;
                 float pitch = (hash(state.seed + i) - 0.5F) * 1.5F;
@@ -123,13 +125,18 @@ public final class SkillClashEffectRenderer extends EntityRenderer<SkillClashEff
                         Mth.cos(yaw) * distance * Mth.cos(pitch),
                         Mth.sin(pitch) * distance,
                         Mth.sin(yaw) * distance * Mth.cos(pitch));
-                OrbPainter.billboard(ctx, FxKinds.Orb.SHARD_DIAMOND, 0.62F * (1.0F - t),
+                OrbPainter.billboard(ctx, FxKinds.Orb.SHARD_DIAMOND, 0.62F * (1.0F - t) * s,
                         state.incomingColor, 1.0F - t, t, 3, 4);
                 poseStack.popPose();
             }
         }
 
         super.render(state, poseStack, buffer, packedLight);
+    }
+
+    /** A particle count at a scale, never fewer than a couple, so a small clash still throws something. */
+    private static int scaled(int count, float scale) {
+        return Math.max(2, Math.round(count * scale));
     }
 
     /** Fast at the start, slow at the end - how something that was struck actually moves. */
@@ -155,6 +162,7 @@ public final class SkillClashEffectRenderer extends EntityRenderer<SkillClashEff
         private int counterColor = 0xA57DFF;
         private int life = 24;
         private int seed;
+        private float scale = 1.0F;
         private float cameraDistance = 16.0F;
     }
 }

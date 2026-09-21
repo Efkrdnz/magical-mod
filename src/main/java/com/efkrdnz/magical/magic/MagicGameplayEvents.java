@@ -70,6 +70,7 @@ public final class MagicGameplayEvents {
         tickManaSustenance(player, state);
         tickSteadyBreathing(player, state);
         tickManaLeakCurse(player, state);
+        ClassPassiveEffects.tick(player, state);
         if (player.tickCount % ClassPassiveEffects.SLOW_TICK_INTERVAL == 0) {
             ClassPassiveEffects.slowTick(player, state);
         }
@@ -100,6 +101,8 @@ public final class MagicGameplayEvents {
         ChronosSequenceService.tick();
         ForgeComboService.tick(event.getServer());
         com.efkrdnz.magical.magic.chaos.PileService.tick(event.getServer());
+        com.efkrdnz.magical.entity.verse.MatterKeeper.tick(event.getServer());
+        com.efkrdnz.magical.magic.service.ConjuredTerrainService.tick(event.getServer());
     }
 
     private static void tickManaFlight(ServerPlayer player, PlayerMagicState state) {

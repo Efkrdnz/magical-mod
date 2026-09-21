@@ -525,11 +525,11 @@ Pattern: bodies of one shot are fanned across the pattern. Below 180 the fan is 
 | `blind_trio` | Blind Trio | Draw Three Random | 12 | ∞ | 0 | `recursive`; three of the above |
 | `reprise` | Reprise | Spell Duplication | 45 | ∞ | +7 / +7 | `recursive`; rule 18 |
 
-### Deferred (types exist, no verses yet)
+### Deferred
 
-`MATERIAL` (sprays, seas, touches: world-modifying, needs its own design), `PASSIVE` (transparent
-to composition; a passive is "while this verse is written", which needs the Grimoire to be read
-by the passive system). Plus the Noita cards listed under deviation 9.
+`MATERIAL` and `PASSIVE` were deferred here and have their verses now; their design is
+`2026-09-21-material-and-passive-verses-design.md` beside this one. The Noita cards listed under
+deviation 9 are still deferred.
 
 ## 10. Runtime binding
 

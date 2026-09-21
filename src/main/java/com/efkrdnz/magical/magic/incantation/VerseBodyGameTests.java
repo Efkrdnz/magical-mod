@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.magic.incantation;
 
 import com.efkrdnz.magical.MagicalMod;
+import com.efkrdnz.magical.entity.verse.MatterKeeper;
 import com.efkrdnz.magical.entity.verse.VerseBodyEntity;
 import com.efkrdnz.magical.entity.verse.VerseBodySpawner;
 import com.efkrdnz.magical.gametest.GameTestPlayers;
@@ -19,6 +20,9 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.IronGolem;
 import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -319,6 +323,135 @@ public final class VerseBodyGameTests {
         helper.runAtTickTime(10, () -> {
             double landed = health - golem.getHealth();
             helper.assertTrue(Math.abs(landed - reading) < 0.01D, "the golem took what the reading says, " + reading + ", not " + landed);
+            helper.succeed();
+        });
+    }
+
+    // ------------------------------------------------------------------ matter
+
+    /** A caster on the stand looking along +x, into the air before the far wall. */
+    private static ServerPlayer casterFacingX(GameTestHelper helper, BlockPos at) {
+        ServerPlayer player = caster(helper, at);
+        player.setYRot(-90.0F);
+        player.setXRot(0.0F);
+        return player;
+    }
+
+    /**
+     * The cell a caster stands in under {@code cell}, relative: the first air over the floor. The
+     * template carries no floor of its own, so its interior stands on the world under it, two
+     * blocks below the origin, and everything laid on the ground is laid there.
+     */
+    private static BlockPos floorCell(GameTestHelper helper, BlockPos cell) {
+        // relativeVec, not relativePos: the latter rotates the cell a half turn and hands back its mirror (a vanilla bug).
+        return BlockPos.containing(helper.relativeVec(GameTestPlayers.onFloor(helper, cell)));
+    }
+
+    /** The interior from the floor up, relative. */
+    private static Iterable<BlockPos> interior(GameTestHelper helper) {
+        return BlockPos.betweenClosed(new BlockPos(0, floorCell(helper, STAND).getY(), 0), new BlockPos(4, 4, 4));
+    }
+
+    private static int waterSources(GameTestHelper helper) {
+        int sources = 0;
+        for (BlockPos pos : interior(helper)) {
+            BlockState state = helper.getBlockState(pos);
+            if (state.is(Blocks.WATER) && state.getFluidState().isSource()) {
+                sources++;
+            }
+        }
+        return sources;
+    }
+
+    private static boolean anyBlock(GameTestHelper helper, Block block) {
+        for (BlockPos pos : interior(helper)) {
+            if (helper.getBlockState(pos).is(block)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** A sea a block ahead: sources on the floor, none a block up, the keeper holding them, and gone when it lets go. */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "verse_13")
+    public static void aSeaLaysWaterOnTheFloorAndTheKeeperTakesItBack(GameTestHelper helper) {
+        ServerPlayer player = casterFacingX(helper, STAND);
+        BlockPos floor = floorCell(helper, STAND);
+        helper.runAtTickTime(1, () -> spawnFromHand(helper, player, shot(body(VersePrototypes.SEA_WATER, s -> { }, PayloadKind.NONE, 0, null))));
+        helper.runAtTickTime(4, () -> {
+            helper.assertTrue(waterSources(helper) > 0, "water sources on the floor");
+            helper.assertTrue(!helper.getBlockState(floor.offset(1, 1, 0)).is(Blocks.WATER), "and none a block up: a sea fills the floor, not the room");
+            helper.assertTrue(MatterKeeper.pending(helper.getLevel()) >= 1, "the keeper holds it");
+            MatterKeeper.restoreAll(helper.getLevel());
+            helper.assertTrue(waterSources(helper) == 0, "and takes it back: " + waterSources(helper) + " sources left");
+            helper.succeed();
+        });
+    }
+
+    /** Sand on the floor two ahead, a Touch of Stone a block ahead: the sand is stone, the barrier wall is not, and the sand comes back. */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "verse_14")
+    public static void aTouchTurnsSandToStoneAndGivesItBack(GameTestHelper helper) {
+        ServerPlayer player = casterFacingX(helper, STAND);
+        BlockPos floor = floorCell(helper, STAND);
+        BlockPos sand = floor.offset(2, 0, 0);
+        BlockPos wall = new BlockPos(5, 0, 2);
+        helper.setBlock(sand, Blocks.SAND);
+        helper.runAtTickTime(1, () -> spawnFromHand(helper, player, shot(body(VersePrototypes.TOUCH_STONE, s -> { }, PayloadKind.NONE, 0, null))));
+        helper.runAtTickTime(4, () -> {
+            helper.assertBlockPresent(Blocks.STONE, sand);
+            BlockState wallState = helper.getBlockState(wall);
+            helper.assertTrue(wallState.is(Blocks.BARRIER), "the wall is " + wallState + ": the unbreakable is never converted");
+            helper.assertTrue(helper.getBlockState(floor).isAir(), "a touch never converts air, so the caster is not entombed");
+            MatterKeeper.restoreAll(helper.getLevel());
+            helper.assertBlockPresent(Blocks.SAND, sand);
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "verse_15")
+    public static void aSprayLeavesFireUnderItsLine(GameTestHelper helper) {
+        ServerPlayer player = casterFacingX(helper, NEAR_STAND);
+        helper.runAtTickTime(1, () -> spawnFromHand(helper, player, shot(body(VersePrototypes.SPRAY_FLAME, s -> { }, PayloadKind.NONE, 0, null))));
+        helper.runAtTickTime(7, () -> {
+            helper.assertTrue(anyBlock(helper, Blocks.FIRE), "fire on the floor under the line");
+            helper.assertTrue(MatterKeeper.pending(helper.getLevel()) >= 1, "the keeper holds it");
+            MatterKeeper.restoreAll(helper.getLevel());
+            helper.assertTrue(!anyBlock(helper, Blocks.FIRE), "and takes it back");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "verse_16")
+    public static void aClodMoundsWhereItLands(GameTestHelper helper) {
+        ServerPlayer player = casterFacingX(helper, STAND);
+        BlockPos floor = floorCell(helper, STAND);
+        helper.runAtTickTime(1, () -> spawnFromHand(helper, player, shot(body(VersePrototypes.CLOD, s -> s.addGravity(0.03D), PayloadKind.NONE, 0, null))));
+        helper.runAtTickTime(10, () -> {
+            helper.assertTrue(anyBlock(helper, Blocks.DIRT), "a heap where the clod struck the far wall");
+            helper.assertTrue(helper.getBlockState(floor).isAir(), "and nothing in the caster's space");
+            MatterKeeper.restoreAll(helper.getLevel());
+            helper.assertTrue(!anyBlock(helper, Blocks.DIRT), "and it is taken back");
+            helper.succeed();
+        });
+    }
+
+    /** A Touch of Stone over a Sea of Water: the stone takes the water's place, and when both clocks run out the floor is what it was, not water. */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "verse_17")
+    public static void aTouchOverASeaGivesTheGroundBackOnce(GameTestHelper helper) {
+        ServerPlayer player = casterFacingX(helper, STAND);
+        BlockPos ahead = floorCell(helper, STAND).offset(1, 0, 0);
+        helper.runAtTickTime(1, () -> spawnFromHand(helper, player, shot(body(VersePrototypes.SEA_WATER, s -> { }, PayloadKind.NONE, 0, null))));
+        helper.runAtTickTime(3, () -> {
+            helper.assertBlockPresent(Blocks.WATER, ahead);
+            spawnFromHand(helper, player, shot(body(VersePrototypes.TOUCH_STONE, s -> { }, PayloadKind.NONE, 0, null)));
+        });
+        helper.runAtTickTime(6, () -> {
+            helper.assertBlockPresent(Blocks.STONE, ahead);
+            helper.assertTrue(waterSources(helper) == 0, "the touch took every source");
+            MatterKeeper.restoreAll(helper.getLevel());
+            helper.assertBlockPresent(Blocks.AIR, ahead);
+            helper.assertTrue(waterSources(helper) == 0, "and the water never comes back: " + waterSources(helper) + " sources");
+            helper.assertTrue(!anyBlock(helper, Blocks.STONE), "nor the stone");
             helper.succeed();
         });
     }

@@ -101,6 +101,13 @@ public interface ClassPassiveHandler {
         return false;
     }
 
+    /**
+     * Runs every tick. Nearly nothing belongs here - the slow tick is the rule - but a halo has to
+     * turn an arrow that crosses it in one tick.
+     */
+    default void tick(ServerPlayer player, PlayerMagicState state) {
+    }
+
     /** Runs every {@link ClassPassiveEffects#SLOW_TICK_INTERVAL} ticks, not every tick. */
     default void slowTick(ServerPlayer player, PlayerMagicState state) {
     }

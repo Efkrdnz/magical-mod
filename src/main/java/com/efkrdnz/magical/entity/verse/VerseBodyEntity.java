@@ -11,6 +11,7 @@ import com.efkrdnz.magical.magic.MagicSchool;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.incantation.Behaviour;
 import com.efkrdnz.magical.magic.incantation.HitEffect;
+import com.efkrdnz.magical.magic.incantation.MatterShape;
 import com.efkrdnz.magical.magic.incantation.PayloadKind;
 import com.efkrdnz.magical.magic.incantation.ProjectilePlan;
 import com.efkrdnz.magical.magic.incantation.ShotState;
@@ -83,6 +84,8 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
     public static final double BURST_RADIUS = 1.5D;
     static final int OWNER_GRACE_TICKS = 5;
     static final int WAKE_INTERVAL = 4;
+    /** A spray lays a block on the floor under its line this often. */
+    public static final int SPRAY_INTERVAL = 2;
     static final double WAKE_REACH = 0.4D;
     static final float WAKE_BURN_SECONDS = 2.0F;
     static final int WAKE_FROST_TICKS = 20;
@@ -198,6 +201,11 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
     }
 
     private void tickStanding(ServerLevel level) {
+        // A sea or a touch lays its matter the moment it stands, not on its pulse: the mark it
+        // leaves is a ripple over what it laid, and the pulse is the mark's clock.
+        if (tickCount == 1 && plan.prototype().laysMatter()) {
+            VerseMatter.lay(level, plan.prototype(), position());
+        }
         int interval = Math.max(1, plan.prototype().pulseIntervalTicks());
         if (tickCount % interval == 0) {
             pulse(level);
@@ -252,6 +260,9 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
         setDirection(velocity);
         if (tickCount % WAKE_INTERVAL == 0) {
             wake(level);
+        }
+        if (plan.prototype().shape() == MatterShape.SPRAY && tickCount % SPRAY_INTERVAL == 0) {
+            VerseMatter.spray(level, plan.prototype().matter(), position());
         }
         if (lifeOver()) {
             end(level, position(), PayloadKind.EPITAPH);
@@ -435,6 +446,9 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
         }
         if (reason == PayloadKind.LATCH && has(Behaviour.RELAY) && !relayed) {
             VerseBodySpawner.relay(level, this, at);
+        }
+        if (plan.prototype().shape() == MatterShape.MOUND) {
+            VerseMatter.mound(level, plan.prototype().matter(), at);
         }
         carryCaster(level, at);
         discard();

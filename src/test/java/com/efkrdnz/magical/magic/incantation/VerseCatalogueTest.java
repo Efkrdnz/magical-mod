@@ -54,6 +54,6 @@ class VerseCatalogueTest {
             assertTrue(id.getPath().startsWith("body/"), id + " is not a body");
             assertEquals(prototype, VersePrototypes.byId(id));
         }
-        assertEquals(17, VersePrototypes.all().size());
+        assertEquals(27, VersePrototypes.all().size(), "seventeen bodies and the ten material ones");
     }
 }

@@ -30,6 +30,23 @@ public final class VersePrototypes {
     public static final VersePrototype WORD_FAR = flying("word_far", MagicSchool.ARCANE, 0.0D, 0.0D, 2.0D, 10, 0.1F, 0.0D, 0.0D, null, Look.WORD, false);
     public static final VersePrototype WORD_STEP = flying("word_step", MagicSchool.SPATIAL, 0.0D, 0.0D, 1.5D, 30, 0.1F, 0.0D, 0.0D, null, Look.WORD, true);
 
+    // The material bodies. A spray and a clod fly and lay as they go or where they land; a sea and a
+    // touch stand for a second with one pulse, so the ripple that marks where the matter was laid
+    // fades, and lay on their first tick. Looks are borrowed: the matter's colour is the difference.
+    public static final VersePrototype SPRAY_WATER = spraying("spray_water", Matter.WATER, 0.9D, 30, 0.3F, null, Look.ORB, MatterShape.SPRAY);
+    public static final VersePrototype SPRAY_FLAME = spraying("spray_flame", Matter.FLAME, 0.9D, 30, 0.3F, HitEffect.BURN, Look.ORB, MatterShape.SPRAY);
+    public static final VersePrototype SEA_WATER = laying("sea_water", Matter.WATER, 3.0F, MatterShape.FLOOD);
+    public static final VersePrototype SEA_FLAME = laying("sea_flame", Matter.FLAME, 3.0F, MatterShape.FLOOD);
+    public static final VersePrototype SEA_LAVA = laying("sea_lava", Matter.LAVA, 2.5F, MatterShape.FLOOD);
+    public static final VersePrototype TOUCH_STONE = laying("touch_stone", Matter.STONE, 3.0F, MatterShape.TOUCH);
+    public static final VersePrototype TOUCH_GLASS = laying("touch_glass", Matter.GLASS, 3.0F, MatterShape.TOUCH);
+    public static final VersePrototype TOUCH_WATER = laying("touch_water", Matter.WATER, 2.5F, MatterShape.TOUCH);
+    public static final VersePrototype TOUCH_ICE = laying("touch_ice", Matter.ICE, 3.0F, MatterShape.TOUCH);
+    public static final VersePrototype CLOD = spraying("clod", Matter.EARTH, 0.8D, 40, 0.35F, null, Look.SHARD, MatterShape.MOUND);
+
+    /** How long a standing material body stands: one pulse, and a mark that fades over a second. */
+    public static final int MATTER_STAND_TICKS = 20;
+
     private VersePrototypes() {
     }
 
@@ -37,14 +54,27 @@ public final class VersePrototypes {
                                          int lifetimeTicks, float radius, double explosionRadius, double explosionDamage,
                                          HitEffect hit, Look look, boolean carriesCaster) {
         return put(new VersePrototype(VerseIds.body(path), school, damage, healing, speed, lifetimeTicks, radius, false, 0,
-                explosionRadius, explosionDamage, null, hit, 0, look, carriesCaster));
+                explosionRadius, explosionDamage, null, hit, 0, look, carriesCaster, null, MatterShape.NONE));
     }
 
     private static VersePrototype standing(String path, MagicSchool school, double damage, double healing, float radius,
                                            int durationTicks, double explosionRadius, double explosionDamage,
                                            HitEffect pulse, HitEffect hit, int pulseIntervalTicks, Look look) {
         return put(new VersePrototype(VerseIds.body(path), school, damage, healing, 0.0D, 0, radius, true, durationTicks,
-                explosionRadius, explosionDamage, pulse, hit, pulseIntervalTicks, look, false));
+                explosionRadius, explosionDamage, pulse, hit, pulseIntervalTicks, look, false, null, MatterShape.NONE));
+    }
+
+    /** A flying material body: no damage of its own, the matter's colour, laying as it flies or where it lands. */
+    private static VersePrototype spraying(String path, Matter matter, double speed, int lifetimeTicks, float radius,
+                                           HitEffect hit, Look look, MatterShape shape) {
+        return put(new VersePrototype(VerseIds.body(path), matter.school(), 0.0D, 0.0D, speed, lifetimeTicks, radius, false, 0,
+                0.0D, 0.0D, null, hit, 0, look, false, matter, shape));
+    }
+
+    /** A standing material body: a ring in the matter's colour that lays on its first tick. */
+    private static VersePrototype laying(String path, Matter matter, float radius, MatterShape shape) {
+        return put(new VersePrototype(VerseIds.body(path), matter.school(), 0.0D, 0.0D, 0.0D, 0, radius, true, MATTER_STAND_TICKS,
+                0.0D, 0.0D, null, null, MATTER_STAND_TICKS, Look.RING, false, matter, shape));
     }
 
     private static VersePrototype put(VersePrototype prototype) {

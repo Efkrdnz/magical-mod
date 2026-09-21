@@ -15,6 +15,8 @@ public final class SkillClashEffectEntity extends Entity {
     private static final EntityDataAccessor<Integer> INCOMING_COLOR = SynchedEntityData.defineId(SkillClashEffectEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> COUNTER_COLOR = SynchedEntityData.defineId(SkillClashEffectEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> LIFE = SynchedEntityData.defineId(SkillClashEffectEntity.class, EntityDataSerializers.INT);
+    /** Every layer of the drawing, and the particle counts, times this: a spark at an elbow is the same clash a third the size. */
+    private static final EntityDataAccessor<Float> SCALE = SynchedEntityData.defineId(SkillClashEffectEntity.class, EntityDataSerializers.FLOAT);
 
     /**
      * Whether the client has already thrown this clash's particles.
@@ -30,11 +32,17 @@ public final class SkillClashEffectEntity extends Entity {
     }
 
     public static SkillClashEffectEntity create(Level level, Vec3 position, int incomingColor, int counterColor, int life) {
+        return create(level, position, incomingColor, counterColor, life, 1.0F);
+    }
+
+    /** The same clash at {@code scale} of its size, for a turn that happens at the defender's own elbow rather than across a field. */
+    public static SkillClashEffectEntity create(Level level, Vec3 position, int incomingColor, int counterColor, int life, float scale) {
         SkillClashEffectEntity effect = new SkillClashEffectEntity(MagicalEntities.SKILL_CLASH_EFFECT.get(), level);
         effect.setPos(position.x, position.y, position.z);
         effect.entityData.set(INCOMING_COLOR, incomingColor);
         effect.entityData.set(COUNTER_COLOR, counterColor);
         effect.entityData.set(LIFE, Math.max(6, life));
+        effect.entityData.set(SCALE, Math.max(0.05F, scale));
         return effect;
     }
 
@@ -43,6 +51,7 @@ public final class SkillClashEffectEntity extends Entity {
         builder.define(INCOMING_COLOR, 0xF8FCFF);
         builder.define(COUNTER_COLOR, 0xA57DFF);
         builder.define(LIFE, 24);
+        builder.define(SCALE, 1.0F);
     }
 
     @Override
@@ -59,6 +68,7 @@ public final class SkillClashEffectEntity extends Entity {
         entityData.set(INCOMING_COLOR, tag.getInt("IncomingColor"));
         entityData.set(COUNTER_COLOR, tag.getInt("CounterColor"));
         entityData.set(LIFE, tag.getInt("Life"));
+        entityData.set(SCALE, tag.contains("Scale") ? tag.getFloat("Scale") : 1.0F);
     }
 
     @Override
@@ -66,6 +76,7 @@ public final class SkillClashEffectEntity extends Entity {
         tag.putInt("IncomingColor", incomingColor());
         tag.putInt("CounterColor", counterColor());
         tag.putInt("Life", life());
+        tag.putFloat("Scale", scale());
     }
 
     @Override
@@ -102,5 +113,9 @@ public final class SkillClashEffectEntity extends Entity {
 
     public int life() {
         return entityData.get(LIFE);
+    }
+
+    public float scale() {
+        return entityData.get(SCALE);
     }
 }

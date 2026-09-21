@@ -2,7 +2,11 @@ package com.efkrdnz.magical.magic.incantation;
 
 import net.minecraft.resources.ResourceLocation;
 
-/** The real catalogue, filled by the six verse files in a fixed order so registration order is stable. */
+/**
+ * The real catalogue, filled by the eight verse files in a fixed order so registration order is
+ * stable. The materials and the passives came last and register last, so nothing that was already
+ * on the Grimoire's grid moved when they arrived.
+ */
 public final class VerseContent {
 
     public static final VerseCatalogue CATALOGUE = build();
@@ -18,6 +22,8 @@ public final class VerseContent {
         MulticastVerses.register(catalogue);
         UtilityVerses.register(catalogue);
         ControlVerses.register(catalogue);
+        MaterialVerses.register(catalogue);
+        PassiveVerses.register(catalogue);
         return catalogue;
     }
 

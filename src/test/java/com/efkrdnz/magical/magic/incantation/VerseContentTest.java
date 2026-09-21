@@ -59,11 +59,10 @@ class VerseContentTest {
         assertEquals(13, c.ofType(VerseType.MULTICAST).size());
         assertEquals(5, c.ofType(VerseType.UTILITY).size());
         assertEquals(25, c.ofType(VerseType.CONTROL).size());
-        assertEquals(0, c.ofType(VerseType.MATERIAL).size());
-        assertEquals(0, c.ofType(VerseType.PASSIVE).size());
-        assertEquals(java.util.List.of(VerseType.PROJECTILE, VerseType.STATIC, VerseType.MODIFIER, VerseType.MULTICAST,
-                VerseType.CONTROL, VerseType.UTILITY), c.types(), "the categories are the types with verses");
-        assertEquals(100, c.size());
+        assertEquals(10, c.ofType(VerseType.MATERIAL).size());
+        assertEquals(5, c.ofType(VerseType.PASSIVE).size());
+        assertEquals(java.util.List.of(VerseType.values()), c.types(), "every type has verses now, so every type is a category");
+        assertEquals(115, c.size());
     }
 
     @Test
@@ -79,7 +78,7 @@ class VerseContentTest {
     void declaredNumbersAreEnacted() {
         int swept = 0;
         for (Verse verse : VerseContent.CATALOGUE.all()) {
-            if (EXEMPT.containsKey(verse.id()) || verse.type() == VerseType.MATERIAL || verse.type() == VerseType.PASSIVE) {
+            if (EXEMPT.containsKey(verse.id())) {
                 continue;
             }
             swept++;
@@ -153,8 +152,12 @@ class VerseContentTest {
         assertEquals(3, VerseContent.get(VerseIds.of("undying")).maxUses());
         assertEquals(10, VerseContent.get(VerseIds.of("epic")).maxUses());
         assertEquals(5, VerseContent.get(VerseIds.of("refrain_10")).maxUses());
+        assertEquals(20, VerseContent.get(VerseIds.of("spray_flame")).maxUses());
+        assertEquals(15, VerseContent.get(VerseIds.of("sea_flame")).maxUses());
+        assertEquals(3, VerseContent.get(VerseIds.of("sea_lava")).maxUses());
+        assertEquals(10, VerseContent.get(VerseIds.of("touch_water")).maxUses());
         long limited = VerseContent.CATALOGUE.all().stream().filter(v -> !v.unlimited()).count();
-        assertEquals(9, limited);
+        assertEquals(13, limited);
     }
 
     @Test
