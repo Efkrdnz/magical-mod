@@ -3,6 +3,7 @@ package com.efkrdnz.magical.classes;
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
+import com.efkrdnz.magical.magic.PlayerMagicState;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -22,8 +23,9 @@ import net.minecraft.resources.ResourceLocation;
  *
  * <p>Registration order matters: {@link #index(ResourceLocation)} is insertion order and feeds the
  * codex button ids {@code BUTTON_CLASS_SELECT_BASE} (700) and {@code BUTTON_EVOLVE_CLASS_BASE}
- * (900). With 52 classes those reach 751 and 951, clear of the next base. **The ceiling is 99
- * classes**; past that the codex button ranges collide.</p>
+ * (900). With 56 classes those reach 755 and 955, clear of the next base. **The ceiling is 100
+ * classes**; past that the codex button ranges collide. A new class therefore goes at the
+ * <em>end</em> of the static block and nowhere else, because the index is the button id.</p>
  */
 public final class MagicalClasses {
     // --- bases ---
@@ -92,10 +94,26 @@ public final class MagicalClasses {
     public static final ResourceLocation VENOMANCER = id("venomancer");
     public static final ResourceLocation CHRYSOPOEIAN = id("chrysopoeian");
 
+    // --- the Sword Summoner line: a hidden chain, found by the rite rather than chosen ---
+    public static final ResourceLocation SWORD_SUMMONER = id("sword_summoner");
+    public static final ResourceLocation SWORD_RIDER = id("sword_rider");
+    public static final ResourceLocation SWORD_SAINT = id("sword_saint");
+    public static final ResourceLocation SWORD_GOD = id("sword_god");
+
     /** XP spent from the base pool, by tier. */
     public static final int COST_DISCIPLINE = 30;
     public static final int COST_MASTERY = 80;
     public static final int COST_APEX = 150;
+
+    /**
+     * The Sword Summoner chain prices itself rather than reusing the tier costs above: it is four
+     * rungs of one line instead of a fan, so the whole ladder is 370 pooled at its base, and each
+     * rung must cost strictly more than its parent or {@code ClassTreeTest} fails.
+     */
+    public static final int COST_SWORD_SUMMONER = 0;
+    public static final int COST_SWORD_RIDER = 40;
+    public static final int COST_SWORD_SAINT = 110;
+    public static final int COST_SWORD_GOD = 220;
 
     private static final Map<ResourceLocation, MagicalClassDefinition> CLASSES = new LinkedHashMap<>();
     /** passive id -&gt; the class that grants it, filled on first use by {@link #classGranting}. */
@@ -217,6 +235,40 @@ public final class MagicalClasses {
         register(new MagicalClassDefinition(MAGIC_ORIGINATOR, List.of(SPELL_CREATOR), 1,
                 nameKey(MAGIC_ORIGINATOR), descriptionKey(MAGIC_ORIGINATOR), 140,
                 List.of(), List.of(), List.of()));
+
+        // ------- Sword Summoner (hidden, and registered LAST for a reason) -------
+        //
+        // A class button id is the registration index on both sides - ClassTreeMenu.nodes() and
+        // MagicPyramidMenu both walk all() positionally - so a class inserted anywhere but the end
+        // silently renumbers every class button after it and nothing in the build checks it.
+        //
+        // Sword Summoner is a ROOT that is not a starting root, which is the Spell Creator's shape
+        // taken for one more reason: evolveClass returns early on isBase(), so the forged packet
+        // MagicalNetwork hands straight to evolveClass cannot take a secret base, and the three
+        // rungs above it are safe because their parent is itself secret. Never graft a secret rung
+        // onto a visible tree. It also buys exemption from the four tree-shape tests, absence from
+        // the first-spawn chooser and, most of all, no re-sectoring: a sixth *starting* base turns
+        // 360/5 into 360/6 and moves four of five trees for every player, with a green build.
+        //
+        // TODO(sword-kit): the four nodes grant nothing until magic/sword's content lands, because
+        // naming a MagicContent constant that does not exist yet does not compile. The intended
+        // grants are: sword_summoner -> call_the_blade, the_bearing, loose + passive sword_heart;
+        // sword_rider -> the_keel, below + passive ward_of_the_array; sword_saint -> one_blade +
+        // passive returning; sword_god -> no active at all + passive mirror_of_the_array. All four
+        // passives register with forbiddenPassive() rather than classPassive(), so this chain stays
+        // out of ClassTreeTest's global class-passive count and out of the codex's "From %s" line.
+        register(new MagicalClassDefinition(SWORD_SUMMONER, List.of(), 0,
+                nameKey(SWORD_SUMMONER), descriptionKey(SWORD_SUMMONER), COST_SWORD_SUMMONER,
+                List.of(), List.of(), List.of(SWORD_RIDER), true));
+        register(new MagicalClassDefinition(SWORD_RIDER, List.of(SWORD_SUMMONER), 1,
+                nameKey(SWORD_RIDER), descriptionKey(SWORD_RIDER), COST_SWORD_RIDER,
+                List.of(), List.of(), List.of(SWORD_SAINT), true));
+        register(new MagicalClassDefinition(SWORD_SAINT, List.of(SWORD_RIDER), 2,
+                nameKey(SWORD_SAINT), descriptionKey(SWORD_SAINT), COST_SWORD_SAINT,
+                List.of(), List.of(), List.of(SWORD_GOD), true));
+        register(new MagicalClassDefinition(SWORD_GOD, List.of(SWORD_SAINT), 3,
+                nameKey(SWORD_GOD), descriptionKey(SWORD_GOD), COST_SWORD_GOD,
+                List.of(), List.of(), List.of(), true));
     }
 
     private MagicalClasses() {}
@@ -264,12 +316,40 @@ public final class MagicalClasses {
     public static ResourceLocation classGranting(ResourceLocation passiveId) {
         if (PASSIVE_SOURCES.isEmpty()) {
             for (MagicalClassDefinition definition : CLASSES.values()) {
+                // A secret class is never a source, or the codex Passives tab prints its name in
+                // the "From %s" line the moment somebody hangs a class passive off it. Today the
+                // sword chain grants forbidden passives and this is moot; the gate is here so the
+                // next passive added to it cannot leak the class that grants it.
+                if (definition.secret()) {
+                    continue;
+                }
                 for (ResourceLocation granted : definition.rewardPassives()) {
                     PASSIVE_SOURCES.putIfAbsent(granted, definition.id());
                 }
             }
         }
         return PASSIVE_SOURCES.get(passiveId);
+    }
+
+    /**
+     * Whether the stock UI may draw this node for this wielder.
+     *
+     * <p>Visibility cascades from the <b>root</b>, not per node: taking Sword Summoner reveals the
+     * whole chain at once. This is deliberately not "hidden until owned", which would reveal the
+     * ladder one rung at a time and turn a reveal into a drip - the point of the rite is that the
+     * moment you find it you are shown the whole climb ahead of you.</p>
+     *
+     * <p>A null state is the console, or any caller with no wielder to ask about, and sees only
+     * what everybody sees.</p>
+     */
+    public static boolean isVisible(MagicalClassDefinition definition, PlayerMagicState state) {
+        if (definition == null) {
+            return false;
+        }
+        if (!definition.secret()) {
+            return true;
+        }
+        return state != null && state.hasClass(baseOf(definition.id()));
     }
 
     public static MagicalClassDefinition get(ResourceLocation id) {
@@ -280,8 +360,19 @@ public final class MagicalClasses {
         return CLASSES.values().stream().filter(MagicalClassDefinition::isBase).toList();
     }
 
+    /**
+     * The roots a new player may be offered: the five evolution trees, and nothing else ever.
+     *
+     * <p>This used to test one hard-coded id. It tests a property now, because there are two kinds
+     * of root that are not starting roots for two different reasons and a third would have made
+     * three ids in a boolean expression. Everything downstream of this - the first-spawn chooser,
+     * {@code ClassSelectMenu.choices()}, {@code chooseStartingClass}, the class-tree sectoring and
+     * {@code grantTestClassXp} - is gated for free by asking here.</p>
+     */
     public static List<MagicalClassDefinition> startingRoots() {
-        return roots().stream().filter(definition -> !SPELL_CREATOR.equals(definition.id())).toList();
+        return roots().stream()
+                .filter(definition -> !definition.secret() && !SPELL_CREATOR.equals(definition.id()))
+                .toList();
     }
 
     /** Every node whose tree is rooted at the given base, the base itself included, in registration order. */
@@ -325,12 +416,35 @@ public final class MagicalClasses {
         return 0;
     }
 
+    /**
+     * What tab completion may say to a wielder with nothing found. Tab completion is an enumeration
+     * point like any other: it is permission 2, so in multiplayer this is polish, but in single
+     * player the player <em>is</em> the operator and is exactly the person the reveal is being kept
+     * from. The command still parses any word, so a capture or an operator who knows the id can
+     * type it - completion simply never says it out loud.
+     */
     public static List<String> commandIds() {
-        return CLASSES.keySet().stream().map(ResourceLocation::getPath).toList();
+        return commandIds(null);
+    }
+
+    /** As {@link #commandIds()}, but a wielder who has found the chain gets to complete its rungs. */
+    public static List<String> commandIds(PlayerMagicState state) {
+        return CLASSES.values().stream()
+                .filter(definition -> isVisible(definition, state))
+                .map(definition -> definition.id().getPath())
+                .toList();
     }
 
     public static List<String> rootCommandIds() {
-        return roots().stream().map(definition -> definition.id().getPath()).toList();
+        return rootCommandIds(null);
+    }
+
+    /** As {@link #rootCommandIds()}, gated the same way. */
+    public static List<String> rootCommandIds(PlayerMagicState state) {
+        return roots().stream()
+                .filter(definition -> isVisible(definition, state))
+                .map(definition -> definition.id().getPath())
+                .toList();
     }
 
     public static List<String> startingRootCommandIds() {
@@ -344,7 +458,7 @@ public final class MagicalClasses {
 
     public static boolean isStartingRoot(ResourceLocation id) {
         MagicalClassDefinition definition = get(id);
-        return definition != null && definition.isBase() && !SPELL_CREATOR.equals(id);
+        return definition != null && definition.isBase() && !definition.secret() && !SPELL_CREATOR.equals(id);
     }
 
     private static void register(MagicalClassDefinition definition) {

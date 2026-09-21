@@ -135,6 +135,11 @@ public final class ClassTreeScreen extends AbstractContainerScreen<ClassTreeMenu
 
     private void drawEdgePass(GuiGraphics guiGraphics, PlayerMagicState state, boolean walkedPass) {
         for (MagicalClassDefinition definition : MagicalClasses.all()) {
+            // Without this the hidden chain is four edges to nowhere, which is a louder tell than
+            // the nodes would have been: an arrow pointing at empty space asks to be followed.
+            if (!MagicalClasses.isVisible(definition, state)) {
+                continue;
+            }
             ClassTreeLayout.Node child = ClassTreeLayout.get(definition.id());
             if (child == null) {
                 continue;
@@ -192,6 +197,14 @@ public final class ClassTreeScreen extends AbstractContainerScreen<ClassTreeMenu
 
     private void drawNodes(GuiGraphics guiGraphics, PlayerMagicState state, int mouseX, int mouseY, int clipTop, int clipBottom) {
         for (MagicalClassDefinition definition : MagicalClasses.all()) {
+            // The only filter this screen has ever had, and the one the hidden chain needs: a node
+            // drawn here is a named, hoverable card whose tooltip lists the description, the XP
+            // cost and every reward. Skipping the draw also skips the hover, so there is nothing
+            // to click and nothing to read. Visibility cascades from the root, so an unowned rung
+            // of a found chain still draws - that is the climb, not the secret.
+            if (!MagicalClasses.isVisible(definition, state)) {
+                continue;
+            }
             ClassTreeLayout.Node node = ClassTreeLayout.get(definition.id());
             if (node == null) {
                 continue;

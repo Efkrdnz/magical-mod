@@ -241,6 +241,14 @@ public final class DungeonTowerService {
 
     private static void addClassRewards(List<DungeonTowerReward> candidates, PlayerMagicState state, int floor) {
         for (MagicalClassDefinition definition : MagicalClasses.roots()) {
+            // A wish prints definition.nameKey() straight into chat as one of three choices, so an
+            // ungated secret root hands "Sword Summoner" to a player on floor 2 who has never
+            // heard of the rite - and hands it to them as a reward, which is the whole class given
+            // away by accident. A secret root is invisible until its chain is already owned, at
+            // which point the hasClass check below refuses it anyway.
+            if (!MagicalClasses.isVisible(definition, state)) {
+                continue;
+            }
             if (MagicalClasses.SPELL_CREATOR.equals(definition.id()) && floor < 8) {
                 continue;
             }
@@ -249,6 +257,12 @@ public final class DungeonTowerService {
             }
         }
         for (MagicalClassDefinition definition : MagicalClasses.all()) {
+            // Moot while visibility cascades from the root - a rung is only evolvable once its
+            // root is owned, which is exactly when it becomes visible - but the tower is an
+            // enumeration point and every one of them is gated, or the next one is the leak.
+            if (!MagicalClasses.isVisible(definition, state)) {
+                continue;
+            }
             if (state.canEvolveClass(definition.id())) {
                 candidates.add(new DungeonTowerReward(DungeonTowerReward.Kind.CLASS_EVOLUTION, definition.id(), 0, definition.nameKey()));
             }

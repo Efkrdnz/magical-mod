@@ -727,7 +727,7 @@ public final class MagicalCommands {
                     .then(Commands.literal("class")
                             .then(Commands.literal("unlock")
                                     .then(Commands.argument("id", StringArgumentType.word())
-                                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(MagicalClasses.rootCommandIds(), builder))
+                                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(MagicalClasses.rootCommandIds(stateOf(context.getSource())), builder))
                                             .executes(context -> withPlayer(context.getSource(), player -> {
                                                 ResourceLocation classId = parseClassId(StringArgumentType.getString(context, "id"));
                                                 MagicalClassDefinition definition = MagicalClasses.get(classId);
@@ -743,7 +743,7 @@ public final class MagicalCommands {
                                             }))))
                             .then(Commands.literal("evolve")
                                     .then(Commands.argument("id", StringArgumentType.word())
-                                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(MagicalClasses.commandIds(), builder))
+                                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(MagicalClasses.commandIds(stateOf(context.getSource())), builder))
                                             .executes(context -> withPlayer(context.getSource(), player -> {
                                                 ResourceLocation classId = parseClassId(StringArgumentType.getString(context, "id"));
                                                 MagicalClassDefinition definition = MagicalClasses.get(classId);
@@ -759,7 +759,7 @@ public final class MagicalCommands {
                                             }))))
                             .then(Commands.literal("addxp")
                                     .then(Commands.argument("id", StringArgumentType.word())
-                                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(MagicalClasses.commandIds(), builder))
+                                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(MagicalClasses.commandIds(stateOf(context.getSource())), builder))
                                             .then(Commands.argument("amount", IntegerArgumentType.integer(0))
                                                     .executes(context -> withPlayer(context.getSource(), player -> {
                                                         ResourceLocation classId = parseClassId(StringArgumentType.getString(context, "id"));
@@ -784,6 +784,12 @@ public final class MagicalCommands {
                                     .executes(context -> withPlayer(context.getSource(), player -> {
                                         PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
                                         int taken = 0;
+                                        // This DELIBERATELY grants the secret classes too, and it is the one
+                                        // enumeration point that does. Every capture in the design docs walks
+                                        // a whole kit from one command; gating this would make the hidden
+                                        // chain unphotographable and the next reader would "fix" the gate
+                                        // back out again. It is permission 2 and it is named unlockall.
+                                        //
                                         // Tier order matters: a node can only be taken once a parent is owned,
                                         // so walk the tiers outward rather than in registration order.
                                         for (int tier = 0; tier <= 3; tier++) {
@@ -1074,6 +1080,20 @@ public final class MagicalCommands {
 
     private static int withPlayer(CommandSourceStack source, java.util.function.ToIntFunction<ServerPlayer> action) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
             return action.applyAsInt(source.getPlayerOrException());
+        }
+
+        /**
+         * The magic state behind a command source, or null for the console and for a command block.
+         *
+         * <p>It exists for the three class suggestion providers. Tab completion is an enumeration
+         * point like the class tree and the tower: a hidden chain that completes is a hidden chain
+         * that has told you its name. These are permission 2, so in multiplayer it is polish - but
+         * in single player the player is the operator, and the single-player player is exactly the
+         * person the reveal is being kept from. A null state sees only what everybody sees.</p>
+         */
+        private static PlayerMagicState stateOf(CommandSourceStack source) {
+            ServerPlayer player = source.getPlayer();
+            return player == null ? null : player.getData(MagicalAttachments.MAGIC_STATE);
         }
 
         /**

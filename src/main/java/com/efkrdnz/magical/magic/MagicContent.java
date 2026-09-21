@@ -76,6 +76,32 @@ public final class MagicContent {
     public static final MagicSkillDefinition SKIN_OF_THE_DEEP = register("skin_of_the_deep", MagicSchool.ELDRITCH, MagicSkillType.BURST, -5, 0, 5.0F, 1.0F, 1.0F, 30, 600, 400, 0.0F, 0, 0x06322A);
     public static final MagicSkillDefinition CALL_OF_THE_DEEP = register("call_of_the_deep", MagicSchool.ELDRITCH, MagicSkillType.BURST, -5, 0, 6.0F, 1.0F, 1.0F, 12, 500, 200, 0.0F, 0, 0x8FF5E0);
 
+    // SWORD, layer -3, and that layer was empty until now. Six verbs, and not one of them is a
+    // new mechanism: every one is a move of the Array's frame or a pure projection of its
+    // bearings, which is why the kit ships six actives with no per-blade state anywhere in it.
+    // All six go into CLASS_REWARD_SKILLS and into no other classifier set - SUB_SKILLS would
+    // take them out of the codex and out of reach of the unlock command, and AUTHORITY_SKILLS
+    // would stop unlockall granting them, which is how the design's captures are taken.
+    // Stats per docs/superpowers/specs/2026-09-22-sword-summoner-design.md section 4.1.
+    // Size is the aim range the new station is quantised out of. Zero damage: the press writes
+    // a bearing and does nothing else, which is the whole authoring surface of the class.
+    public static final MagicSkillDefinition CALL_THE_BLADE = register("call_the_blade", MagicSchool.SWORD, MagicSkillType.BURST, -3, 0, 0.0F, 1.0F, 6.0F, 6, 10, 0, 0.0F, 0, 0xB9C4CE);
+    // A hold that reads the shape back and unwrites a bearing. Free, because six of your
+    // stations are behind your head and looking at your own build is not a power.
+    public static final MagicSkillDefinition THE_BEARING = register("the_bearing", MagicSchool.SWORD, MagicSkillType.BURST, -3, 0, 0.0F, 1.0F, 1.0F, 0, 20, 0, 0.0F, 0, 0xD4DDE4);
+    // Speed is the ride, size is the leash a frozen frame may be walked away from, duration is
+    // how long a ride may last before the blade under your feet puts you down.
+    public static final MagicSkillDefinition THE_KEEL = register("the_keel", MagicSchool.SWORD, MagicSkillType.BURST, -3, 0, 0.0F, 0.55F, 24.0F, 10, 30, 400, 0.0F, 0, 0xA6B6C4);
+    // Damage is the floor a blade carries before its Edge is counted; size is the bind range
+    // and duration the flight budget. There is no blade cap - the projection is the cap.
+    public static final MagicSkillDefinition LOOSE = register("loose", MagicSchool.SWORD, MagicSkillType.BURST, -3, 0, 2.0F, 1.8F, 28.0F, 14, 60, 24, 0.25F, 0, 0x8FB4CC);
+    // Size is how far off a point may be committed; duration is the whole press-to-hit window,
+    // most of which is a ring on the ground telling whoever stands in it to move.
+    public static final MagicSkillDefinition BELOW = register("below", MagicSchool.SWORD, MagicSkillType.BURST, -3, 0, 2.0F, 1.0F, 20.0F, 20, 100, 24, 0.4F, 0, 0x7FA6BE);
+    // Zero mana in the definition on purpose: the fusion is billed on release, at six a station,
+    // by the handler. Duration is how long the gathered blade may be carried before it collapses.
+    public static final MagicSkillDefinition ONE_BLADE = register("one_blade", MagicSchool.SWORD, MagicSkillType.BURST, -3, 0, 6.0F, 1.0F, 3.0F, 0, 200, 120, 1.2F, 0, 0x6FA0C0);
+
     // DARK, layer -2, joining black_flames and abyssal_discharge above. Zero mana again, for the
     // opposite reason to Blood's: these cost nothing at the moment of casting. DarkService writes
     // the price down as Corruption instead, and nothing but Purification ever writes it off.
@@ -253,7 +279,15 @@ public final class MagicContent {
             WAR_HORN.id(),
             SIGHT_LINE.id(),
             MANA_BLOOM.id(),
-            VIAL_BREAK.id());
+            VIAL_BREAK.id(),
+            // The Sword Summoner's six. A class reward and nothing else: the hidden chain is
+            // the only door, and being a class reward is what lets that chain open it.
+            CALL_THE_BLADE.id(),
+            THE_BEARING.id(),
+            THE_KEEL.id(),
+            LOOSE.id(),
+            BELOW.id(),
+            ONE_BLADE.id());
     public static final Set<ResourceLocation> SUB_SKILLS = Set.of(
             AEGIS_ULTIMATE_PROTECTION.id(),
             AEGIS_SANCTUARY.id(),

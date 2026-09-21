@@ -23,7 +23,11 @@ public enum SchoolMaterial {
     DARK(MagicSchool.DARK, new int[] {0x5B3A78, 0x7E52A6, 0x2E1B42, 0x120A1C}, 10, GlyphKind.SOLID_RING, StampId.BONE, CoreKind.VOID_PIT, SpinSignature.COUNTER_SLOW, true),
     CHAOS(MagicSchool.CHAOS, new int[] {0xFF4FD8, 0xFF9BEC, 0xC81FA6, 0x5E0A4C}, 11, GlyphKind.FACET_BAND, StampId.SPIRAL, CoreKind.SUNBURST, SpinSignature.ONE_WAY_FAST, false),
     PRIMORDIAL(MagicSchool.PRIMORDIAL, new int[] {0x7A6A4A, 0xB09A6E, 0x4E4230, 0x241D14}, 3, GlyphKind.STAMP_BAND, StampId.TRIANGLE, CoreKind.DISC_GLOW, SpinSignature.STATIC, false),
-    ELDRITCH(MagicSchool.ELDRITCH, new int[] {0x2FBF9E, 0x5FEFD0, 0x1A7A66, 0x06322A}, 13, GlyphKind.FACET_BAND, StampId.EYE, CoreKind.IRIS, SpinSignature.COUNTER_FAST, false);
+    ELDRITCH(MagicSchool.ELDRITCH, new int[] {0x2FBF9E, 0x5FEFD0, 0x1A7A66, 0x06322A}, 13, GlyphKind.FACET_BAND, StampId.EYE, CoreKind.IRIS, SpinSignature.COUNTER_FAST, false),
+    // SWORD, layer -3. Frame sides 14 because 3..13 are all spoken for and 14, 15 and 16 are
+    // not. Cold pewter with one near-white highlight: the ramp is deliberately the least
+    // saturated in the file, so the school reads as metal beside twelve coloured ones.
+    SWORD(MagicSchool.SWORD, new int[] {0xB9C4CE, 0xE9F1F6, 0x6F7D8A, 0x2A323A}, 14, GlyphKind.TICK_BAND, StampId.EDGE, CoreKind.CROSS, SpinSignature.ONE_WAY_FAST, false);
 
     private final MagicSchool school;
     private final int[] variants;

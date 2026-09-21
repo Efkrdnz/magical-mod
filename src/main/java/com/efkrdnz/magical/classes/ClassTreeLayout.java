@@ -30,6 +30,25 @@ public final class ClassTreeLayout {
     public static final float NODE_WIDTH = 76.0F;
     public static final float NODE_HEIGHT = 22.0F;
 
+    /**
+     * The Sword Summoner line is a hidden chain rather than a starting tree, so it is hand-placed:
+     * it owns no sector and {@link MagicalClasses#startingRoots()} - which is what sets the sector
+     * count - deliberately does not contain it, so the five existing trees do not move by a pixel.
+     *
+     * <p>It takes the empty wedge between the Blacksmith sector at -90 and its neighbour at -18,
+     * whose tier-1 spans reach only -68 and -40, and it stays <b>inside the outer ring</b>. That is
+     * the load-bearing half. {@link #extent()} is {@code max(|x|, |y|)} over every node and it
+     * feeds {@code ClassTreeScreen.fitZoom()}, which draws a node's <em>name</em> only at
+     * {@code zoom >= 0.40F} while the default fit is already about 0.43 - so the graph is one
+     * careless placement away from stripping the label off every class node in the game, for every
+     * player, with a completely green build. These four have {@code |x| <= 320.4} and
+     * {@code |y| <= 440.9} against an existing envelope of 535.9 by 540.3, so {@code extent()} does
+     * not move at all. {@code ClassTreeExtentTest} is the only thing that would ever say so.</p>
+     */
+    private static final float SWORD_BEARING = -54.0F;
+    /** Radius by rung: Summoner, Rider, Saint, God. The apex shares RING[3] and nothing else does. */
+    private static final float[] SWORD_RING = {210.0F, 380.0F, 470.0F, 545.0F};
+
     private static final Map<ResourceLocation, Node> NODES = new LinkedHashMap<>();
 
     /** A laid-out node: graph-space position plus the tier that produced it. */
@@ -54,6 +73,12 @@ public final class ClassTreeLayout {
         // hollow at the centre, well inside the base ring where nothing else is placed.
         place(MagicalClasses.SPELL_CREATOR, 26.0F, -90.0F, 0);
         place(MagicalClasses.MAGIC_ORIGINATOR, 26.0F, 90.0F, 1);
+        // Hand-placed because ClassTreeTest asserts all().size() == nodes().size(): you cannot
+        // hide a class by refusing to lay it out. The screen skips drawing it instead.
+        place(MagicalClasses.SWORD_SUMMONER, SWORD_RING[0], SWORD_BEARING, 0);
+        place(MagicalClasses.SWORD_RIDER, SWORD_RING[1], SWORD_BEARING, 1);
+        place(MagicalClasses.SWORD_SAINT, SWORD_RING[2], SWORD_BEARING, 2);
+        place(MagicalClasses.SWORD_GOD, SWORD_RING[3], SWORD_BEARING, 3);
     }
 
     private static List<MagicalClassDefinition> tierOf(ResourceLocation baseId, int tier) {

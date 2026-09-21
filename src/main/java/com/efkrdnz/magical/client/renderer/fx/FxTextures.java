@@ -15,7 +15,7 @@ import net.minecraft.util.Mth;
  * Procedurally generated textures registered at client setup:
  * <ul>
  *   <li>{@link #NOISE}: 256x256 tileable atlas, R value noise, G fbm, B worley F1, A blue-ish noise.</li>
- *   <li>{@link #EMBLEMS}: 1024x1024 SDF atlas of 16x16 cells (64px); cells 0..31 are stamps, 32+ emblems.</li>
+ *   <li>{@link #EMBLEMS}: 1024x1024 SDF atlas of 16x16 cells (64px); cells 0..32 are stamps, 33+ emblems.</li>
  * </ul>
  * Generated in Java so the build has no external tooling dependency; the stroke tables below are
  * the single source of every sigil identity mark.
@@ -302,6 +302,10 @@ public final class FxTextures {
             case SPIRAL -> "A0,0,0.25,0,180;A0,0,0.5,180,360;A0,0,0.75,0,180";
             case LINK -> "C-0.35,0,0.4;C0.35,0,0.4";
             case TOOTH -> "L-0.5,-0.7,0,0.8;L0,0.8,0.5,-0.7;L-0.5,-0.7,0.5,-0.7";
+            // A sword, tip at +y the way NEEDLE is: the blade, the two shoulders of its
+            // point, a crossguard and a pommel. Slimmer shoulders than NEEDLE, and the
+            // guard, are what keep the two readable apart at 64px.
+            case EDGE -> "L0,-0.9,0,0.9;L-0.12,0.6,0,0.9;L0.12,0.6,0,0.9;L-0.45,-0.45,0.45,-0.45;D0,-0.9,0.12";
         };
     }
 

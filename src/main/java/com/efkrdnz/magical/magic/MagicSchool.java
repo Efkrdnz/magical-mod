@@ -15,7 +15,13 @@ public enum MagicSchool {
     DARK(0x5B3A78),
     CHAOS(0xFF4FD8),
     PRIMORDIAL(0x7A6A4A),
-    ELDRITCH(0x2FBF9E);
+    ELDRITCH(0x2FBF9E),
+    /**
+     * Pewter, and the near-neutral grey is the whole of the choice: the other twelve
+     * schools are saturated, so a grey-steel row in the codex reads as steel before a
+     * word of it has been parsed.
+     */
+    SWORD(0xB9C4CE);
 
     private final int color;
 
@@ -27,9 +33,16 @@ public enum MagicSchool {
         return color;
     }
 
-    /** True for the schools that live below the line and charge a price no positive tier asks for. */
+    /**
+     * True for the schools that live below the line and charge a price no positive tier asks for.
+     *
+     * <p>This is an {@code ==} chain rather than a switch, so a school added to the enum and
+     * forgotten here compiles clean and is then treated as an ordinary positive school by
+     * every caller. Adding a constant above without adding it below is a silent bug.
+     */
     public boolean isForbidden() {
-        return this == BLOOD || this == DARK || this == CHAOS || this == PRIMORDIAL || this == ELDRITCH;
+        return this == BLOOD || this == DARK || this == CHAOS || this == PRIMORDIAL
+                || this == ELDRITCH || this == SWORD;
     }
 
     public String translationKey() {

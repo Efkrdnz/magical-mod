@@ -36,6 +36,7 @@ public final class ClassPassiveEffects {
             new BloodPassives(),
             new DarkPassives(),
             new EldritchPassives(), new SacrificePassives(),
+            new SwordPassives(),
             new com.efkrdnz.magical.magic.incantation.VersePassives());
 
     private ClassPassiveEffects() {}

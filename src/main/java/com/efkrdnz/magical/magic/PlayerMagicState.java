@@ -20,6 +20,7 @@ import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.IntArrayTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
@@ -64,6 +65,11 @@ public final class PlayerMagicState {
     private int anchorSigilY;
     private int anchorSigilZ;
     private int anchorSigilTicks;
+    // The wielder half of the Sword Summoner: the bearings they authored and the Edge they put on
+    // each. Saved, because it is the only part of that class they actually own. The blades in the
+    // air, the frame, the spent metal lying in the world and every recovery clock belong to
+    // SwordService and are never saved, the way PileService drops its Piles.
+    private final com.efkrdnz.magical.magic.sword.SwordArray swordArray = new com.efkrdnz.magical.magic.sword.SwordArray();
     private int mirrorDecoyEntityId = -1;
     private int nullThreadEntityId = -1;
     private int activeMagicBarrageEntityId = -1;
@@ -520,6 +526,11 @@ public final class PlayerMagicState {
 
     public com.efkrdnz.magical.magic.incantation.Grimoire grimoire() {
         return grimoire;
+    }
+
+    /** The authored shape. The live half - frame, bind, blades, spent metal - is the service's. */
+    public com.efkrdnz.magical.magic.sword.SwordArray swordArray() {
+        return swordArray;
     }
 
     /** Ticks left on the anchor sigil, for the HUD's chip; {@link #hasAnchorSigil()} is the flag. */
@@ -999,8 +1010,22 @@ public final class PlayerMagicState {
         return progress != null && progress.unlocked();
     }
 
+    /**
+     * Whether onboarding is over: the wielder holds a root they could have been offered.
+     *
+     * <p><b>A secret root does not count, and leaving it out of this loop is a softlock rather
+     * than an untidiness.</b> Two call sites read this and both of them are one-way: the login
+     * tick stops reopening the starting-class chooser, and {@link #chooseStartingClass} refuses
+     * for good. So a player who took the Sword Summoner by finding its rite - a root nothing ever
+     * offered them - would silently lose Warrior, Mystic and every tree under them, permanently,
+     * with nothing logged. {@code ClassVisibilityTest} pins this along with the other six
+     * enumeration points that have to respect the flag.
+     */
     public boolean hasAnyRootClass() {
         for (MagicalClassDefinition definition : MagicalClasses.roots()) {
+            if (definition.secret()) {
+                continue;
+            }
             if (hasClass(definition.id())) {
                 return true;
             }
@@ -1148,6 +1173,7 @@ public final class PlayerMagicState {
         ledger.clear();
         paradox.clear();
         anchor.clear();
+        swordArray.clear();
         clearSoulBond();
     }
 
@@ -2074,6 +2100,10 @@ public final class PlayerMagicState {
         copy.ledger.copyFrom(ledger);
         copy.paradox.copyFrom(paradox);
         copy.anchor.copyFrom(anchor);
+        // The client rebuilds through copy(), so an Array left out here would save and load
+        // perfectly on the server and arrive empty on the client - in multiplayer only, after a
+        // resync, with nothing logged anywhere.
+        copy.swordArray.copyFrom(swordArray);
         copy.anchorSigilDimension = anchorSigilDimension;
         copy.anchorSigilX = anchorSigilX;
         copy.anchorSigilY = anchorSigilY;
@@ -2190,6 +2220,11 @@ public final class PlayerMagicState {
         tag.putLong("paradoxFired", paradox.lastFired());
         tag.putLong("paradoxShut", paradox.shutUntil());
         tag.put("causalAnchor", anchor.save());
+        // Omitted entirely while the Array is empty - the bloodShapes precedent - because this tag
+        // rides every sync for every player and the overwhelming majority never find the rite.
+        if (!swordArray.isEmpty()) {
+            tag.put("swordArray", swordArray.save());
+        }
         tag.putString("anchorSigilDimension", anchorSigilDimension);
         tag.putInt("anchorSigilX", anchorSigilX);
         tag.putInt("anchorSigilY", anchorSigilY);
@@ -2358,6 +2393,9 @@ public final class PlayerMagicState {
                 tag.contains("paradoxFired") ? tag.getLong("paradoxFired") : Long.MIN_VALUE,
                 tag.contains("paradoxShut") ? tag.getLong("paradoxShut") : Long.MIN_VALUE);
         state.anchor.load(tag.getCompound("causalAnchor"));
+        // getIntArray answers an empty array for an absent or mistyped key, and load() is total
+        // and clears first, so the omitted-while-empty save needs no guard on the way back in.
+        state.swordArray.load(new IntArrayTag(tag.getIntArray("swordArray")));
         state.anchorSigilDimension = tag.getString("anchorSigilDimension");
         state.anchorSigilX = tag.getInt("anchorSigilX");
         state.anchorSigilY = tag.getInt("anchorSigilY");

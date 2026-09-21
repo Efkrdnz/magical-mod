@@ -165,6 +165,22 @@ public final class MagicPassiveContent {
     public static final MagicPassiveDefinition LIDLESS = forbiddenPassive("lidless", 0x5FEFD0);
     public static final MagicPassiveDefinition DEEP_BARGAIN = forbiddenPassive("deep_bargain", 0x06322A);
 
+    // SWORD, layer -3. One per rung of the hidden Sword Summoner chain.
+    //
+    // forbiddenPassive, and deliberately NOT classPassive, although a class node is what
+    // grants all four. ClassTreeTest.everyNonBaseNodeGrantsSomethingAndNoClassPassiveIsGrantedTwice
+    // skips non-starting-root trees while collecting and then closes with a global
+    // assertEquals(classPassives().size(), seen.size()), so a class passive granted only by a
+    // hidden chain reads as ungranted and turns the build red for a reason that has nothing to
+    // do with the change that added it. It also shuts a codex leak for free: groupKey in
+    // CodexPassiveRows falls to GROUP_GENERAL when isClassPassive is false, so the Passives
+    // tab never prints "Sword Summoner" as a header for a class nobody has heard of yet.
+    // LIDLESS and DEEP_BARGAIN above are the precedent. Do not "fix" these to classPassive.
+    public static final MagicPassiveDefinition SWORD_HEART = forbiddenPassive("sword_heart", 0xB9C4CE);
+    public static final MagicPassiveDefinition WARD_OF_THE_ARRAY = forbiddenPassive("ward_of_the_array", 0x6F7D8A);
+    public static final MagicPassiveDefinition RETURNING = forbiddenPassive("returning", 0xE9F1F6);
+    public static final MagicPassiveDefinition MIRROR_OF_THE_ARRAY = forbiddenPassive("mirror_of_the_array", 0x2A323A);
+
 
     // ---------------------------------------------------------------------------------------
     // BLOOD SACRIFICE, layer -1. Thirty-two temporary passives a ritual grants and a clock takes

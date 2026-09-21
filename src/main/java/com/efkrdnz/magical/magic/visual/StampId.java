@@ -36,7 +36,19 @@ public enum StampId {
     CRESCENT,
     SPIRAL,
     LINK,
-    TOOTH;
+    TOOTH,
+    /**
+     * The Sword school: a blade, its crossguard and its pommel.
+     *
+     * <p>It is the thirty-third stamp, and so the first that does not fit the five-bit
+     * STAMP_BAND field. SWORD bands with TICK_BAND rather than STAMP_BAND, so nothing asks
+     * a band to carry it; a stamp added after this one must widen that field or band
+     * differently. Adding it also pushed {@code EmblemId.FIRST_CELL} from 32 to 33, because
+     * {@link #atlasCell()} is the ordinal and 32 was where the emblems began - a collision
+     * that draws the wrong mark and fails nothing, which is why {@code FxAtlasCellsTest}
+     * now holds the two ranges apart.</p>
+     */
+    EDGE;
 
     public int atlasCell() {
         return ordinal();

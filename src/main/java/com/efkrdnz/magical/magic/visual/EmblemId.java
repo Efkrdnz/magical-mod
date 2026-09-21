@@ -103,7 +103,17 @@ public enum EmblemId {
     SCALES,
     DEEP_CALL;
 
-    public static final int FIRST_CELL = 32;
+    /**
+     * Where the emblems begin in the shared SDF atlas, immediately after the stamps.
+     *
+     * <p>It is 33 rather than 32 because {@link StampId} grew {@code EDGE} for the Sword
+     * school and a stamp's cell is its own ordinal, so at 32 that new stamp and
+     * {@link #BLANK} sampled the same cell. A cell collision draws the wrong mark and
+     * fails nothing, so this constant has to move every time a stamp is added and
+     * {@code FxAtlasCellsTest} is the only thing that will ever say so. The atlas is 16x16
+     * procedural cells and the last emblem lands at 121, so there is room for another 134.</p>
+     */
+    public static final int FIRST_CELL = 33;
 
     public int atlasCell() {
         return FIRST_CELL + ordinal();
