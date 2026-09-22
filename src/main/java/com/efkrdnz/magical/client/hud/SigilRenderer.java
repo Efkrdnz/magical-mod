@@ -168,6 +168,14 @@ public final class SigilRenderer {
         float barrierHalf = layout.barrierOuter() / HudKind.RING_OUTER;
         b.square(cx, cy, barrierHalf, HudPalette.BARRIER, alpha * 0.95F, HudKind.RING_METER,
                 HudLayout.BARRIER_NOTCHES, HudKind.widthClass(layout.barrierWidth(), barrierHalf) | 8, HudState.barrier().sample(partial), 0);
+        // The Array's draw, only while one is standing. Its fill is the bill over what the rung
+        // allows, clamped, so a bill past the draw is a full ring in cinnabar rather than an arc
+        // that silently wraps and reads as "nearly empty" at the worst possible moment.
+        if (s.drawArc()) {
+            float drawHalf = layout.drawOuter() / HudKind.RING_OUTER;
+            b.square(cx, cy, drawHalf, s.drawColor(), alpha * 0.95F, HudKind.RING_METER,
+                    0, HudKind.widthClass(layout.drawWidth(), drawHalf) | 8, HudState.draw().sample(partial), 0);
+        }
         // Mana charge halo, only while Gluttony is charging.
         float halo = HudState.halo().sample(partial);
         if (halo > 0.002F) {

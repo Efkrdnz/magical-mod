@@ -83,6 +83,10 @@ class HudSnapshotBudgetTest {
     }
 
     private static HudSnapshot snapshot(HudLayout layout, boolean maximal) {
+        return snapshot(layout, maximal, maximal);
+    }
+
+    private static HudSnapshot snapshot(HudLayout layout, boolean maximal, boolean drawArc) {
         Line[] core = {new Line(LABEL, layout.coreLine(0, 2, LABEL.width())), new Line(LABEL, layout.coreLine(1, 2, LABEL.width()))};
         Line level = new Line(LABEL, layout.levelTag(LABEL.width()));
         int cards = MagicContent.LOADOUT_SIZE;
@@ -123,8 +127,9 @@ class HudSnapshotBudgetTest {
         for (int i = 0; i < captions.length; i++) {
             captions[i] = new Line(LABEL, layout.captionLine(i));
         }
+        HudState.draw().snap(drawArc ? 0.75F : 0.0F);
         return new HudSnapshot(1, 100L, HudOptions.DEFAULTS, layout, MagicSchool.FIRE, 0xFF7A45, 0xFFB15A, 16, 4, 0xFFB15A,
-                false, maximal, maximal,
+                false, maximal, maximal, drawArc, HudPalette.draw(false),
                 core, level, cardArray, satellites, gauges, chips, announcements, captions,
                 maximal ? 200L : 0L);
     }
@@ -166,6 +171,27 @@ class HudSnapshotBudgetTest {
         SigilRenderer.text(text, snapshot(HudLayout.of(480, 270, HudAnchor.TOP_LEFT, 1.0F), false), 110.5F, 0.5F);
         // two core lines, the level, four key tags, the caption
         assertEquals(2 + 1 + 4 + 1, text.draws());
+    }
+
+    /**
+     * The Array's draw arc: exactly one quad, and only while an Array is standing.
+     *
+     * <p>Pinned as a difference rather than as a total, because the total is the whole sigil and
+     * the point of this one is that a wielder who never found the chain pays nothing for it -
+     * which is also why it is absent from the idle count above rather than folded into it.
+     */
+    @Test
+    void theDrawArcIsOneQuadAndOnlyWhileAnArrayStands() {
+        HudLayout layout = HudLayout.of(480, 270, HudAnchor.TOP_LEFT, 1.0F);
+        int without = quads(snapshot(layout, true, false), HALF_CHARGED);
+        int with = quads(snapshot(layout, true, true), HALF_CHARGED);
+        assertEquals(without + 1, with, "the draw arc is not exactly one quad");
+        assertEquals(IDLE_EXPECTED, quads(snapshot(layout, false, false), IDLE), "an idle HUD grew");
+        // And it lives in the hairline gap the two pools leave, rather than on top of either: a
+        // ring drawn over the barrier or the mana would be read as part of that pool's meter.
+        assertTrue(HudLayout.DRAW_R_IN >= HudLayout.BARRIER_R_OUT, "the draw arc sits on the barrier");
+        assertTrue(HudLayout.DRAW_R_OUT <= HudLayout.MANA_R_IN, "the draw arc sits on the mana ring");
+        assertTrue(HudLayout.DRAW_R_OUT > HudLayout.DRAW_R_IN, "the draw arc has no width");
     }
 
     @Test

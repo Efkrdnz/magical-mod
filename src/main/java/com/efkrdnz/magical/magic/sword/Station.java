@@ -54,6 +54,9 @@ public record Station(int yaw, int pitch, int reach, int edge) {
     private static final int YAW_SHIFT = PITCH_SHIFT + PITCH_BITS;
     private static final int YAW_BITS = 5;
 
+    /** An offset shorter than this has no direction in it, so {@link #nearestTo} refuses it. */
+    private static final double NEAR_ZERO = 1.0e-6D;
+
     private static final int EDGE_MASK = (1 << EDGE_BITS) - 1;
     private static final int REACH_MASK = (1 << REACH_BITS) - 1;
     private static final int PITCH_MASK = (1 << PITCH_BITS) - 1;
@@ -126,6 +129,78 @@ public record Station(int yaw, int pitch, int reach, int edge) {
         return new double[] {-Math.sin(bearing) * flat, Math.sin(elevation), Math.cos(bearing) * flat};
     }
 
+    /**
+     * A world-axis unit vector expressed in the frame's own axes: yaw undone, then pitch, which is
+     * the exact reverse of the order {@link ArrayPose#worldBearing} applies them in.
+     *
+     * <p>Public because it is the first half of the inverse and a caller that wants the frame-local
+     * direction without a station - an overlay drawing where the crosshair falls on the lattice,
+     * say - must have it from here rather than writing the rotation out again.
+     */
+    public static double[] intoFrame(double x, double y, double z, Frame frame) {
+        double yaw = Math.toRadians(-frame.yaw());
+        double cy = Math.cos(yaw);
+        double sy = Math.sin(yaw);
+        double flatX = x * cy - z * sy;
+        double flatZ = x * sy + z * cy;
+
+        double pitch = Math.toRadians(frame.pitch());
+        double cp = Math.cos(pitch);
+        double sp = Math.sin(pitch);
+        return new double[] {flatX, y * cp + flatZ * sp, -y * sp + flatZ * cp};
+    }
+
+    /**
+     * The place on the lattice nearest a frame-local direction: {@link #unitBearing()} backwards.
+     *
+     * <p><b>This is the only inverse of the lattice in the kit, and that it is only one is the
+     * whole point of it living here.</b> It was written three times before it was written once -
+     * privately in the rite, publicly on Call the Blade, and about to be a fourth time in the
+     * Bearing overlay - and a sign in any one copy is a <em>silent mirror</em> of exactly the kind
+     * {@link ArrayPose}'s class note warns about: the wielder's blades sit on the wrong side, for
+     * everybody at once, consistently, with a green build and nothing in the log. Worse here than
+     * there, because the rite <em>saves</em> what it quantises, so a mirrored inverse hands a
+     * wielder a permanently wrong build. So there is one, it sits beside the forward half it
+     * undoes, and {@code ArrayPoseTest} round-trips every one of the 24 x 9 bearings through
+     * {@link ArrayPose#worldOffset} and back at a spread of frame facings rather than reasoning
+     * about the signs.
+     *
+     * <p>{@code frameLocalUnit} is {x, y, z} of length one in the frame's own axes - what
+     * {@link #intoFrame} answers. The reach is the rounded distance and the edge is whatever the
+     * caller is placing; both are clamped, so the answer always satisfies {@link #onLattice()} and
+     * a caller with a tighter ceiling of its own (the rite's {@code RITE_MAX_REACH}) narrows it
+     * afterwards rather than passing a limit in.
+     */
+    public static Station nearest(double[] frameLocalUnit, double distance, int edge) {
+        double elevation = Math.toDegrees(Math.asin(clamp(frameLocalUnit[1], -1.0D, 1.0D)));
+        int pitch = clamp((int) Math.round(elevation / PITCH_STEP_DEGREES), PITCH_MIN, PITCH_MAX);
+
+        // atan2(-x, z) and not atan2(x, z): yaw 0 faces +Z and turns clockwise seen from above, so
+        // unitBearing negates the x component and this is the negation being undone.
+        double bearing = Math.toDegrees(Math.atan2(-frameLocalUnit[0], frameLocalUnit[2]));
+        int yaw = Math.floorMod((int) Math.round(bearing / YAW_STEP_DEGREES), YAW_STEPS);
+
+        return new Station(yaw, pitch, clamp((int) Math.round(distance), REACH_MIN, REACH_MAX),
+                clamp(edge, EDGE_MIN, EDGE_MAX));
+    }
+
+    /**
+     * A world offset from the frame origin turned into the nearest place on the lattice, which is
+     * what every caller of the inverse actually wants, or null when the offset is too short to have
+     * a direction in it at all.
+     *
+     * <p>Null rather than a station at some arbitrary bearing, because an offset of no length is
+     * the one input that is not a bearing: a wielder aiming at their own eyes has not named a
+     * place, and a caller must say what it does about that rather than be handed yaw 0.
+     */
+    public static Station nearestTo(double x, double y, double z, Frame frame, int edge) {
+        double length = Math.sqrt(x * x + y * y + z * z);
+        if (length < NEAR_ZERO) {
+            return null;
+        }
+        return nearest(intoFrame(x / length, y / length, z / length, frame), length, edge);
+    }
+
     public Station withEdge(int edge) {
         return new Station(yaw, pitch, reach, edge);
     }
@@ -138,5 +213,13 @@ public record Station(int yaw, int pitch, int reach, int edge) {
     /** This station's share of the bill: reach times Edge, and the whole of the budget rule. */
     public int weight() {
         return reach * edge;
+    }
+
+    private static int clamp(int value, int low, int high) {
+        return Math.max(low, Math.min(high, value));
+    }
+
+    private static double clamp(double value, double low, double high) {
+        return Math.max(low, Math.min(high, value));
     }
 }

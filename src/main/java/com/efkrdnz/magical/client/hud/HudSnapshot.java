@@ -29,6 +29,10 @@ public record HudSnapshot(
         boolean maxLevel,
         boolean vessel,
         boolean corruption,
+        /** The Sword Array is standing: the draw arc is drawn and its reading is a caption. */
+        boolean drawArc,
+        /** The arc's colour, already decided: pewter inside the draw, cinnabar past it. */
+        int drawColor,
         Line[] coreLines,
         Line level,
         Card[] cards,

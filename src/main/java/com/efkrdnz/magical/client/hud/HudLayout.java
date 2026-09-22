@@ -135,6 +135,16 @@ public final class HudLayout {
     public static final float BARRIER_R_IN = 17.5F;
     public static final float BARRIER_R_OUT = 21.5F;
     public static final int BARRIER_NOTCHES = 8;
+    /**
+     * The Array's draw arc, in the hairline gap the barrier and mana rings leave between them.
+     *
+     * <p>Outside the barrier because it is not a pool of the wielder's: it is the ledger the
+     * Array keeps of how much of its conserved Edge the shape standing in the world is spending,
+     * and it belongs beside the pools rather than among them. It is also the only ring on the
+     * sigil that is absent most of the time - a wielder with no Array draws nothing here at all.
+     */
+    public static final float DRAW_R_IN = 21.9F;
+    public static final float DRAW_R_OUT = 23.1F;
     public static final float MANA_R_IN = 23.5F;
     public static final float MANA_R_OUT = 32.0F;
     public static final float XP_R_IN = 34.5F;
@@ -323,6 +333,14 @@ public final class HudLayout {
 
     public float barrierWidth() {
         return s(BARRIER_R_OUT - BARRIER_R_IN);
+    }
+
+    public float drawOuter() {
+        return s(DRAW_R_OUT);
+    }
+
+    public float drawWidth() {
+        return s(DRAW_R_OUT - DRAW_R_IN);
     }
 
     public float manaOuter() {

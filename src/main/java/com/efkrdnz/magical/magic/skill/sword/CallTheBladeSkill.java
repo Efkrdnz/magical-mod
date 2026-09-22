@@ -11,7 +11,6 @@ import com.efkrdnz.magical.magic.cast.MobCastProfile;
 import com.efkrdnz.magical.magic.cast.SkillCastHandler;
 import com.efkrdnz.magical.magic.cast.TuningView;
 import com.efkrdnz.magical.magic.skill.SkillModule;
-import com.efkrdnz.magical.magic.sword.ArrayPose;
 import com.efkrdnz.magical.magic.sword.Frame;
 import com.efkrdnz.magical.magic.sword.PlantResult;
 import com.efkrdnz.magical.magic.sword.Station;
@@ -68,9 +67,6 @@ public final class CallTheBladeSkill implements SkillModule {
     /** The per-point half of a sneak-press pour's price, in mana. */
     public static final int POUR_PER_EDGE = 2;
 
-    /** An offset this short has no direction in it, so there is no bearing to quantise. */
-    private static final double NEAR_ZERO = 1.0e-6D;
-
     private static final String KEY_FULL = "message.magical.sword_full";
     private static final String KEY_TOO_CLOSE = "message.magical.sword_too_close";
     private static final String KEY_TOO_DEAR = "message.magical.sword_too_dear";
@@ -107,7 +103,8 @@ public final class CallTheBladeSkill implements SkillModule {
                 SwordArray array = state.swordArray();
                 Frame frame = SwordService.frame(player);
 
-                Station bearing = quantise(ctx.aim().point().subtract(origin(frame)), frame, 0);
+                Vec3 offset = ctx.aim().point().subtract(origin(frame));
+                Station bearing = Station.nearestTo(offset.x, offset.y, offset.z, frame, 0);
                 if (bearing == null) {
                     return refuse(player, KEY_OUT_OF_REACH);
                 }
@@ -178,59 +175,16 @@ public final class CallTheBladeSkill implements SkillModule {
     // ---- the lattice ------------------------------------------------------------------------------
 
     /**
-     * A world offset from the frame origin, turned into the nearest place on the lattice.
+     * The frame's origin as a vector, which is the point every station's offset is measured from.
      *
-     * <p>The exact inverse of {@link ArrayPose#worldBearing}: undo the frame's yaw, undo its pitch,
-     * then read the elevation and the bearing straight out of the frame-local unit vector. Nearest
-     * of 24 yaw steps and 9 pitch steps, with the reach the rounded distance clamped into
-     * {@link Station#REACH_MIN}..{@link Station#REACH_MAX}.
-     *
-     * <p>Null for an offset with no direction in it, which is the one input that is not a bearing.
-     *
-     * <p><b>This arithmetic exists twice in the kit</b> - {@code SwordRiteService} inverts the same
-     * pose privately to quantise the four swords the Answering was performed with. It belongs on
-     * {@link Station} beside {@link Station#unitBearing()}, where one test would pin the round trip
-     * for both callers; it is public here so that the collapse is a deletion rather than a rewrite.
-     * A sign error in either copy is a silent mirror with a green build.
+     * <p>All that is left here of the lattice: this skill used to carry its own inverse of
+     * {@link Station#unitBearing()}, character for character the same as the one
+     * {@code SwordRiteService} carried privately, and a sign in either copy would have been a
+     * silent mirror with a green build. The inverse is {@link Station#nearestTo} now and there is
+     * one of it.
      */
-    public static Station quantise(Vec3 offset, Frame frame, int edge) {
-        double length = offset.length();
-        if (length < NEAR_ZERO) {
-            return null;
-        }
-        double[] local = intoFrame(offset.x / length, offset.y / length, offset.z / length, frame);
-
-        double elevation = Math.toDegrees(Math.asin(Math.max(-1.0D, Math.min(1.0D, local[1]))));
-        int pitch = clamp((int) Math.round(elevation / Station.PITCH_STEP_DEGREES),
-                Station.PITCH_MIN, Station.PITCH_MAX);
-
-        double bearing = Math.toDegrees(Math.atan2(-local[0], local[2]));
-        int yaw = Math.floorMod((int) Math.round(bearing / Station.YAW_STEP_DEGREES), Station.YAW_STEPS);
-
-        int reach = clamp((int) Math.round(length), Station.REACH_MIN, Station.REACH_MAX);
-        return new Station(yaw, pitch, reach, Math.max(Station.EDGE_MIN, edge));
-    }
-
-    /** The frame's origin as a vector, which is the point every station's offset is measured from. */
     public static Vec3 origin(Frame frame) {
         return new Vec3(frame.x(), frame.y(), frame.z());
-    }
-
-    /**
-     * A world-axis unit vector expressed in the frame's own axes: yaw undone, then pitch, which is
-     * the exact reverse of the order {@link ArrayPose#worldBearing} applies them in.
-     */
-    private static double[] intoFrame(double x, double y, double z, Frame frame) {
-        double yaw = Math.toRadians(-frame.yaw());
-        double cy = Math.cos(yaw);
-        double sy = Math.sin(yaw);
-        double flatX = x * cy - z * sy;
-        double flatZ = x * sy + z * cy;
-
-        double pitch = Math.toRadians(frame.pitch());
-        double cp = Math.cos(pitch);
-        double sp = Math.sin(pitch);
-        return new double[] {flatX, y * cp + flatZ * sp, -y * sp + flatZ * cp};
     }
 
     // ---- the price and the refusals ---------------------------------------------------------------
@@ -272,10 +226,6 @@ public final class CallTheBladeSkill implements SkillModule {
             // PLANTED and TOPPED_UP never reach here; OUT_OF_REACH is the only one left.
             default -> KEY_OUT_OF_REACH;
         };
-    }
-
-    private static int clamp(int value, int low, int high) {
-        return Math.max(low, Math.min(high, value));
     }
 
     // ---- the look ----------------------------------------------------------------------------------

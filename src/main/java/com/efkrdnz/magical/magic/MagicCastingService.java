@@ -300,6 +300,18 @@ public final class MagicCastingService {
             return;
         }
 
+        // The whole Array is in one hand: while it is, no other cast is accepted. One Blade itself
+        // is exempt, because its own press is still the thing being held - the slash and the blast
+        // arrive as OneBladeStrikePayload, but the hold-gated handler must stay reachable for the
+        // release that ends the carry. Checked here rather than in castViaRegistry because a
+        // self-managed or hold-gated handler returns before that method resolves a stat, and half
+        // the kit the fusion has to lock out is exactly that kind of handler.
+        if (!MagicContent.ONE_BLADE.id().equals(skillId)
+                && com.efkrdnz.magical.magic.skill.sword.OneBladeSkill.carrying(player)) {
+            player.displayClientMessage(Component.translatable("message.magical.one_blade_carrying"), true);
+            return;
+        }
+
         if (java.util.Set.of("iron_charge", "transposition").contains(skillId.getPath()) && UnwakingCapabilities.refuseMovement(player)) return;
         if (state.isSkillOnCooldown(skillId)) {
             player.displayClientMessage(Component.translatable("message.magical.skill_cooling"), true);

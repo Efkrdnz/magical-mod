@@ -130,9 +130,6 @@ public final class SwordRiteService {
 
     private static final double CENTRE_SQR = RITE_CENTRE * RITE_CENTRE;
 
-    /** A bearing of zero length has no direction to quantise, so it is not a station. */
-    private static final double NEAR_ZERO = 1.0e-6D;
-
     // ---- the light -----------------------------------------------------------------------------
 
     private static final int EDGE_MOTES = 3;
@@ -587,56 +584,27 @@ public final class SwordRiteService {
     // ---- the lattice ---------------------------------------------------------------------------
 
     /**
-     * A world offset turned into the nearest place on the lattice, and <b>the inverse of
-     * {@link Station#unitBearing()} rather than a second convention</b>.
+     * A world offset turned into the nearest place on the lattice, at the reach the base rung can
+     * afford, or null for an offset with no direction in it.
      *
-     * <p>A sign here would be a silent mirror of exactly the kind {@code ArrayPose}'s class note
-     * warns about, except worse: the rite writes stations once and saves them, so a mirrored rite
-     * hands the wielder a permanently wrong build with a green build and nothing logged. So this
-     * is {@link ArrayPose#worldBearing} run backwards - undo the frame's yaw, undo its pitch, then
-     * read the elevation and the bearing straight back out of the local unit vector - and the two
-     * halves are checked against each other by round-tripping any station through
-     * {@code ArrayPose.worldOffset} and this method.
+     * <p>The inverse itself is {@link Station#nearestTo} and is deliberately not repeated here.
+     * This file used to carry its own copy of it, character for character the same as the one on
+     * Call the Blade, and a sign in either would have been a silent mirror of exactly the kind
+     * {@code ArrayPose}'s class note warns about - except worse, because the rite writes its
+     * stations <em>once</em> and saves them, so a mirrored rite hands the wielder a permanently
+     * wrong build with a green build and nothing logged.
      *
-     * <p>The reach is the rounded distance clamped to {@link #RITE_MAX_REACH}; see that constant
-     * for why the clamp is the thing that keeps the bill at the draw.
+     * <p>What is left here is the one thing that is the rite's own: the reach is narrowed to
+     * {@link #RITE_MAX_REACH} after the fact, which is why the bearing is what the rite measured
+     * and the distance is what the base rung can afford. See that constant for why the clamp is
+     * the thing that keeps the bill at the draw.
      */
     private static Station quantise(Vec3 offset, Frame frame) {
-        double length = offset.length();
-        if (length < NEAR_ZERO) {
+        Station measured = Station.nearestTo(offset.x, offset.y, offset.z, frame, RITE_EDGE);
+        if (measured == null) {
             return null;
         }
-        double[] local = intoFrame(offset.x / length, offset.y / length, offset.z / length, frame);
-
-        double elevation = Math.toDegrees(Math.asin(Math.max(-1.0D, Math.min(1.0D, local[1]))));
-        int pitch = clamp((int) Math.round(elevation / Station.PITCH_STEP_DEGREES),
-                Station.PITCH_MIN, Station.PITCH_MAX);
-
-        double bearing = Math.toDegrees(Math.atan2(-local[0], local[2]));
-        int yaw = Math.floorMod((int) Math.round(bearing / Station.YAW_STEP_DEGREES), Station.YAW_STEPS);
-
-        int reach = clamp((int) Math.round(length), Station.REACH_MIN, RITE_MAX_REACH);
-        return new Station(yaw, pitch, reach, RITE_EDGE);
-    }
-
-    /**
-     * A world-axis unit vector expressed in the frame's own axes: yaw undone, then pitch, which is
-     * the exact reverse of the order {@link ArrayPose#worldBearing} applies them in.
-     */
-    private static double[] intoFrame(double x, double y, double z, Frame frame) {
-        double yaw = Math.toRadians(-frame.yaw());
-        double cy = Math.cos(yaw);
-        double sy = Math.sin(yaw);
-        double flatX = x * cy - z * sy;
-        double flatZ = x * sy + z * cy;
-
-        double pitch = Math.toRadians(frame.pitch());
-        double cp = Math.cos(pitch);
-        double sp = Math.sin(pitch);
-        return new double[] {flatX, y * cp + flatZ * sp, -y * sp + flatZ * cp};
-    }
-
-    private static int clamp(int value, int low, int high) {
-        return Math.max(low, Math.min(high, value));
+        return new Station(measured.yaw(), measured.pitch(),
+                Math.min(measured.reach(), RITE_MAX_REACH), RITE_EDGE);
     }
 }

@@ -2,6 +2,8 @@ package com.efkrdnz.magical.magic.sword;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -150,6 +152,99 @@ class ArrayPoseTest {
                         "the whole Array converges on one point, which is the whole of One Blade");
             }
         }
+    }
+
+    // ---- the inverse --------------------------------------------------------------------------
+
+    /**
+     * The one that matters: every place on the lattice, projected into the world and read back.
+     *
+     * <p>{@link Station#nearestTo} was written three times independently before it was written
+     * once - privately in the rite, publicly on Call the Blade, and nearly a fourth time in the
+     * Bearing overlay - and a sign in any copy is the same silent mirror this whole file exists to
+     * refuse, except that the rite <em>saves</em> what it quantises. So the round trip is swept
+     * rather than sampled: 24 x 9 bearings at six reaches, through seventy-seven frames.
+     *
+     * <p>The frame yaws include negative ones and ones past 360 on purpose. An entity's yaw is not
+     * normalised in Minecraft and never has been, so a modulus that only holds on 0..360 is a
+     * mirror lying in wait for the wielder to turn around twice.
+     */
+    @Test
+    void everyStationRoundTripsThroughTheInverseAtEveryFacing() {
+        float[] yaws = {-720.0F, -540.0F, -180.0F, -91.5F, -37.5F, 0.0F, 45.0F, 143.0F, 270.0F,
+                360.0F, 725.5F};
+        float[] pitches = {-90.0F, -45.0F, -22.0F, 0.0F, 17.0F, 45.0F, 90.0F};
+        for (float frameYaw : yaws) {
+            for (float framePitch : pitches) {
+                Frame frame = held(frameYaw, framePitch);
+                for (int yaw = 0; yaw < Station.YAW_STEPS; yaw++) {
+                    for (int pitch = Station.PITCH_MIN; pitch <= Station.PITCH_MAX; pitch++) {
+                        // A different reach on every bearing, so the distance is swept by the
+                        // same loop rather than pinned at one value the rounding might like.
+                        int reach = Station.REACH_MIN + Math.floorMod(yaw + pitch, Station.REACH_MAX);
+                        Station station = new Station(yaw, pitch, reach, 5);
+                        double[] offset = ArrayPose.worldOffset(station, frame);
+                        assertEquals(station,
+                                Station.nearestTo(offset[0], offset[1], offset[2], frame, 5),
+                                "yaw " + yaw + " pitch " + pitch + " reach " + reach
+                                        + " on a frame at " + frameYaw + "/" + framePitch);
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void theInverseReadsTheNearestStepAndNotTheOneItIsPast() {
+        // A yaw step is 15 degrees, so 7 is still the step you are on and 8 is the next one.
+        assertEquals(0, atBearing(7.0D, 0.0D, 3.0D).yaw(), "seven degrees is still yaw 0");
+        assertEquals(1, atBearing(8.0D, 0.0D, 3.0D).yaw(), "and eight is yaw 1");
+        assertEquals(23, atBearing(-8.0D, 0.0D, 3.0D).yaw(), "the ring wraps rather than clamping");
+
+        // A pitch step is 18, so the half is 9.
+        assertEquals(0, atBearing(0.0D, 8.0D, 3.0D).pitch(), "eight degrees up is still the plane");
+        assertEquals(1, atBearing(0.0D, 10.0D, 3.0D).pitch(), "and ten is one step up");
+        assertEquals(-1, atBearing(0.0D, -10.0D, 3.0D).pitch(), "an elevation is signed");
+
+        assertEquals(3, atBearing(0.0D, 0.0D, 3.4D).reach(), "the reach rounds");
+        assertEquals(4, atBearing(0.0D, 0.0D, 3.6D).reach());
+    }
+
+    @Test
+    void theInverseAlwaysAnswersOnTheLattice() {
+        // Everything out of range is clamped rather than refused, because a wielder pointing at
+        // the sky or at their own feet has still named a bearing - the pole is the nearest place.
+        Frame frame = held(37.0F, -12.0F);
+        Station straightUp = Station.nearestTo(0.0D, 40.0D, 0.0D, frame, 99);
+        assertEquals(Station.PITCH_MAX, straightUp.pitch(), "the pole is the nearest place to the sky");
+        assertEquals(Station.REACH_MAX, straightUp.reach(), "and forty blocks is the furthest reach");
+        assertEquals(Station.EDGE_MAX, straightUp.edge(), "nonsense metal is clamped, not kept");
+        assertTrue(straightUp.onLattice(), "so the answer is always a place");
+
+        Station underfoot = Station.nearestTo(0.0D, -0.01D, 0.0D, frame, -4);
+        assertEquals(Station.PITCH_MIN, underfoot.pitch());
+        assertEquals(Station.REACH_MIN, underfoot.reach(), "and a hand's breadth is the nearest one");
+        assertEquals(Station.EDGE_MIN, underfoot.edge());
+        assertTrue(underfoot.onLattice());
+    }
+
+    @Test
+    void anOffsetWithNoDirectionInItIsNotAStation() {
+        assertNull(Station.nearestTo(0.0D, 0.0D, 0.0D, held(0.0F, 0.0F), 2),
+                "a wielder aiming at their own eyes has not named a bearing");
+        assertNull(Station.nearestTo(1.0E-9D, -1.0E-9D, 0.0D, held(90.0F, 30.0F), 2),
+                "and neither has one aiming a millionth of a block out");
+    }
+
+    /** A station read back out of a bearing given in degrees off the frame's own facing. */
+    private static Station atBearing(double degreesRound, double degreesUp, double distance) {
+        double bearing = Math.toRadians(degreesRound);
+        double elevation = Math.toRadians(degreesUp);
+        double flat = Math.cos(elevation) * distance;
+        // The frame is the identity here, so a frame-local bearing is a world one: this is
+        // unitBearing's own arithmetic at an angle that is not on the lattice.
+        return Station.nearestTo(-Math.sin(bearing) * flat, Math.sin(elevation) * distance,
+                Math.cos(bearing) * flat, held(0.0F, 0.0F), 1);
     }
 
     @Test

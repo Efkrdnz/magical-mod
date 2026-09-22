@@ -91,6 +91,8 @@ public final class HudState {
     private static final HudTween BARRIER = new HudTween();
     private static final HudTween VESSEL = new HudTween();
     private static final HudTween CORRUPTION = new HudTween();
+    /** The Array's bill over its draw, clamped to one: a full ring is the threshold, not the top. */
+    private static final HudTween DRAW = new HudTween();
     private static final HudTween XP = new HudTween();
     private static final HudTween HALO = new HudTween();
     private static final HudTween FADE = new HudTween();
@@ -110,6 +112,10 @@ public final class HudState {
     private static int announcerVersion = -1;
     private static int sinVisibleMask;
     private static boolean chargeVisible;
+    /** The last built reading of the draw, so only a change of the printed numeral rebuilds. */
+    private static int drawBill = -1;
+    private static int drawAllowed;
+    private static boolean drawOver;
     private static int guiWidth;
     private static int guiHeight;
     private static Language language;
@@ -162,6 +168,10 @@ public final class HudState {
 
     public static HudTween barrier() {
         return BARRIER;
+    }
+
+    public static HudTween draw() {
+        return DRAW;
     }
 
     public static HudTween vessel() {
@@ -220,6 +230,7 @@ public final class HudState {
             HudAnnouncer.tick(now);
             RuleFlash.tick(now);
             noteFinishedCooldowns(now);
+            tickDraw(now);
             if (dirty || environmentChanged(minecraft) || stateChanged()) {
                 rebuild(minecraft, now);
             }
@@ -253,6 +264,10 @@ public final class HudState {
         java.util.Arrays.fill(STATUS_SEEN_AT, 0L);
         MANA.snap(0.0F);
         BARRIER.snap(0.0F);
+        DRAW.snap(0.0F);
+        drawBill = -1;
+        drawAllowed = 0;
+        drawOver = false;
         VESSEL.snap(0.0F);
         CORRUPTION.snap(0.0F);
         XP.snap(0.0F);
@@ -335,6 +350,48 @@ public final class HudState {
         }
     }
 
+    /**
+     * The Array's draw, every tick, because the arc has to follow a scale nothing else reports.
+     *
+     * <p>Kept out of {@link #rebuild} on purpose. The bill moves with the frame's scale - a bound
+     * Array stretching after a fleeing body bills more every tick without a single packet arriving
+     * - so a reading built only when {@code ClientMagicState.version()} changes would sit still
+     * through exactly the stretch that is about to shed a blade. The tween is set here so the ring
+     * is smooth, and a rebuild is asked for only when the printed numeral or the colour changes,
+     * which is at most once a tick and usually never.
+     *
+     * <p>The scale comes from {@link com.efkrdnz.magical.client.SwordKeelClient#frameScale()},
+     * which already has the wielder's own Array entity cached for the ride; there is no second
+     * query, and no frame scale on the wire at all - it lives only on that entity.
+     */
+    private static void tickDraw(long now) {
+        PlayerMagicState state = ClientMagicState.get();
+        com.efkrdnz.magical.magic.sword.SwordArray array = state.swordArray();
+        if (array.isEmpty()) {
+            DRAW.set(0.0F, now);
+            if (drawBill >= 0) {
+                drawBill = -1;
+                drawAllowed = 0;
+                drawOver = false;
+                dirty = true;
+            }
+            return;
+        }
+        // rulesFor reads the class progress rather than the Array's own rules, because a saved
+        // Array carries no rules and the copy that arrived over the wire always stands up on
+        // SwordRules.SUMMONER - a Sword God would otherwise read their own draw as 24.
+        int allowed = Math.max(1, com.efkrdnz.magical.magic.sword.SwordService.rulesFor(state).draw());
+        int bill = array.billAt(com.efkrdnz.magical.client.SwordKeelClient.frameScale());
+        boolean over = bill > allowed;
+        DRAW.set(Math.min(1.0F, bill / (float) allowed), now);
+        if (bill != drawBill || allowed != drawAllowed || over != drawOver) {
+            drawBill = bill;
+            drawAllowed = allowed;
+            drawOver = over;
+            dirty = true;
+        }
+    }
+
     /** The numeral over a cooling card: whole seconds, rounded up, reshaped only when it changes. */
     private static void tickCardSeconds(Font font, long now) {
         HudSnapshot current = snapshot;
@@ -357,6 +414,7 @@ public final class HudState {
         BARRIER.tick();
         VESSEL.tick();
         CORRUPTION.tick();
+        DRAW.tick();
         XP.tick();
         HALO.tick();
         FADE.tick();
@@ -452,6 +510,13 @@ public final class HudState {
         if (!options.compact()) {
             String name = state.activeLoadout() == null ? "" : state.activeLoadout().name();
             captions.add(label(font, Component.literal(font.plainSubstrByWidth(name, HudLayout.CAPTION_W - 4)), HudPalette.TEXT_PRIMARY));
+            // Second, ahead of every other school's numeral, because it is the only one that can
+            // be over its limit: a vessel or a corruption reading is a level, and this is a bill.
+            // "41/64", literal rather than translated - there is no word in it to translate.
+            if (drawBill >= 0 && captions.size() < HudLayout.CAPTIONS_MAX) {
+                captions.add(label(font, Component.literal(drawBill + "/" + drawAllowed),
+                        drawOver ? HudPalette.STRAIN : HudPalette.textTint(HudPalette.draw(false))));
+            }
             if (vessel) {
                 captions.add(label(font, Component.translatable("hud.magical.vessel_line", state.bloodVessel(), PlayerMagicState.MAX_BLOOD_VESSEL),
                         HudPalette.textTint(HudPalette.vessel().bright())));
@@ -486,7 +551,7 @@ public final class HudState {
                 magicVersion ^ (cooldownVersion << 8) ^ (statusVersion << 16), now, options, layout,
                 school, manaColor, manaPalette.hot(), notchesFor(material.defaultBand()),
                 material.defaultCore().id(), manaPalette.bright(),
-                maxLevel, vessel, corruption,
+                maxLevel, vessel, corruption, drawBill >= 0, HudPalette.draw(drawOver),
                 coreLines, level, cards, satellites, gauges, chips, announcements, captionLines,
                 ClientMagicState.receivedAtTick() + state.loadoutSwapLockTicks());
     }

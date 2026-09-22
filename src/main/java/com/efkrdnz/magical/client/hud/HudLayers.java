@@ -120,7 +120,13 @@ public final class HudLayers {
     /** The sigil, then the forged-weapon combo readout and the counter window as they always were. */
     private static void renderSigil(GuiGraphics graphics, DeltaTracker delta) {
         Minecraft minecraft = Minecraft.getInstance();
-        SigilRenderer.render(graphics, delta);
+        // The Bearing plot covers the screen and carries no plate of its own, so the sigil would
+        // read straight through its ring - the loadout caption and any announcement land on top of
+        // it. It steps aside while a bearing is being chosen and comes back on release. The small
+        // radials below do not need this: they sit round the crosshair, clear of it.
+        if (!com.efkrdnz.magical.client.SwordBearingOverlay.isActive()) {
+            SigilRenderer.render(graphics, delta);
+        }
         ForgeComboHud.render(graphics, minecraft);
         ClientCounterPrompt.render(graphics, minecraft);
     }
@@ -135,6 +141,10 @@ public final class HudLayers {
         SpaceManipulationOverlay.render(graphics, minecraft);
         com.efkrdnz.magical.client.FractureOverlay.render(graphics, minecraft);
         com.efkrdnz.magical.client.CausalAnchorOverlay.render(graphics, minecraft);
+        // A partial tick rather than a Minecraft, unlike every one of its neighbours: the plot's
+        // ring glides between bearings, so it is drawn at a fraction of a tick and not at one.
+        com.efkrdnz.magical.client.SwordBearingOverlay.render(
+                graphics, delta.getGameTimeDeltaPartialTick(false));
         MagicWheelOverlay.render(graphics, minecraft);
         SovereignAegisInput.render(graphics, minecraft);
         BlackFlamesInput.render(graphics, minecraft);

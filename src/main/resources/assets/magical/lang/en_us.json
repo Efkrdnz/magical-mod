@@ -2337,6 +2337,18 @@
   "message.magical.sword_too_dear": "Too much steel, too far out - the Array will not carry that draw.",
   "message.magical.sword_no_edge": "No loose edge left to call with.",
   "message.magical.sword_out_of_reach": "Nothing out there to hang a bearing on.",
+  "bearing.magical.ahead": "Ahead",
+  "bearing.magical.right": "Right",
+  "bearing.magical.behind": "Behind",
+  "bearing.magical.left": "Left",
+  "bearing.magical.bill": "Span %s / %s",
+  "bearing.magical.station": "Bearing %s°, %s° up  ·  reach %s  ·  %s edge",
+  "bearing.magical.empty": "No bearing written",
+  "bearing.magical.write": "Call a blade to write one",
+  "bearing.magical.unmarked": "Right click to strike a bearing",
+  "bearing.magical.marked": "%s to strike on release",
+  "bearing.magical.cooling": "Cooling, %ss",
+  "message.magical.one_blade_carrying": "Both hands are on one blade.",
   "message.magical.bearing_hold": "Hold the direct slot key to read the Array and pull a bearing.",
   "message.magical.one_blade_hold": "Hold the direct slot key to gather the Array into one blade."
 }

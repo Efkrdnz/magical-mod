@@ -35,6 +35,14 @@ public final class HudPalette {
     public static final int VIOLET = MagicalGuiStyle.ACCENT_VIOLET & 0xFFFFFF;
     /** Fixed on purpose: the barrier has to read the same whatever school tints the mana. */
     public static final int BARRIER = 0xC8F0F4;
+    /**
+     * Cinnabar: the mod's one "you are over the line" colour, and the Array's strain wears it.
+     *
+     * <p>The same literal {@code SwordArrayRenderer.STRAIN_RED} and {@code SwordBearingOverlay}
+     * use, so a bill past the draw reads identically on the sigil, in the plot and on the steel
+     * itself. It is not {@link #DANGER}, which is the barrier's blood and already means something.
+     */
+    public static final int STRAIN = 0xD4402F;
 
     public static final int ALPHA_PLATE = 0xD2;
 
@@ -57,6 +65,17 @@ public final class HudPalette {
 
     public static Palette corruption() {
         return Palette.derive(SchoolMaterial.DARK.variantColor(0));
+    }
+
+    /**
+     * The draw arc: the Sword school's pewter while the bill is inside the draw, cinnabar past it.
+     *
+     * <p>Two colours and no gradient between them, because the reading is a threshold and not a
+     * temperature - inside the draw the Array is stable and outside it the next settle sheds a
+     * blade. A ramp would make the moment that matters the hardest part of the ring to see.
+     */
+    public static int draw(boolean over) {
+        return over ? STRAIN : SchoolMaterial.SWORD.variantColor(0);
     }
 
     /**

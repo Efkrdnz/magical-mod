@@ -185,6 +185,8 @@ public final class MagicalClientEvents {
         event.registerEntityRenderer(MagicalEntities.BLOOD_HARVEST.get(), com.efkrdnz.magical.client.renderer.BloodHarvestRenderer::new);
         event.registerEntityRenderer(MagicalEntities.ELDRITCH_CONSTRUCT.get(), com.efkrdnz.magical.client.renderer.eldritch.EldritchConstructRenderer::new);
         event.registerEntityRenderer(MagicalEntities.VERSE_BODY.get(), com.efkrdnz.magical.client.renderer.verse.VerseBodyRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.SWORD_ARRAY.get(), com.efkrdnz.magical.client.renderer.sword.SwordArrayRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.SWORD_BLADE.get(), com.efkrdnz.magical.client.renderer.sword.SwordBladeRenderer::new);
         event.registerEntityRenderer(MagicalEntities.SOLID_CONSTRUCT.get(), com.efkrdnz.magical.client.renderer.fx.ProfileRendererShell::new);
         event.registerEntityRenderer(MagicalEntities.THROWN_SPELL.get(), com.efkrdnz.magical.client.renderer.fx.ProfileRendererShell::new);
         event.registerEntityRenderer(MagicalEntities.ROLLING_BODY.get(), com.efkrdnz.magical.client.renderer.fx.ProfileRendererShell::new);
@@ -222,6 +224,13 @@ public final class MagicalClientEvents {
                     // wielder choosing a body, and spending the Mark on whatever the rail happened
                     // to be resting on would be the exact fumble the hold exists to prevent.
                     CausalAnchorOverlay.cancel();
+                }
+                if (SwordBearingOverlay.isActive()) {
+                    // Cancelled rather than released, for the Causal Anchor's reason: a screen
+                    // opening over the plot is not the wielder letting go, and a release pulls
+                    // every marked bearing back to loose, which is the one thing here that cannot
+                    // be undone by pressing the key again.
+                    SwordBearingOverlay.cancel();
                 }
                 FirstPersonEffects.tick(minecraft);
                 com.efkrdnz.magical.client.fx.TransientVisuals.tick();
@@ -261,6 +270,12 @@ public final class MagicalClientEvents {
                 if (CausalityAuthorityInput.tickSlot(minecraft, i)) {
                     while (MagicalKeyMappings.CAST_SLOTS[i].consumeClick()) {
                         // A Mark is chosen off the bodies in reach, not taken off the crosshair.
+                    }
+                    continue;
+                }
+                if (SwordBearingInput.tickSlot(minecraft, i)) {
+                    while (MagicalKeyMappings.CAST_SLOTS[i].consumeClick()) {
+                        // The Bearing is read and released; the press that opened it is not a cast.
                     }
                     continue;
                 }
@@ -427,6 +442,7 @@ public final class MagicalClientEvents {
                     || SpaceManipulationOverlay.handleScroll(scrollDeltaY)
                     || FractureOverlay.handleScroll(scrollDeltaY)
                     || CausalAnchorOverlay.handleScroll(scrollDeltaY)
+                    || SwordBearingOverlay.handleScroll(scrollDeltaY)
                     || MagicWheelOverlay.handleScroll(scrollDeltaY);
         }
 
@@ -434,7 +450,55 @@ public final class MagicalClientEvents {
         public static boolean dispatchMouseButton(int button, int action) {
             return CausalAnchorOverlay.handleMouseButton(button, action)
                     || FractureOverlay.handleMouseButton(button, action)
-                    || SpaceManipulationOverlay.handleMouseButton(button, action);
+                    || SpaceManipulationOverlay.handleMouseButton(button, action)
+                    || SwordBearingOverlay.handleMouse(button, action)
+                    // Last, because it claims a bare click rather than one inside an overlay: every
+                    // hold above owns the mouse while it is open, and One Blade's two presses are
+                    // only ever offered a button no open overlay wanted.
+                    || dispatchOneBladeStrike(button, action);
+        }
+
+        /**
+         * The fused blade's two presses, while the One Blade key is still held.
+         *
+         * <p>One Blade is the only skill in the kit whose <em>use</em> is a mouse button: the hold
+         * forms the greatsword and the clicks are the slash and the blast. There is no client-side
+         * record of the fusion at all - {@code OneBladeSkill}'s map lives on the server - so this
+         * asks the only question a client can answer honestly, "is the key that carries One Blade
+         * down right now", and lets the server refuse everything else. A click that arrives with no
+         * fusion behind it does nothing and costs nothing: {@code slash} and {@code blast} both
+         * return false on an absent or unformed {@code Fusion} before they look at mana.
+         *
+         * <p>The click is cancelled either way, because a swing that also mined the block in front
+         * of the wielder while they were cutting with a nine-block sword is the worse failure.
+         */
+        private static boolean dispatchOneBladeStrike(int button, int action) {
+            if (action != org.lwjgl.glfw.GLFW.GLFW_PRESS) {
+                return false;
+            }
+            boolean right = button == org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_RIGHT;
+            if (!right && button != org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+                return false;
+            }
+            Minecraft minecraft = Minecraft.getInstance();
+            if (minecraft.player == null || minecraft.screen != null || !oneBladeHeld()) {
+                return false;
+            }
+            // Right is the sneak-press by hand, so the blast is reachable without crouching in the
+            // middle of a fight; sneaking with the left button is the spec's own wording.
+            MagicalNetwork.sendOneBladeStrike(right || minecraft.player.isShiftKeyDown());
+            return true;
+        }
+
+        /** True while a loadout slot carrying One Blade has its key down. */
+        private static boolean oneBladeHeld() {
+            for (int slot = 0; slot < MagicalKeyMappings.CAST_SLOTS.length; slot++) {
+                if (MagicContent.ONE_BLADE.id().equals(ClientMagicState.get().equippedSkill(slot))
+                        && MagicalKeyMappings.CAST_SLOTS[slot].isDown()) {
+                    return true;
+                }
+            }
+            return false;
         }
 
 

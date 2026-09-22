@@ -239,6 +239,24 @@ public final class MagicalNetwork {
                                 com.efkrdnz.magical.magic.skill.sword.TheBearingSkill.pull(player, payload.mask());
                             }
                         }))
+                .playToServer(OneBladeStrikePayload.TYPE, OneBladeStrikePayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> {
+                            if (context.player() instanceof ServerPlayer player) {
+                                PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+                                // The gate again, on this side of the wire: a wielder who never
+                                // unlocked One Blade has no business swinging it, and both halves
+                                // below refuse a wielder with no formed Fusion anyway - so a forged
+                                // packet reaches two false answers and spends nothing.
+                                if (!state.hasUnlocked(MagicContent.ONE_BLADE.id())) {
+                                    return;
+                                }
+                                if (payload.secondary()) {
+                                    com.efkrdnz.magical.magic.skill.sword.OneBladeSkill.blast(player, state);
+                                } else {
+                                    com.efkrdnz.magical.magic.skill.sword.OneBladeSkill.slash(player, state);
+                                }
+                            }
+                        }))
                 .playToServer(SetIncantationPayload.TYPE, SetIncantationPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> {
                             if (context.player() instanceof net.minecraft.server.level.ServerPlayer player) {
@@ -462,6 +480,17 @@ public final class MagicalNetwork {
             return;
         }
         PacketDistributor.sendToServer(new PullStationsPayload(mask));
+    }
+
+    /**
+     * One press of the fused blade, while its own key is still held.
+     *
+     * <p>Sent unconditionally rather than gated on a client-side notion of "carrying": there is no
+     * such notion, the fusion lives only on the server, and both halves refuse an absent one for
+     * free. The client's whole contribution is which of the two presses it was.
+     */
+    public static void sendOneBladeStrike(boolean secondary) {
+        PacketDistributor.sendToServer(new OneBladeStrikePayload(secondary));
     }
 
     /** The editor's whole incantation to the server; refused here if it could not fit on the wire. */
