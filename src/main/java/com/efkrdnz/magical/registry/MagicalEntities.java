@@ -287,6 +287,31 @@ public final class MagicalEntities {
                     .updateInterval(1)
                     .build(key("verse_body")));
 
+    /**
+     * The whole of a Sword Summoner's standing formation, in one entity.
+     *
+     * <p>Twelve blade positions cost zero bytes: {@code ArrayPose} is pure and both sides run it,
+     * so this carries the frame and the shape and the client works the rest out. Tracked at 8
+     * chunks because the threads and the strain colour are a reading an opponent takes from
+     * across an arena, and it is one entity rather than twelve movement packets a tick.
+     */
+    public static final DeferredHolder<EntityType<?>, EntityType<com.efkrdnz.magical.entity.sword.SwordArrayEntity>> SWORD_ARRAY = ENTITY_TYPES.register(
+            "sword_array",
+            () -> EntityType.Builder.<com.efkrdnz.magical.entity.sword.SwordArrayEntity>of(com.efkrdnz.magical.entity.sword.SwordArrayEntity::new, MobCategory.MISC)
+                    .sized(0.4F, 0.4F)
+                    .clientTrackingRange(8)
+                    .updateInterval(1)
+                    .build(key("sword_array")));
+
+    /** One blade that has left its bearing: flying, standing in a body, planted, or coming home. */
+    public static final DeferredHolder<EntityType<?>, EntityType<com.efkrdnz.magical.entity.sword.SwordBladeEntity>> SWORD_BLADE = ENTITY_TYPES.register(
+            "sword_blade",
+            () -> EntityType.Builder.<com.efkrdnz.magical.entity.sword.SwordBladeEntity>of(com.efkrdnz.magical.entity.sword.SwordBladeEntity::new, MobCategory.MISC)
+                    .sized(0.3F, 0.3F)
+                    .clientTrackingRange(8)
+                    .updateInterval(1)
+                    .build(key("sword_blade")));
+
     public static final DeferredHolder<EntityType<?>, EntityType<com.efkrdnz.magical.entity.fx.SolidConstructEntity>> SOLID_CONSTRUCT = ENTITY_TYPES.register(
             "solid_construct",
             () -> EntityType.Builder.<com.efkrdnz.magical.entity.fx.SolidConstructEntity>of(com.efkrdnz.magical.entity.fx.SolidConstructEntity::new, MobCategory.MISC)

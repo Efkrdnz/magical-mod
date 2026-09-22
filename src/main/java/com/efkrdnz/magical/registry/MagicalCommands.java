@@ -31,6 +31,7 @@ import com.efkrdnz.magical.magic.incantation.ReciteCaps;
 import com.efkrdnz.magical.magic.incantation.RecitePlan;
 import com.efkrdnz.magical.magic.incantation.Verse;
 import com.efkrdnz.magical.magic.incantation.VerseContent;
+import com.efkrdnz.magical.magic.sword.Station;
 import com.efkrdnz.magical.network.MagicalNetwork;
 import com.efkrdnz.magical.network.OpenSpellCreatorPayload;
 import com.efkrdnz.magical.network.SpaceRuleAppliedPayload;
@@ -639,6 +640,58 @@ public final class MagicalCommands {
                                         player.displayClientMessage(net.minecraft.network.chat.Component.literal("Pile forgotten."), false);
                                         return 1;
                                     }))))
+                    // Capture and debug tooling for the Sword Summoner, and nothing more: every
+                    // one of these has a real route through the kit. Call the Blade is the only
+                    // honest way to author a bearing, the Bearing is the only way to unwrite one,
+                    // a Loose is the only way to bind the frame and only an opponent running out
+                    // of reach earns strain. A screenshot of a twelve-station Array cannot be
+                    // taken by aiming twelve times at the right pixels in an unattended run, so
+                    // these write the same structures the skills write and skip only the pressing.
+                    .then(Commands.literal("array")
+                            .then(Commands.literal("plant")
+                                    .then(Commands.argument("yaw", IntegerArgumentType.integer(0, Station.YAW_STEPS - 1))
+                                            .then(Commands.argument("pitch", IntegerArgumentType.integer(Station.PITCH_MIN, Station.PITCH_MAX))
+                                                    .then(Commands.argument("reach", IntegerArgumentType.integer(Station.REACH_MIN, Station.REACH_MAX))
+                                                            .then(Commands.argument("edge", IntegerArgumentType.integer(1, Station.EDGE_MAX))
+                                                                    .executes(context -> withPlayer(context.getSource(), player -> arrayPlant(player,
+                                                                            IntegerArgumentType.getInteger(context, "yaw"),
+                                                                            IntegerArgumentType.getInteger(context, "pitch"),
+                                                                            IntegerArgumentType.getInteger(context, "reach"),
+                                                                            IntegerArgumentType.getInteger(context, "edge")))))))))
+                            .then(Commands.literal("clear")
+                                    .executes(context -> withPlayer(context.getSource(), player -> arrayClear(player))))
+                            .then(Commands.literal("show")
+                                    .executes(context -> withPlayer(context.getSource(), player -> arrayShow(player))))
+                            .then(Commands.literal("bind")
+                                    .then(Commands.argument("target", EntityArgument.entity())
+                                            .executes(context -> {
+                                                ServerPlayer player = context.getSource().getPlayerOrException();
+                                                if (!(EntityArgument.getEntity(context, "target") instanceof net.minecraft.world.entity.LivingEntity body)) {
+                                                    player.displayClientMessage(Component.literal("A frame binds to a body, and that is not one."), false);
+                                                    return 0;
+                                                }
+                                                com.efkrdnz.magical.magic.sword.SwordService.bindTo(player, body);
+                                                player.displayClientMessage(Component.literal(
+                                                        "Frame bound to " + body.getName().getString() + "."), false);
+                                                return 1;
+                                            })))
+                            .then(Commands.literal("strain")
+                                    .then(Commands.argument("amount", IntegerArgumentType.integer(0))
+                                            .executes(context -> withPlayer(context.getSource(), player -> {
+                                                int amount = IntegerArgumentType.getInteger(context, "amount");
+                                                com.efkrdnz.magical.magic.sword.SwordService.forceStrain(player, amount);
+                                                // The gauge is forced, not earned, and the next slow
+                                                // tick recomputes it from the bill and the scale - so
+                                                // this holds for under ten ticks unless the Array has
+                                                // genuinely been stretched. That is the settle doing
+                                                // its job, not the command failing, and it is why the
+                                                // strain capture drags a bound target out as well.
+                                                player.displayClientMessage(Component.literal("Strain " + amount
+                                                        + "; the settle recomputes it within "
+                                                        + com.efkrdnz.magical.magic.passive.ClassPassiveEffects.SLOW_TICK_INTERVAL
+                                                        + " ticks."), false);
+                                                return 1;
+                                            })))))
                     .then(Commands.literal("passive")
                             .then(Commands.literal("unlockall")
                                     .executes(context -> withPlayer(context.getSource(), player -> {
@@ -1076,6 +1129,72 @@ public final class MagicalCommands {
         player.displayClientMessage(net.minecraft.network.chat.Component.literal(
                 loaded + " sites burdened by " + amount), false);
         return loaded;
+    }
+
+    /**
+     * One bearing written by hand, through the real {@code SwordArray.plant}.
+     *
+     * <p>There is no back door here: every cap, the separation, the draw and the loose Edge are
+     * asked exactly as Call the Blade asks them, and the answer is printed by its enum name rather
+     * than swallowed - a capture that quietly planted three of six stations would be a screenshot
+     * of a shape nobody authored. The rung is refreshed first because a loaded Array carries its
+     * bearings and not its rules, so a Sword God who has not slow-ticked yet would be planting
+     * against the base rung's four stations and 24 of draw.
+     */
+    private static int arrayPlant(ServerPlayer player, int yaw, int pitch, int reach, int edge) {
+        PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+        com.efkrdnz.magical.magic.sword.SwordService.refreshRung(player, data);
+        com.efkrdnz.magical.magic.sword.PlantResult result = data.swordArray().plant(
+                new Station(yaw, pitch, reach, edge),
+                com.efkrdnz.magical.magic.sword.SwordService.spent(player));
+        if (result.accepted()) {
+            com.efkrdnz.magical.magic.sword.SwordService.tendArrayEntity(player, data);
+            data.sync(player);
+        }
+        player.displayClientMessage(Component.literal(result.name().toLowerCase(java.util.Locale.ROOT)
+                + ": yaw " + yaw + " pitch " + pitch + " reach " + reach + " edge " + edge), false);
+        return result.accepted() ? 1 : 0;
+    }
+
+    /**
+     * Forgets the authored shape and calls the metal home with it.
+     *
+     * <p>Both halves, because they are two different places: the stations are saved on the state
+     * and the blades in the air are held by {@code SwordService} and never were. Clearing only the
+     * first leaves a wielder with an empty Array and a formation still standing in the world.
+     */
+    private static int arrayClear(ServerPlayer player) {
+        PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+        com.efkrdnz.magical.magic.sword.SwordService.recallEverything(player);
+        data.swordArray().clear();
+        com.efkrdnz.magical.magic.sword.SwordService.tendArrayEntity(player, data);
+        data.sync(player);
+        player.displayClientMessage(Component.literal("Array cleared."), false);
+        return 1;
+    }
+
+    /** The whole of both halves in words: the shape, the budget, and where every point of Edge is. */
+    private static int arrayShow(ServerPlayer player) {
+        PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+        com.efkrdnz.magical.magic.sword.SwordArray array = data.swordArray();
+        int spent = com.efkrdnz.magical.magic.sword.SwordService.spent(player);
+        player.sendSystemMessage(Component.literal("Array: " + array.size() + " stations, "
+                + array.manned() + " manned, bill " + array.bill() + "/" + array.rules().draw()));
+        // Conservation is the invariant the whole structure rests on, so print all three places
+        // rather than a total: a line that does not add up to whole() is the bug, visibly.
+        player.sendSystemMessage(Component.literal("Edge: bound " + array.bound() + ", spent " + spent
+                + ", loose " + array.loose(spent) + " of " + array.whole()));
+        player.sendSystemMessage(Component.literal("Frame: " + com.efkrdnz.magical.magic.sword.SwordService.bind(player)
+                + ", scale " + String.format(java.util.Locale.ROOT, "%.2f", com.efkrdnz.magical.magic.sword.SwordService.scale(player))
+                + ", strain " + com.efkrdnz.magical.magic.sword.SwordService.strain(player)));
+        for (int slot = 0; slot < array.size(); slot++) {
+            Station station = array.station(slot);
+            player.sendSystemMessage(Component.literal("  " + slot + ": yaw " + station.yaw()
+                    + " pitch " + station.pitch() + " reach " + station.reach() + " edge " + station.edge()));
+        }
+        // 1 rather than the station count: Brigadier reads 0 as a refusal, and an empty Array is
+        // a true answer to the question, not a command that failed to run.
+        return 1;
     }
 
     private static int withPlayer(CommandSourceStack source, java.util.function.ToIntFunction<ServerPlayer> action) throws com.mojang.brigadier.exceptions.CommandSyntaxException {

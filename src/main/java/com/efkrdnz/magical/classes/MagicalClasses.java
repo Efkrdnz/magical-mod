@@ -250,25 +250,43 @@ public final class MagicalClasses {
         // the first-spawn chooser and, most of all, no re-sectoring: a sixth *starting* base turns
         // 360/5 into 360/6 and moves four of five trees for every player, with a green build.
         //
-        // TODO(sword-kit): the four nodes grant nothing until magic/sword's content lands, because
-        // naming a MagicContent constant that does not exist yet does not compile. The intended
-        // grants are: sword_summoner -> call_the_blade, the_bearing, loose + passive sword_heart;
-        // sword_rider -> the_keel, below + passive ward_of_the_array; sword_saint -> one_blade +
-        // passive returning; sword_god -> no active at all + passive mirror_of_the_array. All four
-        // passives register with forbiddenPassive() rather than classPassive(), so this chain stays
-        // out of ClassTreeTest's global class-passive count and out of the codex's "From %s" line.
+        // Each rung flips exactly one rule of the structure, and what it grants is what that rule
+        // makes legal - the skills are not a shopping list bolted onto the ladder. Summoner is the
+        // Array existing at all; Rider takes the origin off the body, which is what the Keel moves
+        // and what Below sinks; Saint permits coincidence, which is the only thing that makes One
+        // Blade arithmetically possible.
+        //
+        // All four passives register with forbiddenPassive() rather than classPassive(), so this
+        // chain stays out of ClassTreeTest's global class-passive count and out of the codex's
+        // "From %s" line. Do not "fix" that to classPassive: the test collects over starting-root
+        // trees only but closes on a global count, so a class passive granted here alone reads as
+        // ungranted and turns the build red for a reason unrelated to the change.
         register(new MagicalClassDefinition(SWORD_SUMMONER, List.of(), 0,
                 nameKey(SWORD_SUMMONER), descriptionKey(SWORD_SUMMONER), COST_SWORD_SUMMONER,
-                List.of(), List.of(), List.of(SWORD_RIDER), true));
+                List.of(MagicContent.CALL_THE_BLADE.id(), MagicContent.THE_BEARING.id(), MagicContent.LOOSE.id()),
+                List.of(MagicPassiveContent.SWORD_HEART.id()),
+                List.of(SWORD_RIDER), true));
         register(new MagicalClassDefinition(SWORD_RIDER, List.of(SWORD_SUMMONER), 1,
                 nameKey(SWORD_RIDER), descriptionKey(SWORD_RIDER), COST_SWORD_RIDER,
-                List.of(), List.of(), List.of(SWORD_SAINT), true));
+                List.of(MagicContent.THE_KEEL.id(), MagicContent.BELOW.id()),
+                List.of(MagicPassiveContent.WARD_OF_THE_ARRAY.id()),
+                List.of(SWORD_SAINT), true));
         register(new MagicalClassDefinition(SWORD_SAINT, List.of(SWORD_RIDER), 2,
                 nameKey(SWORD_SAINT), descriptionKey(SWORD_SAINT), COST_SWORD_SAINT,
-                List.of(), List.of(), List.of(SWORD_GOD), true));
+                List.of(MagicContent.ONE_BLADE.id()),
+                List.of(MagicPassiveContent.RETURNING.id()),
+                List.of(SWORD_GOD), true));
+        // Sword God grants NO ACTIVE, and that is the design, not an unfinished list. The apex
+        // rung removes a rule - overdraw - rather than adding a verb, which is the only way an
+        // apex survives in a mod that already ships five Authorities: exceeding the draw becomes
+        // legal, every point of strain sharpens every blade, and the wielder bleeds for it. The
+        // passive is the reflection that rule pays for. Do not add a skill here to make the row
+        // look even.
         register(new MagicalClassDefinition(SWORD_GOD, List.of(SWORD_SAINT), 3,
                 nameKey(SWORD_GOD), descriptionKey(SWORD_GOD), COST_SWORD_GOD,
-                List.of(), List.of(), List.of(), true));
+                List.of(),
+                List.of(MagicPassiveContent.MIRROR_OF_THE_ARRAY.id()),
+                List.of(), true));
     }
 
     private MagicalClasses() {}

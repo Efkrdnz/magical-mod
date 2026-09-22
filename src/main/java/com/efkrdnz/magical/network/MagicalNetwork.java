@@ -230,6 +230,15 @@ public final class MagicalNetwork {
                                 com.efkrdnz.magical.magic.chaos.ChaosAuthorityService.setFracture(player, payload.ordinals());
                             }
                         }))
+                .playToServer(PullStationsPayload.TYPE, PullStationsPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> {
+                            if (context.player() instanceof ServerPlayer player) {
+                                // The receiver is the skill, not SwordService: the unlock gate, the
+                                // re-check of every bit against the live station count, the billing
+                                // and the descending pulls are one decision and they live together.
+                                com.efkrdnz.magical.magic.skill.sword.TheBearingSkill.pull(player, payload.mask());
+                            }
+                        }))
                 .playToServer(SetIncantationPayload.TYPE, SetIncantationPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> {
                             if (context.player() instanceof net.minecraft.server.level.ServerPlayer player) {
@@ -439,6 +448,20 @@ public final class MagicalNetwork {
         }
         PacketDistributor.sendToServer(new ApplyFracturePayload(
                 ordinals[0], ordinals[1], ordinals[2], ordinals[3], ordinals[4]));
+    }
+
+    /**
+     * Everything the Bearing marked, sent once as the key comes up.
+     *
+     * <p>An empty mask is dropped here rather than on the wire: a hold that was opened, read and
+     * closed again is the commonest thing this overlay does, it is free by design, and a packet
+     * for it would be a packet per glance. A release that marked nothing is not a release.
+     */
+    public static void sendPullStations(int mask) {
+        if (mask == 0) {
+            return;
+        }
+        PacketDistributor.sendToServer(new PullStationsPayload(mask));
     }
 
     /** The editor's whole incantation to the server; refused here if it could not fit on the wire. */

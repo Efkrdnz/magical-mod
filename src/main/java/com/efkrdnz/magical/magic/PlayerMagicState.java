@@ -1084,6 +1084,13 @@ public final class PlayerMagicState {
         }
         classProgressFor(classId).unlock();
         unlockClassRewards(definition, player);
+        // The saved SwordArray carries no rules, so the rung has to be pushed onto it the instant
+        // it changes. SwordService.slowTick re-derives it every ten ticks and would self-correct
+        // within half a second, but an evolve followed by a plant in the same tick would plant
+        // against the rung below and the shape would be silently re-filtered down to its caps.
+        if (player != null) {
+            com.efkrdnz.magical.magic.sword.SwordService.refreshRung(player, this);
+        }
         return true;
     }
 

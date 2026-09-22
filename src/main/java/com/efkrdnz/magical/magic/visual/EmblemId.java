@@ -101,7 +101,17 @@ public enum EmblemId {
     FANGED_MAW,
     LASH,
     SCALES,
-    DEEP_CALL;
+    DEEP_CALL,
+    // SWORD. Six marks for the six calls, and every one of them is the Array seen from a
+    // different side: a blade standing at a bearing, the plot of every bearing at once, the
+    // frame taken off the body, the forward half in flight, the reflected half coming up
+    // through the floor, and the whole of it collapsed into one edge.
+    STATION,
+    AZIMUTH,
+    KEEL,
+    VOLLEY,
+    UPTHRUST,
+    GREATSWORD;
 
     /**
      * Where the emblems begin in the shared SDF atlas, immediately after the stamps.

@@ -73,6 +73,13 @@ public final class MagicGameplayEvents {
         ClassPassiveEffects.tick(player, state);
         if (player.tickCount % ClassPassiveEffects.SLOW_TICK_INTERVAL == 0) {
             ClassPassiveEffects.slowTick(player, state);
+            // The whole live half of the Sword Summoner: the settle, the recovery clock, the bind
+            // leash, the Sword God bleed and the array entity's own existence. It runs on the slow
+            // tick and not the player tick because it ends in one state.sync behind a boolean, and
+            // sync serialises the entire state every call - the equality check suppresses the
+            // packet, not the work. It returns immediately for anyone not on the chain, so the
+            // overwhelming majority of players pay one hasClass here and nothing else.
+            com.efkrdnz.magical.magic.sword.SwordService.slowTick(player, state);
         }
         state.tickServer(player);
         tickManaFlight(player, state);
@@ -181,6 +188,12 @@ public final class MagicGameplayEvents {
                 // the points are still theirs.
                 player.sendSystemMessage(Component.translatable("message.magical.tuning_refunded", refunded));
             }
+            // A saved Array carries its bearings and not its rules - no enum ordinal is written
+            // anywhere in the kit - so a fresh SwordArray stands up on the base rung whoever it
+            // belongs to. Without this a Sword God logs in holding four stations and 24 of draw,
+            // and the first setRules of the session re-filters their twelve-station shape down to
+            // fit. The slow tick asks again ten ticks later; this is so it is right before then.
+            com.efkrdnz.magical.magic.sword.SwordService.refreshRung(player, state);
             state.sync(player);
             state.syncAllCooldowns(player);
         }
@@ -197,6 +210,14 @@ public final class MagicGameplayEvents {
             // Stress is never saved, so a wielder who logs out leaves no minefield behind them.
             com.efkrdnz.magical.magic.chaos.PileService.forget(player.getUUID());
             com.efkrdnz.magical.magic.incantation.IncantationService.forget(player.getUUID());
+            // The Array's shape is saved and the metal is not: a wielder who logs out leaves no
+            // forest of planted swords behind them, and the frame, the bind and every recovery
+            // clock are rebuilt from nothing.
+            com.efkrdnz.magical.magic.sword.SwordService.forget(player.getUUID());
+            // The rite keeps its own logout arm in SwordRiteEvents, the way CausalityEvents does.
+            // This is the second call and it is deliberate: forget is idempotent, and the design
+            // names this line, so the day that arm is refactored away the rite still forgets.
+            com.efkrdnz.magical.magic.sword.SwordRiteService.forget(player.getUUID());
         }
     }
 
@@ -266,6 +287,14 @@ public final class MagicGameplayEvents {
             // The price of blood magic is paid in flesh. No Mana Skin, no sin soak, no passive
             // reduction and above all no barrier: the number the caller asked for is the number that
             // lands. The bypass tags handle vanilla mitigation; this handles everything in here.
+            return;
+        }
+        if (event.getSource().is(com.efkrdnz.magical.magic.sword.SwordDamageTypes.SWORD_STRAIN)) {
+            // The same ruling as blood_price, for the same reason. An Array held past its draw
+            // bills its wielder, and the bill is the whole of what Sword God trades a rule for -
+            // so no Mana Skin, no sin soak, no passive reduction and above all no barrier. The
+            // bypass tags handle vanilla mitigation; the barrier is not vanilla and knows nothing
+            // about tags, so it has to be turned away here or it quietly eats the apex's price.
             return;
         }
         if (event.getSource().is(DamageTypeTags.IS_FIRE) || event.getSource().is(DamageTypeTags.IS_FREEZING)) {
