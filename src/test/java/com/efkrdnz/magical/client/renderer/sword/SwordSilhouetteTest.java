@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.efkrdnz.magical.client.renderer.sword.SwordBladeRenderer.Geometry;
-import com.efkrdnz.magical.magic.sword.Station;
-import com.efkrdnz.magical.magic.sword.SwordArray;
+import com.efkrdnz.magical.magic.sword.SwordRules;
+import com.efkrdnz.magical.magic.sword.stance.Formation;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -112,11 +112,11 @@ class SwordSilhouetteTest {
 
     @Test
     void theWholeArrayCostsWhatTheRendererClaimsItCosts() {
-        // A Sword God stands twelve stations and the Mirror passive draws a twin of each, so the
-        // worst frame is 24 of these. It is a real number and the point of stating it is that it
-        // goes through FxBudget: unaccounted quads report to everything else as headroom.
-        assertEquals(SwordArray.MAX_STATIONS * 2, Geometry.MAX_BLADES,
-                "the Array can stand a number of blades the cost claim was not written for");
+        // A Sword God fields twelve swords and nothing draws a thirteenth, so the worst frame is
+        // twelve of these. It is a real number and the point of stating it is that it goes
+        // through FxBudget: unaccounted quads report to everything else as headroom.
+        assertEquals(SwordRules.GOD.swords(), Geometry.MAX_BLADES,
+                "the formation can stand a number of blades the cost claim was not written for");
         assertEquals(Geometry.MODEL_QUADS * Geometry.MAX_BLADES, Geometry.WORST_CASE_QUADS,
                 "the stated worst case is no longer the worst case");
     }
@@ -144,14 +144,16 @@ class SwordSilhouetteTest {
         assertTrue(along <= Geometry.FLIGHT_PER_TICK,
                 "the blade is drawn " + along + " blocks along its flight and steps only "
                         + Geometry.FLIGHT_PER_TICK + " a tick");
-        // And it is drawn about its own middle, so half of it hangs back toward the wielder. On the
-        // nearest station a wielder can set, that half must not reach the frame origin - otherwise
-        // the closest ring of an Array is drawn inside the person carrying it.
-        assertTrue(along <= Station.REACH_MIN,
-                "a blade on a reach-" + Station.REACH_MIN + " station reaches " + along
+        // And it is drawn about its own middle, so half of it hangs back toward the wielder. The
+        // nearest a stance ever puts a sword is Formation.BODY_CLEARANCE, and that half must not
+        // reach past it - otherwise the closest sword of a formation is drawn inside the person
+        // carrying it. Formation's own test holds every stance to that clearance; this holds the
+        // drawing to it, and the two together are what say the steel is outside the body.
+        assertTrue(along <= Formation.BODY_CLEARANCE,
+                "a blade at the " + Formation.BODY_CLEARANCE + " clearance reaches " + along
                         + " blocks back, which is into the wielder");
-        assertTrue(Geometry.LENGTH <= Station.REACH_MAX,
-                "one blade is longer than the whole Array is wide");
+        assertTrue(Geometry.LENGTH <= Formation.MAX_EXTENT,
+                "one blade is longer than the whole formation is wide");
     }
 
     @Test

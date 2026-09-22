@@ -72,7 +72,7 @@ class CustomPainterCoverageTest {
         // and SwordBladeRenderer draws Duskfall itself, its aura and its glint, so the shared
         // painters have nothing to add to a school whose whole subject is one piece of steel.
         DRAWN_SOMEWHERE_ELSE.put("call_the_blade", "SwordArrayRenderer and SwordBladeRenderer");
-        DRAWN_SOMEWHERE_ELSE.put("the_bearing", "nothing carries this profile onto an entity");
+        DRAWN_SOMEWHERE_ELSE.put("sword_stance", "nothing carries this profile onto an entity");
         DRAWN_SOMEWHERE_ELSE.put("loose", "SwordBladeRenderer, on every blade Loose fires");
     }
 

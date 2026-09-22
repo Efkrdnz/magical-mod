@@ -40,7 +40,7 @@ class SwordSchoolTest {
 
     @Test
     void theLayerHoldsExactlySixVerbsAndFourPassives() {
-        assertEquals(List.of(MagicContent.CALL_THE_BLADE, MagicContent.THE_BEARING,
+        assertEquals(List.of(MagicContent.CALL_THE_BLADE, MagicContent.SWORD_STANCE,
                         MagicContent.THE_KEEL, MagicContent.LOOSE,
                         MagicContent.BELOW, MagicContent.ONE_BLADE),
                 swordSkills(), "the school is budgeted at six actives, and these are the six");

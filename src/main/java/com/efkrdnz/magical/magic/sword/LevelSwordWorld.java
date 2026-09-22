@@ -38,26 +38,6 @@ public final class LevelSwordWorld implements SwordWorld {
         return level;
     }
 
-    /**
-     * How far the bound body has got, from the body's centre rather than its feet.
-     *
-     * <p>The centre, because this number drives {@link ArrayPose#boundScale} and through it the
-     * whole bill: measuring to a two-block mob's feet would report it as most of a block nearer
-     * than it is and the strain would be wrong in the direction that favours the wielder.
-     */
-    @Override
-    public double distanceToBound(int entityId, double[] wielder) {
-        Entity body = level.getEntity(entityId);
-        if (body == null || !body.isAlive() || wielder == null || wielder.length < 3) {
-            return -1.0D;
-        }
-        Vec3 centre = body.getBoundingBox().getCenter();
-        double dx = centre.x - wielder[0];
-        double dy = centre.y - wielder[1];
-        double dz = centre.z - wielder[2];
-        return Math.sqrt(dx * dx + dy * dy + dz * dz);
-    }
-
     @Override
     public boolean bodyAlive(int entityId) {
         Entity body = level.getEntity(entityId);

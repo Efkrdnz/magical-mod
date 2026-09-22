@@ -113,9 +113,10 @@ public final class HudState {
     private static int sinVisibleMask;
     private static boolean chargeVisible;
     /** The last built reading of the draw, so only a change of the printed numeral rebuilds. */
-    private static int drawBill = -1;
-    private static int drawAllowed;
-    private static boolean drawOver;
+    /** How many swords are with the wielder, and how many their rung fields. -1 while sheathed. */
+    private static int swordsPresent = -1;
+    private static int swordsWhole;
+    private static boolean swordsSpent;
     private static int guiWidth;
     private static int guiHeight;
     private static Language language;
@@ -265,9 +266,9 @@ public final class HudState {
         MANA.snap(0.0F);
         BARRIER.snap(0.0F);
         DRAW.snap(0.0F);
-        drawBill = -1;
-        drawAllowed = 0;
-        drawOver = false;
+        swordsPresent = -1;
+        swordsWhole = 0;
+        swordsSpent = false;
         VESSEL.snap(0.0F);
         CORRUPTION.snap(0.0F);
         XP.snap(0.0F);
@@ -360,19 +361,25 @@ public final class HudState {
      * is smooth, and a rebuild is asked for only when the printed numeral or the colour changes,
      * which is at most once a tick and usually never.
      *
-     * <p>The scale comes from {@link com.efkrdnz.magical.client.SwordKeelClient#frameScale()},
-     * which already has the wielder's own Array entity cached for the ride; there is no second
-     * query, and no frame scale on the wire at all - it lives only on that entity.
+     * <p>The present count comes from {@link com.efkrdnz.magical.client.SwordKeelClient}, which
+     * already has the wielder's own formation entity cached for the ride: the present mask rides
+     * that entity's {@code EXTRA} slot, so there is no second query and nothing new on the wire.
+     *
+     * <p>It reads present-out-of-complement and not a budget, because there is no budget any
+     * more. This ring used to show a conserved measure of Edge billed against a draw, which is
+     * the single clearest instance of the complaint the whole redesign answers - a wielder
+     * looking at "24/84" could not tell you what either number was. Four swords out of four is a
+     * number you can act on, and it is the cap on every skill in the kit.
      */
     private static void tickDraw(long now) {
         PlayerMagicState state = ClientMagicState.get();
         com.efkrdnz.magical.magic.sword.SwordArray array = state.swordArray();
-        if (array.isEmpty()) {
+        if (!array.drawn()) {
             DRAW.set(0.0F, now);
-            if (drawBill >= 0) {
-                drawBill = -1;
-                drawAllowed = 0;
-                drawOver = false;
+            if (swordsPresent >= 0) {
+                swordsPresent = -1;
+                swordsWhole = 0;
+                swordsSpent = false;
                 dirty = true;
             }
             return;
@@ -380,14 +387,14 @@ public final class HudState {
         // rulesFor reads the class progress, which is where the rung actually lives - the Array's
         // own rules are a copy of it that PlayerMagicState.load sets on the way in, and one source
         // of truth for the denominator is worth the extra call.
-        int allowed = Math.max(1, com.efkrdnz.magical.magic.sword.SwordService.rulesFor(state).draw());
-        int bill = array.billAt(com.efkrdnz.magical.client.SwordKeelClient.frameScale());
-        boolean over = bill > allowed;
-        DRAW.set(Math.min(1.0F, bill / (float) allowed), now);
-        if (bill != drawBill || allowed != drawAllowed || over != drawOver) {
-            drawBill = bill;
-            drawAllowed = allowed;
-            drawOver = over;
+        int whole = Math.max(1, com.efkrdnz.magical.magic.sword.SwordService.rulesFor(state).swords());
+        int present = Math.min(whole, com.efkrdnz.magical.client.SwordKeelClient.presentSwords(whole));
+        boolean spent = present < whole;
+        DRAW.set(present / (float) whole, now);
+        if (present != swordsPresent || whole != swordsWhole || spent != swordsSpent) {
+            swordsPresent = present;
+            swordsWhole = whole;
+            swordsSpent = spent;
             dirty = true;
         }
     }
@@ -513,9 +520,9 @@ public final class HudState {
             // Second, ahead of every other school's numeral, because it is the only one that can
             // be over its limit: a vessel or a corruption reading is a level, and this is a bill.
             // "41/64", literal rather than translated - there is no word in it to translate.
-            if (drawBill >= 0 && captions.size() < HudLayout.CAPTIONS_MAX) {
-                captions.add(label(font, Component.literal(drawBill + "/" + drawAllowed),
-                        drawOver ? HudPalette.STRAIN : HudPalette.textTint(HudPalette.draw(false))));
+            if (swordsPresent >= 0 && captions.size() < HudLayout.CAPTIONS_MAX) {
+                captions.add(label(font, Component.literal(swordsPresent + "/" + swordsWhole),
+                        HudPalette.textTint(HudPalette.draw(swordsSpent))));
             }
             if (vessel) {
                 captions.add(label(font, Component.translatable("hud.magical.vessel_line", state.bloodVessel(), PlayerMagicState.MAX_BLOOD_VESSEL),
@@ -551,7 +558,7 @@ public final class HudState {
                 magicVersion ^ (cooldownVersion << 8) ^ (statusVersion << 16), now, options, layout,
                 school, manaColor, manaPalette.hot(), notchesFor(material.defaultBand()),
                 material.defaultCore().id(), manaPalette.bright(),
-                maxLevel, vessel, corruption, drawBill >= 0, HudPalette.draw(drawOver),
+                maxLevel, vessel, corruption, swordsPresent >= 0, HudPalette.draw(swordsSpent),
                 coreLines, level, cards, satellites, gauges, chips, announcements, captionLines,
                 ClientMagicState.receivedAtTick() + state.loadoutSwapLockTicks());
     }

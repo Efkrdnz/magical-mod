@@ -263,7 +263,7 @@ public final class MagicalClasses {
         // ungranted and turns the build red for a reason unrelated to the change.
         register(new MagicalClassDefinition(SWORD_SUMMONER, List.of(), 0,
                 nameKey(SWORD_SUMMONER), descriptionKey(SWORD_SUMMONER), COST_SWORD_SUMMONER,
-                List.of(MagicContent.CALL_THE_BLADE.id(), MagicContent.THE_BEARING.id(), MagicContent.LOOSE.id()),
+                List.of(MagicContent.CALL_THE_BLADE.id(), MagicContent.SWORD_STANCE.id(), MagicContent.LOOSE.id()),
                 List.of(MagicPassiveContent.SWORD_HEART.id()),
                 List.of(SWORD_RIDER), true));
         register(new MagicalClassDefinition(SWORD_RIDER, List.of(SWORD_SUMMONER), 1,

@@ -41,8 +41,22 @@ public final class Formation {
      */
     public static final double MAX_EXTENT = 4.0D;
 
-    /** Nothing may sit inside the wielder: this is the radius of the hole in every formation. */
-    public static final double BODY_CLEARANCE = 0.55D;
+    /**
+     * Nothing may sit inside the wielder: this is the radius of the hole in every formation.
+     *
+     * <p>It is 0.80 because <b>a sword is drawn about its own middle</b>. The blade model is
+     * about 1.26 blocks pommel to point as drawn, so half of it hangs back toward the frame
+     * origin, and a slot nearer than that half-length puts the pommel of its own sword in the
+     * wielder's chest. {@code SwordSilhouetteTest} measures the drawn half-length against this
+     * constant and fails when they cross, which is the only thing holding the two in step -
+     * this package is pure and cannot see the renderer, and the renderer has no business
+     * knowing about stances.
+     *
+     * <p>It was 0.55, which was under that half-length and under the real floor as well: the
+     * tightest slot any of the six actually asks for is Wings at 0.8806. A clearance nothing
+     * comes within a third of a block of is not a hole radius, it is a number nobody measured.
+     */
+    public static final double BODY_CLEARANCE = 0.80D;
 
     /**
      * The eye, in frame-local coordinates, <b>for a {@link SwordStance.Anchor#BODY} stance

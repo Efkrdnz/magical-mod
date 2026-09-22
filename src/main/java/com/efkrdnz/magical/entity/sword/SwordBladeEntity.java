@@ -267,7 +267,14 @@ public class SwordBladeEntity extends SpellEffectEntity {
         return entityData.get(STATE);
     }
 
-    /** The metal this blade is carrying, which is what the renderer reads as its weight. */
+    /**
+     * What this blade is worth, and it is always one sword.
+     *
+     * <p>It used to be a divisible quantity of Edge, which is why the field is still here and
+     * still on {@code EXTRA}: the renderer reads it as the blade's weight and every spawner
+     * passes 1. The name is kept because the accessor is the renderer's, and renaming it would
+     * churn a file whose subject is a sword model rather than a resource.
+     */
     public int edge() {
         return extra();
     }
@@ -434,11 +441,10 @@ public class SwordBladeEntity extends SpellEffectEntity {
     }
 
     /**
-     * The line home, and the one place a blade may hand its Edge back all at once.
+     * The line home, and the one place a sword may put itself back all at once.
      *
-     * <p>Only with Returning: without it the metal stays spent and walks back on the service's
-     * slow clock, which is what makes every shed a bleed until the rung that grants the passive
-     * and what makes the deliberate converging cut repeatable only from there.
+     * <p>Only with Returning: without it the sword stays away and walks back on the service's own
+     * clock, which is what makes every volley a real spend until the rung that grants the passive.
      */
     private void tickReturning(ServerLevel level) {
         if (!(owner() instanceof ServerPlayer wielder) || !wielder.isAlive() || stateTicks > RETURN_CAP_TICKS) {
@@ -451,7 +457,7 @@ public class SwordBladeEntity extends SpellEffectEntity {
         if (distance <= ARRIVE_RANGE) {
             PlayerMagicState state = wielder.getData(MagicalAttachments.MAGIC_STATE);
             if (SwordService.returning(state)) {
-                SwordService.recover(wielder, state, edge());
+                SwordService.returnSwords(wielder, state, 1);
                 state.sync(wielder);
             }
             discard();
@@ -483,7 +489,7 @@ public class SwordBladeEntity extends SpellEffectEntity {
     /**
      * Never written to disk. An override rather than the builder's {@code noSave()} flag, because
      * copying a neighbouring registration in {@code MagicalEntities} gets you saving by default,
-     * and a blade that survived a restart would be Edge the service has no record of having spent.
+     * and a blade that survived a restart would be a sword the service has no record of sending.
      */
     @Override
     public boolean shouldBeSaved() {

@@ -45,9 +45,6 @@ public final class SwordKeelGameTests {
     private static final String TEMPLATE = "unwaking_empty";
     private static final BlockPos STAND = new BlockPos(2, 2, 2);
 
-    /** Enough metal on one bearing to be ridden: {@link TheKeelSkill#RIDE_MIN_EDGE} is the floor. */
-    private static final int RIDE_EDGE = TheKeelSkill.RIDE_MIN_EDGE;
-
     /** A velocity this small is the floor's own settling, not a push. */
     private static final double STILL = 1.0E-6D;
 
@@ -122,12 +119,11 @@ public final class SwordKeelGameTests {
         });
     }
 
-    /** One bearing straight ahead, manned heavily enough that the Keel will accept it. */
+    /** The steel out, in whatever stance the rung starts them in: the Keel wants one sword. */
     private static void standUpTheArray(ServerPlayer player, PlayerMagicState state) {
         SwordService.refreshRung(player, state);
-        SwordArray array = state.swordArray();
-        array.clear();
-        array.plant(new Station(0, 0, Station.REACH_MIN, RIDE_EDGE), 0);
+        state.swordArray().clear();
+        SwordService.draw(player, state);
         SwordService.tendArrayEntity(player, state);
     }
 

@@ -77,18 +77,19 @@ public final class MagicContent {
     public static final MagicSkillDefinition CALL_OF_THE_DEEP = register("call_of_the_deep", MagicSchool.ELDRITCH, MagicSkillType.BURST, -5, 0, 6.0F, 1.0F, 1.0F, 12, 500, 200, 0.0F, 0, 0x8FF5E0);
 
     // SWORD, layer -3, and that layer was empty until now. Six verbs, and not one of them is a
-    // new mechanism: every one is a move of the Array's frame or a pure projection of its
-    // bearings, which is why the kit ships six actives with no per-blade state anywhere in it.
+    // new mechanism: every one is a move of the formation's frame or a pure projection of the
+    // stance it is standing in, which is why the kit ships six actives with no per-sword state
+    // anywhere in it.
     // All six go into CLASS_REWARD_SKILLS and into no other classifier set - SUB_SKILLS would
     // take them out of the codex and out of reach of the unlock command, and AUTHORITY_SKILLS
     // would stop unlockall granting them, which is how the design's captures are taken.
-    // Stats per docs/superpowers/specs/2026-09-22-sword-summoner-design.md section 4.1.
-    // Size is the aim range the new station is quantised out of. Zero damage: the press writes
-    // a bearing and does nothing else, which is the whole authoring surface of the class.
-    public static final MagicSkillDefinition CALL_THE_BLADE = register("call_the_blade", MagicSchool.SWORD, MagicSkillType.BURST, -3, 0, 0.0F, 1.0F, 6.0F, 6, 10, 0, 0.0F, 0, 0xB9C4CE);
-    // A hold that reads the shape back and unwrites a bearing. Free, because six of your
-    // stations are behind your head and looking at your own build is not a power.
-    public static final MagicSkillDefinition THE_BEARING = register("the_bearing", MagicSchool.SWORD, MagicSkillType.BURST, -3, 0, 0.0F, 1.0F, 1.0F, 0, 20, 0, 0.0F, 0, 0xD4DDE4);
+    // Stats per docs/superpowers/specs/2026-09-22-sword-stance-design.md.
+    // The toggle. Zero damage and zero size: a press summons the wielder's whole complement into
+    // the stance they are standing in, and a second press takes it away again for nothing.
+    public static final MagicSkillDefinition CALL_THE_BLADE = register("call_the_blade", MagicSchool.SWORD, MagicSkillType.BURST, -3, 0, 0.0F, 1.0F, 0.0F, 6, 10, 0, 0.0F, 0, 0xB9C4CE);
+    // A hold that opens the six stances and takes one. Cheap rather than free, because changing
+    // your mind mid-fight is a real move - but the hold itself opens and closes for nothing.
+    public static final MagicSkillDefinition SWORD_STANCE = register("sword_stance", MagicSchool.SWORD, MagicSkillType.BURST, -3, 0, 0.0F, 1.0F, 1.0F, 4, 20, 0, 0.0F, 0, 0xD4DDE4);
     // Speed is the ride, size is the leash a frozen frame may be walked away from, duration is
     // how long a ride may last before the blade under your feet puts you down.
     public static final MagicSkillDefinition THE_KEEL = register("the_keel", MagicSchool.SWORD, MagicSkillType.BURST, -3, 0, 0.0F, 0.55F, 24.0F, 10, 30, 400, 0.0F, 0, 0xA6B6C4);
@@ -283,7 +284,7 @@ public final class MagicContent {
             // The Sword Summoner's six. A class reward and nothing else: the hidden chain is
             // the only door, and being a class reward is what lets that chain open it.
             CALL_THE_BLADE.id(),
-            THE_BEARING.id(),
+            SWORD_STANCE.id(),
             THE_KEEL.id(),
             LOOSE.id(),
             BELOW.id(),

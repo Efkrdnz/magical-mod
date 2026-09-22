@@ -1,7 +1,6 @@
 {
   "replace": false,
   "values": [
-    "magical:blood_price",
-    "magical:sword_strain"
+    "magical:blood_price"
   ]
 }

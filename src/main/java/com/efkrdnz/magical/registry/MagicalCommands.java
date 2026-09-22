@@ -31,7 +31,7 @@ import com.efkrdnz.magical.magic.incantation.ReciteCaps;
 import com.efkrdnz.magical.magic.incantation.RecitePlan;
 import com.efkrdnz.magical.magic.incantation.Verse;
 import com.efkrdnz.magical.magic.incantation.VerseContent;
-import com.efkrdnz.magical.magic.sword.Station;
+import com.efkrdnz.magical.magic.sword.stance.SwordStance;
 import com.efkrdnz.magical.network.MagicalNetwork;
 import com.efkrdnz.magical.network.OpenSpellCreatorPayload;
 import com.efkrdnz.magical.network.SpaceRuleAppliedPayload;
@@ -642,56 +642,31 @@ public final class MagicalCommands {
                                     }))))
                     // Capture and debug tooling for the Sword Summoner, and nothing more: every
                     // one of these has a real route through the kit. Call the Blade is the only
-                    // honest way to author a bearing, the Bearing is the only way to unwrite one,
-                    // a Loose is the only way to bind the frame and only an opponent running out
-                    // of reach earns strain. A screenshot of a twelve-station Array cannot be
-                    // taken by aiming twelve times at the right pixels in an unattended run, so
-                    // these write the same structures the skills write and skip only the pressing.
-                    .then(Commands.literal("array")
-                            .then(Commands.literal("plant")
-                                    .then(Commands.argument("yaw", IntegerArgumentType.integer(0, Station.YAW_STEPS - 1))
-                                            .then(Commands.argument("pitch", IntegerArgumentType.integer(Station.PITCH_MIN, Station.PITCH_MAX))
-                                                    .then(Commands.argument("reach", IntegerArgumentType.integer(Station.REACH_MIN, Station.REACH_MAX))
-                                                            .then(Commands.argument("edge", IntegerArgumentType.integer(1, Station.EDGE_MAX))
-                                                                    .executes(context -> withPlayer(context.getSource(), player -> arrayPlant(player,
-                                                                            IntegerArgumentType.getInteger(context, "yaw"),
-                                                                            IntegerArgumentType.getInteger(context, "pitch"),
-                                                                            IntegerArgumentType.getInteger(context, "reach"),
-                                                                            IntegerArgumentType.getInteger(context, "edge")))))))))
-                            .then(Commands.literal("clear")
-                                    .executes(context -> withPlayer(context.getSource(), player -> arrayClear(player))))
-                            .then(Commands.literal("show")
-                                    .executes(context -> withPlayer(context.getSource(), player -> arrayShow(player))))
-                            .then(Commands.literal("bind")
-                                    .then(Commands.argument("target", EntityArgument.entity())
-                                            .executes(context -> {
-                                                ServerPlayer player = context.getSource().getPlayerOrException();
-                                                if (!(EntityArgument.getEntity(context, "target") instanceof net.minecraft.world.entity.LivingEntity body)) {
-                                                    player.displayClientMessage(Component.literal("A frame binds to a body, and that is not one."), false);
-                                                    return 0;
+                    // honest way to draw, Sword Stance the only way to choose a posture, and a
+                    // volley the only way to send a sword anywhere. A hold overlay cannot be
+                    // driven by an unattended run at all, so these write the same structures the
+                    // skills write and skip only the pressing.
+                    .then(Commands.literal("sword")
+                            .then(Commands.literal("stance")
+                                    .then(Commands.argument("name", StringArgumentType.word())
+                                            .suggests((context, builder) -> {
+                                                for (SwordStance stance : SwordStance.values()) {
+                                                    builder.suggest(stance.key());
                                                 }
-                                                com.efkrdnz.magical.magic.sword.SwordService.bindTo(player, body);
-                                                player.displayClientMessage(Component.literal(
-                                                        "Frame bound to " + body.getName().getString() + "."), false);
-                                                return 1;
-                                            })))
-                            .then(Commands.literal("strain")
-                                    .then(Commands.argument("amount", IntegerArgumentType.integer(0))
-                                            .executes(context -> withPlayer(context.getSource(), player -> {
-                                                int amount = IntegerArgumentType.getInteger(context, "amount");
-                                                com.efkrdnz.magical.magic.sword.SwordService.forceStrain(player, amount);
-                                                // The gauge is forced, not earned, and the next slow
-                                                // tick recomputes it from the bill and the scale - so
-                                                // this holds for under ten ticks unless the Array has
-                                                // genuinely been stretched. That is the settle doing
-                                                // its job, not the command failing, and it is why the
-                                                // strain capture drags a bound target out as well.
-                                                player.displayClientMessage(Component.literal("Strain " + amount
-                                                        + "; the settle recomputes it within "
-                                                        + com.efkrdnz.magical.magic.passive.ClassPassiveEffects.SLOW_TICK_INTERVAL
-                                                        + " ticks."), false);
-                                                return 1;
-                                            })))))
+                                                return builder.buildFuture();
+                                            })
+                                            .executes(context -> withPlayer(context.getSource(), player -> swordStance(player,
+                                                    StringArgumentType.getString(context, "name"))))))
+                            .then(Commands.literal("draw")
+                                    .executes(context -> withPlayer(context.getSource(), player -> swordDraw(player, true))))
+                            .then(Commands.literal("sheathe")
+                                    .executes(context -> withPlayer(context.getSource(), player -> swordDraw(player, false))))
+                            .then(Commands.literal("away")
+                                    .then(Commands.argument("count", IntegerArgumentType.integer(0, 12))
+                                            .executes(context -> withPlayer(context.getSource(), player -> swordAway(player,
+                                                    IntegerArgumentType.getInteger(context, "count"))))))
+                            .then(Commands.literal("show")
+                                    .executes(context -> withPlayer(context.getSource(), player -> swordShow(player)))))
                     .then(Commands.literal("passive")
                             .then(Commands.literal("unlockall")
                                     .executes(context -> withPlayer(context.getSource(), player -> {
@@ -1132,68 +1107,87 @@ public final class MagicalCommands {
     }
 
     /**
-     * One bearing written by hand, through the real {@code SwordArray.plant}.
+     * Takes a stance straight off its name, bypassing the hold overlay.
      *
-     * <p>There is no back door here: every cap, the separation, the draw and the loose Edge are
-     * asked exactly as Call the Blade asks them, and the answer is printed by its enum name rather
-     * than swallowed - a capture that quietly planted three of six stations would be a screenshot
-     * of a shape nobody authored. The rung is refreshed first because a loaded Array carries its
-     * bearings and not its rules, so a Sword God who has not slow-ticked yet would be planting
-     * against the base rung's four stations and 24 of draw.
+     * <p>The rung is refreshed first, because a loaded state carries the stance it was saved with
+     * and not the rules that admit it: a Sword God who has not slow-ticked yet would be refused
+     * Rain against the base rung's two stances. Refreshing is what the slow tick does anyway, so
+     * this only makes the command work on the first tick of a capture rather than the tenth.
+     *
+     * <p>It goes through {@code SwordArray.setStance} and not round it, so the rung still refuses
+     * a locked stance here exactly as it does on a release - a capture that could write a stance
+     * the wielder cannot reach would be a capture of something that does not exist.
      */
-    private static int arrayPlant(ServerPlayer player, int yaw, int pitch, int reach, int edge) {
+    private static int swordStance(ServerPlayer player, String name) {
         PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
         com.efkrdnz.magical.magic.sword.SwordService.refreshRung(player, data);
-        com.efkrdnz.magical.magic.sword.PlantResult result = data.swordArray().plant(
-                new Station(yaw, pitch, reach, edge),
-                com.efkrdnz.magical.magic.sword.SwordService.spent(player));
-        if (result.accepted()) {
-            com.efkrdnz.magical.magic.sword.SwordService.tendArrayEntity(player, data);
-            data.sync(player);
+        SwordStance wanted = SwordStance.byName(name);
+        if (wanted == null) {
+            player.displayClientMessage(Component.literal("No such stance: " + name), false);
+            return 0;
         }
-        player.displayClientMessage(Component.literal(result.name().toLowerCase(java.util.Locale.ROOT)
-                + ": yaw " + yaw + " pitch " + pitch + " reach " + reach + " edge " + edge), false);
-        return result.accepted() ? 1 : 0;
-    }
-
-    /**
-     * Forgets the authored shape and calls the metal home with it.
-     *
-     * <p>Both halves, because they are two different places: the stations are saved on the state
-     * and the blades in the air are held by {@code SwordService} and never were. Clearing only the
-     * first leaves a wielder with an empty Array and a formation still standing in the world.
-     */
-    private static int arrayClear(ServerPlayer player) {
-        PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
-        com.efkrdnz.magical.magic.sword.SwordService.recallEverything(player);
-        data.swordArray().clear();
+        if (!data.swordArray().setStance(wanted)) {
+            player.displayClientMessage(Component.literal(
+                    "Refused: " + wanted.key() + " is locked at this rung, or is already held."), false);
+            return 0;
+        }
         com.efkrdnz.magical.magic.sword.SwordService.tendArrayEntity(player, data);
         data.sync(player);
-        player.displayClientMessage(Component.literal("Array cleared."), false);
+        player.displayClientMessage(Component.literal("Stance " + wanted.key() + "."), false);
         return 1;
     }
 
-    /** The whole of both halves in words: the shape, the budget, and where every point of Edge is. */
-    private static int arrayShow(ServerPlayer player) {
+    /** The toggle, either way, with no mana and no clock: the capture decides, not the pool. */
+    private static int swordDraw(ServerPlayer player, boolean out) {
+        PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+        com.efkrdnz.magical.magic.sword.SwordService.refreshRung(player, data);
+        boolean moved = out
+                ? com.efkrdnz.magical.magic.sword.SwordService.draw(player, data)
+                : com.efkrdnz.magical.magic.sword.SwordService.sheathe(player, data);
+        data.sync(player);
+        player.displayClientMessage(Component.literal(moved
+                ? (out ? "Drawn." : "Sheathed.")
+                : (out ? "Already out." : "Already away.")), false);
+        return moved ? 1 : 0;
+    }
+
+    /**
+     * Sends {@code count} swords away without throwing them anywhere.
+     *
+     * <p>The one state a capture cannot otherwise reach: a formation with gaps in it. Every real
+     * route to one - a volley, a Watch, a ride - also puts a blade in the world, which is a
+     * different picture. This spends them through the same door {@code spendSwords} is, so the
+     * gaps fall where they really would and the return clock is really running.
+     */
+    private static int swordAway(ServerPlayer player, int count) {
+        PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+        int spent = com.efkrdnz.magical.magic.sword.SwordService.spendSwords(player, data, count);
+        com.efkrdnz.magical.magic.sword.SwordService.tendArrayEntity(player, data);
+        data.sync(player);
+        player.displayClientMessage(Component.literal(spent + " away."), false);
+        return 1;
+    }
+
+    /** Everything about the formation in words: the rung, the stance, and where every sword is. */
+    private static int swordShow(ServerPlayer player) {
         PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
         com.efkrdnz.magical.magic.sword.SwordArray array = data.swordArray();
-        int spent = com.efkrdnz.magical.magic.sword.SwordService.spent(player);
-        player.sendSystemMessage(Component.literal("Array: " + array.size() + " stations, "
-                + array.manned() + " manned, bill " + array.bill() + "/" + array.rules().draw()));
-        // Conservation is the invariant the whole structure rests on, so print all three places
-        // rather than a total: a line that does not add up to whole() is the bug, visibly.
-        player.sendSystemMessage(Component.literal("Edge: bound " + array.bound() + ", spent " + spent
-                + ", loose " + array.loose(spent) + " of " + array.whole()));
+        player.sendSystemMessage(Component.literal("Rung: " + array.rules().swords() + " swords, "
+                + array.rules().stances() + " stances"
+                + (array.rules().worldOrigin() ? ", world origin" : "")
+                + (array.rules().relentless() ? ", relentless" : "")));
+        player.sendSystemMessage(Component.literal("Stance: " + array.stance().key()
+                + " (" + array.stance().anchor() + "/" + array.stance().facing()
+                + ", watch " + array.stance().watch() + ", pattern " + array.stance().pattern() + ")"));
+        player.sendSystemMessage(Component.literal("Steel: " + (array.drawn() ? "out" : "away")
+                + ", present " + com.efkrdnz.magical.magic.sword.SwordService.present(player, data)
+                + " of " + array.swords()
+                + ", away " + com.efkrdnz.magical.magic.sword.SwordService.away(player, data)));
         player.sendSystemMessage(Component.literal("Frame: " + com.efkrdnz.magical.magic.sword.SwordService.bind(player)
-                + ", scale " + String.format(java.util.Locale.ROOT, "%.2f", com.efkrdnz.magical.magic.sword.SwordService.scale(player))
-                + ", strain " + com.efkrdnz.magical.magic.sword.SwordService.strain(player)));
-        for (int slot = 0; slot < array.size(); slot++) {
-            Station station = array.station(slot);
-            player.sendSystemMessage(Component.literal("  " + slot + ": yaw " + station.yaw()
-                    + " pitch " + station.pitch() + " reach " + station.reach() + " edge " + station.edge()));
-        }
-        // 1 rather than the station count: Brigadier reads 0 as a refusal, and an empty Array is
-        // a true answer to the question, not a command that failed to run.
+                + ", scale " + String.format(java.util.Locale.ROOT, "%.2f",
+                        com.efkrdnz.magical.magic.sword.SwordService.scale(player))));
+        // 1 rather than the sword count: Brigadier reads 0 as a refusal, and a sheathed formation
+        // is a true answer to the question, not a command that failed to run.
         return 1;
     }
 

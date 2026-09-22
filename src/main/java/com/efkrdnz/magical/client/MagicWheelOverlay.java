@@ -147,10 +147,10 @@ public final class MagicWheelOverlay {
         MagicBarrageInput.cancel();
         SpaceAuthorityInput.cancel();
         BloodShapeInput.cancel();
-        // The plot is chosen against the Array as it stands, and the slot a bearing sits in
-        // renumbers whenever a station leaves the list - so a plot left open across a switch would
-        // release a mask of slots built against a loadout that is no longer the one in hand.
-        SwordBearingOverlay.cancel();
+        // The picker was opened against the loadout in hand, and a switch changes which skill
+        // the held key even is - so a release after one would take a stance the wielder chose
+        // while holding a key that now does something else.
+        SwordStanceOverlay.cancel();
         MagicalNetwork.sendSelectLoadout(highlighted);
     }
 

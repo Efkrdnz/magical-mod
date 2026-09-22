@@ -230,13 +230,13 @@ public final class MagicalNetwork {
                                 com.efkrdnz.magical.magic.chaos.ChaosAuthorityService.setFracture(player, payload.ordinals());
                             }
                         }))
-                .playToServer(PullStationsPayload.TYPE, PullStationsPayload.STREAM_CODEC, (payload, context) ->
+                .playToServer(SetStancePayload.TYPE, SetStancePayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> {
                             if (context.player() instanceof ServerPlayer player) {
                                 // The receiver is the skill, not SwordService: the unlock gate, the
-                                // re-check of every bit against the live station count, the billing
-                                // and the descending pulls are one decision and they live together.
-                                com.efkrdnz.magical.magic.skill.sword.TheBearingSkill.pull(player, payload.mask());
+                                // re-check of the ordinal against the rung, the billing and the
+                                // write are one decision and they live together.
+                                com.efkrdnz.magical.magic.skill.sword.SwordStanceSkill.take(player, payload.ordinal());
                             }
                         }))
                 .playToServer(OneBladeStrikePayload.TYPE, OneBladeStrikePayload.STREAM_CODEC, (payload, context) ->
@@ -469,17 +469,18 @@ public final class MagicalNetwork {
     }
 
     /**
-     * Everything the Bearing marked, sent once as the key comes up.
+     * The stance the picker was left on, sent once as the key comes up.
      *
-     * <p>An empty mask is dropped here rather than on the wire: a hold that was opened, read and
-     * closed again is the commonest thing this overlay does, it is free by design, and a packet
-     * for it would be a packet per glance. A release that marked nothing is not a release.
+     * <p>A negative ordinal is dropped here rather than on the wire, and that is what the overlay
+     * sends when the hold was opened and closed without settling on anything: a glance is the
+     * commonest thing this picker does, it is free by design, and a packet for it would be a
+     * packet per glance. The server drops a no-op release too, but it should not have to see it.
      */
-    public static void sendPullStations(int mask) {
-        if (mask == 0) {
+    public static void sendSetStance(int ordinal) {
+        if (ordinal < 0) {
             return;
         }
-        PacketDistributor.sendToServer(new PullStationsPayload(mask));
+        PacketDistributor.sendToServer(new SetStancePayload(ordinal));
     }
 
     /**

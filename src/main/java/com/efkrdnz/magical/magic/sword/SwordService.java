@@ -3,20 +3,22 @@ package com.efkrdnz.magical.magic.sword;
 import com.efkrdnz.magical.classes.MagicalClasses;
 import com.efkrdnz.magical.entity.sword.SwordArrayEntity;
 import com.efkrdnz.magical.entity.sword.SwordBladeEntity;
-import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.MagicSinService;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
 import com.efkrdnz.magical.magic.PlayerMagicState;
-import com.efkrdnz.magical.magic.service.SkillTargets;
+import com.efkrdnz.magical.magic.sword.stance.Formation;
+import com.efkrdnz.magical.magic.sword.stance.Slot;
+import com.efkrdnz.magical.magic.sword.stance.SwordStance;
+import com.efkrdnz.magical.registry.MagicalAttachments;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -26,21 +28,26 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * The half of the Sword Summoner that is never saved: the frame, the metal lying in the world, the
- * blades in the air, the recovery clocks and the enforcement pass.
+ * The half of the Sword Summoner that is never saved: the frame, which swords are away, the return
+ * clocks and the one entity the whole formation costs.
  *
- * <p>{@link SwordArray} is what the wielder owns - the bearings they authored and the Edge on each
- * - and it rides on {@code PlayerMagicState} with everything else they own. Everything here is
- * dropped on logout and rebuilt from nothing on a change of dimension, which is the Pile's
- * decision taken for the Pile's reasons: the blades are matter out in the world and the enemy can
- * break them, a wielder must not be able to leave a forest of planted swords on a shared server,
- * the save format never has to learn what a blade is, and nothing can grow without bound across
- * sessions. What the wielder keeps is the shape.
+ * <p>{@link SwordArray} is what the wielder owns - a stance and whether the steel is out - and it
+ * rides on {@code PlayerMagicState} with everything else they own. Everything here is dropped on
+ * logout and rebuilt from nothing on a change of dimension, which is the Pile's decision taken for
+ * the Pile's reasons: the swords are matter out in the world and the enemy can break them, a
+ * wielder must not be able to leave a forest of planted steel on a shared server, the save format
+ * never has to learn what a sword is, and nothing can grow without bound across sessions.
+ *
+ * <p><b>The resource is one small integer and it is visible.</b> A wielder has
+ * {@code rules.swords()} of them; some are <em>present</em>, in formation round their body, and
+ * some are <em>away</em> - flying, standing in something, or cutting their line home. An away
+ * sword comes back on a clock. There is no Edge, no bill, no draw and no strain, because the thing
+ * those three measured was a shape the wielder could not see; you can count these.
  *
  * <p><b>Keyed by UUID and dimension, and the dimension is re-checked on every read.</b>
  * {@code ClassPassiveHandler.forget} is wired to logout only, despite its interface javadoc, so a
  * wielder who steps through a portal would otherwise be holding a frame anchored to a point in a
- * level they have left and a bind on an entity id that now means something else entirely.
+ * level they have left.
  *
  * <p>The other thing this file exists for is {@link #payFor}. Read its note before adding a skill.
  */
@@ -49,41 +56,35 @@ public final class SwordService {
     /** The offset from a player's feet to the frame origin: their body centre, not their eyes. */
     public static final double BODY_CENTRE = 0.9D;
 
-    /** One point of spent Edge walks back to loose this often. The class is unplayable without it. */
-    public static final int RECOVERY_TICKS = 40;
+    /** One away sword walks home this often. The class is unplayable without it. */
+    public static final int RETURN_TICKS = 60;
 
-    /** ...and this often with Returning, which is the rung at which a deliberate shed is repeatable. */
-    public static final int RECOVERY_TICKS_RETURNING = 20;
+    /** ...and this often with Returning, which is the rung at which a volley is repeatable. */
+    public static final int RETURN_TICKS_RETURNING = 30;
 
-    /** Walk this close to your own sword and you take the whole of it back in a stride. */
+    /** Walk this close to one of your own fallen swords and you take it back in a stride. */
     public static final double PICKUP_RANGE = 2.0D;
 
-    /** Past this the bound body has got away and the leash lets go. */
-    public static final double BIND_BREAK = 40.0D;
-
-    /** Past this a frame you set down snaps back to your body and every blade flies home. */
+    /** Past this a frame you set down snaps back to your body and every sword flies home. */
     public static final double KEEL_LEASH = 24.0D;
 
-    /** Sword God bleeds this often, {@link #STRAIN_BLEED_AMOUNT} for every full block of strain. */
-    public static final int STRAIN_BLEED_INTERVAL = 40;
-
-    public static final int STRAIN_BLEED_PER = 20;
-
-    public static final float STRAIN_BLEED_AMOUNT = 1.0F;
-
-    /** A strained Array hums, and vanilla's range for a volume above one is {@code volume * 16}. */
-    public static final int HUM_INTERVAL = 40;
-
-    public static final float HUM_VOLUME = 2.0F;
-
-    /** How far off the line home a body may stand and still be cut by a shedding blade. */
+    /** How far off the line home a body may stand and still be cut by a returning sword. */
     public static final double SHED_SLACK = 0.45D;
 
-    /** How far down a blade looks for a floor. Below's blades stand where the ground is. */
+    /** How far down a sword looks for a floor. Below's swords stand where the ground is. */
     public static final int SURFACE_SEARCH = 8;
 
-    /** How fast a shed blade cuts its line home, in blocks a tick. */
+    /** How fast a recalled sword cuts its line home, in blocks a tick. */
     public static final double SHED_SPEED = 1.2D;
+
+    /**
+     * How long a body the wielder wounded stays the answer to "what should Rain fall on".
+     *
+     * <p>Five seconds, which is long enough that the follow-up reads as a consequence of the hit
+     * and short enough that it cannot be set up in one fight and spent in the next. Rain is the
+     * one Watch that is a reaction rather than a sweep, and this is the whole of the reaction.
+     */
+    public static final int VICTIM_MEMORY_TICKS = 100;
 
     /**
      * The live half of one wielder, in one dimension.
@@ -98,29 +99,37 @@ public final class SwordService {
         /** Where the origin is attached. HELD is the resting state and the only one that is free. */
         private Bind bind = Bind.HELD;
 
-        /**
-         * The frozen half of the frame: origin and facing for SET and SUNK, facing alone for
-         * BOUND, and nothing at all for HELD and RIDDEN, which read the wielder every time.
-         */
+        /** The frozen half of the frame: origin and facing for SET and SUNK, nothing otherwise. */
         private Frame anchor = new Frame(0.0D, 0.0D, 0.0D, 0.0F, 0.0F, 1.0F);
 
-        private int boundId = -1;
-        private int riddenSlot = -1;
-
-        /** Metal lying in the world: in the air, standing in a body, standing in the ground. */
-        private int spent;
-
-        /** What the last enforcement pass could not settle. Non-zero only at Sword God. */
-        private int strain;
+        /**
+         * Bit <i>i</i> set means sword <i>i</i> is not with the wielder.
+         *
+         * <p>A mask rather than a count, and that is a picture decision: with a count the present
+         * swords would have to be the first <i>n</i> slots, so spending one would re-pack the
+         * whole formation and every remaining sword would slide sideways. With a mask a sword
+         * leaves a <em>gap</em> where it stood, which is what a missing sword looks like.
+         */
+        private int awayMask;
 
         private float scale = 1.0F;
 
         /** The one entity the whole formation costs, remembered so the slow tick never sweeps. */
         private int arrayEntityId = -1;
 
-        private long nextRecovery;
-        private long nextBleed;
-        private long nextHum;
+        private long nextReturn;
+        private long nextWatch;
+
+        /** Mirror of the Array's own clock, so the two Watches cannot starve one another. */
+        private long nextMirror;
+
+        /** The stance seen on the previous tick, and the one held before it. See {@code mirror}. */
+        private SwordStance lastStance;
+        private SwordStance mirror;
+
+        /** What the wielder last wounded, for {@code Watch.DROP}. */
+        private int victimId = -1;
+        private long victimAt = Long.MIN_VALUE;
 
         private Held(ResourceKey<Level> dimension, LevelSwordWorld world) {
             this.dimension = dimension;
@@ -187,16 +196,11 @@ public final class SwordService {
     /**
      * Puts the rung the wielder has climbed onto the Array they loaded.
      *
-     * <p><b>The saved Array does not carry its rules.</b> {@code SwordArray.save} writes the
-     * version and the packed stations and nothing else, deliberately - no enum ordinal is written
-     * anywhere in this kit - so a fresh {@code SwordArray} stands up on {@link SwordRules#SUMMONER}
-     * whoever it belongs to. Without this call a Sword God logs back in holding four stations, 24
-     * of draw and a whole of 8, and the first thing {@code setRules} would do on the next raise is
-     * re-filter their twelve-station shape down to fit the base rung. So it is called on login and
-     * on every class evolve, and the slow tick asks again because it costs a comparison.
-     *
-     * <p>{@code setRules} re-runs the plant rules, which is what makes a rung <em>drop</em> safe
-     * too: a shape the new caps cannot hold falls off rather than sitting there illegal.
+     * <p><b>The saved Array does not carry its rules.</b> {@code SwordArray.save} writes a version,
+     * a stance ordinal and a flag, so a fresh one stands up on {@link SwordRules#SUMMONER} whoever
+     * it belongs to. Without this call a Sword God logs back in with four swords and two stances,
+     * and the Rain they were standing in is clamped to Guard on the first read - permanently, on
+     * disk, because the clamped value is what gets written back.
      */
     public static void refreshRung(ServerPlayer player, PlayerMagicState state) {
         SwordRules wanted = rulesFor(state);
@@ -208,19 +212,152 @@ public final class SwordService {
         state.sync(player);
     }
 
+    // ---- the steel ----------------------------------------------------------------------------
+
+    /** How many swords this wielder has in all, present and away together. */
+    public static int swords(PlayerMagicState state) {
+        return state.swordArray().swords();
+    }
+
+    /** Every sword that exists for this wielder, as a mask. Nothing above it is ever read. */
+    private static int liveMask(PlayerMagicState state) {
+        int count = swords(state);
+        return count >= 32 ? -1 : (1 << count) - 1;
+    }
+
+    /** Bit <i>i</i> set means sword <i>i</i> is in formation: what the entity syncs and the client draws. */
+    public static int presentMask(ServerPlayer player, PlayerMagicState state) {
+        if (!state.swordArray().drawn()) {
+            return 0;
+        }
+        return ~held(player).awayMask & liveMask(state);
+    }
+
+    /** How many swords are with the wielder. The cap on every volley, and it is on screen. */
+    public static int present(ServerPlayer player, PlayerMagicState state) {
+        return Integer.bitCount(presentMask(player, state));
+    }
+
+    /** How many are flying, standing in something, or cutting their line home. */
+    public static int away(ServerPlayer player, PlayerMagicState state) {
+        if (!state.swordArray().drawn()) {
+            return 0;
+        }
+        return Integer.bitCount(held(player).awayMask & liveMask(state));
+    }
+
+    /**
+     * Sends up to {@code want} swords away and answers how many actually went.
+     *
+     * <p>The lowest present slot first, so the order is deterministic and two clients watching the
+     * same volley see the same gaps appear. <b>Answers fewer than asked rather than refusing</b>,
+     * which is the whole of the resource model: a wielder down to two swords Looses with two, and
+     * nothing anywhere has to carry a separate cap.
+     */
+    public static int spendSwords(ServerPlayer player, PlayerMagicState state, int want) {
+        if (want <= 0 || !state.swordArray().drawn()) {
+            return 0;
+        }
+        Held wielder = held(player);
+        int live = liveMask(state);
+        int taken = 0;
+        while (taken < want) {
+            int free = ~wielder.awayMask & live;
+            if (free == 0) {
+                break;
+            }
+            wielder.awayMask |= Integer.lowestOneBit(free);
+            taken++;
+        }
+        if (taken > 0) {
+            wielder.nextReturn = Math.max(wielder.nextReturn, wielder.world.now() + returnTicks(state));
+        }
+        return taken;
+    }
+
+    /** One sword away, or false when there were none to send. */
+    public static boolean spendSword(ServerPlayer player, PlayerMagicState state) {
+        return spendSwords(player, state, 1) == 1;
+    }
+
+    /** {@code n} swords home at once. A walk-over and a recall both end here. */
+    public static void returnSwords(ServerPlayer player, PlayerMagicState state, int n) {
+        Held wielder = held(player);
+        int live = liveMask(state);
+        for (int i = 0; i < n; i++) {
+            int gone = wielder.awayMask & live;
+            if (gone == 0) {
+                return;
+            }
+            wielder.awayMask &= ~Integer.lowestOneBit(gone);
+        }
+    }
+
+    /** 60 ticks, 30 with Returning, and halved again by Sword God's relentless rule. */
+    public static int returnTicks(PlayerMagicState state) {
+        int base = returning(state) ? RETURN_TICKS_RETURNING : RETURN_TICKS;
+        return rulesFor(state).relentless() ? Math.max(1, base / 2) : base;
+    }
+
+    /** True when the wielder owns Returning and has not switched it off in the codex. */
+    public static boolean returning(PlayerMagicState state) {
+        return state.isPassiveEnabled(MagicPassiveContent.RETURNING.id());
+    }
+
+    // ---- the toggle ---------------------------------------------------------------------------
+
+    /**
+     * Call the Blade: every sword appears in the current stance, in one motion.
+     *
+     * @return false when the steel was already out, so the caller can toggle the other way
+     */
+    public static boolean draw(ServerPlayer player, PlayerMagicState state) {
+        if (!state.swordArray().setDrawn(true)) {
+            return false;
+        }
+        Held wielder = held(player);
+        wielder.awayMask = 0;
+        hold(player);
+        tendArrayEntity(player, state);
+        player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
+                SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.45F, 1.5F);
+        state.sync(player);
+        return true;
+    }
+
+    /**
+     * The other press: the swords are <b>gone</b>.
+     *
+     * <p>Off means gone and not dormant - no entity, no interception, no upkeep, nothing drawn -
+     * which is the arrangement the wielder asked for and the one an opponent can read at a glance.
+     * The away swords dissolve where they stand rather than flying home, because a dismissal is a
+     * dismissal; they are back in the wielder the instant the steel is called again.
+     *
+     * @return false when the steel was already away
+     */
+    public static boolean sheathe(ServerPlayer player, PlayerMagicState state) {
+        if (!state.swordArray().setDrawn(false)) {
+            return false;
+        }
+        Held wielder = held(player);
+        wielder.awayMask = 0;
+        dissolveEverything(player);
+        SwordArrayEntity entity = arrayEntity(player);
+        if (entity != null) {
+            entity.discard();
+        }
+        wielder.arrayEntityId = -1;
+        hold(player);
+        player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
+                SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 0.4F, 0.7F);
+        state.sync(player);
+        return true;
+    }
+
     // ---- the frame ----------------------------------------------------------------------------
 
     public static Bind bind(ServerPlayer player) {
         return held(player).bind;
-    }
-
-    public static int boundId(ServerPlayer player) {
-        return held(player).boundId;
-    }
-
-    /** Which station's blade is under the wielder's feet, or -1. Only meaningful while RIDDEN. */
-    public static int riddenSlot(ServerPlayer player) {
-        return held(player).riddenSlot;
     }
 
     public static float scale(ServerPlayer player) {
@@ -228,168 +365,230 @@ public final class SwordService {
     }
 
     /**
-     * Where the Array is hanging, right now.
+     * Where the formation is hanging, right now.
      *
-     * <p>Built rather than stored, because two of the five binds are functions of a body that
-     * moves every tick and storing them would be a copy that is wrong by one tick forever. The
-     * scale is the one part that is stored, because it is the slow tick's answer and a bill that
-     * moved inside a tick would let a settle and the strain it settled disagree.
+     * <p>Built rather than stored, because the resting bind is a function of a body that moves
+     * every tick and storing it would be a copy that is wrong by one tick forever.
+     *
+     * <p><b>Which part of the wielder the origin is on depends on the stance's anchor</b>, and
+     * that is the single most load-bearing line in the file. A {@code LOOK} stance is pinned to
+     * the <em>eye</em> and carries the wielder's pitch, so Vanguard's two rings are centred on the
+     * aim line by construction and stay centred however the head moves. A {@code BODY} stance is
+     * pinned to the body centre at <b>pitch zero</b>, so a Crown stays level and does not swing
+     * under the wielder's feet when they glance down. Put a LOOK ring on the chest-pinned origin
+     * instead and it is centred at pitch zero and slides off the crosshair at every other pitch -
+     * correct in every screenshot taken standing still, wrong the moment anybody plays.
      */
     public static Frame frame(ServerPlayer player) {
         Held wielder = held(player);
         return switch (wielder.bind) {
             // The wielder is pinned to a ridden frame, so it is their own body either way.
-            case HELD, RIDDEN -> new Frame(player.getX(), player.getY() + BODY_CENTRE, player.getZ(),
-                    player.getYRot(), player.getXRot(), wielder.scale);
+            case HELD, RIDDEN -> bodyFrame(player, wielder);
             case SET, SUNK -> wielder.anchor.withScale(wielder.scale);
-            case BOUND -> boundFrame(player, wielder);
         };
     }
 
-    /**
-     * A bound frame keeps the facing it was bound with and takes its origin off the body.
-     *
-     * <p>The facing is frozen because Loose fires the forward projection at the instant of the
-     * press: a facing that followed the wielder's head afterwards would quietly re-aim a shape
-     * that is supposed to have been committed, and the blades already in the air would swing.
-     */
-    private static Frame boundFrame(ServerPlayer player, Held wielder) {
-        LivingEntity body = boundBody(player, wielder);
-        if (body == null) {
-            return wielder.anchor.withScale(wielder.scale);
+    private static Frame bodyFrame(ServerPlayer player, Held wielder) {
+        if (stanceOf(player).anchor() == SwordStance.Anchor.LOOK) {
+            Vec3 eye = player.getEyePosition();
+            return new Frame(eye.x, eye.y, eye.z, player.getYRot(), player.getXRot(), wielder.scale);
         }
-        Vec3 centre = body.getBoundingBox().getCenter();
-        return wielder.anchor.withOrigin(centre.x, centre.y, centre.z).withScale(wielder.scale);
+        return new Frame(player.getX(), player.getY() + BODY_CENTRE, player.getZ(),
+                player.getYRot(), 0.0F, wielder.scale);
     }
 
-    private static LivingEntity boundBody(ServerPlayer player, Held wielder) {
-        if (wielder.boundId < 0) {
-            return null;
-        }
-        return player.serverLevel().getEntity(wielder.boundId) instanceof LivingEntity living && living.isAlive()
-                ? living : null;
-    }
-
-    /** Back to the resting state: the origin is your body centre and the facing is your look. */
+    /** Back to the resting state: the origin is on the wielder and the scale is one. */
     public static void hold(ServerPlayer player) {
         Held wielder = held(player);
         wielder.bind = Bind.HELD;
-        wielder.boundId = -1;
-        wielder.riddenSlot = -1;
         wielder.scale = 1.0F;
     }
 
     /** The Keel, pressed: origin and facing freeze where they were and you walk out of them. */
     public static void setDown(ServerPlayer player) {
         Held wielder = held(player);
-        wielder.anchor = new Frame(player.getX(), player.getY() + BODY_CENTRE, player.getZ(),
-                player.getYRot(), player.getXRot(), 1.0F);
+        Frame now = frame(player);
+        wielder.anchor = new Frame(now.x(), now.y(), now.z(), now.yaw(), now.pitch(), 1.0F);
         wielder.bind = Bind.SET;
-        wielder.boundId = -1;
-        wielder.riddenSlot = -1;
         wielder.scale = 1.0F;
     }
 
-    /** The Keel, sneak-pressed: one station's blade goes under your feet and carries you. */
-    public static void ride(ServerPlayer player, int slot) {
+    /** The Keel, sneak-pressed: one sword goes under your feet and carries you. */
+    public static void ride(ServerPlayer player) {
         Held wielder = held(player);
         wielder.bind = Bind.RIDDEN;
-        wielder.riddenSlot = slot;
-        wielder.boundId = -1;
         wielder.scale = 1.0F;
     }
 
-    /** Loose: the origin goes onto somebody else, and from Sword Saint their footwork spends you. */
-    public static void bindTo(ServerPlayer player, LivingEntity body) {
-        Held wielder = held(player);
-        wielder.anchor = new Frame(body.getX(), body.getY(), body.getZ(),
-                player.getYRot(), player.getXRot(), 1.0F);
-        wielder.bind = Bind.BOUND;
-        wielder.boundId = body.getId();
-        wielder.riddenSlot = -1;
-    }
-
-    /**
-     * Below: the origin is a point recorded once and never re-acquired.
-     *
-     * <p>The pitch reflection the bind's name describes is not in the {@link Frame} and must not
-     * be: a frame is an origin, a facing and a scale, and the reflection is a property of the
-     * stations Below reads. {@link Projection#below} takes no frame for exactly that reason.
-     */
+    /** Below: the origin is a point recorded once and never re-acquired. */
     public static void sink(ServerPlayer player, Vec3 point) {
         Held wielder = held(player);
-        wielder.anchor = new Frame(point.x, point.y, point.z, player.getYRot(), player.getXRot(), 1.0F);
+        wielder.anchor = new Frame(point.x, point.y, point.z, player.getYRot(), 0.0F, 1.0F);
         wielder.bind = Bind.SUNK;
-        wielder.boundId = -1;
-        wielder.riddenSlot = -1;
         wielder.scale = 1.0F;
     }
 
-    // ---- the Edge -----------------------------------------------------------------------------
-
-    /** Metal lying in the world: in the air, standing in a body, standing in the ground. */
-    public static int spent(ServerPlayer player) {
-        return held(player).spent;
+    /** One Blade drives this to zero, which walks every sword onto the origin and is the fusion. */
+    public static void setScale(ServerPlayer player, float scale) {
+        held(player).scale = Math.max(0.0F, scale);
     }
 
-    /** {@code whole - bound - spent}: what is left in the wielder to call another blade with. */
-    public static int loose(ServerPlayer player, PlayerMagicState state) {
-        return state.swordArray().loose(held(player).spent);
-    }
+    // ---- where a sword actually is ---------------------------------------------------------------
 
-    /**
-     * Takes metal off a station and puts it in the world, answering how much actually came off.
-     *
-     * <p>The one door out of a station, and the reason conservation holds without anybody
-     * counting: a blade in the air, a blade standing in a body and a blade standing in the ground
-     * are all <em>spent</em>, so a detach is a single move between two of the three places and
-     * every skill that throws steel goes through here. The bearing is untouched - the shape
-     * survives, the metal does not.
-     */
-    public static int detach(ServerPlayer player, PlayerMagicState state, int slot, int amount) {
-        int taken = state.swordArray().spend(slot, amount);
-        if (taken > 0) {
-            held(player).spent += taken;
-        }
-        return taken;
-    }
-
-    /** Metal that appeared in the world without leaving a station - the settle has already spent it. */
-    public static void addSpent(ServerPlayer player, int edge) {
-        if (edge > 0) {
-            held(player).spent += edge;
-        }
+    public static SwordStance stanceOf(ServerPlayer player) {
+        return player.getData(MagicalAttachments.MAGIC_STATE).swordArray().stance();
     }
 
     /**
-     * Metal coming home: out of the world and back into the wielder.
+     * The argument {@code Formation.place} takes for its wave terms, and <b>both sides must agree
+     * on it</b>.
      *
-     * <p>Never below zero, and then a conservation repair. A rung dropped or an Array cleared
-     * under a blade that was still in the air can leave {@code bound + spent} above the whole,
-     * which reads as a <em>negative</em> loose - and metal in the world is the half that gives
-     * way, because the stations are the half the wielder authored. Conservation is the one rule
-     * in this structure that nothing may bend, so it is repaired here rather than reported.
+     * <p>It is the level's game time, because that is the one clock a client and a server both
+     * have and both agree about. An entity age would not do: the client's copy starts when the
+     * spawn packet lands, which is a different tick for every observer, so two players watching
+     * one Crown would see it turned to two different angles.
      */
-    public static void recover(ServerPlayer player, PlayerMagicState state, int edge) {
-        if (edge <= 0) {
+    public static double phase(ServerPlayer player) {
+        return player.serverLevel().getGameTime();
+    }
+
+    /**
+     * How far above the horizon the wielder is looking, positive up, in the stance's own frame.
+     *
+     * <p>Zero for a {@code LOOK} stance, whose frame already carries the pitch, and the wielder's
+     * own elevation for a {@code BODY} one. Minecraft's pitch is positive <em>down</em>, so the
+     * negation here is the conversion, and this method plus {@code ArrayPose.pitchOf} are the only
+     * two places in the kit the two conventions are allowed to meet.
+     */
+    public static double lookElevation(ServerPlayer player, SwordStance stance) {
+        return stance.anchor() == SwordStance.Anchor.LOOK ? 0.0D : -player.getXRot();
+    }
+
+    /** Sword {@code index}'s place in the world, or null when that sword is not present. */
+    public static Vec3 swordPosition(ServerPlayer player, PlayerMagicState state, int index) {
+        if ((presentMask(player, state) & (1 << index)) == 0) {
+            return null;
+        }
+        Frame frame = frame(player);
+        double[] offset = ArrayPose.worldOffset(slotOf(player, state, index), frame);
+        return new Vec3(frame.x() + offset[0], frame.y() + offset[1], frame.z() + offset[2]);
+    }
+
+    /** Which way sword {@code index} points, as {yaw, pitch} in Minecraft degrees. */
+    public static float[] swordFacing(ServerPlayer player, PlayerMagicState state, int index) {
+        Frame frame = frame(player);
+        double[] direction = ArrayPose.worldDirection(slotOf(player, state, index), frame);
+        return new float[] {ArrayPose.yawOf(direction), ArrayPose.pitchOf(direction)};
+    }
+
+    private static Slot slotOf(ServerPlayer player, PlayerMagicState state, int index) {
+        SwordStance stance = state.swordArray().stance();
+        return Formation.place(stance, index, swords(state), phase(player),
+                lookElevation(player, stance));
+    }
+
+    /** Every present sword's place, in slot order, skipping the gaps. Never null, may be empty. */
+    public static List<Vec3> presentPositions(ServerPlayer player, PlayerMagicState state) {
+        List<Vec3> out = new ArrayList<>();
+        int mask = presentMask(player, state);
+        for (int i = 0; i < swords(state); i++) {
+            if ((mask & (1 << i)) != 0) {
+                Vec3 at = swordPosition(player, state, i);
+                if (at != null) {
+                    out.add(at);
+                }
+            }
+        }
+        return out;
+    }
+
+    // ---- what the wielder last wounded ------------------------------------------------------------
+
+    /**
+     * Remembered for {@code Watch.DROP}, which is a follow-up rather than a turret.
+     *
+     * <p>Called from the damage event for <b>every</b> player in the game, so the cheap refusal is
+     * here rather than at the call site: without it, the first punch anybody throws allocates them
+     * a {@code Held} they will never use, and the map grows a row per player on the server rather
+     * than a row per Sword Summoner.
+     */
+    public static void noteVictim(ServerPlayer player, LivingEntity victim) {
+        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+        if (!state.swordArray().drawn()) {
             return;
         }
         Held wielder = held(player);
-        wielder.spent = Math.max(0, wielder.spent - edge);
-        int over = state.swordArray().bound() + wielder.spent - state.swordArray().whole();
-        if (over > 0) {
-            wielder.spent = Math.max(0, wielder.spent - over);
+        wielder.victimId = victim.getId();
+        wielder.victimAt = wielder.world.now();
+    }
+
+    /** The body Rain should fall on, or null once the memory has gone cold or the body has. */
+    public static LivingEntity recentVictim(ServerPlayer player) {
+        Held wielder = held(player);
+        if (wielder.victimId < 0 || wielder.world.now() - wielder.victimAt > VICTIM_MEMORY_TICKS) {
+            return null;
         }
+        return player.serverLevel().getEntity(wielder.victimId) instanceof LivingEntity living
+                && living.isAlive() ? living : null;
     }
 
-    /** What the last enforcement pass could not settle. Non-zero only under Sword God's rule. */
-    public static int strain(ServerPlayer player) {
-        return held(player).strain;
+    /**
+     * The Watch's own clock, kept here because {@code Held} is the only per-wielder state there is.
+     *
+     * <p>Answers true and re-arms, or answers false. An interval of zero means the behaviour is
+     * not on a clock at all - {@code Watch.GLIDE} is a posture - and such a caller gets true every
+     * tick with the clock pushed one tick ahead, which costs nothing and keeps the branch here
+     * rather than in six places.
+     */
+    public static boolean watchDue(ServerPlayer player, int interval) {
+        Held wielder = held(player);
+        long now = wielder.world.now();
+        if (interval > 0 && now < wielder.nextWatch) {
+            return false;
+        }
+        wielder.nextWatch = now + Math.max(1, interval);
+        return true;
     }
 
-    /** For {@code /magical array strain}: the gauge, forced, with no bind walked out to earn it. */
-    public static void forceStrain(ServerPlayer player, int strain) {
-        held(player).strain = Math.max(0, strain);
+    /**
+     * Notices a change of stance, and remembers the one just left.
+     *
+     * <p>Called from the Watch tick rather than from whatever wrote the stance, because the stance
+     * can be written by the picker, by a command, by a rung clamp or by a load, and a reflection
+     * that only some of those armed would be a passive that works when you change stance one way
+     * and not the other.
+     */
+    public static void noteStance(ServerPlayer player, SwordStance current) {
+        Held wielder = held(player);
+        if (wielder.lastStance == current) {
+            return;
+        }
+        if (wielder.lastStance != null) {
+            wielder.mirror = wielder.lastStance;
+        }
+        wielder.lastStance = current;
+    }
+
+    /**
+     * The stance held before the current one, which is what Mirror of the Array reflects.
+     *
+     * <p>Null until the wielder has changed stance at least once this session, and never saved:
+     * the apex passive arms itself the first time its owner moves, which is a good deal more
+     * legible than a reflection that is already running the moment you log in.
+     */
+    public static SwordStance mirrorStance(ServerPlayer player) {
+        return held(player).mirror;
+    }
+
+    /** {@link #watchDue} for the reflection, on a clock of its own. */
+    public static boolean mirrorWatchDue(ServerPlayer player, int interval) {
+        Held wielder = held(player);
+        long now = wielder.world.now();
+        if (interval > 0 && now < wielder.nextMirror) {
+            return false;
+        }
+        wielder.nextMirror = now + Math.max(1, interval);
+        return true;
     }
 
     // ---- the one billing call -------------------------------------------------------------------
@@ -397,18 +596,17 @@ public final class SwordService {
     /**
      * The cooldown and the mana for one press of this kit, and whether the press may go ahead.
      *
-     * <p>Three of the six are registered {@code selfManaged} or {@code holdGated}, and both of
-     * those return out of {@code MagicCastingService.castViaRegistry} <em>before</em> it resolves a
-     * stat, spends a point of mana, casts the aim ray or starts a clock. That is the whole point of
-     * such a handler - it is how a hold bills on release rather than on press - but it means every
+     * <p>Most of the kit is registered {@code selfManaged} or {@code holdGated}, and both of those
+     * return out of {@code MagicCastingService.castViaRegistry} <em>before</em> it resolves a stat,
+     * spends a point of mana, casts the aim ray or starts a clock. That is the whole point of such
+     * a handler - it is how a hold bills on release rather than on press - but it means every
      * number on those definitions is decoration until somebody writes this call. The entire
      * Authority of Causality shipped costing nothing because nobody had, and nothing in the build
      * said so: a cost that is never taken looks exactly like a cost that is never needed.
      *
-     * <p>Call it <b>after</b> the skill has established it has work to do and <b>before</b> it does
-     * it, so a press that refuses itself is never charged. {@code manaOverride} is for the two
-     * prices that are not a constant - Call the Blade's {@code 4 + 2n} pour and One Blade's
-     * {@code 6} a station - and anything negative means "the definition's own".
+     * <p>Call it <b>after</b> the skill has established it has work to do and <b>before</b> it
+     * does it, so a press that refuses itself is never charged. Anything negative for
+     * {@code manaOverride} means "the definition's own".
      *
      * <p>And note: {@code ctx.aim()} is <b>null</b> in a self-managed or hold-gated handler. A line
      * copied from a plain-press skill that dereferences {@code ctx.aim().point()} throws,
@@ -431,38 +629,20 @@ public final class SwordService {
         return true;
     }
 
-    // ---- the enforcement pass ---------------------------------------------------------------
-
-    /**
-     * One Blade's gather: the bill collapsed rather than the budget raised.
-     *
-     * <p>{@code frame.scale -> 0} drives the bill to zero, and the only route to a zero bill in
-     * this structure is every station letting go - so the fusion is {@link SwordArray#fuse}, which
-     * is {@code settle()} at the far end of its own range, and not a second unmanning with its own
-     * arithmetic to get wrong. Answers the Edge that came off, which is what the greatsword is
-     * made of and what every one of its numbers is a function of.
-     */
-    public static int collapse(ServerPlayer player, PlayerMagicState state) {
-        SwordArray array = state.swordArray();
-        int[] before = edges(array);
-        Settlement settlement = array.fuse();
-        int gathered = 0;
-        for (int slot : settlement.shedSlots()) {
-            gathered += slot >= 0 && slot < before.length ? before[slot] : 0;
-        }
-        addSpent(player, gathered);
-        held(player).strain = settlement.strainLeft();
-        return gathered;
-    }
+    // ---- the slow tick --------------------------------------------------------------------------
 
     /**
      * The whole of the live half in one pass, every {@code SLOW_TICK_INTERVAL} ticks.
      *
      * <p>It runs here rather than on the player tick for the reason cooldowns have their own
-     * payload: {@code sync()} serialises the entire state on every call and the {@code
-     * lastSyncedTag} equality check suppresses the <em>packet</em>, not the work. So everything
-     * that moves is gathered up and {@code state.sync} is called once at the end behind a boolean,
-     * which is the {@code VersePassives.turn} shape.
+     * payload: {@code sync()} serialises the entire state on every call and the
+     * {@code lastSyncedTag} equality check suppresses the <em>packet</em>, not the work. So
+     * everything that moves is gathered up and {@code state.sync} is called once at the end behind
+     * a boolean, which is the {@code VersePassives.turn} shape.
+     *
+     * <p>The Watch is <b>not</b> here. It runs on {@code SwordArrayEntity.tick}, every tick, which
+     * is where it has to be - an arrow has to be turned before it lands rather than discounted
+     * afterwards - and that entity exists only while the steel is out, so the gate costs nothing.
      */
     public static void slowTick(ServerPlayer player, PlayerMagicState state) {
         if (!holds(state)) {
@@ -471,177 +651,76 @@ public final class SwordService {
         refreshRung(player, state);
         Held wielder = held(player);
         boolean dirty = releaseBrokenBind(player, wielder);
-        dirty |= settle(player, state, wielder);
-        bleed(player, wielder);
-        dirty |= recoverOne(player, state, wielder);
-        dirty |= walkOver(player, state, wielder);
+        dirty |= returnOne(player, state, wielder);
+        dirty |= walkOver(player, state);
         tendArrayEntity(player, state);
         if (dirty) {
             state.sync(player);
         }
     }
 
-    /**
-     * A bind is a leash and a leash has an end: the body dies, leaves the dimension, or gets
-     * 40 blocks away. A frame set down has its own, and past it the whole Array comes home.
-     */
+    /** A frame set down has a leash, and past it the whole formation comes home. */
     private static boolean releaseBrokenBind(ServerPlayer player, Held wielder) {
-        if (wielder.bind == Bind.BOUND) {
-            double distance = wielder.world.distanceToBound(wielder.boundId, at(player));
-            if (distance < 0.0D || distance > BIND_BREAK) {
-                hold(player);
-                return true;
-            }
+        if (wielder.bind != Bind.SET) {
             return false;
         }
-        if (wielder.bind == Bind.SET) {
-            Vec3 origin = new Vec3(wielder.anchor.x(), wielder.anchor.y(), wielder.anchor.z());
-            if (origin.distanceTo(player.getBoundingBox().getCenter()) > KEEL_LEASH) {
-                recallEverything(player);
-                hold(player);
-                return true;
-            }
+        Vec3 origin = new Vec3(wielder.anchor.x(), wielder.anchor.y(), wielder.anchor.z());
+        if (origin.distanceTo(player.getBoundingBox().getCenter()) <= KEEL_LEASH) {
+            return false;
         }
-        return false;
+        recallEverything(player);
+        hold(player);
+        return true;
     }
 
-    /**
-     * The scale, the strain, and what an over-stretched Array does about it.
-     *
-     * <p>The scale only moves at Sword Saint and above: {@code freeScale} is what makes a bound
-     * opponent's footwork spend the wielder's budget, and before that rung a bind is a re-anchored
-     * origin and nothing more. Everything after that is {@link SwordArray#settle}, which is
-     * arithmetic and is pinned on exact values with no world under it.
-     */
-    private static boolean settle(ServerPlayer player, PlayerMagicState state, Held wielder) {
-        SwordArray array = state.swordArray();
-        float scale = 1.0F;
-        if (wielder.bind == Bind.BOUND && array.rules().freeScale()) {
-            double distance = wielder.world.distanceToBound(wielder.boundId, at(player));
-            if (distance >= 0.0D) {
-                scale = ArrayPose.boundScale(distance);
-            }
-        }
-        wielder.scale = scale;
-
-        int[] before = edges(array);
-        Settlement settlement = array.settle(array.strainAt(scale), array.rules().overdraw());
-        wielder.strain = settlement.strainLeft();
-        if (!settlement.shedAnything()) {
+    /** The slow route back: one away sword a clock tick. */
+    private static boolean returnOne(ServerPlayer player, PlayerMagicState state, Held wielder) {
+        if (away(player, state) <= 0) {
             return false;
         }
-        Frame frame = frame(player);
-        for (int slot : settlement.shedSlots()) {
-            shed(player, state, frame, slot, slot >= 0 && slot < before.length ? before[slot] : 0);
+        long now = wielder.world.now();
+        if (now < wielder.nextReturn) {
+            return false;
         }
+        wielder.nextReturn = now + returnTicks(state);
+        returnSwords(player, state, 1);
         return true;
     }
 
     /**
-     * One blade cutting the line home, and the picture the whole class is remembered for.
-     *
-     * <p>Its Edge is spent the instant it leaves the station - a blade in the air is metal in the
-     * world - and whether it comes back as loose or as spent is Returning's business, decided when
-     * it arrives rather than here. The wielder is not cut by their own line home; everything else
-     * standing in it is, by how long the line was.
-     */
-    private static void shed(ServerPlayer player, PlayerMagicState state, Frame frame, int slot, int edge) {
-        if (edge <= 0) {
-            return;
-        }
-        addSpent(player, edge);
-        Station station = state.swordArray().station(slot);
-        if (station == null) {
-            return;
-        }
-        ServerLevel level = player.serverLevel();
-        double[] offset = ArrayPose.worldOffset(station, frame);
-        Vec3 from = new Vec3(frame.x() + offset[0], frame.y() + offset[1], frame.z() + offset[2]);
-        Vec3 to = player.getBoundingBox().getCenter();
-        float damage = (float) SwordMath.shedDamage(from.distanceTo(to));
-        for (LivingEntity victim : held(player).world.bodiesOnLine(from, to, SHED_SLACK,
-                body -> body.isAlive() && body != player)) {
-            SkillTargets.hurt(level, player, victim, damage, MagicContent.CALL_THE_BLADE.id());
-            SkillTargets.shove(victim, from, 0.2D, 0.05D);
-        }
-        SwordBladeEntity.shedHome(level, player, from, to, slot, edge, SHED_SPEED);
-    }
-
-    /** Sword God's bill, and the only damage in the mod no armour and no barrier may take a slice of. */
-    private static void bleed(ServerPlayer player, Held wielder) {
-        if (wielder.strain <= 0) {
-            return;
-        }
-        long now = wielder.world.now();
-        if (now >= wielder.nextHum) {
-            wielder.nextHum = now + HUM_INTERVAL;
-            player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
-                    SoundEvents.BEACON_AMBIENT, SoundSource.PLAYERS, HUM_VOLUME, 0.55F);
-        }
-        if (now < wielder.nextBleed) {
-            return;
-        }
-        wielder.nextBleed = now + STRAIN_BLEED_INTERVAL;
-        float amount = STRAIN_BLEED_AMOUNT * (wielder.strain / STRAIN_BLEED_PER);
-        if (amount > 0.0F) {
-            player.hurt(SwordDamageTypes.strain(player), amount);
-        }
-    }
-
-    /** The slow route back: one point of spent Edge a clock tick, twice as fast with Returning. */
-    private static boolean recoverOne(ServerPlayer player, PlayerMagicState state, Held wielder) {
-        if (wielder.spent <= 0) {
-            return false;
-        }
-        long now = wielder.world.now();
-        if (now < wielder.nextRecovery) {
-            return false;
-        }
-        wielder.nextRecovery = now + (returning(state) ? RECOVERY_TICKS_RETURNING : RECOVERY_TICKS);
-        wielder.spent--;
-        return true;
-    }
-
-    /**
-     * The fast route back, and it is a place rather than a clock: walk to where your swords died.
+     * The fast route back, and it is a place rather than a clock: walk to where your swords fell.
      *
      * <p>Which is by construction the ground you were just losing, so the recovery the class is
-     * built around is a reason to go forward. Unconditional - Returning changes the clock and where
-     * a shed blade credits, not this.
+     * built around is a reason to go forward.
      */
-    private static boolean walkOver(ServerPlayer player, PlayerMagicState state, Held wielder) {
+    private static boolean walkOver(ServerPlayer player, PlayerMagicState state) {
         AABB box = player.getBoundingBox().inflate(PICKUP_RANGE);
         List<SwordBladeEntity> lying = SwordBladeEntity.ownedBy(player.serverLevel(), player, box);
-        boolean took = false;
+        int took = 0;
         for (SwordBladeEntity blade : lying) {
             if (!blade.lying()) {
                 continue;
             }
-            recover(player, state, blade.edge());
             blade.discard();
-            took = true;
+            took++;
         }
-        if (took) {
+        if (took > 0) {
+            returnSwords(player, state, took);
             player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
                     SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 0.5F, 1.6F);
         }
-        return took;
-    }
-
-    /** True when the wielder owns Returning and has not switched it off in the codex. */
-    public static boolean returning(PlayerMagicState state) {
-        return state.isPassiveEnabled(MagicPassiveContent.RETURNING.id());
+        return took > 0;
     }
 
     // ---- the entity ---------------------------------------------------------------------------
 
     /**
-     * The one entity twelve swords cost, spawned on demand and discarded with the last bearing.
+     * The one entity twelve swords cost, spawned on demand and discarded when the steel goes away.
      *
-     * <p>Twelve blade positions are worth <b>zero bytes</b> on the wire: {@link ArrayPose} is pure
-     * and both sides run it, so the client is told the frame and the shape - both of which change
-     * rarely - and works out the rest. Twelve entities at the standard tracking range would be
-     * twelve movement packets a tick to every observer for a picture that is one rigid formation.
+     * <p>Twelve sword positions are worth <b>zero bytes</b> on the wire: {@code Formation} is pure
+     * and both sides run it, so the client is told the stance, the mask and the frame - all of
+     * which change rarely - and works out the rest. Twelve entities at the standard tracking range
+     * would be twelve movement packets a tick to every observer for one rigid formation.
      */
     public static SwordArrayEntity arrayEntity(ServerPlayer player) {
         Held wielder = held(player);
@@ -655,15 +734,14 @@ public final class SwordService {
     }
 
     /**
-     * Raises the formation when there is a shape to draw and drops it when there is not.
+     * Raises the formation while the steel is out and drops it when it is not.
      *
      * <p>Public because the slow tick is ten ticks wide and a wielder who has just called their
-     * first blade should not spend half a second looking at nothing: Call the Blade calls this
-     * the moment a plant is accepted.
+     * steel should not spend half a second looking at nothing: the toggle calls this itself.
      */
     public static void tendArrayEntity(ServerPlayer player, PlayerMagicState state) {
         SwordArrayEntity entity = arrayEntity(player);
-        if (state.swordArray().isEmpty()) {
+        if (!state.swordArray().drawn()) {
             if (entity != null) {
                 entity.discard();
             }
@@ -675,11 +753,26 @@ public final class SwordService {
         }
     }
 
-    /** Every blade this wielder has out, called home. The leash and a rung drop both end here. */
+    /** Every sword this wielder has out, called home. The leash and a rung drop both end here. */
     public static void recallEverything(ServerPlayer player) {
         AABB box = player.getBoundingBox().inflate(KEEL_LEASH * 2.0D);
         for (SwordBladeEntity blade : SwordBladeEntity.ownedBy(player.serverLevel(), player, box)) {
             blade.recall();
+        }
+    }
+
+    /**
+     * Every sword this wielder has out, gone where it stands.
+     *
+     * <p>The difference from {@link #recallEverything} is the whole meaning of the toggle: a
+     * recall is the steel coming back, a dissolve is the steel ceasing to exist. Sheathing does
+     * the second, because the wielder chose "off means the swords vanish entirely" and a flock of
+     * blades flying home after a dismissal is neither off nor entirely.
+     */
+    private static void dissolveEverything(ServerPlayer player) {
+        AABB box = player.getBoundingBox().inflate(KEEL_LEASH * 2.0D);
+        for (SwordBladeEntity blade : SwordBladeEntity.ownedBy(player.serverLevel(), player, box)) {
+            blade.discard();
         }
     }
 
@@ -688,15 +781,5 @@ public final class SwordService {
     /** The wielder's body centre as the three doubles {@link SwordWorld} asks for. */
     public static double[] at(ServerPlayer player) {
         return new double[] {player.getX(), player.getY() + BODY_CENTRE, player.getZ()};
-    }
-
-    /** Every station's Edge before a settle, because a {@link Settlement} carries slots and not metal. */
-    public static int[] edges(SwordArray array) {
-        int[] out = new int[array.size()];
-        for (int i = 0; i < out.length; i++) {
-            Station station = array.station(i);
-            out[i] = station == null ? 0 : station.edge();
-        }
-        return out;
     }
 }

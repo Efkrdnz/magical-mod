@@ -57,6 +57,7 @@ public final class SwordKeelClient {
     private static int arrayId = -1;
     private static long nextScanTick = Long.MIN_VALUE;
     private static float scale = 1.0F;
+    private static int presentMask;
 
     private SwordKeelClient() {}
 
@@ -70,6 +71,20 @@ public final class SwordKeelClient {
         return scale;
     }
 
+    /**
+     * How many swords are with this client's wielder, or {@code whole} while there is nothing to
+     * read.
+     *
+     * <p>Off the formation entity's present mask, which it was already syncing for the renderer -
+     * so the HUD's count costs nothing on the wire. Falling back to the full complement rather
+     * than to zero matters for one frame each way: the entity arrives a tick after the draw and
+     * leaves a tick after the sheathe, and a ring that snapped to empty in between would read as
+     * every sword having been spent at the instant they appeared.
+     */
+    public static int presentSwords(int whole) {
+        return arrayId < 0 ? whole : Integer.bitCount(presentMask);
+    }
+
     @SubscribeEvent
     public static void beforePlayerPhysics(PlayerTickEvent.Pre event) {
         Minecraft minecraft = Minecraft.getInstance();
@@ -80,6 +95,7 @@ public final class SwordKeelClient {
         }
         SwordArrayEntity array = localArray(player, level);
         scale = array == null ? 1.0F : Math.max(0.0F, array.value());
+        presentMask = array == null ? 0 : array.presentMask();
         if (array == null || bind(array) != Bind.RIDDEN) {
             return;
         }
@@ -119,12 +135,14 @@ public final class SwordKeelClient {
     /**
      * This client's own Array entity, cached by id.
      *
-     * <p>Gated on the state's Array being non-empty, so a player who never found the chain - which
-     * is almost everyone - never runs the query at all, and a failed scan waits
-     * {@link #RESCAN_INTERVAL} rather than repeating every tick.
+     * <p>Gated on the wielder having their steel out, so a player who never found the chain -
+     * which is almost everyone - never runs the query at all, and a failed scan waits
+     * {@link #RESCAN_INTERVAL} rather than repeating every tick. The gate is exact rather than
+     * conservative now: off means gone, so a sheathed wielder has no entity to find and the scan
+     * would be looking for something that provably is not there.
      */
     private static SwordArrayEntity localArray(LocalPlayer player, ClientLevel level) {
-        if (ClientMagicState.get().swordArray().isEmpty()) {
+        if (!ClientMagicState.get().swordArray().drawn()) {
             arrayId = -1;
             return null;
         }

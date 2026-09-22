@@ -7,9 +7,9 @@ import com.efkrdnz.magical.client.renderer.fx.paint.FilamentPainter;
 import com.efkrdnz.magical.entity.sword.SwordArrayEntity;
 import com.efkrdnz.magical.magic.sword.ArrayPose;
 import com.efkrdnz.magical.magic.sword.Frame;
-import com.efkrdnz.magical.magic.sword.Station;
-import com.efkrdnz.magical.magic.sword.SwordArray;
-import com.efkrdnz.magical.magic.sword.SwordRules;
+import com.efkrdnz.magical.magic.sword.stance.Formation;
+import com.efkrdnz.magical.magic.sword.stance.Slot;
+import com.efkrdnz.magical.magic.sword.stance.SwordStance;
 import com.efkrdnz.magical.magic.visual.FxKinds;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -23,19 +23,24 @@ import net.minecraft.world.phys.Vec3;
 /**
  * The Array at rest: every manned station's blade, and the threads that make the resource public.
  *
- * <p><b>Both sides run one arithmetic.</b> The blades are placed by
- * {@link ArrayPose#worldOffset(Station, Frame)} - the same pure method the server behaviour calls,
- * with the same arguments - so twelve blade positions cost <em>zero bytes</em> on the wire and a
- * blade cannot desync, because there is nothing to desync. All the entity carries is the frame and
- * the shape, and both of those change rarely. It is also why the fusion needs no case here at all:
- * One Blade drives {@code frame.scale} to zero and {@code worldOffset} puts every station on the
- * origin, which is the convergence, drawn by the same line that draws the formation.
+ * <p><b>Both sides run one arithmetic.</b> The swords are placed by {@code Formation.place} and
+ * turned into the world by {@link ArrayPose#worldOffset(Slot, Frame)} - the same pure methods the
+ * server calls, with the same arguments - so twelve sword positions cost <em>zero bytes</em> on
+ * the wire and a sword cannot desync, because there is nothing to desync. All the entity carries
+ * is the frame, the stance and which swords are present, and all three change rarely. It is also
+ * why the fusion needs no case here at all: One Blade drives {@code frame.scale} to zero and
+ * {@code worldOffset} puts every sword on the origin, which is the convergence, drawn by the same
+ * line that draws the formation.
  *
- * <p><b>The threads are the counterplay.</b> One filament from the wielder's chest to every manned
- * blade, brightening with the load and going cinnabar under strain, so an opponent counts the
- * blades from thirty blocks and reads how much Loose, Below and Ward is left without the wielder
- * being asked. They are deliberately not billboarded: the only thing a thread has to say is its
- * direction, and a ribbon turned to face the camera has none.
+ * <p><b>The gaps are the counterplay.</b> A sword that has been spent leaves a <em>hole</em> where
+ * it was standing rather than letting its neighbours close ranks - which is what the present mask
+ * is for and why it is a mask and not a count - so an opponent counts the swords from thirty
+ * blocks and reads how much Loose, Below and Watch is left without the wielder being asked.
+ *
+ * <p><b>The threads say where the origin is.</b> One filament from the wielder's chest to every
+ * present sword, which for every bind but {@code HELD} is a line across open ground to wherever
+ * they left their formation. They are deliberately not billboarded: the only thing a thread has
+ * to say is its direction, and a ribbon turned to face the camera has none.
  *
  * <p><b>In first person the chest is not a point in the scene - it is the camera.</b> The eye
  * stands at 1.62 and the chest at half of a 1.8-block body, so the near end of every thread is
@@ -57,40 +62,45 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEntity> {
 
-    /** Cinnabar, the mod's one "you are over the line" colour. Strain, and nothing else, is red. */
+    /**
+     * Cinnabar, the mod's one "you are running out" colour.
+     *
+     * <p>It used to be strain, which no longer exists. It is the <em>spend</em> now, and that is
+     * the better reading of the same channel: a formation with gaps in it is a wielder who has
+     * fired, and the redder it is the less they have left. Kept public because
+     * {@code SwordSilhouetteTest} names it.
+     */
     public static final int STRAIN_RED = 0xD4402F;
 
-    /** Strain at which the Array is as red as it gets. A God's draw of 84 is well past it. */
-    private static final int STRAIN_FULL = 24;
-
-    /** What a thread shows of itself with an empty budget, so an unloaded Array still has lines. */
+    /** What a thread shows of itself at full strength, so a whole formation still has lines. */
     private static final float THREAD_FLOOR = 0.10F;
 
-    /** What the rest of the load is worth. Floor plus this is a thread at full brightness. */
+    /** What the rest of the reading is worth. Floor plus this is a thread at full brightness. */
     private static final float THREAD_LOAD = 0.75F;
 
     /** How thin a thread is drawn. It is a thread and not a beam; the blade is the object. */
     private static final float THREAD_HALF_WIDTH = 0.012F;
 
-    /** A twin carries half its parent's Edge, so it is drawn at about half its parent's weight. */
-    private static final float MIRROR_ALPHA = 0.55F;
-
-    private static final int[] NO_SHAPE = new int[0];
+    /** Every sword is one sword, so every blade is drawn at the weight one blade is drawn at. */
+    private static final int BLADE_EDGE = 1;
 
     public SwordArrayRenderer(EntityRendererProvider.Context context) {
         super(context);
     }
 
     public static final class State extends ProfileRendererShell.State {
-        /** Bits 0..11 the wielder's own bearings, bits 12..23 their twins. */
+        /** Bit <i>i</i> set means sword <i>i</i> is in formation. A gap is a sword that is away. */
         public int mask;
-        public int[] shape = NO_SHAPE;
-        public int strain;
+        /** How many slots the formation is laid out for, which is not how many are drawn. */
+        public int slots;
+        public SwordStance stance = SwordStance.first();
         public float scale = 1.0F;
         public float frameYaw;
         public float framePitch;
         /** The wielder's chest relative to the frame origin, or null while they are not loaded. */
         public Vec3 chest;
+        /** The wielder's pitch, for a BODY-anchored stance. Positive is up, as Formation wants. */
+        public double lookElevation;
     }
 
     @Override
@@ -107,10 +117,9 @@ public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEnt
         // radius it is handed - which would be a sphere the size of the Array round the wielder.
         // EldritchConstructRenderer zeroes it in the same place for the same reason.
         state.radius = 0.0F;
-        state.mask = entity.extra();
-        CompoundTag data = entity.syncedData();
-        state.shape = data != null ? data.getIntArray(SwordArrayEntity.TAG_SHAPE) : NO_SHAPE;
-        state.strain = data != null ? data.getInt(SwordArrayEntity.TAG_STRAIN) : 0;
+        state.mask = entity.presentMask();
+        state.slots = entity.slotCount();
+        state.stance = entity.stance();
         state.scale = Math.max(0.0F, entity.value());
         Vec3 facing = entity.direction();
         state.frameYaw = frameYaw(facing);
@@ -119,6 +128,12 @@ public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEnt
         Vec3 origin = entity.getPosition(partialTick);
         state.chest = wielder == null ? null
                 : wielder.getPosition(partialTick).add(0.0D, wielder.getBbHeight() * 0.5D, 0.0D).subtract(origin);
+        // Positive up, which is the opposite sign to Minecraft's pitch and the convention
+        // Formation.place takes. A LOOK stance is pinned to the eye and already carries the
+        // wielder's own pitch in the frame, so its elevation must be zero or the aim is applied
+        // twice; a BODY stance sits at pitch zero and this is the whole of its aim.
+        state.lookElevation = wielder == null || state.stance.anchor() == SwordStance.Anchor.LOOK
+                ? 0.0D : -wielder.getViewXRot(partialTick);
     }
 
     /**
@@ -128,7 +143,8 @@ public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEnt
      */
     @Override
     public boolean shouldRender(SwordArrayEntity entity, Frustum frustum, double cameraX, double cameraY, double cameraZ) {
-        double reach = Station.REACH_MAX * Math.max(1.0D, entity.value()) + SwordBladeRenderer.Geometry.LENGTH;
+        double reach = Formation.MAX_EXTENT * Math.max(1.0D, entity.value())
+                + SwordBladeRenderer.Geometry.LENGTH;
         AABB box = entity.getBoundingBox().inflate(reach);
         return entity.shouldRenderAtSqrDistance(entity.distanceToSqr(cameraX, cameraY, cameraZ))
                 && frustum.isVisible(box);
@@ -138,7 +154,7 @@ public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEnt
     public void render(ProfileRendererShell.State base, PoseStack pose, MultiBufferSource buffers, int packedLight) {
         super.render(base, pose, buffers, packedLight);
         State state = (State) base;
-        if (state.mask == 0 || state.shape.length == 0) {
+        if (state.mask == 0 || state.slots <= 0) {
             return;
         }
         FxContext ctx = new FxContext(pose, buffers, state.partialTick,
@@ -148,45 +164,36 @@ public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEnt
         ctx.lod = FxBudget.lodForDistance(state.distanceSqr);
 
         Frame frame = new Frame(0.0D, 0.0D, 0.0D, state.frameYaw, state.framePitch, state.scale);
-        int stations = Math.min(state.shape.length, SwordArray.MAX_STATIONS);
-        float heat = heat(state.strain);
-        // The threads, and only the threads, need the whole shape before any of it is drawn: what
-        // one of them says is how loaded the Array is, and that is a property of all of it.
-        float load = load(state, stations);
-        // Beyond the far LOD band the twins and the threads go before the steel does: the steel is
-        // what the picture is of, and a thread at fifty blocks is a pixel either way.
+        // The phase is the entity's own age, which both sides read off the same clock. A
+        // formation that drifts, spins or bobs does it identically everywhere because nobody is
+        // told where a sword is - both machines work it out.
+        double phase = state.age;
+        float heat = heat(state);
+        // Beyond the far LOD band the threads go before the steel does: the steel is what the
+        // picture is of, and a thread at fifty blocks is a pixel either way.
         boolean near = ctx.lod > 0.0F;
 
-        for (int slot = 0; slot < stations; slot++) {
-            if ((state.mask & (1 << slot)) == 0) {
+        for (int index = 0; index < state.slots; index++) {
+            if ((state.mask & (1 << index)) == 0) {
+                // The gap is the point. See the class note.
                 continue;
             }
-            Station station = Station.unpack(state.shape[slot]);
-            station(ctx, pose, frame, station, heat, 1.0F);
+            Slot slot = Formation.place(state.stance, index, state.slots, phase, state.lookElevation);
+            sword(ctx, pose, frame, slot, heat);
             if (near && state.chest != null) {
-                thread(ctx, pose, frame, station, state.chest, ctx.cameraPos, load, heat);
+                thread(ctx, pose, frame, slot, state.chest, ctx.cameraPos, heat);
             }
-        }
-        if (!near) {
-            return;
-        }
-        for (int slot = 0; slot < stations; slot++) {
-            if ((state.mask & (1 << (SwordArrayEntity.MIRROR_SHIFT + slot))) == 0) {
-                continue;
-            }
-            Station twin = twinOf(Station.unpack(state.shape[slot]));
-            station(ctx, pose, frame, twin, heat, MIRROR_ALPHA);
         }
     }
 
-    /** One blade, hung on its bearing and pointing along it, drawn by the blade's own renderer. */
-    private static void station(FxContext ctx, PoseStack pose, Frame frame, Station station, float heat, float alpha) {
-        double[] offset = ArrayPose.worldOffset(station, frame);
-        double[] bearing = ArrayPose.worldBearing(station, frame);
+    /** One sword, standing where the stance puts it and facing the way the stance points it. */
+    private static void sword(FxContext ctx, PoseStack pose, Frame frame, Slot slot, float heat) {
+        double[] offset = ArrayPose.worldOffset(slot, frame);
+        double[] facing = ArrayPose.worldDirection(slot, frame);
         pose.pushPose();
         pose.translate(offset[0], offset[1], offset[2]);
-        SwordBladeRenderer.blade(ctx, new Vec3(bearing[0], bearing[1], bearing[2]), station.edge(),
-                alpha, 0.0F, tint(station.edge(), heat));
+        SwordBladeRenderer.blade(ctx, new Vec3(facing[0], facing[1], facing[2]), BLADE_EDGE,
+                1.0F, 0.0F, tint(BLADE_EDGE, heat));
         pose.popPose();
     }
 
@@ -209,9 +216,9 @@ public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEnt
      * on the blade. The shader fades the first tenth of whatever tube it gets, which is why a
      * trimmed thread swims into view rather than beginning on a cut end.
      */
-    private static void thread(FxContext ctx, PoseStack pose, Frame frame, Station station, Vec3 chest,
-            Vec3 camera, float load, float heat) {
-        double[] offset = ArrayPose.worldOffset(station, frame);
+    private static void thread(FxContext ctx, PoseStack pose, Frame frame, Slot slot, Vec3 chest,
+            Vec3 camera, float heat) {
+        double[] offset = ArrayPose.worldOffset(slot, frame);
         double from = ThreadGeometry.start(chest.x, chest.y, chest.z,
                 offset[0], offset[1], offset[2], camera.x, camera.y, camera.z);
         if (from >= 1.0D) {
@@ -228,7 +235,7 @@ public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEnt
         FilamentPainter.orientAlong(pose, run);
         FilamentPainter.beam(ctx, FxKinds.Filament.THREAD_KNOTS, THREAD_HALF_WIDTH, (float) length,
                 SwordBladeRenderer.lerpRgb(0xB9C4CE, STRAIN_RED, heat),
-                THREAD_FLOOR + THREAD_LOAD * load, SwordBladeRenderer.BEAM_WHOLE, 3, 4);
+                THREAD_FLOOR + THREAD_LOAD * (1.0F - heat), SwordBladeRenderer.BEAM_WHOLE, 3, 4);
         pose.popPose();
     }
 
@@ -307,69 +314,26 @@ public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEnt
 
     // ---- the readings ---------------------------------------------------------------------------
 
-    /** How far toward cinnabar the whole Array has gone. Nothing but strain is ever red here. */
-    public static float heat(int strain) {
-        return Math.max(0.0F, Math.min(1.0F, strain / (float) STRAIN_FULL));
+    /**
+     * How far toward cinnabar the formation has gone, which is how much of it has been spent.
+     *
+     * <p>Read off the mask rather than synced, and that is the whole of it: the present count and
+     * the slot count are both properties of one bitfield the entity was already sending, so a
+     * reading that used to need its own integer on the wire now needs nothing at all. A whole
+     * formation is steel; every gap pulls it toward red; nothing left is red.
+     */
+    public static float heat(State state) {
+        if (state.slots <= 0) {
+            return 0.0F;
+        }
+        return Math.max(0.0F, Math.min(1.0F,
+                1.0F - Integer.bitCount(state.mask) / (float) state.slots));
     }
 
-    /** A blade's own weight on the palette ramp, pulled toward cinnabar by the Array's strain. */
+    /** A blade's own weight on the palette ramp, pulled toward cinnabar by what has been spent. */
     public static int tint(int edge, float heat) {
         return heat <= 0.0F ? SwordBladeRenderer.edgeColor(edge)
                 : SwordBladeRenderer.lerpRgb(SwordBladeRenderer.edgeColor(edge), STRAIN_RED, heat);
-    }
-
-    /** {@code bill * scale} against the draw, which is what a thread's brightness is reading. */
-    private static float load(State state, int stations) {
-        int bill = 0;
-        int widest = 0;
-        int manned = 0;
-        for (int slot = 0; slot < stations; slot++) {
-            if ((state.mask & (1 << slot)) == 0) {
-                continue;
-            }
-            Station station = Station.unpack(state.shape[slot]);
-            bill += station.weight();
-            widest = Math.max(widest, station.edge());
-            manned++;
-        }
-        if (bill <= 0) {
-            return 0.0F;
-        }
-        int scaled = (int) Math.ceil(bill * (double) state.scale);
-        return Math.min(1.0F, scaled / (float) draw(bill, widest, manned));
-    }
-
-    /**
-     * The draw the threads are read against, inferred from the shape rather than synced.
-     *
-     * <p>The rung is not on the wire and there is nowhere to put it: the Array rides the fourteen
-     * slots {@code SpellEffectEntity} already has and every one of them is spoken for. But a rung
-     * is a set of caps, and a shape is evidence about which caps it was built under - so the
-     * smallest rung that could legally hold this shape is the answer, and it is exactly right for
-     * every wielder who has not climbed a rung without rebuilding. The one it is wrong for it
-     * reads <em>hotter</em> than the truth, which is the safe direction for a gauge whose job is
-     * to warn, and the reading that actually matters - the strain - is synced exactly.
-     */
-    private static int draw(int bill, int widestEdge, int stations) {
-        for (int rung = 0; rung < SwordRules.rungs(); rung++) {
-            SwordRules rules = SwordRules.forRung(rung);
-            if (stations <= rules.maxStations() && widestEdge <= rules.maxEdge() && bill <= rules.draw()) {
-                return rules.draw();
-            }
-        }
-        return SwordRules.GOD.draw();
-    }
-
-    /**
-     * {@code yaw + 12}, pitch negated, reach unchanged, Edge halved with a floor of one.
-     *
-     * <p>{@code Projection.mirror} and {@code SwordArrayEntity.mask} both build the same twin;
-     * this is the third copy, because the first answers a list with no slots in it and the second
-     * lives on the server. {@code ProjectionTest} pins the arithmetic all three of them run.
-     */
-    private static Station twinOf(Station station) {
-        return new Station((station.yaw() + Station.YAW_STEPS / 2) % Station.YAW_STEPS,
-                -station.pitch(), station.reach(), Math.max(1, station.edge() / 2));
     }
 
     // ---- the frame's facing, read back off the wire ----------------------------------------------

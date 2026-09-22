@@ -81,7 +81,7 @@ public final class SwordRiteGameTests {
         // rite. Asking whether the stage was EVER whole can.
         boolean[] everWhole = new boolean[1];
         String[] lastComplaint = {"never sampled"};
-        for (int tick : new int[] {12, 20, 28, 36, 44, 60, 80}) {
+        for (int tick : new int[] {4, 6, 8, 10, 12, 20, 28, 36, 44, 60, 80}) {
             helper.runAtTickTime(tick, () -> {
                 if (everWhole[0]) {
                     return;
@@ -95,16 +95,24 @@ public final class SwordRiteGameTests {
             });
         }
         helper.runAtTickTime(200, () -> {
-            helper.assertTrue(everWhole[0],
+            // The grant is the other way of knowing the stage was whole, and it has to be here
+            // or this test is a coin toss. SwordRiteService's expensive sweep runs on
+            // `now % SWEEP_INTERVAL == 0` against the server's <em>absolute</em> game time, not
+            // against this test's clock - so on the runs where that lands a few ticks after the
+            // offerings ground, the rite answers, consumes all four, and every sample below sees
+            // an empty floor. The rite's own conditions are stricter than this check, so a grant
+            // proves the stage outright; the samples are the diagnostic for when there is none.
+            helper.assertTrue(everWhole[0] || state.hasClass(MagicalClasses.SWORD_SUMMONER),
                     "the test's own stage was never whole, so this says nothing about the rite: "
                             + lastComplaint[0]);
             helper.assertTrue(state.hasClass(MagicalClasses.SWORD_SUMMONER),
                     "four swords shift-dropped at night under open sky, spread out and at rest "
                             + "around the caster, must answer - this is the only way the class can "
                             + "be had, so if it does not fire the class is unreachable");
-            helper.assertTrue(state.swordArray().bound() > 0,
-                    "and the rite writes the four bearings as the wielder's first Array, which is "
-                            + "why the Summoner rung allows exactly four stations");
+            helper.assertTrue(state.swordArray().drawn(),
+                    "and the rite leaves the steel out: the four swords laid on the ground stand "
+                            + "up as the formation, which is the whole of the payoff and is why "
+                            + "the Summoner rung fields exactly four of them");
             helper.succeed();
         });
     }

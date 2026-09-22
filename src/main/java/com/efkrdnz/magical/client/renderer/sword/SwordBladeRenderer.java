@@ -321,8 +321,14 @@ public final class SwordBladeRenderer extends ProfileRendererShell<SwordBladeEnt
 
         public static final double MODEL_HALF_Z = 1.41D;
 
-        /** Twelve stations, and the Mirror passive draws a twin of every one of them. */
-        public static final int MAX_BLADES = 24;
+        /**
+         * Twelve, which is the apex rung's whole complement and the most that can ever stand.
+         *
+         * <p>It was 24 while Mirror of the Array drew a twin of every station. That passive
+         * reflects the wielder's <em>previous stance's Watch</em> now rather than their steel,
+         * so it costs no quads at all and the worst frame halved.
+         */
+        public static final int MAX_BLADES = 12;
 
         /** What a Sword God's worst frame costs, stated so it cannot be forgotten. */
         public static final int WORST_CASE_QUADS = MODEL_QUADS * MAX_BLADES;

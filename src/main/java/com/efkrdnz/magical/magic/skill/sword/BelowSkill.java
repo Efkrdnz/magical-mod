@@ -5,7 +5,6 @@ import com.efkrdnz.magical.entity.fx.SpellEffectEntity;
 import com.efkrdnz.magical.entity.sword.SwordBladeEntity;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicDamageService;
-import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.cast.CastContext;
@@ -17,11 +16,11 @@ import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
 import com.efkrdnz.magical.magic.sword.ArrayPose;
 import com.efkrdnz.magical.magic.sword.Bind;
-import com.efkrdnz.magical.magic.sword.Projection;
-import com.efkrdnz.magical.magic.sword.Station;
-import com.efkrdnz.magical.magic.sword.SwordArray;
+import com.efkrdnz.magical.magic.sword.Frame;
 import com.efkrdnz.magical.magic.sword.SwordMath;
 import com.efkrdnz.magical.magic.sword.SwordService;
+import com.efkrdnz.magical.magic.sword.stance.Pattern;
+import com.efkrdnz.magical.magic.sword.stance.Slot;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
 import com.efkrdnz.magical.magic.visual.CircleScript;
 import com.efkrdnz.magical.magic.visual.ColorRole;
@@ -52,13 +51,18 @@ import net.minecraft.world.phys.Vec3;
  * down, and everything that pointed at the floor comes back up through that spot.
  *
  * <p>Two things make this a projection rather than a skill with numbers. The first is that the
- * eruption's strength is exactly how much of the authored shape points downward
- * ({@link Projection#below}), which is precisely the part of the shape that is <em>not</em>
- * covering the wielder's flanks - so a wielder who planted a flat guard ring has zero stations
- * below and Below is a mark on the ground and nothing else. The second is that the origin is a
- * <b>point committed at the press and never re-acquired</b>: the crosshair point, or the feet of
- * the body that was under the crosshair at that instant, and after {@link #COMMIT_TICK} nothing
- * about the strike can change.
+ * eruption's strength is exactly how many swords the wielder has with them - no cap, no scaling
+ * term, no separate damage stat - so a wielder who has just Loosed their whole formation erupts
+ * with nothing, and the number has been on screen the whole time. The second is that the origin
+ * is a <b>point committed at the press and never re-acquired</b>: the crosshair point, or the
+ * feet of the body that was under the crosshair at that instant, and after {@link #COMMIT_TICK}
+ * nothing about the strike can change.
+ *
+ * <p>It used to read the <em>downward half</em> of an authored lattice, which was a fine rule
+ * with one fatal property: the shape it was a projection of had been authored blind, through a
+ * crosshair that could not reach half of it. The stance is the choice now, and the stance's
+ * {@link Pattern} is what the swords left standing in the ground are laid out on - so the six
+ * postures give six pictures of the same skill without a per-skill dial anywhere.
  *
  * <p><b>The telegraph and the wielder's feet must never be drawn in the same place.</b> Below
  * commits to a point and not to a body, which reads as a bug to anyone trained on homing area
@@ -69,10 +73,11 @@ import net.minecraft.world.phys.Vec3;
  * point in three dimensions, and jumping peaks at 1.25 blocks against a cylinder 3.5 tall.
  * Speed is the refuge.
  *
- * <p>The blades are gone from their stations the moment they sink: a blade in the air is metal in
- * the world, so every one of them leaves through {@link SwordService#detach} and its Edge is
- * spent. What comes back depends on the hit test - a blade that struck stays in the body, a blade
- * that struck nothing stands in the ground where the wielder (or the enemy) can get at it.
+ * <p>The swords are gone from the formation the moment they sink: a sword under the ground is
+ * not a sword at your shoulder, so every one of them leaves through
+ * {@link SwordService#spendSword}. What comes back depends on the hit test - a sword that struck
+ * walks home on the return clock, a sword that struck nothing stands in the ground where the
+ * wielder (or the enemy) can get at it.
  */
 public final class BelowSkill implements SkillModule {
 
@@ -119,12 +124,18 @@ public final class BelowSkill implements SkillModule {
     /** Asked for, so the drawn fan tops out at exactly {@link #ERUPT_HEIGHT} and no higher. */
     public static final float RISE_HEIGHT = (float) (ERUPT_HEIGHT / PLATE_FAN_OVERSHOOT);
 
-    /** How far a blade that struck nothing stands off the origin, so four of them are four. */
+    /**
+     * How wide the swords that struck nothing are laid out, as a reach handed to the pattern.
+     *
+     * <p>Deliberately much smaller than the patterns own constants would give at full size: a
+     * ring of swords standing two blocks out reads as a fence somebody built rather than as the
+     * wreckage of one eruption. The spans the patterns carry are aiming spans measured off a
+     * target, so they are scaled down to this rather than passed through.
+     */
     private static final double PLANT_SPREAD = 0.35D;
 
-    private static final String TAG_SLOTS = "Slots";
-    private static final String TAG_EDGES = "Edges";
-    private static final String TAG_TWINS = "Twins";
+    private static final String TAG_COUNT = "Swords";
+    private static final String TAG_PATTERN = "Pattern";
     private static final String TAG_BILL = "Bill";
     private static final String TAG_STRUCK = "Struck";
 
@@ -191,35 +202,31 @@ public final class BelowSkill implements SkillModule {
     }
 
     /**
-     * The press: a point is recorded, the frame goes under it, and the downward half leaves.
+     * The press: a point is recorded, the frame goes under it, and every sword goes with it.
      *
      * <p>A plain press, so the registry has already taken the mana and will write the cooldown -
      * there is no {@code payFor} here and a refusal answers {@link CastResult#FAILED}, which
-     * refunds. A wielder with nothing below still pays and still gets the ring: the skill did what
-     * it does, and what it does is decided by the shape they authored.
+     * refunds. A wielder with no swords present still pays and still gets the ring: the skill did
+     * what it does, and what it does is decided by how much steel they still have.
      */
     private static CastResult sink(CastContext ctx, ServerPlayer player, PlayerMagicState state) {
         Vec3 origin = committedPoint(ctx);
-        SwordArray array = state.swordArray();
-        int[] slots = Projection.below(array);
-        int[] edges = new int[slots.length];
-        for (int i = 0; i < slots.length; i++) {
-            Station station = array.station(slots[i]);
-            int edge = station == null ? 0 : station.edge();
-            // Through detach, always: it is the one door out of a station, and it is the only
-            // reason conservation holds in this kit without anybody counting.
-            edges[i] = SwordService.detach(player, state, slots[i], edge);
-        }
+        // Through spendSwords, always: it is the one door out of the formation, and it is the
+        // only reason the count stays honest without anybody adding anything up.
+        int sunk = SwordService.spendSwords(player, state, SwordService.present(player, state));
 
         SwordService.sink(player, origin);
         SwordService.tendArrayEntity(player, state);
+        state.sync(player);
 
         int life = Math.max(HIT_TICK + 1, ctx.duration());
         SpellEffectEntity eruption = SpellEffectEntity.spawn(ctx, origin, life, (float) ERUPT_RADIUS, new Vec3(0.0D, 1.0D, 0.0D));
         CompoundTag scratch = eruption.serverData();
-        scratch.putIntArray(TAG_SLOTS, slots);
-        scratch.putIntArray(TAG_EDGES, edges);
-        scratch.putIntArray(TAG_TWINS, twinEdges(state, array));
+        scratch.putInt(TAG_COUNT, sunk);
+        // The stance is read once, here, and not again at the strike: a wielder who changes
+        // posture during the sixteen ticks of warning has not moved the swords that are already
+        // under the ground, and the shape they come up in is the shape they went down in.
+        scratch.putInt(TAG_PATTERN, state.swordArray().stance().pattern().ordinal());
         ctx.level().playSound(null, origin.x, origin.y, origin.z,
                 SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.7F, 0.6F);
         return CastResult.SUCCESS;
@@ -238,50 +245,6 @@ public final class BelowSkill implements SkillModule {
         }
         LivingEntity body = ctx.aim().living();
         return body != null ? body.position() : ctx.aim().point();
-    }
-
-    /**
-     * Mirror of the Array's contribution, as the <em>source</em> Edge of every twin that points
-     * downward.
-     *
-     * <p>{@link SwordMath#mirrorDamage} halves the edge it is given, and
-     * {@link Projection#mirror} has already halved the twin's own - so the number stored here is
-     * the real station's, recovered by inverting the reflection (yaw + 12, pitch negated) and
-     * looking it up. Passing the twin's halved Edge would be right for every station above two
-     * and wrong for a one-Edge bearing, which is exactly the bearing the floor of one exists for.
-     *
-     * <p>A twin costs no Edge and no bill: it is a reflection and not metal, so nothing is
-     * detached for it and nothing is planted by it.
-     */
-    private static int[] twinEdges(PlayerMagicState state, SwordArray array) {
-        if (!state.isPassiveEnabled(MagicPassiveContent.MIRROR_OF_THE_ARRAY.id())) {
-            return new int[0];
-        }
-        List<Station> twins = Projection.mirror(array);
-        int[] sources = new int[twins.size()];
-        int found = 0;
-        for (Station twin : twins) {
-            if (twin.pitch() >= 0) {
-                continue;
-            }
-            sources[found++] = sourceEdge(array, twin);
-        }
-        int[] trimmed = new int[found];
-        System.arraycopy(sources, 0, trimmed, 0, found);
-        return trimmed;
-    }
-
-    private static int sourceEdge(SwordArray array, Station twin) {
-        int yaw = (twin.yaw() + Station.YAW_STEPS / 2) % Station.YAW_STEPS;
-        for (int i = 0; i < array.size(); i++) {
-            Station station = array.station(i);
-            if (station != null && station.yaw() == yaw && station.pitch() == -twin.pitch()) {
-                return station.edge();
-            }
-        }
-        // Coincidence lets two stations share a bearing, and a reflection of one of them may not
-        // find its own again. Its own Edge is already the halved one, so it stands as written.
-        return twin.edge() * 2;
     }
 
     // ---- the timeline -----------------------------------------------------------------------------
@@ -343,12 +306,13 @@ public final class BelowSkill implements SkillModule {
     }
 
     /**
-     * COMMIT: the bill is written down and the strain that wrote it can move afterwards.
+     * COMMIT: the bill is written down, and nothing after this tick can move it.
      *
-     * <p>The damage is fixed here rather than read at the hit for the reason the spec gives the
-     * tick a name - sixteen ticks in, nothing about the strike can change. The Edge each blade
-     * carries was fixed six ticks earlier, when it left its station; this is the other half of
-     * the number.
+     * <p>Written here rather than read at the hit for the reason the spec gives the tick a name -
+     * sixteen ticks in, nothing about the strike can change. How many swords went down was fixed
+     * six ticks earlier, at the press; this is the other half of the number, and with one flat
+     * {@link SwordMath#bladeDamage} per sword the whole eruption is a multiplication the wielder
+     * can read off their own HUD before they press it.
      */
     private static void commit(SpellEffectEntity effect) {
         effect.setPhase(SpellEffectEntity.PHASE_CLOSING);
@@ -356,16 +320,8 @@ public final class BelowSkill implements SkillModule {
         // The same tick, said twice: nothing about the strike can change, and the steel is now
         // allowed to be in the world. See drawModeAt.
         effect.setMode(modeFor(effect.mode(), drawModeAt(COMMIT_TICK)));
-        int strain = effect.livingOwner() instanceof ServerPlayer player ? SwordService.strain(player) : 0;
         CompoundTag scratch = effect.serverData();
-        double bill = 0.0D;
-        for (int edge : scratch.getIntArray(TAG_EDGES)) {
-            bill += SwordMath.bladeDamage(edge, strain);
-        }
-        for (int source : scratch.getIntArray(TAG_TWINS)) {
-            bill += SwordMath.mirrorDamage(source, strain);
-        }
-        scratch.putDouble(TAG_BILL, bill);
+        scratch.putDouble(TAG_BILL, scratch.getInt(TAG_COUNT) * SwordMath.bladeDamage());
     }
 
     /**
@@ -408,26 +364,39 @@ public final class BelowSkill implements SkillModule {
     }
 
     /**
-     * A blade that hit nothing stays where it came up.
+     * A sword that hit nothing stays where it came up, and the stance says where that is.
      *
-     * <p>Its Edge is already spent, so this creates no metal - it creates the place the wielder
-     * can walk to and take it back in a stride, and the place the enemy can break. That is the
-     * whole recovery loop of the class pointed at the ground the wielder was just losing.
+     * <p>It is already away from the formation, so this creates no steel - it creates the place
+     * the wielder can walk to and take it back in a stride, and the place the enemy can break.
+     * That is the whole recovery loop of the class pointed at the ground the wielder was just
+     * losing, and it is the one place Below's {@link Pattern} is visible after the fact: Guard
+     * leaves a fence across the path, Crown a ring round the spot, Rain a scatter.
+     *
+     * <p>The pattern's y is dropped and its spread scaled to {@link #PLANT_SPREAD}. A sword
+     * standing in the ground stands in the ground whatever the pattern thought about height.
      */
     private static void standInTheGround(SpellEffectEntity effect, ServerLevel level, Vec3 origin) {
         if (!(effect.livingOwner() instanceof ServerPlayer player)) {
             return;
         }
         CompoundTag scratch = effect.serverData();
-        int[] slots = scratch.getIntArray(TAG_SLOTS);
-        int[] edges = scratch.getIntArray(TAG_EDGES);
-        for (int i = 0; i < slots.length && i < edges.length; i++) {
-            if (edges[i] <= 0) {
-                continue;
-            }
-            double bearing = 2.0D * Math.PI * i / Math.max(1, slots.length);
-            Vec3 at = origin.add(Math.cos(bearing) * PLANT_SPREAD, 0.0D, Math.sin(bearing) * PLANT_SPREAD);
-            SwordBladeEntity.plant(level, player, MagicContent.BELOW.id(), at, slots[i], edges[i]);
+        int count = scratch.getInt(TAG_COUNT);
+        if (count <= 0) {
+            return;
+        }
+        Pattern[] patterns = Pattern.values();
+        Pattern pattern = patterns[Math.floorMod(scratch.getInt(TAG_PATTERN), patterns.length)];
+        // Pattern-local, turned into the world about the origin by the same rotation everything
+        // else uses. Yaw only: the eruption came straight up, so there is no pitch to apply and
+        // a facing would only tilt a layout that is already lying on the floor.
+        Frame flat = new Frame(origin.x, origin.y, origin.z, player.getYRot(), 0.0F, 1.0F);
+        double scale = PLANT_SPREAD / Pattern.RING_RADIUS;
+        for (int i = 0; i < count; i++) {
+            Slot spread = Pattern.spread(pattern, i, count, PLANT_SPREAD);
+            double[] offset = ArrayPose.worldOffset(
+                    Slot.at(spread.x() * scale, 0.0D, spread.z() * scale, 0.0D, 1.0D, 0.0D), flat);
+            Vec3 at = origin.add(offset[0], 0.0D, offset[2]);
+            SwordBladeEntity.plant(level, player, MagicContent.BELOW.id(), at, i, 1);
         }
     }
 

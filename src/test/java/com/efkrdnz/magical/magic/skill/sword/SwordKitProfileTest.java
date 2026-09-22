@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.efkrdnz.magical.magic.sword.Station;
+import com.efkrdnz.magical.magic.sword.stance.Formation;
 import com.efkrdnz.magical.magic.sword.SwordMath;
 import com.efkrdnz.magical.magic.visual.ReleaseMode;
 import com.efkrdnz.magical.magic.visual.Silhouette;
@@ -43,7 +43,7 @@ class SwordKitProfileTest {
     private static final double HALF_FRAME_DEGREES = 35.0D;
 
     private static VisualProfile callTheBlade;
-    private static VisualProfile theBearing;
+    private static VisualProfile theStance;
     private static VisualProfile theKeel;
     private static VisualProfile oneBlade;
 
@@ -52,7 +52,7 @@ class SwordKitProfileTest {
         SharedConstants.tryDetectVersion();
         Bootstrap.bootStrap();
         callTheBlade = new CallTheBladeSkill().profile().build();
-        theBearing = new TheBearingSkill().profile().build();
+        theStance = new SwordStanceSkill().profile().build();
         theKeel = new TheKeelSkill().profile().build();
         oneBlade = new OneBladeSkill().profile().build();
     }
@@ -65,7 +65,7 @@ class SwordKitProfileTest {
         // and its radius is 3.0 - a disc six blocks across for a class whose entire lattice runs
         // one to six blocks from the wielder's chest. A circle that size is not a mark on the
         // Array, it is a disc the Array fits inside.
-        for (VisualProfile profile : new VisualProfile[] {callTheBlade, theBearing, theKeel, oneBlade}) {
+        for (VisualProfile profile : new VisualProfile[] {callTheBlade, theStance, theKeel, oneBlade}) {
             assertNotEquals(TIER_DEFAULT_RADIUS, profile.tier().radius(), EPSILON,
                     profile.skillId() + " still draws its cast circle at the tier default of "
                             + TIER_DEFAULT_RADIUS + " blocks");
@@ -73,50 +73,50 @@ class SwordKitProfileTest {
     }
 
     @Test
-    void theBearingMarkNamesOneBearingAndNotTwo() {
-        // Call the Blade writes a single station, and a station is a point on a 15-degree yaw
-        // lattice. At the furthest reach the skill can write to, two neighbouring bearings are
-        // 2 * REACH_MAX * sin(7.5) = 1.57 blocks apart, so a mark of more than half that covers
-        // the bearing next door as well. At the old 3.0 the mark was four times the whole gap.
-        double halfCell = Station.REACH_MAX * Math.sin(Math.toRadians(Station.YAW_STEP_DEGREES / 2.0D));
-        assertTrue(callTheBlade.tier().radius() <= halfCell + EPSILON,
-                "the bearing mark is " + callTheBlade.tier().radius()
-                        + " blocks of radius where two bearings are only " + (2.0D * halfCell) + " apart");
-        // The floor. A mark under 0.3 is under six degrees at the far end of the six-block
-        // reach, which is smaller than the crosshair it is being aimed with.
-        assertTrue(callTheBlade.tier().radius() >= 0.3D,
-                "the bearing mark is " + callTheBlade.tier().radius()
-                        + " blocks of radius, which is smaller than the crosshair at six blocks");
+    void theToggleMarkIsTheRingTheSwordsComeOutOf() {
+        // Call the Blade raises a whole formation round the wielder, and a formation stands
+        // inside Formation.MAX_EXTENT of them. A mark wider than that is a mark of somewhere the
+        // swords are not; at the tier default of 3.0 it was most of a block wider than the
+        // widest sword in the widest stance.
+        assertTrue(callTheBlade.tier().radius() <= Formation.MAX_EXTENT + EPSILON,
+                "the toggle's mark is " + callTheBlade.tier().radius()
+                        + " blocks of radius where the formation itself reaches only "
+                        + Formation.MAX_EXTENT);
+        // The floor. The mark has to reach past the wielder's own body or it is a disc under
+        // their feet rather than a ring the steel appears out of.
+        assertTrue(callTheBlade.tier().radius() >= Formation.BODY_CLEARANCE * 2.0D,
+                "the toggle's mark is " + callTheBlade.tier().radius()
+                        + " blocks of radius, which does not clear the wielder standing in it");
     }
 
     @Test
     void aRingAtTheHandFitsInsideTheFrameItIsDrawnOn() {
         // An EYE_FORWARD circle is never placed in the world: SpellFx.windup hangs it
-        // TheBearingSkill.HAND_DISTANCE along the look from the eye and turns it to face the
+        // SwordStanceSkill.HAND_DISTANCE along the look from the eye and turns it to face the
         // camera, so its size is atan(radius / HAND_DISTANCE) and nothing else. At the tier
         // default that is 73 degrees - a disc running off all four edges of a 70-degree frame,
         // which is the picture the first Loose capture returned.
-        double ceiling = TheBearingSkill.HAND_DISTANCE * Math.tan(Math.toRadians(HALF_FRAME_DEGREES));
-        double floor = TheBearingSkill.HAND_DISTANCE * Math.tan(Math.toRadians(6.0D));
-        for (VisualProfile profile : new VisualProfile[] {theBearing, oneBlade}) {
+        double ceiling = SwordStanceSkill.HAND_DISTANCE * Math.tan(Math.toRadians(HALF_FRAME_DEGREES));
+        double floor = SwordStanceSkill.HAND_DISTANCE * Math.tan(Math.toRadians(6.0D));
+        for (VisualProfile profile : new VisualProfile[] {theStance, oneBlade}) {
             double radius = profile.tier().radius();
             assertTrue(radius <= ceiling + EPSILON,
                     profile.skillId() + " hangs a ring of radius " + radius + " at "
-                            + TheBearingSkill.HAND_DISTANCE + " blocks, which runs off the edge of the frame");
+                            + SwordStanceSkill.HAND_DISTANCE + " blocks, which runs off the edge of the frame");
             assertTrue(radius >= floor,
                     profile.skillId() + " hangs a ring of radius " + radius + " at "
-                            + TheBearingSkill.HAND_DISTANCE + " blocks, which is a dot on the crosshair");
+                            + SwordStanceSkill.HAND_DISTANCE + " blocks, which is a dot on the crosshair");
         }
     }
 
     @Test
     void theKeelMarksOnePlaceToStand() {
-        // The Keel puts one station's blade under the feet. REACH_MIN is the shortest arm in the
-        // lattice, so a ground mark wider than one block across is a mark of the whole formation
-        // rather than of the one bearing that is bearing the wielder.
-        assertTrue(theKeel.tier().radius() <= Station.REACH_MIN + EPSILON,
+        // The Keel puts one sword under the feet. A ground mark wider than the wielder's own
+        // clearance is a mark of the whole formation rather than of the one sword that is
+        // bearing them.
+        assertTrue(theKeel.tier().radius() <= Formation.BODY_CLEARANCE * 2.0D + EPSILON,
                 "the Keel's footing mark is " + theKeel.tier().radius()
-                        + " blocks of radius, wider than the shortest arm in the lattice");
+                        + " blocks of radius, wider than the wielder standing on it");
         assertTrue(theKeel.tier().radius() >= 0.4D,
                 "the Keel's footing mark is " + theKeel.tier().radius()
                         + " blocks of radius, which is smaller than the wielder standing on it");
@@ -143,7 +143,7 @@ class SwordKitProfileTest {
         // rather than a stroke - rendertype_ground_mark lights it at 2.5 * (1 - phase) over a
         // colour mixed to vec3(1) for the first half of its life, on the additive twin. Below
         // shipped it and photographed as a white lightbox; these four must not acquire it.
-        for (VisualProfile profile : new VisualProfile[] {callTheBlade, theBearing, theKeel, oneBlade}) {
+        for (VisualProfile profile : new VisualProfile[] {callTheBlade, theStance, theKeel, oneBlade}) {
             assertNotEquals(ReleaseMode.SLAM, profile.release().mode(),
                     profile.skillId() + " has taken the filled-disc release flash");
         }
@@ -176,14 +176,14 @@ class SwordKitProfileTest {
     }
 
     @Test
-    void theBearingPaintsNoFallbackEither() {
-        // Nothing carries THE_BEARING onto an effect entity today, so this costs nothing - but
-        // "the_bearing" is not a registered painter id either, and the day somebody hands this
+    void theStancePaintsNoFallbackEither() {
+        // Nothing carries SWORD_STANCE onto an effect entity today, so this costs nothing - but
+        // "sword_stance" is not a registered painter id either, and the day somebody hands this
         // profile to an entity the blown-white fallback above is what they get.
-        for (Silhouette silhouette : theBearing.silhouettes()) {
+        for (Silhouette silhouette : theStance.silhouettes()) {
             for (int mode = 0; mode < 8; mode++) {
                 assertFalse(silhouette.drawnIn(mode),
-                        "the Bearing's " + silhouette.family() + " silhouette is painted in draw mode " + mode);
+                        "Sword Stance's " + silhouette.family() + " silhouette is painted in draw mode " + mode);
             }
         }
     }

@@ -65,10 +65,10 @@ public final class PlayerMagicState {
     private int anchorSigilY;
     private int anchorSigilZ;
     private int anchorSigilTicks;
-    // The wielder half of the Sword Summoner: the bearings they authored and the Edge they put on
-    // each. Saved, because it is the only part of that class they actually own. The blades in the
-    // air, the frame, the spent metal lying in the world and every recovery clock belong to
-    // SwordService and are never saved, the way PileService drops its Piles.
+    // The wielder half of the Sword Summoner: which stance they hold, and whether the steel is
+    // out. Saved, because those two are the only part of that class they actually own. The swords
+    // in the air, which of them are away, the frame and every return clock belong to SwordService
+    // and are never saved, the way PileService drops its Piles.
     private final com.efkrdnz.magical.magic.sword.SwordArray swordArray = new com.efkrdnz.magical.magic.sword.SwordArray();
     private int mirrorDecoyEntityId = -1;
     private int nullThreadEntityId = -1;
@@ -2227,9 +2227,9 @@ public final class PlayerMagicState {
         tag.putLong("paradoxFired", paradox.lastFired());
         tag.putLong("paradoxShut", paradox.shutUntil());
         tag.put("causalAnchor", anchor.save());
-        // Omitted entirely while the Array is empty - the bloodShapes precedent - because this tag
-        // rides every sync for every player and the overwhelming majority never find the rite.
-        if (!swordArray.isEmpty()) {
+        // Omitted entirely while the Array is untouched - the bloodShapes precedent - because this
+        // tag rides every sync for every player and the overwhelming majority never find the rite.
+        if (!swordArray.isDefault()) {
             tag.put("swordArray", swordArray.save());
         }
         tag.putString("anchorSigilDimension", anchorSigilDimension);
@@ -2530,15 +2530,13 @@ public final class PlayerMagicState {
             }
         }
         // Below the classes and not up with the other tag reads, because SwordService.rulesFor
-        // reads the class progress and SwordArray.load re-runs the plant rules over every bearing
-        // it reads. Loaded before the rung is on, a Sword God's twelve stations are re-filtered
-        // down to SwordRules.SUMMONER's four stations and 24 of draw - and refreshRung cannot put
-        // back what the load already threw away, so it was a permanent loss on the disk and,
-        // because the client rebuilds from this same tag, a wrong Array on every sync as well.
-        // That is what a HUD reading "24/84" against a bill of 76 actually was: 24 is not a
-        // fraction of 76, it is SUMMONER's own draw, exactly.
+        // reads the class progress and SwordArray.load clamps the stance it reads against the rung
+        // it is already holding. Loaded before the rung is on, a Sword God's Rain is clamped back
+        // to Guard - and refreshRung cannot put back what the load already threw away, so it is a
+        // permanent loss on the disk and, because the client rebuilds from this same tag, the
+        // wrong stance on every sync as well.
         // getIntArray answers an empty array for an absent or mistyped key, and load() is total
-        // and clears first, so the omitted-while-empty save needs no guard on the way back in.
+        // and clears first, so the omitted-while-default save needs no guard on the way back in.
         state.swordArray.setRules(com.efkrdnz.magical.magic.sword.SwordService.rulesFor(state));
         state.swordArray.load(new IntArrayTag(tag.getIntArray("swordArray")));
         CompoundTag echoTag = tag.getCompound("cooldownEchoCounters");

@@ -4,7 +4,6 @@ import com.efkrdnz.magical.classes.MagicalClassDefinition;
 import com.efkrdnz.magical.classes.MagicalClasses;
 import com.efkrdnz.magical.forge.ForgedWeapons;
 import com.efkrdnz.magical.magic.PlayerMagicState;
-import com.efkrdnz.magical.magic.passive.SwordPassives;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,13 +37,16 @@ import net.minecraft.world.phys.Vec3;
  * Ctrl+Q outdoors has seen the first. Only somebody who decided to has seen the second.
  *
  * <p><b>The payoff is the whole reason this rite was chosen over the three others proposed, and it
- * is the part to get right.</b> The four swords do not merely unlock the class: the four bearings
- * they were lying at, relative to the thrower, <em>become the wielder's first four stations</em>.
- * The unlock ceremony is the first Call the Blade, four times, performed with your feet. A player
- * who has watched it happen has already been taught what the kit is, and they start the class with
- * a build they made rather than a default. {@link #RITE_EDGE} on each and a reach clamped to
- * {@link #RITE_MAX_REACH} is {@code 4 * 3 * 2 = 24}, which is the base rung's whole draw: the
- * Array they are handed is exactly full on the first tick they own it.
+ * is the part to get right.</b> The four swords do not merely unlock the class: they <em>stand
+ * up</em>. The ceremony ends with the class taken and the steel already out, so the first thing
+ * the new wielder ever sees is their own formation standing where the four items were lying - the
+ * four swords they laid on the ground, on their feet, following them. The unlock is the first
+ * Call the Blade, performed with your feet, and four is exactly the base rung's complement.
+ *
+ * <p>It used to be more than that: the four bearings the swords were lying at were quantised onto
+ * a lattice and written in as the wielder's first four stations. That went with the lattice. The
+ * shape is chosen from six designed stances now rather than authored a press at a time, and a
+ * rite that handed you a shape you could no longer edit would have been handing you a fossil.
  *
  * <p><b>Every refusal is silent.</b> The swords simply fall and nothing is consumed. The player is
  * never told which condition they missed, because a rite that explains itself is a recipe, and the
@@ -65,7 +67,7 @@ public final class SwordRiteService {
 
     // ---- the rite ------------------------------------------------------------------------------
 
-    /** Four, and four is also {@code SwordRules.SUMMONER.maxStations()}. That is not a coincidence. */
+    /** Four, and four is also {@code SwordRules.SUMMONER.swords()}. That is not a coincidence. */
     public static final int RITE_SWORDS = 4;
 
     /** Ticks from the first of the four to the fourth coming to rest. Twenty seconds of walking. */
@@ -85,20 +87,6 @@ public final class SwordRiteService {
 
     /** How far they rise while they hang. */
     public static final double RITE_LIFT = 1.2D;
-
-    /** Edge on each station the rite writes. */
-    public static final int RITE_EDGE = 2;
-
-    /**
-     * The reach ceiling the rite writes, and it is load-bearing rather than decorative.
-     *
-     * <p>{@code RITE_SWORDS * RITE_MAX_REACH * RITE_EDGE == 24 == SwordRules.SUMMONER.draw()}, so a
-     * rite performed at any spread at all writes a bill that cannot overrun the draw and
-     * {@link SwordArray#plant} can never answer {@code TOO_DEAR} on it. A sword thrown eleven
-     * blocks out therefore records a station three blocks out: the bearing is what the rite
-     * measured, and the distance is what the base rung can afford.
-     */
-    public static final int RITE_MAX_REACH = 3;
 
     // ---- the sweep -----------------------------------------------------------------------------
 
@@ -156,14 +144,12 @@ public final class SwordRiteService {
     /**
      * A rite that has been accepted and is now happening.
      *
-     * <p>The stations are quantised <b>once</b>, at the instant the fourth sword came to rest,
-     * against the frame the thrower wore at that instant - and then frozen here. They are not
-     * re-read during the forty ticks, because a wielder who turns their head while the blades are
-     * rising did not move the swords, and the bearings the rite is about are the ones the swords
-     * were lying at when it was answered.
+     * <p>{@code rest} is where each sword came to rest, frozen at the instant the fourth of them
+     * did, and it is what the lift is drawn against: a wielder who walks away while the blades are
+     * rising did not move the swords, so the ceremony stays where it was answered.
      */
     private record Rite(ResourceKey<Level> dimension, List<ItemEntity> blades, List<Vec3> rest,
-                        List<Station> stations, int startedAt) {}
+                        int startedAt) {}
 
     /** A single sword refusing to tumble, and the tick it gives up at. */
     private record Hang(ItemEntity item, int until) {}
@@ -393,17 +379,6 @@ public final class SwordRiteService {
             return;
         }
 
-        Frame frame = SwordPassives.heldFrame(player);
-        Vec3 origin = new Vec3(frame.x(), frame.y(), frame.z());
-        List<Station> stations = new ArrayList<>(RITE_SWORDS);
-        for (Vec3 lying : rest) {
-            Station station = quantise(lying.subtract(origin), frame);
-            if (station == null) {
-                return;
-            }
-            stations.add(station);
-        }
-
         List<ItemEntity> blades = new ArrayList<>(RITE_SWORDS);
         for (Offering offering : four) {
             ItemEntity blade = offering.item();
@@ -414,7 +389,7 @@ public final class SwordRiteService {
             HANGING.removeIf(hang -> hang.item() == blade);
         }
         offerings.removeAll(four);
-        RITES.put(player.getUUID(), new Rite(level.dimension(), blades, rest, stations, now));
+        RITES.put(player.getUUID(), new Rite(level.dimension(), blades, rest, now));
         level.playSound(null, player.blockPosition(), SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 0.7F, 0.6F);
     }
 
@@ -496,10 +471,9 @@ public final class SwordRiteService {
     /**
      * The four rise {@link #RITE_LIFT} blocks over the ceremony and hang exactly where they lay.
      *
-     * <p>They rise in place rather than travelling to their quantised stations, because the
-     * bearings the rite is about are the ones the swords were <em>actually</em> at - moving them
-     * onto the lattice first would show the wielder the rounding instead of showing them their own
-     * work, and the rounding is the game's business, not theirs.
+     * <p>They rise in place rather than gathering on the thrower, because the four are still items
+     * on the ground until the seal - what gathers is the formation, and it does that in one motion
+     * at the end where it reads as the swords having stood up rather than as them having walked.
      */
     private static void hold(ServerLevel level, Rite rite, double progress) {
         double lift = RITE_LIFT * ease(progress);
@@ -539,18 +513,17 @@ public final class SwordRiteService {
     }
 
     /**
-     * The class is taken and the four bearings become the Array, in that order.
+     * The class is taken and the steel comes out, in that order.
      *
-     * <p>Order matters both ways. The unlock runs first so that anything hung off it - the reward
-     * skills, the reward passives, a service rebuilding the live half - sees a wielder who holds
-     * the class before it sees an Array with stations in it. The plants run second so that nothing
-     * in that chain can clear what the rite just wrote.
+     * <p>Order matters. The unlock runs first so that anything hung off it - the reward skills,
+     * the reward passives, the rung the live half reads - sees a wielder who holds the class
+     * before it sees one with their swords out. {@link SwordService#draw} runs second, through the
+     * real toggle with no special case and no back door, so the formation the rite raises is the
+     * one Call the Blade would have raised and nothing in the unlock chain can clear it.
      *
-     * <p>Each station goes through the real {@link SwordArray#plant}, with no special case and no
-     * back door: the lattice is the arbiter here exactly as it is for Call the Blade. A wielder
-     * whose swords quantised onto the same bearing therefore starts with three stations and a
-     * point of loose Edge rather than four, and that is the first thing the class ever teaches
-     * them about separation.
+     * <p>Drawing here rather than leaving it to the new wielder's first keypress is the whole
+     * payoff: the rite is over the instant the four swords are standing, and they are standing
+     * before the chat line about the class has been read.
      */
     private static void seal(ServerPlayer player, Rite rite) {
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
@@ -559,10 +532,7 @@ public final class SwordRiteService {
             return;
         }
 
-        SwordArray array = state.swordArray();
-        for (Station station : rite.stations()) {
-            array.plant(station, 0);
-        }
+        SwordService.draw(player, state);
         state.sync(player);
 
         ServerLevel level = player.serverLevel();
@@ -579,32 +549,5 @@ public final class SwordRiteService {
             player.displayClientMessage(Component.translatable("message.magical.class_unlocked",
                     Component.translatable(definition.nameKey())), false);
         }
-    }
-
-    // ---- the lattice ---------------------------------------------------------------------------
-
-    /**
-     * A world offset turned into the nearest place on the lattice, at the reach the base rung can
-     * afford, or null for an offset with no direction in it.
-     *
-     * <p>The inverse itself is {@link Station#nearestTo} and is deliberately not repeated here.
-     * This file used to carry its own copy of it, character for character the same as the one on
-     * Call the Blade, and a sign in either would have been a silent mirror of exactly the kind
-     * {@code ArrayPose}'s class note warns about - except worse, because the rite writes its
-     * stations <em>once</em> and saves them, so a mirrored rite hands the wielder a permanently
-     * wrong build with a green build and nothing logged.
-     *
-     * <p>What is left here is the one thing that is the rite's own: the reach is narrowed to
-     * {@link #RITE_MAX_REACH} after the fact, which is why the bearing is what the rite measured
-     * and the distance is what the base rung can afford. See that constant for why the clamp is
-     * the thing that keeps the bill at the draw.
-     */
-    private static Station quantise(Vec3 offset, Frame frame) {
-        Station measured = Station.nearestTo(offset.x, offset.y, offset.z, frame, RITE_EDGE);
-        if (measured == null) {
-            return null;
-        }
-        return new Station(measured.yaw(), measured.pitch(),
-                Math.min(measured.reach(), RITE_MAX_REACH), RITE_EDGE);
     }
 }

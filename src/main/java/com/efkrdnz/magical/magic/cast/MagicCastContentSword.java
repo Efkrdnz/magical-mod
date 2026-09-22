@@ -4,7 +4,7 @@ import com.efkrdnz.magical.magic.skill.sword.BelowSkill;
 import com.efkrdnz.magical.magic.skill.sword.CallTheBladeSkill;
 import com.efkrdnz.magical.magic.skill.sword.LooseSkill;
 import com.efkrdnz.magical.magic.skill.sword.OneBladeSkill;
-import com.efkrdnz.magical.magic.skill.sword.TheBearingSkill;
+import com.efkrdnz.magical.magic.skill.sword.SwordStanceSkill;
 import com.efkrdnz.magical.magic.skill.sword.TheKeelSkill;
 
 /**
@@ -29,7 +29,7 @@ public final class MagicCastContentSword {
 
     public static void register() {
         new CallTheBladeSkill().register();
-        new TheBearingSkill().register();
+        new SwordStanceSkill().register();
         new TheKeelSkill().register();
         new LooseSkill().register();
         new BelowSkill().register();

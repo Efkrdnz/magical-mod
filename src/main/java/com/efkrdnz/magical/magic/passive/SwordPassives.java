@@ -2,11 +2,10 @@ package com.efkrdnz.magical.magic.passive;
 
 import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.PlayerMagicState;
-import com.efkrdnz.magical.magic.sword.Frame;
-import com.efkrdnz.magical.magic.sword.Projection;
-import com.efkrdnz.magical.magic.sword.Station;
-import com.efkrdnz.magical.magic.sword.SwordArray;
 import com.efkrdnz.magical.magic.sword.SwordMath;
+import com.efkrdnz.magical.magic.sword.SwordService;
+import com.efkrdnz.magical.magic.sword.stance.SwordStance;
+import com.efkrdnz.magical.magic.sword.stance.Watch;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.resources.ResourceLocation;
@@ -16,127 +15,143 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * What the Array does to its wielder while they are doing something else.
+ * What the formation does to its wielder while they are doing something else.
  *
- * <p>Four passives and not one of them carries a number of its own: every one reads the shape the
- * wielder authored. Sword Heart makes the mana pool a function of how much steel is in the air, so
- * spending a blade lowers the ceiling and re-manning a bearing raises it. Ward of the Array has no
- * targeting at all, because <em>the shape already is the choice</em> - a blow is turned if and only
- * if it arrives down a bearing the wielder chose to man, so the wielder who spent four presses
- * covering their flanks is the one whose flanks are covered. Returning changes where spent Edge
- * goes and how fast it returns. Mirror of the Array has no hook in this file at all and says why
- * below.
+ * <p>Four passives and not one of them carries a number of its own: every one reads the stance the
+ * wielder is standing in and how much steel is with them. Sword Heart makes the mana pool a
+ * function of the swords present, so spending one lowers the ceiling and its return raises it.
+ * Ward of the Array turns a melee blow aside while the guard is up. Returning halves the clock a
+ * spent sword walks home on, and is read by {@code SwordService.returnTicks} rather than here.
+ * Mirror of the Array reflects the stance you were last standing in, and is read by
+ * {@code StanceWatchService.tick} rather than here.
  *
- * <p>The frame used here is the wielder's own body centre facing their own look at scale one, which
- * is {@code Bind.HELD} - the only bind describable without the live half. A wielder whose frame has
- * been set down, ridden, bound to a body or sunk under a point has a frame owned by the sword
- * service, and the ward reads that one instead the moment it exists.
+ * <p><b>Two of the four therefore have no hook in this file, and that is deliberate rather than
+ * unfinished.</b> A passive belongs where the thing it changes already lives: a return clock is
+ * read in one place and a Watch is dispatched in one place, and re-implementing either here so
+ * that all four passives had a method would put the same rule in two files.
  */
 public final class SwordPassives implements ClassPassiveHandler {
 
-    /** The offset from a player's feet to the frame origin: their body centre, not their eyes. */
-    private static final double BODY_CENTRE = 0.9D;
-
-    /** A blow arriving from nowhere has no bearing to be answered down. */
+    /** A blow arriving from nowhere has no line to be answered down. */
     private static final double NEAR_ZERO = 1.0e-6D;
+
+    /**
+     * How wide the guard is, in degrees either side of the wielder's look.
+     *
+     * <p>Wider than a shield and narrower than a circle. Guard's swords stand on an arc round the
+     * shoulders rather than in a ring, so a blow from directly behind meets nothing - which is the
+     * one piece of counterplay a stance that turns melee has to have.
+     */
+    public static final double WARD_ARC = 110.0D;
 
     @Override
     public Set<ResourceLocation> handled() {
         return Set.of(
                 MagicPassiveContent.SWORD_HEART.id(),
                 MagicPassiveContent.WARD_OF_THE_ARRAY.id(),
+                // Returning is read by SwordService.returnTicks and Mirror of the Array by
+                // StanceWatchService.tick; neither has a hook here. They are claimed anyway
+                // because ClassPassiveEffectsTest matches the registry against the handlers in
+                // BOTH directions, so an unclaimed id is a red build rather than a quiet one.
+                // That is the right trade and this comment is why the list looks odd.
                 MagicPassiveContent.RETURNING.id(),
-                // Mirror of the Array is a flag rather than a behaviour: Projection.mirror() reads
-                // it when Below and the ward ask the Array for its shape, and no hook is called. It
-                // is claimed here because ClassPassiveEffectsTest matches the registry against the
-                // handlers in BOTH directions, so an unclaimed id is a red build rather than a
-                // quiet one. That is the right trade and this comment is why it looks odd.
                 MagicPassiveContent.MIRROR_OF_THE_ARRAY.id());
     }
 
     /**
-     * Sword Heart: the pool is the blades.
+     * Sword Heart: the pool is the steel.
      *
-     * <p>{@link ClassPassiveEffects} re-sums this on the slow tick, so the ceiling falls the moment
-     * a station is emptied by a volley, a ward or a shed. The fall is the point - every skill that
-     * spends steel also spends the mage - and it is why {@code PlayerMagicState} has to clamp
-     * current mana down with the maximum rather than leave the HUD ring overrunning its own track.
+     * <p>{@link ClassPassiveEffects} re-sums this on the slow tick, so the ceiling falls the
+     * moment a sword is spent by a volley, a Watch or a shed. The fall is the point - every skill
+     * that sends steel away also spends the mage - and it is why {@code PlayerMagicState} has to
+     * clamp current mana down with the maximum rather than leave the HUD ring overrunning its own
+     * track. Sheathing takes it all: off means gone, so the pool goes with the swords.
      */
     @Override
     public int bonusMaxMana(ServerPlayer player, PlayerMagicState state) {
         if (!state.isPassiveEnabled(MagicPassiveContent.SWORD_HEART.id())) {
             return 0;
         }
-        return SwordMath.bonusMaxMana(state.swordArray().manned());
+        return SwordMath.bonusMaxMana(SwordService.present(player, state));
     }
 
     /**
-     * Ward of the Array: a blow is turned by the bearing it arrives down, or it is not turned.
+     * Ward of the Array: a blow that arrives into the guard is met by a sword, which goes away.
+     *
+     * <p>The melee half of {@link Watch#INTERCEPT}, and it is here rather than in
+     * {@code StanceWatchService} for the same reason the projectile half is there rather than
+     * here: an arrow has to be turned before it lands and can only be reached on a tick, while a
+     * blow has already landed by the time anything knows of it and can only be reached in the
+     * damage event. One behaviour, two hooks, because the game offers two.
+     *
+     * <p>Both halves share {@code SwordService.watchDue}, so the guard turns one thing per
+     * interval whichever kind of thing it was. That is the balance: a Guard under fire from an
+     * archer and a swordsman at once does not get to answer both.
      *
      * <p>This runs after vanilla mitigation and before {@code state.absorbDamage}, so a warded hit
-     * also saves barrier. That ordering costs nothing and it is the whole defensive identity of the
-     * class.
-     *
-     * <p>Only melee and magic are answered here. A projectile is turned by the array entity's own
-     * tick instead, because an arrow has to be deflected before it lands rather than discounted
-     * after it has.
+     * also saves barrier. That ordering costs nothing and it is the whole defensive identity of
+     * the class.
      */
     @Override
     public float incomingDamage(ServerPlayer player, PlayerMagicState state, DamageSource source, float amount) {
         if (amount <= 0.0F || !state.isPassiveEnabled(MagicPassiveContent.WARD_OF_THE_ARRAY.id())) {
             return amount;
         }
-        SwordArray array = state.swordArray();
-        if (array.manned() == 0) {
+        if (!guarding(player, state) || SwordService.present(player, state) <= 0) {
             return amount;
         }
-        double[] incoming = approachBearing(player, source);
-        if (incoming == null) {
+        if (!withinTheGuard(player, source)) {
             return amount;
         }
-        int slot = Projection.covers(array, heldFrame(player), incoming);
-        if (slot < 0) {
+        boolean relentless = SwordService.rulesFor(state).relentless();
+        if (!SwordService.watchDue(player, Watch.INTERCEPT.intervalAt(relentless))) {
             return amount;
         }
-        Station station = array.station(slot);
-        if (!station.manned()) {
-            return amount;
-        }
-        return Math.max(0.0F, amount - (float) SwordMath.wardAbsorb(station.edge()));
+        SwordService.spendSword(player, state);
+        return Math.max(0.0F, amount - (float) SwordMath.WARD_ABSORB);
     }
 
     /**
-     * The frame a wielder carries: origin at their body centre, facing their look, scale one.
+     * Whether the wielder has steel out in a stance that guards - their own, or the reflection.
      *
-     * <p>Body centre and not eye height. A shape pinned to the eyes sits most of a block above the
-     * shape the player authored while standing still, and every bearing in it is then wrong by that
-     * much at close range - which is the range a ward is read at.
+     * <p>The mirror is asked as well, so Mirror of the Array covers a Sword God who has stepped
+     * out of Guard into something else, exactly as it does for every other Watch.
      */
-    public static Frame heldFrame(ServerPlayer player) {
-        return new Frame(player.getX(), player.getY() + BODY_CENTRE, player.getZ(),
-                player.getYRot(), player.getXRot(), 1.0F);
+    private static boolean guarding(ServerPlayer player, PlayerMagicState state) {
+        if (!state.swordArray().drawn()) {
+            return false;
+        }
+        if (state.swordArray().stance().watch() == Watch.INTERCEPT) {
+            return true;
+        }
+        SwordStance reflected = SwordService.mirrorStance(player);
+        return reflected != null && reflected.watch() == Watch.INTERCEPT
+                && state.isPassiveEnabled(MagicPassiveContent.MIRROR_OF_THE_ARRAY.id());
     }
 
     /**
-     * The unit vector from the frame origin toward whatever dealt the blow.
+     * Whether whatever dealt the blow is in front of the wielder, inside {@link #WARD_ARC}.
      *
-     * <p>Null when the source has no position - starvation, a fall, the void - so such a blow is
-     * unwardable by construction rather than by a special case: there is no bearing to answer.
+     * <p>False when the source has no position - starvation, a fall, the void - so such a blow is
+     * unwardable by construction rather than by a special case: there is nowhere for a sword to
+     * have been standing.
      */
-    private static double[] approachBearing(ServerPlayer player, DamageSource source) {
+    private static boolean withinTheGuard(ServerPlayer player, DamageSource source) {
         Entity from = source.getDirectEntity() != null ? source.getDirectEntity() : source.getEntity();
         Vec3 at = from != null ? from.position() : source.getSourcePosition();
         if (at == null) {
-            return null;
+            return false;
         }
-        double dx = at.x - player.getX();
-        double dy = at.y - (player.getY() + BODY_CENTRE);
-        double dz = at.z - player.getZ();
-        double length = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (length < NEAR_ZERO) {
-            return null;
+        Vec3 offset = at.subtract(player.getX(), player.getY() + SwordService.BODY_CENTRE, player.getZ());
+        Vec3 look = player.getLookAngle();
+        // Horizontal only: a guard is an arc round the shoulders, and a body standing on a roof is
+        // still in front of you.
+        double flat = Math.sqrt(offset.x * offset.x + offset.z * offset.z)
+                * Math.sqrt(look.x * look.x + look.z * look.z);
+        if (flat < NEAR_ZERO) {
+            return true;
         }
-        return new double[] {dx / length, dy / length, dz / length};
+        return (offset.x * look.x + offset.z * look.z) / flat >= Math.cos(Math.toRadians(WARD_ARC));
     }
 
     /**
@@ -145,9 +160,9 @@ public final class SwordPassives implements ClassPassiveHandler {
      * is the right default: this class keeps no per-player scratch today, and the check is what
      * will notice on the day somebody gives it some.
      *
-     * <p>Returning's recovery clock and the pool of spent Edge are the live half, which belongs to
-     * the sword service and is deliberately never saved; its own {@code forget} is wired beside
-     * {@code PileService.forget}.
+     * <p>Every clock the four passives read - the return clock, the Watch clock, the mirror clock -
+     * is the live half, which belongs to {@link SwordService} and is deliberately never saved; its
+     * own {@code forget} is wired beside {@code PileService.forget}.
      */
     @Override
     public void forget(UUID playerId) {

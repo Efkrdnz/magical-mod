@@ -1,88 +1,80 @@
 package com.efkrdnz.magical.magic.sword;
 
+import com.efkrdnz.magical.magic.sword.stance.Slot;
+
 /**
- * Where a station actually is, and <b>the one arithmetic both sides run</b>.
+ * A frame-local {@link Slot} turned into the world, and <b>the one rotation both sides run</b>.
  *
  * <p>The server behaviour and the client painter call these methods with identical arguments and
- * get identical doubles, which is the Gravemoons discipline and is why twelve blade positions cost
- * <b>zero bytes</b> on the wire: the client is told the frame and the shape, both of which change
- * rarely, and works out the rest itself. A blade cannot desync because there is nothing to desync.
+ * get identical doubles, which is why twelve sword positions cost <b>zero bytes</b> on the wire:
+ * the client is told the stance, the present mask and the frame - none of which change often - and
+ * works out the rest itself. A sword cannot desync because there is nothing to desync.
  *
- * <p>Which means a sign error in here is a <em>silent mirror</em> - the blades appear on the wrong
- * side for everybody at once, consistently, with a green build and no log line. So the handedness
- * is Minecraft's own, stated out loud in {@link Station#unitBearing()}, and
- * {@code ArrayPoseTest.aStationIsWhereBothSidesSayItIs} pins it at all four cardinals and both
- * poles rather than trusting the reasoning.
+ * <p>Which means a sign error in here is a <em>silent mirror</em> - the formation appears on the
+ * wrong side for everybody at once, consistently, with a green build and no log line. So the
+ * handedness is Minecraft's own and is written down on {@link Slot}: yaw 0 faces +Z and turns
+ * clockwise seen from above, so +X is the wielder's left.
+ *
+ * <p>It used to take a {@code Station} - a bearing on a lattice, with a reach multiplied onto a
+ * unit vector. A {@link Slot} already carries its whole offset, so the reach is gone and the only
+ * scalar left is the frame's own scale, which One Blade drives to zero to gather everything home.
  */
 public final class ArrayPose {
-
-    /**
-     * The distance at which a bound frame is still at scale 1.
-     *
-     * <p>Past it the scale grows with the distance and the bill inflates with the scale, which is
-     * how an opponent's footwork comes to spend the wielder's budget. Inside it, nothing happens
-     * at all - a bind is not a penalty, it is a leash.
-     */
-    public static final double BIND_REST = 8.0D;
 
     private ArrayPose() {
     }
 
-    /**
-     * The offset from the frame origin to where this station's blade sits, in world axes.
-     *
-     * <p>{@code reach * scale} along the frame-rotated bearing. At scale 0 every station is on the
-     * origin, which is the fusion and is exactly one line of arithmetic rather than a mode.
-     */
-    public static double[] worldOffset(Station station, Frame frame) {
-        double[] bearing = worldBearing(station, frame);
-        double out = station.reach() * frame.scale();
-        return new double[] {bearing[0] * out, bearing[1] * out, bearing[2] * out};
+    /** Where this slot's sword sits, as an offset from the frame origin, in world axes. */
+    public static double[] worldOffset(Slot slot, Frame frame) {
+        double scale = frame.scale();
+        return rotate(slot.x() * scale, slot.y() * scale, slot.z() * scale, frame);
+    }
+
+    /** Which way this slot's sword points, in world axes, unit length in and unit length out. */
+    public static double[] worldDirection(Slot slot, Frame frame) {
+        return rotate(slot.dx(), slot.dy(), slot.dz(), frame);
     }
 
     /**
-     * The station's bearing turned into the world, unit length.
+     * Pitch about the frame's own lateral axis first, then yaw about world up.
      *
-     * <p>Pitch about the frame's own lateral axis first, then yaw about world up - the order
-     * {@code Entity.calculateViewVector} uses, so a frame at the wielder's look and a station at
-     * yaw 0, pitch 0 gives back the wielder's look vector exactly.
+     * <p>The order {@code Entity.calculateViewVector} uses, so a frame at the wielder's look and a
+     * slot at {@code (0, 0, 1)} gives back the wielder's look vector exactly. Reversing the two is
+     * the other silent mirror available here: it is correct at pitch zero, which is where every
+     * casual test stands.
      */
-    public static double[] worldBearing(Station station, Frame frame) {
-        double[] local = station.unitBearing();
-
+    public static double[] rotate(double x, double y, double z, Frame frame) {
         double pitch = Math.toRadians(frame.pitch());
         double cp = Math.cos(pitch);
         double sp = Math.sin(pitch);
-        double x = local[0];
-        double y = local[1] * cp - local[2] * sp;
-        double z = local[1] * sp + local[2] * cp;
+        double py = y * cp - z * sp;
+        double pz = y * sp + z * cp;
 
         // Minecraft's yaw runs clockwise seen from above, which is a rotation about +Y by -yaw.
         double yaw = Math.toRadians(-frame.yaw());
         double cy = Math.cos(yaw);
         double sy = Math.sin(yaw);
-        return new double[] {x * cy + z * sy, y, -x * sy + z * cy};
+        return new double[] {x * cy + pz * sy, py, -x * sy + pz * cy};
     }
 
-    /** The yaw a blade at this station wears, in Minecraft degrees: 0 is +Z and it turns clockwise. */
-    public static float bladeYaw(Station station, Frame frame) {
-        double[] bearing = worldBearing(station, frame);
-        return (float) -Math.toDegrees(Math.atan2(bearing[0], bearing[2]));
+    /** The yaw a sword pointing this way wears, in Minecraft degrees: 0 is +Z, clockwise. */
+    public static float yawOf(double[] direction) {
+        return (float) -Math.toDegrees(Math.atan2(direction[0], direction[2]));
     }
 
     /**
-     * The pitch a blade at this station wears, in Minecraft degrees - <b>positive is down</b>, the
-     * opposite sign to {@link Station#pitch()}, which is an elevation. This method is the only
-     * place in the kit those two conventions are allowed to meet.
+     * The pitch a sword pointing this way wears, in Minecraft degrees - <b>positive is down</b>.
+     *
+     * <p>The opposite sign to the elevation {@code Formation.place} takes, and this method is one
+     * of only two places in the kit those two conventions are allowed to meet.
      */
-    public static float bladePitch(Station station, Frame frame) {
-        double[] bearing = worldBearing(station, frame);
-        double up = Math.max(-1.0D, Math.min(1.0D, bearing[1]));
+    public static float pitchOf(double[] direction) {
+        double length = Math.sqrt(direction[0] * direction[0] + direction[1] * direction[1]
+                + direction[2] * direction[2]);
+        if (!(length > 1.0E-9D)) {
+            return 0.0F;
+        }
+        double up = Math.max(-1.0D, Math.min(1.0D, direction[1] / length));
         return (float) -Math.toDegrees(Math.asin(up));
-    }
-
-    /** {@code max(1, distance / 8)}. Inside the rest distance a bind costs the wielder nothing. */
-    public static float boundScale(double distance) {
-        return (float) Math.max(1.0D, distance / BIND_REST);
     }
 }

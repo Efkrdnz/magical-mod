@@ -1,31 +1,26 @@
 package com.efkrdnz.magical.magic.sword;
 
 /**
- * Everything the Array needs to know about a level, and it is as little as could be arranged.
+ * Everything the formation needs to know about a level, and it is as little as could be arranged.
  *
- * <p>Note what is <b>not</b> here: a per-blade distance query. {@code SwordArray.settle} takes one
- * {@code int strain}, which the adapter worked out from one scalar through
- * {@link ArrayPose#boundScale}. That single decision is why every invariant in this package is
- * testable in arithmetic with no world mock at all - a version of this interface with a question
- * per blade would have made {@code SettleTest} a fake level instead of a table of numbers.
+ * <p>Note what is <b>not</b> here: anything per sword. Every rule the kit has is either pure
+ * geometry in {@code magic.sword.stance} or a single query against the world, which is what keeps
+ * the interesting half testable with no world mock at all.
  *
- * <p>{@code LevelSwordWorld} is the only implementation that knows what a {@code Level} is, and
- * it answers in a stable order, because a tie in a farthest-first shed has to be deterministic.
+ * <p>{@code LevelSwordWorld} is the only implementation that knows what a {@code Level} is, and it
+ * answers in a stable order, because a tie between two bodies has to break the same way twice.
  */
 public interface SwordWorld {
 
-    /** How far the bound body is from the wielder, or -1 when the body is gone. */
-    double distanceToBound(int entityId, double[] wielder);
-
-    /** Whether that body is still there to be bound to. A bind releases when it is not. */
+    /** Whether that body is still there. A ride, a fall and a follow-up all release when it is not. */
     boolean bodyAlive(int entityId);
 
-    /** Whether a blade would be inside something at this point. */
+    /** Whether a sword would be inside something at this point. */
     boolean solidAt(double x, double y, double z);
 
     /** The first surface under this point within the search, or NaN when there is none. */
     double surfaceBelow(double x, double y, double z, int searchBlocks);
 
-    /** The game time, for the recovery clocks and the lying blades' lifetimes. */
+    /** The game time, for the return clocks and the lying swords' lifetimes. */
     long now();
 }

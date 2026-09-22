@@ -225,12 +225,11 @@ public final class MagicalClientEvents {
                     // to be resting on would be the exact fumble the hold exists to prevent.
                     CausalAnchorOverlay.cancel();
                 }
-                if (SwordBearingOverlay.isActive()) {
+                if (SwordStanceOverlay.isActive()) {
                     // Cancelled rather than released, for the Causal Anchor's reason: a screen
-                    // opening over the plot is not the wielder letting go, and a release pulls
-                    // every marked bearing back to loose, which is the one thing here that cannot
-                    // be undone by pressing the key again.
-                    SwordBearingOverlay.cancel();
+                    // opening over the picker is not the wielder letting go, and a release takes
+                    // whatever the row happened to be resting on, which starts a clock.
+                    SwordStanceOverlay.cancel();
                 }
                 FirstPersonEffects.tick(minecraft);
                 com.efkrdnz.magical.client.fx.TransientVisuals.tick();
@@ -273,9 +272,9 @@ public final class MagicalClientEvents {
                     }
                     continue;
                 }
-                if (SwordBearingInput.tickSlot(minecraft, i)) {
+                if (SwordStanceInput.tickSlot(minecraft, i)) {
                     while (MagicalKeyMappings.CAST_SLOTS[i].consumeClick()) {
-                        // The Bearing is read and released; the press that opened it is not a cast.
+                        // A stance is chosen and released; the press that opened it is not a cast.
                     }
                     continue;
                 }
@@ -442,7 +441,7 @@ public final class MagicalClientEvents {
                     || SpaceManipulationOverlay.handleScroll(scrollDeltaY)
                     || FractureOverlay.handleScroll(scrollDeltaY)
                     || CausalAnchorOverlay.handleScroll(scrollDeltaY)
-                    || SwordBearingOverlay.handleScroll(scrollDeltaY)
+                    || SwordStanceOverlay.handleScroll(scrollDeltaY)
                     || MagicWheelOverlay.handleScroll(scrollDeltaY);
         }
 
@@ -451,7 +450,7 @@ public final class MagicalClientEvents {
             return CausalAnchorOverlay.handleMouseButton(button, action)
                     || FractureOverlay.handleMouseButton(button, action)
                     || SpaceManipulationOverlay.handleMouseButton(button, action)
-                    || SwordBearingOverlay.handleMouse(button, action)
+                    || SwordStanceOverlay.handleMouse(button, action)
                     // Last, because it claims a bare click rather than one inside an overlay: every
                     // hold above owns the mouse while it is open, and One Blade's two presses are
                     // only ever offered a button no open overlay wanted.

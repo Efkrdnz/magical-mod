@@ -13,9 +13,6 @@ import com.efkrdnz.magical.magic.cast.SkillCastHandler;
 import com.efkrdnz.magical.magic.cast.TuningView;
 import com.efkrdnz.magical.magic.skill.SkillModule;
 import com.efkrdnz.magical.magic.sword.Bind;
-import com.efkrdnz.magical.magic.sword.Projection;
-import com.efkrdnz.magical.magic.sword.Station;
-import com.efkrdnz.magical.magic.sword.SwordArray;
 import com.efkrdnz.magical.magic.sword.SwordService;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
 import com.efkrdnz.magical.magic.visual.CircleScript;
@@ -76,22 +73,21 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  */
 public final class TheKeelSkill implements SkillModule {
 
-    /**
-     * The least metal a station may carry and still be stood on.
-     *
-     * <p>Three of the base rung's maximum of three, so a Sword Summoner could never ride even if
-     * the rung let them, and a Rider has to commit a third of a seven-station Array to one bearing
-     * to get off the ground. The blade under your feet is a blade that is not guarding you.
-     */
-    public static final int RIDE_MIN_EDGE = 3;
-
     /** Mana every {@link #RIDE_MANA_INTERVAL} ticks, on top of the ten the press costs. */
     public static final int RIDE_MANA = 3;
 
     public static final int RIDE_MANA_INTERVAL = 10;
 
-    /** The ridden station sheds one Edge this often, and the ride ends the instant it empties. */
-    public static final int RIDE_EDGE_INTERVAL = 80;
+    /**
+     * The ride spends one more sword this often, and it ends the instant there are none left.
+     *
+     * <p>The one sword taken at the press is the board you are standing on; each of these is the
+     * next one, because a wielder cannot keep riding on a formation they have already thrown. It
+     * is the whole of the ride's ongoing price beyond the mana, and it is paid in the same
+     * currency every other skill in the kit is: the swords are the resource, and the count has
+     * been on screen the whole time.
+     */
+    public static final int RIDE_SWORD_INTERVAL = 80;
 
     /**
      * The ride's cooldown as a multiple of the press's.
@@ -137,13 +133,11 @@ public final class TheKeelSkill implements SkillModule {
      * fall-damage exemption are the only part of a ride that matters after it has ended.
      */
     private static final class Ride {
-        private final int slot;
         private final int maxTicks;
         private int ticks;
         private int grace;
 
-        private Ride(int slot, int maxTicks) {
-            this.slot = slot;
+        private Ride(int maxTicks) {
             this.maxTicks = maxTicks;
         }
     }
@@ -240,11 +234,10 @@ public final class TheKeelSkill implements SkillModule {
         state.sync(player);
     }
 
-    /** The sneak-press: one station's blade comes under the feet and the frame carries the wielder. */
+    /** The sneak-press: one sword comes under the feet and the frame carries the wielder. */
     private static void mount(ServerPlayer player, PlayerMagicState state) {
-        int slot = keelSlot(state.swordArray());
-        if (slot < 0) {
-            player.displayClientMessage(Component.translatable("message.magical.sword_no_edge"), true);
+        if (SwordService.present(player, state) <= 0) {
+            player.displayClientMessage(Component.translatable("message.magical.sword_none_present"), true);
             return;
         }
         MagicSkillResolvedStats stats = MagicContent.THE_KEEL.resolve(state.tuningFor(MagicContent.THE_KEEL.id()));
@@ -254,39 +247,17 @@ public final class TheKeelSkill implements SkillModule {
         // payFor wrote the press's clock; the ride's is twice it. Written after, deliberately, so
         // the one place a cooldown is decided for this skill is still payFor plus this one line.
         state.setSkillCooldown(MagicContent.THE_KEEL.id(), stats.cooldownTicks() * RIDE_COOLDOWN_FACTOR);
-        SwordService.ride(player, slot);
+        SwordService.ride(player);
+        // The board: one sword goes under the feet the instant the ride starts, so a wielder can
+        // see what it cost before they have travelled a block.
+        SwordService.spendSword(player, state);
         SwordService.tendArrayEntity(player, state);
         player.setNoGravity(true);
         player.fallDistance = 0.0F;
-        RIDES.put(player.getUUID(), new Ride(slot, Math.max(RIDE_EDGE_INTERVAL, stats.durationTicks())));
+        RIDES.put(player.getUUID(), new Ride(Math.max(RIDE_SWORD_INTERVAL, stats.durationTicks())));
         player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
                 SoundEvents.RESPAWN_ANCHOR_CHARGE, SoundSource.PLAYERS, 0.6F, 1.4F);
         state.sync(player);
-    }
-
-    /**
-     * Which blade goes under the feet: the deepest manned station carrying {@link #RIDE_MIN_EDGE}.
-     *
-     * <p>Deepest, because {@link Projection#below} already answers "the part of the shape that
-     * points at the floor" in ascending pitch and the blade you stand on is by definition one of
-     * those. A wielder who authored a flat ring has nothing under them and falls back to the
-     * lowest slot heavy enough to bear them, so the skill is never silently unavailable to a
-     * build that simply never aimed downward.
-     */
-    private static int keelSlot(SwordArray array) {
-        for (int slot : Projection.below(array)) {
-            Station station = array.station(slot);
-            if (station != null && station.edge() >= RIDE_MIN_EDGE) {
-                return slot;
-            }
-        }
-        for (int slot = 0; slot < array.size(); slot++) {
-            Station station = array.station(slot);
-            if (station != null && station.edge() >= RIDE_MIN_EDGE) {
-                return slot;
-            }
-        }
-        return -1;
     }
 
     // ---- the ride -------------------------------------------------------------------------------
@@ -333,11 +304,11 @@ public final class TheKeelSkill implements SkillModule {
             }
             dirty = true;
         }
-        if (ride.ticks % RIDE_EDGE_INTERVAL == 0) {
-            SwordService.detach(player, state, ride.slot, 1);
+        if (ride.ticks % RIDE_SWORD_INTERVAL == 0) {
+            SwordService.spendSword(player, state);
             dirty = true;
-            Station station = state.swordArray().station(ride.slot);
-            if (station == null || !station.manned()) {
+            if (SwordService.present(player, state) <= 0) {
+                // Nothing left to stand on. The board went with the last one.
                 endRide(player, state);
                 state.sync(player);
                 return;

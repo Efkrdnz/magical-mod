@@ -17,8 +17,6 @@ import com.efkrdnz.magical.magic.cast.SkillCastHandler;
 import com.efkrdnz.magical.magic.cast.TuningView;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
-import com.efkrdnz.magical.magic.sword.Station;
-import com.efkrdnz.magical.magic.sword.SwordArray;
 import com.efkrdnz.magical.magic.sword.SwordMath;
 import com.efkrdnz.magical.magic.sword.SwordService;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
@@ -94,8 +92,8 @@ public final class OneBladeSkill implements SkillModule {
     /** Ticks of convergence. Twelve, and the whole of them are a hole in the wielder's guard. */
     public static final int FUSE_TICKS = 12;
 
-    /** Mana a station costs to fuse, charged once when the blade forms. */
-    public static final int FUSE_MANA_PER_STATION = 6;
+    /** Mana a sword costs to fuse, charged once when the blade forms. */
+    public static final int FUSE_MANA_PER_SWORD = 6;
 
     /** One horizontal cut per this many ticks, and each of them is paid for. */
     public static final int SLASH_INTERVAL = 16;
@@ -175,24 +173,29 @@ public final class OneBladeSkill implements SkillModule {
      * metal into the wielder's loose pool - the bearings are the build and a fusion that changed
      * them would be a second authoring surface.
      */
+    /**
+     * One wielder's fused blade while they are carrying it.
+     *
+     * <p><b>{@code swords} is the whole of what it is made of.</b> It used to be three numbers -
+     * how many stations collapsed, how much Edge in total, and a per-slot array so the shape
+     * could be put back exactly as it had been authored. There is no authored shape to put back:
+     * the swords go away, and they come home on the return clock like every other sword this kit
+     * sends anywhere. One number, read by every length, arc and damage call below.
+     */
     private static final class Fusion {
         private final int slot;
         private final int entityId;
-        private final int stations;
-        private final int totalEdge;
-        private final int[] edges;
+        private final int swords;
         private final int carryTicks;
         private final Map<Integer, Integer> struck = new HashMap<>();
         private int ticks;
         private boolean formed;
         private int nextSlash;
 
-        private Fusion(int slot, int entityId, int stations, int totalEdge, int[] edges, int carryTicks) {
+        private Fusion(int slot, int entityId, int swords, int carryTicks) {
             this.slot = slot;
             this.entityId = entityId;
-            this.stations = stations;
-            this.totalEdge = totalEdge;
-            this.edges = edges;
+            this.swords = swords;
             this.carryTicks = carryTicks;
         }
     }
@@ -261,23 +264,28 @@ public final class OneBladeSkill implements SkillModule {
     }
 
     /**
-     * The press: every manned station lets go and converges on the wielder's hand.
+     * The press: every sword present lets go and converges on the wielder's hand.
      *
-     * <p>The Edge is spent the instant the blades leave their bearings, because a blade in the air
-     * is metal in the world whatever it is on its way to - which is also why a counter needs no
-     * special accounting here. It has already happened.
+     * <p>They are away the instant they leave the formation, because a sword on its way somewhere
+     * is not a sword at your shoulder whatever it is on its way to - which is also why a counter
+     * needs no special accounting here. It has already happened.
      */
     private static void gather(CastContext ctx, ServerPlayer player, PlayerMagicState state) {
-        if (!SwordService.holds(state) || !SwordService.rulesFor(state).coincidence()) {
+        // No second gate beyond holding the class. It used to also demand the rung that
+        // permitted coincidence - two stations on one bearing - because without that the fusion
+        // was arithmetically impossible below Sword Saint. There is no lattice and no
+        // coincidence: the greatsword is however many swords are present, which a Summoner with
+        // four has as surely as a God with twelve. The Saint rung still gates it, by being the
+        // rung that grants the skill.
+        if (!SwordService.holds(state)) {
             player.displayClientMessage(Component.translatable("message.magical.skill_locked"), true);
             return;
         }
         if (FUSIONS.containsKey(player.getUUID())) {
             return;
         }
-        SwordArray array = state.swordArray();
-        if (array.manned() <= 0) {
-            player.displayClientMessage(Component.translatable("message.magical.sword_no_edge"), true);
+        if (SwordService.present(player, state) <= 0) {
+            player.displayClientMessage(Component.translatable("message.magical.sword_none_present"), true);
             return;
         }
         if (state.isSkillOnCooldown(MagicContent.ONE_BLADE.id())) {
@@ -285,18 +293,16 @@ public final class OneBladeSkill implements SkillModule {
             return;
         }
 
-        int stations = array.manned();
-        int[] edges = SwordService.edges(array);
-        int gathered = SwordService.collapse(player, state);
+        int gathered = SwordService.spendSwords(player, state, SwordService.present(player, state));
         if (gathered <= 0) {
-            player.displayClientMessage(Component.translatable("message.magical.sword_no_edge"), true);
+            player.displayClientMessage(Component.translatable("message.magical.sword_none_present"), true);
             return;
         }
         int carry = Math.max(FUSE_TICKS, ctx.duration());
         Vec3 hand = hand(player);
         SpellEffectEntity blade = SpellEffectEntity.spawn(ctx, hand, FUSE_TICKS + carry + 2,
                 (float) SwordMath.oneBladeReach(gathered), player.getLookAngle());
-        FUSIONS.put(player.getUUID(), new Fusion(ctx.slot(), blade.getId(), stations, gathered, edges, carry));
+        FUSIONS.put(player.getUUID(), new Fusion(ctx.slot(), blade.getId(), gathered, carry));
         SwordService.tendArrayEntity(player, state);
         ctx.level().playSound(null, hand.x, hand.y, hand.z,
                 SoundEvents.RESPAWN_ANCHOR_CHARGE, SoundSource.PLAYERS, 0.8F, 0.7F);
@@ -345,13 +351,13 @@ public final class OneBladeSkill implements SkillModule {
 
     /** The fuse completed: the blade exists, and this is where the whole thing is paid for. */
     private static boolean form(ServerPlayer player, PlayerMagicState state, Fusion fusion, SpellEffectEntity blade) {
-        if (!SwordService.payFor(player, state, MagicContent.ONE_BLADE, FUSE_MANA_PER_STATION * fusion.stations)) {
+        if (!SwordService.payFor(player, state, MagicContent.ONE_BLADE, FUSE_MANA_PER_SWORD * fusion.swords)) {
             abort(player, state, fusion, blade);
             return false;
         }
         fusion.formed = true;
         blade.setPhase(SpellEffectEntity.PHASE_ACTIVE);
-        blade.setRadius((float) SwordMath.oneBladeReach(fusion.totalEdge));
+        blade.setRadius((float) SwordMath.oneBladeReach(fusion.swords));
         AttributeInstance speed = player.getAttribute(Attributes.MOVEMENT_SPEED);
         if (speed != null) {
             speed.removeModifier(CARRY_MODIFIER);
@@ -408,24 +414,16 @@ public final class OneBladeSkill implements SkillModule {
     }
 
     /**
-     * Puts the shape back exactly as it was.
+     * The swords come back, into whatever stance the wielder is standing in now.
      *
-     * <p>Recover first and plant after: {@code SwordArray.plant} clamps what it gives a station to
-     * the wielder's <em>loose</em> Edge, and until the collapse's metal has come home out of
-     * {@code spent} there is none. A station that has been re-manned in the meantime is left
-     * alone rather than topped up past what it held.
+     * <p>Not into the shape they left, because there is no per-sword shape to restore: a stance
+     * is a function of its count, so handing the count back <em>is</em> handing the formation
+     * back. A wielder who changed stance while carrying the greatsword gets their swords back in
+     * the new one, which is both the honest answer and the one they would expect.
      */
     private static void returnBlades(ServerPlayer player, PlayerMagicState state, Fusion fusion) {
-        SwordService.recover(player, state, fusion.totalEdge);
+        SwordService.returnSwords(player, state, fusion.swords);
         clearCarry(player);
-        SwordArray array = state.swordArray();
-        for (int slot = 0; slot < fusion.edges.length && slot < array.size(); slot++) {
-            Station station = array.station(slot);
-            if (fusion.edges[slot] <= 0 || station == null || station.manned()) {
-                continue;
-            }
-            array.plant(station.withEdge(fusion.edges[slot]), SwordService.spent(player));
-        }
         SwordService.tendArrayEntity(player, state);
     }
 
@@ -461,9 +459,9 @@ public final class OneBladeSkill implements SkillModule {
             return false;
         }
         fusion.nextSlash = fusion.ticks + SLASH_INTERVAL;
-        double length = SwordMath.oneBladeReach(fusion.totalEdge);
-        double arc = SwordMath.oneBladeArc(fusion.totalEdge);
-        float amount = (float) SwordMath.oneBladeSlash(fusion.totalEdge, SwordService.strain(player));
+        double length = SwordMath.oneBladeReach(fusion.swords);
+        double arc = SwordMath.oneBladeArc(fusion.swords);
+        float amount = (float) SwordMath.oneBladeSlash(fusion.swords);
         cut(player, fusion, length, arc, length, amount, 1.2D);
         player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
                 SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.0F, 0.6F);
@@ -474,17 +472,18 @@ public final class OneBladeSkill implements SkillModule {
     /**
      * The blast: the blade drives point-first and spends everything at once, and it <b>ends</b>.
      *
-     * <p>Free of its own price and the only exit that does not put the shape back: the Edge
-     * scatters to loose with every station unmanned, which is the difference between a wielder
-     * who cashed their Array in and one who merely picked it up again.
+     * <p>Free of its own price, and the swords come home the same way they do from every other
+     * exit. What separates a wielder who cashed their formation in from one who merely picked it
+     * up again is the blast's own damage and the clock it leaves behind, not a different
+     * accounting.
      */
     public static boolean blast(ServerPlayer player, PlayerMagicState state) {
         Fusion fusion = FUSIONS.get(player.getUUID());
         if (fusion == null || !fusion.formed) {
             return false;
         }
-        double length = SwordMath.oneBladeReach(fusion.totalEdge);
-        float amount = (float) SwordMath.oneBladeBlast(fusion.totalEdge, SwordService.strain(player));
+        double length = SwordMath.oneBladeReach(fusion.swords);
+        float amount = (float) SwordMath.oneBladeBlast(fusion.swords);
         cut(player, fusion, length * BLAST_LENGTH_FACTOR, 0.0D, length * BLAST_WIDTH_FACTOR * 0.5D, amount, 1.2D);
         player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
                 SoundEvents.WARDEN_SONIC_BOOM, SoundSource.PLAYERS, 1.0F, 1.1F);
@@ -494,7 +493,7 @@ public final class OneBladeSkill implements SkillModule {
         }
         FUSIONS.remove(player.getUUID());
         clearCarry(player);
-        SwordService.recover(player, state, fusion.totalEdge);
+        SwordService.returnSwords(player, state, fusion.swords);
         SwordService.tendArrayEntity(player, state);
         state.sync(player);
         return true;
@@ -665,7 +664,7 @@ public final class OneBladeSkill implements SkillModule {
                 // The Bearing's arithmetic, for the same anchor: an EYE_FORWARD circle is hung
                 // 0.9 blocks from the eye and turned to face the camera, so tier 4's radius of
                 // 3.0 is 73 degrees of a 70-degree frame. Hold-gated, so it does not draw today.
-                .tier(TierProfile.forTier(definition().tier()).withRadius(TheBearingSkill.HAND_RING_RADIUS))
+                .tier(TierProfile.forTier(definition().tier()).withRadius(SwordStanceSkill.HAND_RING_RADIUS))
                 // CROSSED_BLADES rather than PRISM, and the form is the whole of it: it is one of
                 // the shell's travel forms, so the pose is turned until local +Z runs along the
                 // entity's synced direction, and BodyPainter lays the mesh from z = 0 to z =

@@ -125,6 +125,16 @@ public enum SwordStance {
         return name().toLowerCase(Locale.ROOT);
     }
 
+    /** Its name, for the picker, the refusal and the codex. */
+    public String nameKey() {
+        return "stance.magical." + key();
+    }
+
+    /** One line on what it does, drawn under the name in the picker. */
+    public String descriptionKey() {
+        return nameKey() + ".desc";
+    }
+
     /** The default and the fallback, named once so nothing else has to know it is the first. */
     public static SwordStance first() {
         return GUARD;

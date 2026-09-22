@@ -36,7 +36,16 @@ class HudLangKeysTest {
             "screen.magical.proficiency",
             // The five blood actives the kit replaced, and the one message only one of them printed.
             "skill.magical.crimson_tithe", "skill.magical.hemorrhage", "skill.magical.scarlet_lance",
-            "skill.magical.second_heart", "skill.magical.exsanguinate", "message.magical.second_heart_already");
+            "skill.magical.second_heart", "skill.magical.exsanguinate", "message.magical.second_heart_already",
+            // The Bearing and the lattice it edited. A stance is chosen from six drawn pictures
+            // now, so there is no chart, no heading, no reach and no per-bearing measure of edge
+            // to name - and the five refusals below were all refusals to write one by hand.
+            "skill.magical.the_bearing", "message.magical.bearing_hold",
+            "message.magical.sword_full", "message.magical.sword_too_close", "message.magical.sword_too_dear",
+            "message.magical.sword_no_edge", "message.magical.sword_out_of_reach",
+            "bearing.magical.ahead", "bearing.magical.right", "bearing.magical.behind", "bearing.magical.left",
+            "bearing.magical.bill", "bearing.magical.station", "bearing.magical.empty", "bearing.magical.write",
+            "bearing.magical.unmarked", "bearing.magical.marked", "bearing.magical.cooling");
 
     private static final List<String> PRESENT = List.of(
             "hud.magical.gauge.pride", "hud.magical.gauge.greed", "hud.magical.gauge.envy", "hud.magical.gauge.gluttony",

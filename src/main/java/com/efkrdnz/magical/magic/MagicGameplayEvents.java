@@ -264,6 +264,10 @@ public final class MagicGameplayEvents {
         float causal = event.getContainer().getNewDamage();
         if (event.getSource().getEntity() instanceof ServerPlayer striker && striker != living) {
             causal = com.efkrdnz.magical.magic.causality.CausalityEvents.strike(striker, living, event.getSource(), causal);
+            // Watch.DROP is a follow-up on whatever the wielder last wounded, and this is the one
+            // hook that sees every way they can wound: a swing, an arrow and a spell all arrive
+            // here, where AttackEntityEvent would have seen only the first of the three.
+            com.efkrdnz.magical.magic.sword.SwordService.noteVictim(striker, living);
         }
         if (event.getSource().getEntity() instanceof LivingEntity swinging && swinging != living) {
             causal = com.efkrdnz.magical.magic.causality.CausalityEvents.markedStrikes(swinging, living, event.getSource(), causal);
@@ -287,14 +291,6 @@ public final class MagicGameplayEvents {
             // The price of blood magic is paid in flesh. No Mana Skin, no sin soak, no passive
             // reduction and above all no barrier: the number the caller asked for is the number that
             // lands. The bypass tags handle vanilla mitigation; this handles everything in here.
-            return;
-        }
-        if (event.getSource().is(com.efkrdnz.magical.magic.sword.SwordDamageTypes.SWORD_STRAIN)) {
-            // The same ruling as blood_price, for the same reason. An Array held past its draw
-            // bills its wielder, and the bill is the whole of what Sword God trades a rule for -
-            // so no Mana Skin, no sin soak, no passive reduction and above all no barrier. The
-            // bypass tags handle vanilla mitigation; the barrier is not vanilla and knows nothing
-            // about tags, so it has to be turned away here or it quietly eats the apex's price.
             return;
         }
         if (event.getSource().is(DamageTypeTags.IS_FIRE) || event.getSource().is(DamageTypeTags.IS_FREEZING)) {

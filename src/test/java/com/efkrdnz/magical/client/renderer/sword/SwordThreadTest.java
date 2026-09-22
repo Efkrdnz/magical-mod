@@ -9,7 +9,9 @@ import com.efkrdnz.magical.client.renderer.fx.paint.FilamentPainter;
 import com.efkrdnz.magical.client.renderer.sword.SwordArrayRenderer.ThreadGeometry;
 import com.efkrdnz.magical.magic.sword.ArrayPose;
 import com.efkrdnz.magical.magic.sword.Frame;
-import com.efkrdnz.magical.magic.sword.Station;
+import com.efkrdnz.magical.magic.sword.stance.Formation;
+import com.efkrdnz.magical.magic.sword.stance.Slot;
+import com.efkrdnz.magical.magic.sword.stance.SwordStance;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
@@ -68,15 +70,15 @@ class SwordThreadTest {
     @Test
     void aThreadEndsAtItsBlade() {
         // The far end, with the camera far enough away that nothing is trimmed: the drawn tip has
-        // to land on the station's own worldOffset, the same doubles the blade is placed with.
+        // to land on the slot's own worldOffset, the same doubles the blade is placed with.
         Vec3 camera = new Vec3(30.0D, 2.0D, -18.0D);
-        for (Station station : spread()) {
-            double[] offset = ArrayPose.worldOffset(station, FRAME);
-            Vector3f tip = drawnTip(station, camera);
-            assertNotNull(tip, "no thread at all for " + station);
-            assertEquals(offset[0], tip.x(), EPSILON, "x at " + station);
-            assertEquals(offset[1], tip.y(), EPSILON, "y at " + station);
-            assertEquals(offset[2], tip.z(), EPSILON, "z at " + station);
+        for (Slot slot : spread()) {
+            double[] offset = ArrayPose.worldOffset(slot, FRAME);
+            Vector3f tip = drawnTip(slot, camera);
+            assertNotNull(tip, "no thread at all for " + slot);
+            assertEquals(offset[0], tip.x(), EPSILON, "x at " + slot);
+            assertEquals(offset[1], tip.y(), EPSILON, "y at " + slot);
+            assertEquals(offset[2], tip.z(), EPSILON, "z at " + slot);
         }
     }
 
@@ -85,18 +87,18 @@ class SwordThreadTest {
         // The defect, as a number. Before the trim the near end was the chest, which in first
         // person is 0.72 blocks dead below the eye and horizontally on top of it - a point on the
         // camera plane, which the perspective divide sends off the bottom of the frame. Measure
-        // the whole drawn segment, not just its ends: a thread to a station behind the wielder
+        // the whole drawn segment, not just its ends: a thread to a sword behind the wielder
         // passes closest to a third-person camera somewhere in its middle.
         for (Vec3 camera : new Vec3[] {EYE, new Vec3(0.0D, 1.62D, -4.0D), new Vec3(2.5D, 3.0D, 2.5D)}) {
-            for (Station station : spread()) {
-                Vec3 start = drawnStart(station, camera);
+            for (Slot slot : spread()) {
+                Vec3 start = drawnStart(slot, camera);
                 if (start == null) {
                     continue;
                 }
-                double[] offset = ArrayPose.worldOffset(station, FRAME);
+                double[] offset = ArrayPose.worldOffset(slot, FRAME);
                 double near = distanceToSegment(camera, start, new Vec3(offset[0], offset[1], offset[2]));
                 assertTrue(near >= ThreadGeometry.NEAR_CLEAR - EPSILON,
-                        "a thread for " + station + " is drawn " + near
+                        "a thread for " + slot + " is drawn " + near
                                 + " blocks from a camera at " + camera + ", inside the "
                                 + ThreadGeometry.NEAR_CLEAR + " it must keep clear of");
             }
@@ -108,15 +110,15 @@ class SwordThreadTest {
         // The other half of the same rule, and the reason the two tests live together: the cheap
         // way to keep a thread off the camera is to draw less of the far end, which would leave a
         // line stopping in mid-air short of the blade it is about. Only the start may move.
-        for (Station station : spread()) {
-            Vector3f tip = drawnTip(station, EYE);
+        for (Slot slot : spread()) {
+            Vector3f tip = drawnTip(slot, EYE);
             if (tip == null) {
                 continue;
             }
-            double[] offset = ArrayPose.worldOffset(station, FRAME);
-            assertEquals(offset[0], tip.x(), EPSILON, "x at " + station);
-            assertEquals(offset[1], tip.y(), EPSILON, "y at " + station);
-            assertEquals(offset[2], tip.z(), EPSILON, "z at " + station);
+            double[] offset = ArrayPose.worldOffset(slot, FRAME);
+            assertEquals(offset[0], tip.x(), EPSILON, "x at " + slot);
+            assertEquals(offset[1], tip.y(), EPSILON, "y at " + slot);
+            assertEquals(offset[2], tip.z(), EPSILON, "z at " + slot);
         }
     }
 
@@ -126,35 +128,35 @@ class SwordThreadTest {
         // the threads exist for is taken from across the arena, and at that range every one of
         // them is drawn whole - otherwise the opponent counts fewer blades than there are.
         Vec3 camera = new Vec3(-21.0D, 1.6D, 22.0D);
-        for (Station station : spread()) {
-            double[] offset = ArrayPose.worldOffset(station, FRAME);
+        for (Slot slot : spread()) {
+            double[] offset = ArrayPose.worldOffset(slot, FRAME);
             double from = ThreadGeometry.start(CHEST.x, CHEST.y, CHEST.z,
                     offset[0], offset[1], offset[2], camera.x, camera.y, camera.z);
-            assertEquals(0.0D, from, 0.0D, "a thread for " + station + " was trimmed for a viewer "
+            assertEquals(0.0D, from, 0.0D, "a thread for " + slot + " was trimmed for a viewer "
                     + camera.distanceTo(CHEST) + " blocks away");
         }
     }
 
     @Test
     void aBladeInTheCameraLapIsNotThreadedAtAll() {
-        // A station behind the wielder can sit exactly where a third-person camera is. There is no
+        // A sword behind the wielder can sit exactly where a third-person camera is. There is no
         // shortened thread that helps there - every point of the run within the clearance is one
         // the viewer is inside - so the answer is to draw none of it.
-        for (Station station : spread()) {
-            double[] offset = ArrayPose.worldOffset(station, FRAME);
+        for (Slot slot : spread()) {
+            double[] offset = ArrayPose.worldOffset(slot, FRAME);
             Vec3 camera = new Vec3(offset[0], offset[1], offset[2]);
             double from = ThreadGeometry.start(CHEST.x, CHEST.y, CHEST.z,
                     offset[0], offset[1], offset[2], camera.x, camera.y, camera.z);
             assertEquals(1.0D, from, 0.0D,
-                    "a camera sitting on the blade at " + station + " still gets a thread drawn to it");
+                    "a camera sitting on the blade at " + slot + " still gets a thread drawn to it");
         }
     }
 
     // ---- the painter, replayed -------------------------------------------------------------------
 
     /** Where the drawn tube begins, or null when the thread is refused outright. */
-    private static Vec3 drawnStart(Station station, Vec3 camera) {
-        double[] offset = ArrayPose.worldOffset(station, FRAME);
+    private static Vec3 drawnStart(Slot slot, Vec3 camera) {
+        double[] offset = ArrayPose.worldOffset(slot, FRAME);
         double from = ThreadGeometry.start(CHEST.x, CHEST.y, CHEST.z,
                 offset[0], offset[1], offset[2], camera.x, camera.y, camera.z);
         if (from >= 1.0D) {
@@ -169,12 +171,12 @@ class SwordThreadTest {
      * that agrees with them: translate to the start, {@code orientAlong} the run, then take the
      * tube vertex at z = 1 scaled by the length {@code beam} is handed.
      */
-    private static Vector3f drawnTip(Station station, Vec3 camera) {
-        Vec3 start = drawnStart(station, camera);
+    private static Vector3f drawnTip(Slot slot, Vec3 camera) {
+        Vec3 start = drawnStart(slot, camera);
         if (start == null) {
             return null;
         }
-        double[] offset = ArrayPose.worldOffset(station, FRAME);
+        double[] offset = ArrayPose.worldOffset(slot, FRAME);
         Vec3 run = new Vec3(offset[0], offset[1], offset[2]).subtract(CHEST);
         double length = run.length() - start.subtract(CHEST).length();
         PoseStack pose = new PoseStack();
@@ -185,20 +187,36 @@ class SwordThreadTest {
         return tip;
     }
 
-    /** Every reach and every pitch on every fourth bearing: 324 places right round the wielder. */
-    private static Station[] spread() {
-        int bearings = Station.YAW_STEPS / 4;
-        int pitches = Station.PITCH_MAX - Station.PITCH_MIN + 1;
-        Station[] stations = new Station[bearings * pitches * Station.REACH_MAX];
-        int i = 0;
-        for (int yaw = 0; yaw < Station.YAW_STEPS; yaw += 4) {
-            for (int pitch = Station.PITCH_MIN; pitch <= Station.PITCH_MAX; pitch++) {
-                for (int reach = 1; reach <= Station.REACH_MAX; reach++) {
-                    stations[i++] = new Station(yaw, pitch, reach, 4);
+    /**
+     * Every stance, at each complement a rung fields, at three phases: 306 places round the
+     * wielder.
+     *
+     * <p>The sweep is over the six because between them they put a sword above the head, out to
+     * either side, under the feet and directly behind, and the trim is a different piece of
+     * arithmetic in every one of those directions - a spread that only went forward would pass
+     * on all of them. The phases are in for the same reason: Coil and Rain turn, so a formation
+     * that cleared the camera at phase zero and nowhere else would clear it for an instant in
+     * every revolution and be a bar through the frame the rest of the time.
+     */
+    private static Slot[] spread() {
+        int[] counts = {1, 4, 12};
+        double[] phases = {0.0D, 37.0D, 113.0D};
+        int perStance = 0;
+        for (int count : counts) {
+            perStance += count;
+        }
+        Slot[] slots = new Slot[SwordStance.count() * phases.length * perStance];
+        int at = 0;
+        for (SwordStance stance : SwordStance.values()) {
+            for (double phase : phases) {
+                for (int count : counts) {
+                    for (int i = 0; i < count; i++) {
+                        slots[at++] = Formation.place(stance, i, count, phase);
+                    }
                 }
             }
         }
-        return stations;
+        return slots;
     }
 
     /** Closest approach of a point to a segment, which is where a thread passes a camera. */

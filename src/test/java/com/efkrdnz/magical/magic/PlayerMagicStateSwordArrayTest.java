@@ -4,9 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.efkrdnz.magical.magic.sword.PlantResult;
-import com.efkrdnz.magical.magic.sword.Station;
 import com.efkrdnz.magical.magic.sword.SwordArray;
+import com.efkrdnz.magical.magic.sword.SwordRules;
+import com.efkrdnz.magical.magic.sword.stance.SwordStance;
 import net.minecraft.SharedConstants;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.Bootstrap;
@@ -15,18 +15,21 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The Array rides on the state like the Grimoire does: copied, saved, loaded, and emptied with the
- * rest of what the wielder authored.
+ * rest of what the wielder chose.
  *
  * <p>All five sites or it half-works, and each way of half-working is silent. Miss {@code copy()}
- * and the shape saves and loads perfectly on the server and arrives empty on the client - in
- * multiplayer only, after a resync, with nothing logged. Miss {@code save()} and it never reaches
- * the wire or the disk at all. Nothing else in the build will ever notice either one.
+ * and the stance saves and loads perfectly on the server and arrives as the default on the client
+ * - in multiplayer only, after a resync, with nothing logged. Miss {@code save()} and it never
+ * reaches the wire or the disk at all. Nothing else in the build will ever notice either one.
  */
 class PlayerMagicStateSwordArrayTest {
 
-    /** Two bearings at the base rung: bill {@code 3*2 + 2*3 = 12} of a draw of 24, five Edge bound. */
-    private static final Station NORTH = new Station(0, 0, 3, 2);
-    private static final Station WEST_HIGH = new Station(6, 1, 2, 3);
+    /**
+     * Rain: the last of the six and one only the top rung opens, so every clamp this file can
+     * trip is in play. Guard would pass {@link SwordArray#setStance} at any rung and prove
+     * nothing about the rules travelling with the stance.
+     */
+    private static final SwordStance CHOSEN = SwordStance.RAIN;
 
     @BeforeAll
     static void bootstrap() {
@@ -36,53 +39,71 @@ class PlayerMagicStateSwordArrayTest {
 
     private static PlayerMagicState written() {
         PlayerMagicState state = new PlayerMagicState();
-        assertEquals(PlantResult.PLANTED, state.swordArray().plant(NORTH, 0), "the first bearing is written");
-        assertEquals(PlantResult.PLANTED, state.swordArray().plant(WEST_HIGH, 0), "and the second clears the separation");
-        assertEquals(12, state.swordArray().bill(), "the shape the rest of this test is about");
+        // The rung first: setStance refuses a locked stance rather than clamping it, which is the
+        // whole reason PlayerMagicState.load reads the class progress before the Array.
+        state.swordArray().setRules(SwordRules.GOD);
+        assertTrue(state.swordArray().setStance(CHOSEN), "the apex rung opens every stance");
+        assertTrue(state.swordArray().setDrawn(true), "and the steel is out");
         return state;
     }
 
     @Test
-    void aCopyKeepsTheArray() {
+    void aCopyKeepsTheStanceAndTheSteel() {
         SwordArray copied = written().copy().swordArray();
-        assertEquals(2, copied.size());
-        assertEquals(NORTH, copied.station(0), "insertion order is load-bearing and survives the copy");
-        assertEquals(WEST_HIGH, copied.station(1));
-        assertEquals(12, copied.bill());
-        assertEquals(5, copied.bound());
+        assertEquals(CHOSEN, copied.stance());
+        assertTrue(copied.drawn());
+        assertEquals(SwordRules.GOD, copied.rules(), "the rung travels with it or the stance is illegal");
     }
 
     @Test
-    void aSaveAndLoadKeepsTheArray() {
+    void aSaveAndLoadKeepsTheStanceAndTheSteel() {
         CompoundTag tag = written().save();
         int[] packed = tag.getIntArray("swordArray");
-        assertEquals(3, packed.length, "the version and one packed int per station");
+        assertEquals(3, packed.length, "the version, the stance ordinal and the drawn flag");
         assertEquals(SwordArray.SAVE_VERSION, packed[0]);
+        assertEquals(CHOSEN.ordinal(), packed[1]);
+        assertEquals(1, packed[2]);
 
+        // Loaded onto a state with no class progress, so the rung falls back to the base rung and
+        // Rain is clamped away. That is the documented behaviour and it is what makes the load
+        // order in PlayerMagicState.load load-bearing: refreshRung cannot put back a stance the
+        // load already threw away.
         SwordArray loaded = PlayerMagicState.load(tag).swordArray();
-        assertEquals(2, loaded.size());
-        assertEquals(NORTH, loaded.station(0));
-        assertEquals(WEST_HIGH, loaded.station(1));
-        assertEquals(12, loaded.bill());
-        assertEquals(5, loaded.bound());
+        assertEquals(SwordStance.first(), loaded.stance(),
+                "a rung that has not opened Rain reads Guard, and reads it consistently");
+        assertTrue(loaded.drawn(), "but the steel is out either way: that is not a rung's business");
+    }
+
+    @Test
+    void aVersionOneTagIsDroppedWholeRatherThanGuessedAt() {
+        // A v1 tag was a packed list of lattice stations and there is no honest way to read one
+        // as a stance. load()'s existing rule handles the whole migration: a version this build
+        // does not know is dropped, so the wielder comes back in the default stance, sheathed -
+        // which is one keypress from right and cannot be a wrong shape.
+        CompoundTag old = new PlayerMagicState().save();
+        old.putIntArray("swordArray", new int[] {1, 12345, 6789});
+        SwordArray loaded = PlayerMagicState.load(old).swordArray();
+        assertEquals(SwordStance.first(), loaded.stance());
+        assertFalse(loaded.drawn());
     }
 
     @Test
     void clearingWipesTheArray() {
         PlayerMagicState state = written();
         state.clearAuthority();
-        assertTrue(state.swordArray().isEmpty(), "the shape went with everything else the wielder authored");
-        assertEquals(0, state.swordArray().bill());
+        assertEquals(SwordStance.first(), state.swordArray().stance());
+        assertFalse(state.swordArray().drawn(), "the steel went with everything else the wielder held");
         assertFalse(state.save().contains("swordArray"), "and a wiped Array is off the wire again");
     }
 
     @Test
-    void anEmptyArrayIsNotOnTheWire() {
+    void anUntouchedArrayIsNotOnTheWire() {
         // This tag rides every sync for every player and the overwhelming majority of them will
-        // never find the rite, so an empty Array has to cost nothing at all - not an empty list.
+        // never find the rite, so an untouched Array has to cost nothing at all.
         assertFalse(new PlayerMagicState().save().contains("swordArray"), "the key is absent, not empty");
-        assertTrue(written().save().contains("swordArray"), "and present the moment there is a bearing");
+        assertTrue(written().save().contains("swordArray"), "and present the moment anything is chosen");
         CompoundTag empty = new PlayerMagicState().save();
-        assertTrue(PlayerMagicState.load(empty).swordArray().isEmpty(), "and a tag without the key loads empty");
+        assertTrue(PlayerMagicState.load(empty).swordArray().isDefault(),
+                "and a tag without the key loads as the default");
     }
 }

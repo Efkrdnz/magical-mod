@@ -12,11 +12,10 @@ import com.efkrdnz.magical.magic.cast.TuningView;
 import com.efkrdnz.magical.magic.skill.SkillModule;
 import com.efkrdnz.magical.magic.sword.ArrayPose;
 import com.efkrdnz.magical.magic.sword.Frame;
-import com.efkrdnz.magical.magic.sword.Projection;
-import com.efkrdnz.magical.magic.sword.Station;
-import com.efkrdnz.magical.magic.sword.SwordArray;
 import com.efkrdnz.magical.magic.sword.SwordMath;
 import com.efkrdnz.magical.magic.sword.SwordService;
+import com.efkrdnz.magical.magic.sword.stance.Pattern;
+import com.efkrdnz.magical.magic.sword.stance.Slot;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
 import com.efkrdnz.magical.magic.visual.CircleScript;
 import com.efkrdnz.magical.magic.visual.ColorRole;
@@ -37,24 +36,28 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * SWORD T-3 - throw the half of the Array that is already pointing the right way.
+ * SWORD T-3 - throw every sword you have, in the shape you are standing in.
  *
- * <p>The forward projection over a re-anchored origin, and <b>there is no blade cap</b>: the
- * projection is the cap. A wielder who authored a forward cone fires all of it; a wielder who
- * authored a full ring fires exactly half, always, and nobody had to pick a number. A defensive
- * shape halves its own strike by construction.
+ * <p><b>There is no blade cap: how many swords are present is the cap.</b> That is the one good
+ * idea the old forward projection had and it is kept for its reason - a wielder who spent six
+ * swords a moment ago Looses with six, and the number has been on screen the whole time. What is
+ * gone is the projection itself: it fired only the bearings already pointing the right way, so
+ * the volley's size was a property of a shape the wielder had authored blind and could not see.
  *
- * <p>Two things happen and the order between them matters. The blades leave <em>their own
- * bearings</em>, which are where the formation is standing at the instant of the press, and fly to
- * the body under the crosshair. Only then does the frame bind to that body - so the stations that
- * did <em>not</em> fire are the ones left hanging around the enemy, which is precisely the leash
- * that makes their footwork spend the wielder's budget from Sword Saint on. Run, and his own Array
- * starts tearing itself apart at you.
+ * <p>The shape of the volley is the stance's {@link Pattern}, which is the whole of "different
+ * stances do different things with abilities". Guard throws a wall abreast, Vanguard a column one
+ * behind another, Crown a ring closing from every side, Wings two converging arcs, Coil a wide
+ * fast scatter, Rain from overhead. One press, six pictures, and the wielder chose which by
+ * standing somewhere.
+ *
+ * <p>Each sword leaves <em>its own place in the formation</em> - the position it was standing in
+ * at the instant of the press, which is where the wielder can see it - and converges on the point
+ * the pattern gave it relative to whatever is under the crosshair.
  *
  * <p>A plain press, so the registry bills the mana and the cooldown and casts the aim ray. Every
- * blade goes out through {@code SwordService.detach}, which is the one door out of a station and
- * the reason conservation holds without anybody counting; a blade refused by
- * {@link SwordBladeEntity#MAX_IN_FLIGHT} leaves its station's Edge exactly where it was.
+ * sword that leaves goes out through {@code SwordService.spendSword}, which is the one door out
+ * of the formation and the reason the count stays honest without anybody adding anything up; a
+ * sword refused by {@link SwordBladeEntity#MAX_IN_FLIGHT} is never spent.
  *
  * <p>The wound itself is {@code SwordBladeEntity}'s and it carries both halves of the i-frame
  * rule - the victim's {@code invulnerableTime} cleared so a fan landing in one tick lands whole,
@@ -69,16 +72,13 @@ public final class LooseSkill implements SkillModule {
     public static final double AIM_TOLERANCE = 1.6D;
 
     /**
-     * What the wielder is told when the forward projection is empty, or when every blade in it
-     * was refused for want of room in the air.
+     * What the wielder is told when they have no swords out, or when every one of them was
+     * refused for want of room in the air.
      *
-     * <p>The school ships five refusal strings and all five belong to Call the Blade; this is the
-     * nearest of them that is also true - there is no edge pointing that way - and a dedicated
-     * {@code message.magical.sword_nothing_forward} would read better. A press that finds no body
-     * is <em>not</em> a refusal: the throw still happens along the look and simply binds nothing,
-     * because a bind is a leash and there is nothing on the end of it.
+     * <p>A press that finds no <em>body</em> is not a refusal: the volley still happens, aimed at
+     * whatever point the crosshair found, because a wall is a thing you can throw swords at.
      */
-    private static final String KEY_NOTHING_TO_THROW = "message.magical.sword_no_edge";
+    private static final String KEY_NOTHING_TO_THROW = "message.magical.sword_none_present";
 
     /**
      * The mark this skill wears on its circle.
@@ -206,45 +206,51 @@ public final class LooseSkill implements SkillModule {
                     return CastResult.FAILED;
                 }
                 PlayerMagicState state = ctx.state();
-                SwordArray array = state.swordArray();
-                Frame frame = SwordService.frame(player);
-                Vec3 look = ctx.look();
-
-                int[] forward = Projection.forward(array, frame, new double[] {look.x, look.y, look.z});
-                if (forward.length == 0) {
-                    // Nothing manned is facing the way the wielder is looking, so there is
-                    // nothing to throw. A refusal costs nothing: FAILED refunds the mana and
-                    // writes no cooldown.
+                int mask = SwordService.presentMask(player, state);
+                if (mask == 0) {
+                    // No steel out, or all of it already away. A refusal costs nothing: FAILED
+                    // refunds the mana and writes no cooldown.
                     player.displayClientMessage(Component.translatable(KEY_NOTHING_TO_THROW), true);
                     return CastResult.FAILED;
                 }
 
                 LivingEntity body = ctx.aim().living();
                 Vec3 target = body != null ? body.getBoundingBox().getCenter() : ctx.aim().point();
-                // Taken once, before any Edge moves: every blade in this volley is as sharp as
-                // the Array was at the press, and a station emptying mid-volley must not blunt
-                // the ones behind it.
-                int strain = SwordService.strain(player);
+                Pattern pattern = state.swordArray().stance().pattern();
+                Vec3 look = ctx.look();
+                // The pattern speaks in the target's own frame - +Z from the caster toward the
+                // target - so it is turned into the world by the same rotation ArrayPose uses for
+                // everything else, about an origin at the target rather than at the wielder.
+                double[] line = {look.x, look.y, look.z};
+                Frame aim = new Frame(target.x, target.y, target.z,
+                        ArrayPose.yawOf(line), ArrayPose.pitchOf(line), 1.0F);
+                double reach = target.distanceTo(player.getEyePosition());
                 ServerLevel level = ctx.level();
 
+                int count = Integer.bitCount(mask);
                 int fired = 0;
-                for (int slot : forward) {
-                    Station station = array.station(slot);
-                    if (station == null || !station.manned()) {
+                int nth = 0;
+                for (int index = 0; index < Integer.SIZE; index++) {
+                    if ((mask & (1 << index)) == 0) {
                         continue;
                     }
-                    int edge = station.edge();
-                    Vec3 at = stationAt(station, frame);
+                    Vec3 at = SwordService.swordPosition(player, state, index);
+                    if (at == null) {
+                        continue;
+                    }
+                    Slot spread = Pattern.spread(pattern, nth++, count, reach);
+                    double[] offset = ArrayPose.worldOffset(spread, aim);
+                    Vec3 to = target.add(offset[0], offset[1], offset[2]);
                     SwordBladeEntity blade = SwordBladeEntity.loose(level, player, MagicContent.LOOSE.id(),
-                            at, target.subtract(at), slot, edge,
-                            SwordMath.bladeDamage(edge, strain), ctx.stats().knockback(),
+                            at, to.subtract(at), index, 1,
+                            SwordMath.bladeDamage(), ctx.stats().knockback(),
                             ctx.stats().speed(), ctx.duration());
                     if (blade == null) {
-                        // The wielder already has MAX_IN_FLIGHT out. Leave this station's metal
-                        // on it rather than paying for a blade that was refused.
+                        // The wielder already has MAX_IN_FLIGHT out. Leave this sword where it is
+                        // rather than paying for a blade that was refused.
                         continue;
                     }
-                    SwordService.detach(player, state, slot, edge);
+                    SwordService.spendSword(player, state);
                     fired++;
                 }
                 if (fired == 0) {
@@ -252,12 +258,8 @@ public final class LooseSkill implements SkillModule {
                     return CastResult.FAILED;
                 }
 
-                // Last, and only once something has actually left: the origin goes onto whoever
-                // was under the crosshair, and what is left of the shape hangs on them.
-                if (body != null) {
-                    SwordService.bindTo(player, body);
-                }
                 SwordService.tendArrayEntity(player, state);
+                state.sync(player);
                 return CastResult.SUCCESS;
             }
 
@@ -278,9 +280,9 @@ public final class LooseSkill implements SkillModule {
 
             @Override
             public MobCastProfile mob() {
-                // A mob has no PlayerMagicState and therefore no Array, so the forward projection
-                // is always empty for one - NONE rather than null, because a null here is an NPE
-                // on the server thread inside entity ticking.
+                // A mob has no PlayerMagicState and therefore no swords, so the present mask is
+                // always zero for one - NONE rather than null, because a null here is an NPE on
+                // the server thread inside entity ticking.
                 return MobCastProfile.NONE;
             }
 
@@ -289,12 +291,6 @@ public final class LooseSkill implements SkillModule {
                 return TuningView.DEFAULT;
             }
         };
-    }
-
-    /** Where a station's blade is standing right now, in world coordinates. */
-    private static Vec3 stationAt(Station station, Frame frame) {
-        double[] offset = ArrayPose.worldOffset(station, frame);
-        return new Vec3(frame.x() + offset[0], frame.y() + offset[1], frame.z() + offset[2]);
     }
 
     // ---- the look ------------------------------------------------------------------------------
