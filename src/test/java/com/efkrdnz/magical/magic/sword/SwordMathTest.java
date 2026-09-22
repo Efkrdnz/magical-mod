@@ -3,6 +3,7 @@ package com.efkrdnz.magical.magic.sword;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.efkrdnz.magical.magic.sword.stance.SwordStance;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -84,6 +85,9 @@ class SwordMathTest {
         assertEquals(SwordMath.SWORD_HEART_CAP,
                 SwordMath.MANA_PER_SWORD * SwordRules.GOD.swords(),
                 "the cap and a full complement are the same number, so neither is arbitrary");
+        assertEquals(SwordMath.SWORD_HEART_CAP,
+                SwordMath.MANA_PER_SWORD * SwordStance.RAIN.swords(SwordRules.GOD.swords()),
+                "and a stance can still reach it, which is what keeps it from being decoration");
     }
 
     @Test
@@ -94,5 +98,36 @@ class SwordMathTest {
         assertEquals(60.0D, SwordRules.GOD.swords() * SwordMath.bladeDamage(), EXACT);
         assertEquals(20.0D, SwordRules.SUMMONER.swords() * SwordMath.bladeDamage(), EXACT,
                 "and the base rung's whole volley is four swords, which is a third of it");
+    }
+
+    /**
+     * The apex is a stance as well as a rung, and the spread between them is the trade.
+     *
+     * <p>A complement is the rung's offer capped by the stance's shape, so the 60 above is not a
+     * number an apex wielder simply has - it is a number they have <em>in Rain</em>. Vanguard,
+     * the tightest cluster in the kit and the one drawn on the crosshair, fields five of the same
+     * twelve and lands 25 - the price of that silhouette, stated in damage rather than in
+     * adjectives. Both ends are pinned because a cap that quietly became the only complement
+     * would make the whole feature a nerf with no upside.
+     *
+     * <p>The floor is a <em>rung 0</em> stance and the ceiling a rung 2 one, which is the shape
+     * of the whole thing: the two postures a wielder starts in stay tight for the rest of the
+     * game, and climbing the chain buys steel as well as verbs.
+     */
+    @Test
+    void whatAnApexWielderLandsDependsOnHowTheyAreStanding() {
+        int apex = SwordRules.GOD.swords();
+        assertEquals(60.0D, SwordStance.RAIN.swords(apex) * SwordMath.bladeDamage(), EXACT,
+                "Rain is the stance that reaches the ceiling, so the ceiling is reachable");
+        assertEquals(25.0D, SwordStance.VANGUARD.swords(apex) * SwordMath.bladeDamage(), EXACT,
+                "and Vanguard is the floor: five swords on the aim line, for the tightest read");
+        assertEquals(30.0D, SwordStance.GUARD.swords(apex) * SwordMath.bladeDamage(), EXACT,
+                "with Guard just above it - the two the Summoner starts with are the two small ones");
+        for (SwordStance stance : SwordStance.values()) {
+            double volley = stance.swords(apex) * SwordMath.bladeDamage();
+            assertTrue(volley >= 25.0D && volley <= 60.0D,
+                    stance + " lands " + volley + " at the apex, outside the 25..60 the two ends"
+                            + " above claim is the whole spread");
+        }
     }
 }

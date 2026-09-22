@@ -126,6 +126,86 @@ public final class StanceGameTests {
         });
     }
 
+    /**
+     * A wielder cannot pay a volley off by changing shape.
+     *
+     * <p>Only reachable in a level, because the thing being tested is a side effect of the
+     * formation entity's own tick: {@code StanceWatchService.tick} is what tells the service the
+     * stance moved. And it fails silently in the most expensive way there is - six free swords
+     * for two keypresses, with every number on the screen agreeing.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 200, batch = "sword_stance_3")
+    public static void aVolleyIsNotPaidOffByChangingStance(GameTestHelper helper) {
+        ServerPlayer player = wielder(helper, "stance-debt");
+        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+        int[] whole = new int[1];
+        helper.runAtTickTime(1, () -> {
+            standUp(player, state, SwordStance.RAIN);
+            whole[0] = SwordService.present(player, state);
+            helper.assertValueEqual(whole[0], SwordStance.RAIN.swordCap(), "swords Rain fields");
+            helper.assertValueEqual(SwordService.spendSwords(player, state, whole[0]), whole[0],
+                    "swords the volley actually sent");
+            helper.assertValueEqual(SwordService.present(player, state), 0, "swords left after all of them went");
+        });
+        helper.runAtTickTime(3, () -> stand(player, state, SwordStance.GUARD));
+        helper.runAtTickTime(8, () -> {
+            helper.assertValueEqual(SwordService.swords(state), SwordStance.GUARD.swordCap(),
+                    "swords Guard fields");
+            helper.assertValueEqual(SwordService.present(player, state), 0,
+                    "swords present in Guard, owing a whole Rain volley");
+            helper.assertValueEqual(SwordService.away(player, state), SwordStance.GUARD.swordCap(),
+                    "holes visible in Guard - every slot it has, and no more");
+        });
+        helper.runAtTickTime(10, () -> stand(player, state, SwordStance.RAIN));
+        helper.runAtTickTime(15, () -> {
+            helper.assertValueEqual(SwordService.present(player, state), 0,
+                    "swords back in Rain after a round trip through Guard - the debt was truncated"
+                            + " to Guard's complement on the way through and the rest forgiven");
+            helper.succeed();
+        });
+    }
+
+    /**
+     * And every sword that went out can come home, however narrow the stance got.
+     *
+     * <p>The other half of the same rule and the other way it fails: if the return machinery
+     * reads the stance's window rather than the debt, the swords past that window are stranded
+     * for good - no clock, no walk-over and no recall ever sees them again.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 200, batch = "sword_stance_4")
+    public static void everySwordComesHomeEvenFromANarrowerStance(GameTestHelper helper) {
+        ServerPlayer player = wielder(helper, "stance-strand");
+        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+        int[] spent = new int[1];
+        helper.runAtTickTime(1, () -> {
+            standUp(player, state, SwordStance.RAIN);
+            spent[0] = SwordService.spendSwords(player, state, SwordStance.RAIN.swordCap());
+            helper.assertTrue(spent[0] > SwordStance.VANGUARD.swordCap(),
+                    "the volley has to be wider than the stance it is carried into, or the window"
+                            + " and the debt are the same number and this proves nothing");
+        });
+        helper.runAtTickTime(3, () -> stand(player, state, SwordStance.VANGUARD));
+        helper.runAtTickTime(8, () -> {
+            helper.assertValueEqual(SwordService.present(player, state), 0, "swords present in Vanguard");
+            SwordService.returnSwords(player, state, spent[0]);
+            helper.assertValueEqual(SwordService.present(player, state), SwordStance.VANGUARD.swordCap(),
+                    "swords back in Vanguard once the whole volley returned");
+        });
+        helper.runAtTickTime(10, () -> stand(player, state, SwordStance.RAIN));
+        helper.runAtTickTime(15, () -> {
+            helper.assertValueEqual(SwordService.present(player, state), SwordStance.RAIN.swordCap(),
+                    "swords back in Rain - anything short of the full complement is steel the"
+                            + " return machinery could not reach through Vanguard's window");
+            helper.succeed();
+        });
+    }
+
+    /** A change of posture mid-test, the way the key does it: set it, then let the entity notice. */
+    private static void stand(ServerPlayer player, PlayerMagicState state, SwordStance stance) {
+        state.swordArray().setStance(stance);
+        SwordService.tendArrayEntity(player, state);
+    }
+
     /** The steel out, in one named stance, with the entity that carries the Watch already there. */
     private static void standUp(ServerPlayer player, PlayerMagicState state, SwordStance stance) {
         SwordService.refreshRung(player, state);

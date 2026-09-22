@@ -155,9 +155,11 @@ class SwordArrayTest {
         to.copyFrom(from);
         assertEquals(SwordStance.COIL, to.stance());
         assertTrue(to.drawn());
-        assertEquals(SwordRules.SAINT.swords(), to.swords(),
+        assertEquals(SwordRules.SAINT, to.rules(),
                 "copyFrom that left the rung behind would clamp the stance it just copied on the"
                         + " next setRules");
+        assertEquals(SwordStance.COIL.swords(SwordRules.SAINT.swords()), to.swords(),
+                "and the count is the copied stance's cap over the copied rung, not either alone");
     }
 
     private static void assertOpens(SwordRules rules, SwordStance... open) {

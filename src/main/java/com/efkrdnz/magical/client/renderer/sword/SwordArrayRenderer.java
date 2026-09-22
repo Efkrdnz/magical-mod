@@ -7,6 +7,7 @@ import com.efkrdnz.magical.client.renderer.fx.paint.FilamentPainter;
 import com.efkrdnz.magical.entity.sword.SwordArrayEntity;
 import com.efkrdnz.magical.magic.sword.ArrayPose;
 import com.efkrdnz.magical.magic.sword.Frame;
+import com.efkrdnz.magical.magic.sword.FrameEase;
 import com.efkrdnz.magical.magic.sword.stance.Formation;
 import com.efkrdnz.magical.magic.sword.stance.Slot;
 import com.efkrdnz.magical.magic.sword.stance.SwordStance;
@@ -101,6 +102,8 @@ public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEnt
         public Vec3 chest;
         /** The wielder's pitch, for a BODY-anchored stance. Positive is up, as Formation wants. */
         public double lookElevation;
+        /** The argument Formation.place takes for its wave terms. See the note in render. */
+        public double phase;
     }
 
     @Override
@@ -121,9 +124,16 @@ public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEnt
         state.slots = entity.slotCount();
         state.stance = entity.stance();
         state.scale = Math.max(0.0F, entity.value());
-        Vec3 facing = entity.direction();
-        state.frameYaw = frameYaw(facing);
-        state.framePitch = framePitch(facing);
+        // Walked between the last two facings the server sent rather than taken raw. The server
+        // eases the frame's rotation over a half-life, but it still only says so twenty times a
+        // second, and a formation that steps twenty times a second is the thing that read as a
+        // prop bolted to the camera. Angles rather than the vector: two facings a long way apart
+        // lerp through the middle of the sphere, and the normalise of something near zero is a
+        // NaN that takes the whole formation off the screen for a frame.
+        state.frameYaw = FrameEase.lerpAngle(frameYaw(entity.lastFacing()),
+                frameYaw(entity.facingAt(1.0F)), partialTick);
+        state.framePitch = FrameEase.lerpAngle(framePitch(entity.lastFacing()),
+                framePitch(entity.facingAt(1.0F)), partialTick);
         LivingEntity wielder = entity.livingTarget();
         Vec3 origin = entity.getPosition(partialTick);
         state.chest = wielder == null ? null
@@ -134,6 +144,12 @@ public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEnt
         // twice; a BODY stance sits at pitch zero and this is the whole of its aim.
         state.lookElevation = wielder == null || state.stance.anchor() == SwordStance.Anchor.LOOK
                 ? 0.0D : -wielder.getViewXRot(partialTick);
+        // The level's game time, which is the clock SwordService.phase reads on the other side.
+        // It used to be the entity's own age here, and that is a different clock: an age starts
+        // when the spawn packet lands, so the ring was drawn at one angle and fired from another,
+        // by a constant offset that was different for every observer. SwordService.phase's own
+        // note says an age would not do; the renderer was the one place using one.
+        state.phase = entity.level().getGameTime() + partialTick;
     }
 
     /**
@@ -164,10 +180,9 @@ public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEnt
         ctx.lod = FxBudget.lodForDistance(state.distanceSqr);
 
         Frame frame = new Frame(0.0D, 0.0D, 0.0D, state.frameYaw, state.framePitch, state.scale);
-        // The phase is the entity's own age, which both sides read off the same clock. A
-        // formation that drifts, spins or bobs does it identically everywhere because nobody is
-        // told where a sword is - both machines work it out.
-        double phase = state.age;
+        // Both machines read this off the level's game time, so a formation that drifts, spins
+        // or bobs does it identically everywhere and nobody is ever told where a sword is.
+        double phase = state.phase;
         float heat = heat(state);
         // Beyond the far LOD band the threads go before the steel does: the steel is what the
         // picture is of, and a thread at fifty blocks is a pixel either way.

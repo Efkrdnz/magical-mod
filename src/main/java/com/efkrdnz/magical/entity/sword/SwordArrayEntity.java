@@ -102,6 +102,12 @@ public class SwordArrayEntity extends SpellEffectEntity {
     @Override
     public void tick() {
         super.tick();
+        // Before the server gate, because this is the client's half: the facing arrives once a
+        // tick and the renderer walks between the last two, exactly as vanilla walks a position
+        // between xOld and x. Without it the eased turn is still delivered in twenty steps a
+        // second, which is most of what made the formation look bolted on.
+        lastFacing = facing;
+        facing = direction();
         if (!(level() instanceof ServerLevel level) || isRemoved()) {
             return;
         }
@@ -116,10 +122,35 @@ public class SwordArrayEntity extends SpellEffectEntity {
             discard();
             return;
         }
+        // One advance per tick, before anything reads the frame - the ease is state, and a
+        // reader that advanced it would turn the formation once per caller.
+        SwordService.followFrame(wielder);
         follow(SwordService.frame(wielder));
         writePicture(state.swordArray().stance(), SwordService.bind(wielder),
                 SwordService.presentMask(wielder, state));
         StanceWatchService.tick(level, wielder, state);
+    }
+
+    /** Last tick's facing and this tick's, for the client's sub-tick walk between them. */
+    private Vec3 facing;
+    private Vec3 lastFacing;
+
+    /**
+     * The frame's facing at a point inside the tick.
+     *
+     * <p>Null-safe in both directions because an entity is rendered on the frame it spawns, one
+     * tick before either field has been written, and a renderer that took the difference of two
+     * nulls would drop the whole formation on its first frame.
+     */
+    public Vec3 facingAt(float partialTick) {
+        Vec3 now = facing == null ? direction() : facing;
+        return lastFacing == null ? now : lastFacing.lerp(now, Math.max(0.0F, Math.min(1.0F, partialTick)));
+    }
+
+    /** Last tick's facing, or this one's when there is no previous. */
+    public Vec3 lastFacing() {
+        Vec3 now = facing == null ? direction() : facing;
+        return lastFacing == null ? now : lastFacing;
     }
 
     /** The frame, every tick, and nothing else: the twelve positions are arithmetic on both sides. */

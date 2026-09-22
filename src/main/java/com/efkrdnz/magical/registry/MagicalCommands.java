@@ -1178,7 +1178,8 @@ public final class MagicalCommands {
                 + (array.rules().relentless() ? ", relentless" : "")));
         player.sendSystemMessage(Component.literal("Stance: " + array.stance().key()
                 + " (" + array.stance().anchor() + "/" + array.stance().facing()
-                + ", watch " + array.stance().watch() + ", pattern " + array.stance().pattern() + ")"));
+                + ", watch " + array.stance().watch() + ", pattern " + array.stance().pattern()
+                + ", fields up to " + array.stance().swordCap() + ")"));
         player.sendSystemMessage(Component.literal("Steel: " + (array.drawn() ? "out" : "away")
                 + ", present " + com.efkrdnz.magical.magic.sword.SwordService.present(player, data)
                 + " of " + array.swords()

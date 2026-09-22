@@ -119,7 +119,7 @@ public final class SwordStanceOverlay {
 
         SwordRules rules = rules();
         SwordStance worn = ClientMagicState.get().swordArray().stance();
-        int swords = rules.swords();
+        int complement = rules.swords();
         int limit = SwordStanceLayout.textLimit(width);
 
         for (int i = 0; i < SwordStanceLayout.CELLS; i++) {
@@ -128,7 +128,10 @@ public final class SwordStanceOverlay {
             boolean locked = !rules.allows(stance);
             int centre = SwordStanceLayout.cellCentre(width, i);
 
-            drawFormation(graphics, stance, swords, centre,
+            // Each cell its own stance's count, not the rung's: a stance caps its complement,
+            // so a diagram drawn at the rung's number would show six swords in a Guard that
+            // fields six and twelve in a Guard that fields six.
+            drawFormation(graphics, stance, stance.swords(complement), centre,
                     SwordStanceLayout.diagramCentreY(width, height),
                     SwordStanceLayout.diagramHalf(width), locked ? LOCKED_INK : STEEL,
                     focused ? 0xFF : 0x9A);

@@ -63,9 +63,17 @@ public final class SwordArray {
         return drawn;
     }
 
-    /** 4 / 7 / 10 / 12, by the rung. The one number the whole class is counted in. */
+    /**
+     * The one number the whole class is counted in: what the rung fields, capped by the shape.
+     *
+     * <p>The rung offers 4 / 7 / 10 / 12 and the stance takes as much of it as its silhouette
+     * can carry - see {@code SwordStance}. Both halves are here rather than at the call sites
+     * because every one of them (the live mask, Sword Heart's pool, a volley, the picker's
+     * diagram) has to agree, and a second place that applied only the rung would be a count that
+     * is right until somebody stands in Guard.
+     */
     public int swords() {
-        return rules.swords();
+        return stance.swords(rules.swords());
     }
 
     /**

@@ -127,6 +127,18 @@ public final class SwordService {
         private SwordStance lastStance;
         private SwordStance mirror;
 
+        /**
+         * The frame's own rotation, which chases the wielder's rather than being it.
+         *
+         * <p>{@code Long.MIN_VALUE} means it has never been advanced, and the first advance
+         * snaps instead of easing - a formation must not swing in from due north every time it
+         * is called, and a wielder who has just changed dimension must not watch it fly across
+         * the world to find them.
+         */
+        private float followYaw;
+        private float followPitch;
+        private long followTick = Long.MIN_VALUE;
+
         /** What the wielder last wounded, for {@code Watch.DROP}. */
         private int victimId = -1;
         private long victimAt = Long.MIN_VALUE;
@@ -238,12 +250,31 @@ public final class SwordService {
         return Integer.bitCount(presentMask(player, state));
     }
 
-    /** How many are flying, standing in something, or cutting their line home. */
+    /**
+     * How many gaps the wielder can see in the formation they are standing in.
+     *
+     * <p>Windowed by the stance, and therefore <b>not</b> the debt: a wielder who spent twelve in
+     * Rain and stepped into Guard owes twelve and sees six holes, because Guard has only six
+     * places to show one. {@link #owed} is the number the clock pays down; this is the number on
+     * the screen.
+     */
     public static int away(ServerPlayer player, PlayerMagicState state) {
         if (!state.swordArray().drawn()) {
             return 0;
         }
         return Integer.bitCount(held(player).awayMask & liveMask(state));
+    }
+
+    /**
+     * How many swords are actually out, whatever shape their wielder is standing in.
+     *
+     * <p>The one number the return clock may read. Reading the windowed {@link #away} instead
+     * <b>strands steel</b>: twelve spent in Rain and then a step into Vanguard leaves five
+     * visible, the clock brings those five home, the window then reads zero and the other seven
+     * never come back at all - not on a clock, not on a walk-over, not ever.
+     */
+    private static int owed(Held wielder) {
+        return Integer.bitCount(wielder.awayMask);
     }
 
     /**
@@ -280,16 +311,20 @@ public final class SwordService {
         return spendSwords(player, state, 1) == 1;
     }
 
-    /** {@code n} swords home at once. A walk-over and a recall both end here. */
+    /**
+     * {@code n} swords home at once. A walk-over and a recall both end here.
+     *
+     * <p>Off the whole mask rather than the stance's window - see {@link #owed}. The state is
+     * unused now and kept because every other verb in this block takes it and a caller that had
+     * to remember which one does not is a caller that will get it wrong.
+     */
     public static void returnSwords(ServerPlayer player, PlayerMagicState state, int n) {
         Held wielder = held(player);
-        int live = liveMask(state);
         for (int i = 0; i < n; i++) {
-            int gone = wielder.awayMask & live;
-            if (gone == 0) {
+            if (wielder.awayMask == 0) {
                 return;
             }
-            wielder.awayMask &= ~Integer.lowestOneBit(gone);
+            wielder.awayMask &= ~Integer.lowestOneBit(wielder.awayMask);
         }
     }
 
@@ -317,6 +352,8 @@ public final class SwordService {
         }
         Held wielder = held(player);
         wielder.awayMask = 0;
+        // Called, not swung in from wherever the last formation was pointing.
+        wielder.followTick = Long.MIN_VALUE;
         hold(player);
         tendArrayEntity(player, state);
         player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
@@ -383,11 +420,51 @@ public final class SwordService {
         Held wielder = held(player);
         return switch (wielder.bind) {
             // The wielder is pinned to a ridden frame, so it is their own body either way.
-            case HELD, RIDDEN -> bodyFrame(player, wielder);
+            case HELD, RIDDEN -> easedFrame(player, wielder);
             case SET, SUNK -> wielder.anchor.withScale(wielder.scale);
         };
     }
 
+    /**
+     * Advances the eased rotation one tick toward the body's.
+     *
+     * <p>Called once per tick from {@code SwordArrayEntity.tick} and nowhere else, which is why
+     * {@link #frame} can stay a pure read: the ease is a piece of state and a reader that
+     * advanced it would move the formation once per caller. The tick number is the guard - two
+     * calls in one tick advance it once - so a stray second call is harmless rather than a
+     * formation that turns twice as fast whenever some other system happens to ask where it is.
+     */
+    public static void followFrame(ServerPlayer player) {
+        Held wielder = held(player);
+        long now = wielder.world.now();
+        if (wielder.followTick == now) {
+            return;
+        }
+        Frame target = bodyFrame(player, wielder);
+        double dt = wielder.followTick == Long.MIN_VALUE ? 0.0D : Math.max(0.0D, now - wielder.followTick);
+        double halfLife = stanceOf(player).followHalfLife();
+        wielder.followYaw = FrameEase.approachAngle(wielder.followYaw, target.yaw(), halfLife, dt);
+        wielder.followPitch = FrameEase.approachAngle(wielder.followPitch, target.pitch(), halfLife, dt);
+        wielder.followTick = now;
+    }
+
+    /** The body frame with the eased rotation on it: the origin is exact, the facing lags. */
+    private static Frame easedFrame(ServerPlayer player, Held wielder) {
+        Frame target = bodyFrame(player, wielder);
+        if (wielder.followTick == Long.MIN_VALUE) {
+            return target;
+        }
+        return new Frame(target.x(), target.y(), target.z(),
+                wielder.followYaw, wielder.followPitch, target.scale());
+    }
+
+    /**
+     * Where the formation would sit with no lag at all: the wielder's own body and facing.
+     *
+     * <p>The origin half of this is what {@link #easedFrame} keeps exactly, because a formation
+     * whose centre lagged would let the wielder walk out of the hole in the middle of it and
+     * {@code Formation.BODY_CLEARANCE} would stop being true. See {@code FrameEase}.
+     */
     private static Frame bodyFrame(ServerPlayer player, Held wielder) {
         if (stanceOf(player).anchor() == SwordStance.Anchor.LOOK) {
             Vec3 eye = player.getEyePosition();
@@ -566,7 +643,28 @@ public final class SwordService {
         if (wielder.lastStance != null) {
             wielder.mirror = wielder.lastStance;
         }
+        recompactAway(wielder);
         wielder.lastStance = current;
+    }
+
+    /**
+     * Pushes the holes back down to the bottom of the mask on a change of stance.
+     *
+     * <p>Necessary because <b>a stance caps its own complement</b>, so the window {@link #away}
+     * and {@link #presentMask} read the mask through is a different width either side of the
+     * change - and the run of away bits does not always start at zero. {@code spendSwords} takes
+     * the lowest free slot and {@code returnSwords} frees the lowest away one, so a volley
+     * followed by one return leaves bits 1..11 set: step into Vanguard and the window catches
+     * four of the eleven and reports a sword present that is lying in a field somewhere.
+     *
+     * <p>It does <b>not</b> clamp the count, and that is the whole of the method. Clamping was
+     * the first thing written here and it hands the wielder a free re-arm: twelve away in Rain,
+     * tap Guard, tap Rain, and six of the twelve are back because the count was truncated to
+     * Guard's six on the way through. A debt is not paid by changing shape.
+     */
+    private static void recompactAway(Held wielder) {
+        int gone = Integer.bitCount(wielder.awayMask);
+        wielder.awayMask = gone >= 32 ? -1 : (1 << gone) - 1;
     }
 
     /**
@@ -675,7 +773,7 @@ public final class SwordService {
 
     /** The slow route back: one away sword a clock tick. */
     private static boolean returnOne(ServerPlayer player, PlayerMagicState state, Held wielder) {
-        if (away(player, state) <= 0) {
+        if (owed(wielder) <= 0) {
             return false;
         }
         long now = wielder.world.now();
