@@ -103,16 +103,27 @@ public final class Formation {
     private static final double GUARD_ARC_DEGREES = 250.0D;
 
     /**
-     * Shoulder height, not head height.
+     * Jaw height, and <b>this constant is against a wall</b>.
      *
-     * <p>0.45 above the body centre is 1.35 above the feet, which is a shoulder. It was written
-     * at 0.80 - the neck - and that put Guard's arc and Crown's ring within
-     * {@code 0.62} of each other blade for blade, under the 0.9 that
+     * <p>0.60 above the body centre is 1.50 above the feet, so the arc spans 1.50 to 1.80 once
+     * {@link #GUARD_STAGGER} is added - jaw to the crown of the head, and it reads as held over
+     * the wielder rather than resting on them. It was 0.45, a shoulder, and before that 0.80.
+     *
+     * <p>0.80 failed, and it failed for a reason that is still live: it put Guard's arc and
+     * Crown's ring within {@code 0.62} of each other blade for blade, under the 0.9 that
      * {@code FormationTest.everyStanceLooksDifferentFromEveryOtherStance} demands. Two stances
      * that close are one stance with two names, which is the exact failure this whole redesign
-     * exists to prevent, and no other rule in the file would have mentioned it.
+     * exists to prevent, and no other rule in the file would have mentioned it. So the ceiling
+     * here is set by {@link #CROWN_Y} and by nothing else, and it was measured rather than
+     * guessed: the mean per-index gap to Crown runs 0.9521 at 0.60, 0.9154 at 0.65 and 0.8799 at
+     * 0.70. <b>0.65 is the last value that passes and 0.60 is the last one with any margin</b> -
+     * 0.052, against 0.015. Raising Guard further means raising Crown first.
+     *
+     * <p>Everything else this moves, it moves the right way: the nearest slot to the wielder goes
+     * 1.3125 to 1.3657, clear of {@link #BODY_CLEARANCE}, and the arc's own worst separation is
+     * untouched at 0.5554 because y shifts every blade together.
      */
-    private static final double GUARD_BASE_Y = 0.45D;
+    private static final double GUARD_BASE_Y = 0.60D;
 
     /** Alternate blades ride higher, which is what buys the separation the arc alone cannot. */
     private static final double GUARD_STAGGER = 0.30D;

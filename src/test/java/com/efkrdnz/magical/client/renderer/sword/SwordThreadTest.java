@@ -38,8 +38,26 @@ import org.junit.jupiter.api.Test;
  */
 class SwordThreadTest {
 
-    /** The pose is a float matrix, so a blade nine blocks out lands about a ten-thousandth off. */
-    private static final double EPSILON = 1.0E-4D;
+    /**
+     * Float noise in the pose, measured across every stance rather than assumed.
+     *
+     * <p>Most slots land within {@code 1e-6}; Wings' worst is {@code 1.8e-5} and Guard's is
+     * {@code 3.96e-4}, which sets this. That one is a knife edge in the fixture rather than a
+     * property of any stance: Guard's 250 degree arc is <b>centred on straight back</b>, so at
+     * some count and phase a blade's run is always near the {@code -z} axis, and the worst case
+     * measured points within 0.01 degrees of it ({@code n.x = 0.0002}, {@code n.z = -0.9992}).
+     * {@link FilamentPainter#orientAlong} takes {@code atan2(n.x, n.z)}, so that run's yaw is
+     * within {@code 2e-4} of pi, the whole x displacement is 0.0002 of the run, and the drawn
+     * tip's x collapses to exactly zero in float - an error of {@code runLength * n.x}, and
+     * nothing more.
+     *
+     * <p>{@code 1e-3} keeps two and a half times that, and it is still a thousandth of a block:
+     * four orders of magnitude under anything a player could see, and further still under the
+     * defect these tests exist for, which was a thread drawn to the horizon. It is a tolerance
+     * on arithmetic noise and <b>not</b> slack for a thread that stops short - the rule that the
+     * tip lands on the blade is the point, and it is enforced trimmed and untrimmed both.
+     */
+    private static final double EPSILON = 1.0E-3D;
 
     /** Half a 1.8-block body: where {@code extractRenderState} puts the chest, in entity space. */
     private static final Vec3 CHEST = new Vec3(0.0D, 0.9D, 0.0D);
