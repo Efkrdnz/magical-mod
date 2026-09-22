@@ -393,6 +393,60 @@ public final class MagicalClasses {
                 .toList();
     }
 
+    /**
+     * Every root that may be drawn, the starting ones first and in their own order.
+     *
+     * <p>The class tree paints a node's accent and prints an owner's XP pool by a root's place in
+     * a list, and that list used to be {@link #startingRoots()} - which by design holds only the
+     * five trees a new player may be offered. So a root that is not one of them had no place at
+     * all: the Spell Creator and the hidden Sword chain fell through the accent loop to arcane
+     * blue, and their owners were shown the "choose a class" hint where their own pool belonged.
+     * Neither failure raises anything; the screen draws perfectly and draws the wrong thing.
+     *
+     * <p>The starting roots stay at the front because the accent is an <em>index</em> into a
+     * palette - appending is free, inserting repaints every class in the game. This widens what
+     * is drawn and nothing else: the chooser, the first spawn and the random rewards all still
+     * ask {@code startingRoots}, so a secret root is still never offered.
+     */
+    public static List<MagicalClassDefinition> displayRoots() {
+        List<MagicalClassDefinition> ordered = new ArrayList<>(startingRoots());
+        for (MagicalClassDefinition root : roots()) {
+            if (!ordered.contains(root)) {
+                ordered.add(root);
+            }
+        }
+        return List.copyOf(ordered);
+    }
+
+    /**
+     * The one school every skill a root's tree grants belongs to, or {@code null} where the tree
+     * speaks with more than one voice.
+     *
+     * <p>This is how a root outside the accent palette gets a colour that means something. The
+     * Sword chain grants nothing but {@link com.efkrdnz.magical.magic.MagicSchool#SWORD}, whose
+     * pewter is deliberately the one near-neutral grey among the schools, so the line reads as
+     * steel rather than as another saturated branch. A mixed tree - a Blacksmith grants forge
+     * work across several schools - answers null and keeps the old fallback, because picking the
+     * first school met would repaint a tree that has looked the same since the screen was drawn.
+     */
+    public static com.efkrdnz.magical.magic.MagicSchool schoolOf(ResourceLocation rootId) {
+        com.efkrdnz.magical.magic.MagicSchool found = null;
+        for (MagicalClassDefinition node : treeOf(rootId)) {
+            for (ResourceLocation skillId : node.rewardSkills()) {
+                var skill = MagicContent.get(skillId);
+                if (skill == null) {
+                    continue;
+                }
+                if (found == null) {
+                    found = skill.school();
+                } else if (found != skill.school()) {
+                    return null;
+                }
+            }
+        }
+        return found;
+    }
+
     /** Every node whose tree is rooted at the given base, the base itself included, in registration order. */
     public static List<MagicalClassDefinition> treeOf(ResourceLocation baseId) {
         List<MagicalClassDefinition> nodes = new ArrayList<>();

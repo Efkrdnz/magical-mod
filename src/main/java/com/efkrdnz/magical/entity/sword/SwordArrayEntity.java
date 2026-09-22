@@ -122,8 +122,13 @@ public class SwordArrayEntity extends SpellEffectEntity {
         tag.putFloat("Radius", 0.0F);
         entity.readAdditionalSaveData(tag);
         entity.setTarget(wielder);
-        Frame frame = SwordService.frame(wielder);
-        entity.setPos(frame.x(), frame.y(), frame.z());
+        // The whole frame and not merely the origin, because every synched slot follow() fills is
+        // read by the client the instant the spawn packet lands and is written again only by the
+        // first server tick. VALUE defaults to zero and VALUE is the frame scale that
+        // SwordKeelClient.frameScale hands the HUD, so a freshly raised Array reported its own
+        // draw as 0 of 84 until the tracker got round to the first update; DIR defaults to the
+        // zero vector on the same schedule, which is a facing no bearing can be resolved against.
+        entity.follow(SwordService.frame(wielder));
         level.addFreshEntity(entity);
         return entity;
     }

@@ -34,6 +34,7 @@ import com.efkrdnz.magical.magic.visual.ReleaseMode;
 import com.efkrdnz.magical.magic.visual.SchoolMaterial;
 import com.efkrdnz.magical.magic.visual.Silhouette;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
+import com.efkrdnz.magical.magic.visual.TierProfile;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.List;
@@ -98,6 +99,25 @@ public final class BelowSkill implements SkillModule {
 
     /** The cylinder runs from half a block under the origin to this far above it. */
     public static final double ERUPT_HEIGHT = 3.0D;
+
+    /**
+     * How many plates the eruption is drawn with. Six, because {@code FxMesh.plateFan} fans its
+     * plates 37 degrees apart, so six of them span 222 degrees and there is no bearing the fan is
+     * edge-on from - the sheet problem this mod has now met in the wave, the thread and the thrown
+     * blade, answered the same way each time.
+     */
+    public static final int ERUPT_PLATES = 6;
+
+    /**
+     * {@code FxMesh.plateFan} lays plate <i>i</i> of <i>n</i> between {@code y = i/n} and
+     * {@code y = (i+1)/n + 0.08} - the top band overshoots so consecutive plates overlap instead of
+     * seaming - so a fan asked for height <i>h</i> is drawn 1.08<i>h</i> tall. Public because the
+     * extent test measures what is drawn and not what was asked for.
+     */
+    public static final float PLATE_FAN_OVERSHOOT = 1.08F;
+
+    /** Asked for, so the drawn fan tops out at exactly {@link #ERUPT_HEIGHT} and no higher. */
+    public static final float RISE_HEIGHT = (float) (ERUPT_HEIGHT / PLATE_FAN_OVERSHOOT);
 
     /** How far a blade that struck nothing stands off the origin, so four of them are four. */
     private static final double PLANT_SPREAD = 0.35D;
@@ -333,6 +353,9 @@ public final class BelowSkill implements SkillModule {
     private static void commit(SpellEffectEntity effect) {
         effect.setPhase(SpellEffectEntity.PHASE_CLOSING);
         effect.setValue(0.0F);
+        // The same tick, said twice: nothing about the strike can change, and the steel is now
+        // allowed to be in the world. See drawModeAt.
+        effect.setMode(modeFor(effect.mode(), drawModeAt(COMMIT_TICK)));
         int strain = effect.livingOwner() instanceof ServerPlayer player ? SwordService.strain(player) : 0;
         CompoundTag scratch = effect.serverData();
         double bill = 0.0D;
@@ -411,6 +434,24 @@ public final class BelowSkill implements SkillModule {
     // ---- what it looks like ------------------------------------------------------------------------
 
     /**
+     * Which subset of the drawing is live, as a function of the eruption's age.
+     *
+     * <p>The ring on the ground <em>is</em> the sixteen ticks of warning, so steel standing in the
+     * world during them would be a lie - the dodge would be read off the blades and not off the
+     * mark, and the mark is the only thing that stays where it was put. Mode 0 is the telegraph and
+     * nothing else; mode 1 is the rise. {@link #commit} flips it on the tick the strike stops being
+     * changeable, which is the same tick for the same reason.
+     */
+    public static int drawModeAt(int age) {
+        return age < COMMIT_TICK ? 0 : 1;
+    }
+
+    /** The draw mode as a {@code SpellEffectEntity} mode byte, with bit 0 - the sneak flag - kept. */
+    private static byte modeFor(byte current, int drawMode) {
+        return (byte) ((current & 1) | (drawMode << 1));
+    }
+
+    /**
      * {@code EmblemId.UPTHRUST} is three blades of unequal height breaking up through a ground
      * line - the pitch reflection, drawn. An emblem may not be shared: {@code VisualProfiles}
      * calls a repeated one a <b>hard</b> collision and throws at common setup, so each of the six
@@ -420,6 +461,47 @@ public final class BelowSkill implements SkillModule {
      * eruption and a vertical blade is end-on from above too, which is the first-person bolt trap
      * pointed at the floor. No {@code stamps(...)} layer - the school's stamp is
      * {@code StampId.EDGE} at atlas cell 32 and {@code STAMP_BAND}'s {@code paramB} is five bits.
+     *
+     * <p><b>Everything here is measured against the cylinder that catches</b>
+     * ({@link #ERUPT_RADIUS} by {@link #ERUPT_HEIGHT}), because the first version of this profile
+     * was not, and a third-person capture of it at midnight is a single white ellipse with no
+     * terrain, no player and no sky left in the frame. Three things had gone wrong and they
+     * compounded:
+     *
+     * <ul>
+     * <li><b>{@link ReleaseMode#SLAM}.</b> A slam hangs {@code Mark.SIGIL_SLAM_FLASH} flat under
+     * the caster's own hand at {@code tier.radius() * 1.3}, and that kind is the one mark in the
+     * library that is a <em>filled disc</em> rather than a stroke: {@code rendertype_ground_mark}
+     * lights it at {@code 2.5 * (1 - phase)} over a colour it mixes all the way to {@code vec3(1)}
+     * for the first half of its life, on the additive twin. At the tier radius that is a
+     * pure-white disc <b>7.8 blocks across, hung a stride in front of the caster's face</b>. It
+     * survives on every other skill that asks for it because in first person that quad all but
+     * contains the eye and is seen edge-on; the sword kit is judged from behind. It is also the
+     * one
+     * reading this skill may never give - Below commits to a <em>point</em>, and a slam stamps an
+     * impact under the wielder's feet at the instant of the press.</li>
+     * <li><b>The tier radius.</b> Every tier below zero resolves to {@code TierProfile.forTier(4)}
+     * and its 3.0-block circle, 1.9 times the ring that actually catches - so the telegraph
+     * promised a cylinder three and a half times the area of the one you had to leave, and
+     * {@code TransientVisuals} then grew it another 1.4 on the slam. Pinned to
+     * {@link #ERUPT_RADIUS} here: the circle at the committed point <em>is</em> the hit ring, at
+     * whatever tier this skill is ever given.</li>
+     * <li><b>The object was a sphere.</b> {@code Form.SPIKE_CLUSTER} is
+     * {@code FxMesh.spikeCluster}, which lays its spikes over a whole sphere on the golden angle -
+     * at six, three of them point downward - and {@code BodyPainter} scales {@code sizeA} on all
+     * three axes and never reads {@code sizeB}, so the authored three-block height was dead code
+     * and the drawing was a 1.6-block ball half buried in the floor. Nothing about it went up.</li>
+     * </ul>
+     *
+     * <p>So the object is a {@code PLATE_FAN}: the only body form in the library that grows out of
+     * {@code y = 0} and spends both extents, on the depth-writing {@code shardBody} path where a
+     * thing can be an object rather than a light. Its glow is the rim that shader already carries.
+     * The telegraph is a {@code CLOCK_SPOKES} ring laid flat, all hairline strokes, whose hand
+     * sweeps on the effect's own phase - so the warning is a clock and not a glare - and
+     * {@code ProfileRendererShell} sizes it off the synced radius, which is {@link #ERUPT_RADIUS}
+     * by construction. A shallow pool of grit marks the soil line as the steel comes through; it
+     * is the one thing here allowed outside the measurement, because debris thrown out of a hole
+     * genuinely leaves the hole, the way a wake is allowed behind a forged wave.
      */
     @Override
     public VisualProfile.Builder profile() {
@@ -431,8 +513,21 @@ public final class BelowSkill implements SkillModule {
                         .spokes(6, 0.25F, true)
                         .core(CoreKind.CROSS, ColorRole.HOT).spin(SpinSignature.ONE_WAY_FAST))
                 .anchor(CircleAnchor.AIM_SURFACE)
-                .silhouette(Silhouette.body(Silhouette.Form.SPIKE_CLUSTER, FxKinds.Body.METAL_BANDS, 6, 1.6F, 3.0F))
-                .release(ReleaseMode.SLAM, ProfileCues.FirstPersonPreset.CASTER_RECOIL)
+                .tier(TierProfile.forTier(definition().tier()).withRadius((float) ERUPT_RADIUS))
+                // Tier 4 draws its windup through terrain, which for a circle lying on the floor
+                // twenty blocks out means it is drawn over every block and every body between it
+                // and the camera - including the wielder, whose feet this mark may never appear
+                // on. Occluded, it reads as lying on the ground, which is where it is.
+                .throughTerrain(false)
+                .silhouette(Silhouette.body(Silhouette.Form.PLATE_FAN, FxKinds.Body.METAL_BANDS,
+                        ERUPT_PLATES, (float) ERUPT_RADIUS, RISE_HEIGHT).forModes(1))
+                .silhouette(Silhouette.mark(FxKinds.Mark.CLOCK_SPOKES, (float) ERUPT_RADIUS, ERUPT_PLATES)
+                        .withRole(ColorRole.BRIGHT).forModes(0))
+                .silhouette(Silhouette.swarm(Silhouette.Form.POOL, FxKinds.Smoke.DUST, 8,
+                        (float) ERUPT_RADIUS, 0.5F).withRole(ColorRole.DIM).withOpacity(0.45F).forModes(1))
+                // FUNNEL, not SLAM: the circle collapses to a quarter and goes, which is what the
+                // frame actually does - it leaves the wielder and sinks under a place elsewhere.
+                .release(ReleaseMode.FUNNEL, ProfileCues.FirstPersonPreset.CASTER_RECOIL)
                 .impact(FxKinds.Mark.SHOCK_RING, FxKinds.Smoke.DUST, FxKinds.Overlay.SHOCK_RING)
                 .budget(3)
                 .bounds(3.0F, 4.0F, 2.0F);

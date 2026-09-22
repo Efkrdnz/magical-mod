@@ -377,9 +377,9 @@ public final class HudState {
             }
             return;
         }
-        // rulesFor reads the class progress rather than the Array's own rules, because a saved
-        // Array carries no rules and the copy that arrived over the wire always stands up on
-        // SwordRules.SUMMONER - a Sword God would otherwise read their own draw as 24.
+        // rulesFor reads the class progress, which is where the rung actually lives - the Array's
+        // own rules are a copy of it that PlayerMagicState.load sets on the way in, and one source
+        // of truth for the denominator is worth the extra call.
         int allowed = Math.max(1, com.efkrdnz.magical.magic.sword.SwordService.rulesFor(state).draw());
         int bill = array.billAt(com.efkrdnz.magical.client.SwordKeelClient.frameScale());
         boolean over = bill > allowed;

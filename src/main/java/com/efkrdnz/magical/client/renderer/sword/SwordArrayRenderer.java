@@ -34,11 +34,26 @@ import net.minecraft.world.phys.Vec3;
  * <p><b>The threads are the counterplay.</b> One filament from the wielder's chest to every manned
  * blade, brightening with the load and going cinnabar under strain, so an opponent counts the
  * blades from thirty blocks and reads how much Loose, Below and Ward is left without the wielder
- * being asked. They are deliberately not billboarded: a thread to a station directly ahead is
- * end-on and invisible, and that is correct, because the ones that carry the reading are the ones
- * to the sides and behind, which are exactly the ones in frame at the edges in first person.
- * Billboarding them would make each one a ribbon and lose the direction, which is the only thing
- * a thread has to say.
+ * being asked. They are deliberately not billboarded: the only thing a thread has to say is its
+ * direction, and a ribbon turned to face the camera has none.
+ *
+ * <p><b>In first person the chest is not a point in the scene - it is the camera.</b> The eye
+ * stands at 1.62 and the chest at half of a 1.8-block body, so the near end of every thread is
+ * 0.72 blocks dead below the viewer with <em>exactly zero</em> horizontal offset. Two things
+ * follow, and the first capture of the Array showed both. Every thread lies in a vertical plane
+ * that contains the eye, and a plane through the eye projects to a straight line - a vertical
+ * one, at zero roll - so all twelve come out as identical vertical bars whatever their bearing
+ * and none of them reads as a direction. And the near end, sitting on the camera plane itself, is
+ * sent off the bottom of the frame by the perspective divide instead of stopping at the wielder:
+ * a two-block tell drawn as a full-height streak. The third-person camera meets the same thing
+ * from the other side, standing about four blocks back, which is <em>inside</em> a reach-four
+ * Array, so the threads to the stations behind the wielder run through it.
+ *
+ * <p>{@link ThreadGeometry} is the answer to both, and it moves one end only. The far end is the
+ * station's own {@code worldOffset} and stays there, because a thread that stopped short of its
+ * blade or ran past it would be a line pointing at nothing; the start is walked out along the run
+ * until the whole of what is drawn is clear of the camera. Nobody but the person the camera is
+ * standing on loses a pixel of it.
  */
 public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEntity> {
 
@@ -149,7 +164,7 @@ public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEnt
             Station station = Station.unpack(state.shape[slot]);
             station(ctx, pose, frame, station, heat, 1.0F);
             if (near && state.chest != null) {
-                thread(ctx, pose, frame, station, state.chest, load, heat);
+                thread(ctx, pose, frame, station, state.chest, ctx.cameraPos, load, heat);
             }
         }
         if (!near) {
@@ -176,28 +191,118 @@ public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEnt
     }
 
     /**
-     * One thread from the wielder's chest out to a blade.
+     * One thread from the wielder's chest out to a blade, less whatever of it is in the camera's
+     * lap.
      *
      * <p>Drawn from the chest rather than from the frame origin, because for every bind but
      * {@code HELD} those are not the same point - a set Array's threads run out of the wielder and
      * across to wherever they left it, which is precisely the reading a set Array owes an
      * opponent.
+     *
+     * <p>{@code camera} is the viewer in the same frame as everything else here, the effect
+     * origin: {@code FxContext.cameraPos} already is that, so no world position is rebuilt and
+     * the trim costs one quadratic. The painter's half is as it was and the two things it rests
+     * on are worth saying out loud, because both are the kind of assumption that draws a line to
+     * the horizon when it is wrong - {@code orientAlong} normalises the direction it is handed,
+     * and {@code beam} runs its tube from the local origin out to a <em>whole</em> length along
+     * local +Z. So translating to the start and handing it the remaining run puts the tip exactly
+     * on the blade. The shader fades the first tenth of whatever tube it gets, which is why a
+     * trimmed thread swims into view rather than beginning on a cut end.
      */
     private static void thread(FxContext ctx, PoseStack pose, Frame frame, Station station, Vec3 chest,
-            float load, float heat) {
+            Vec3 camera, float load, float heat) {
         double[] offset = ArrayPose.worldOffset(station, frame);
+        double from = ThreadGeometry.start(chest.x, chest.y, chest.z,
+                offset[0], offset[1], offset[2], camera.x, camera.y, camera.z);
+        if (from >= 1.0D) {
+            return;
+        }
         Vec3 run = new Vec3(offset[0], offset[1], offset[2]).subtract(chest);
-        double length = run.length();
+        double length = run.length() * (1.0D - from);
         if (length < 1.0E-3D) {
             return;
         }
+        Vec3 start = chest.add(run.scale(from));
         pose.pushPose();
-        pose.translate(chest.x, chest.y, chest.z);
+        pose.translate(start.x, start.y, start.z);
         FilamentPainter.orientAlong(pose, run);
         FilamentPainter.beam(ctx, FxKinds.Filament.THREAD_KNOTS, THREAD_HALF_WIDTH, (float) length,
                 SwordBladeRenderer.lerpRgb(0xB9C4CE, STRAIN_RED, heat),
                 THREAD_FLOOR + THREAD_LOAD * load, SwordBladeRenderer.BEAM_WHOLE, 3, 4);
         pose.popPose();
+    }
+
+    /**
+     * How much of a thread the camera is standing on, and nothing else about it.
+     *
+     * <p>A nested class of plain doubles for the reason {@code SwordBladeRenderer.Geometry} is
+     * one: measuring what a thread draws must never drag {@code EntityRenderer} into a unit test.
+     * {@code SwordThreadTest} replays it through the real {@code FilamentPainter.orientAlong} and
+     * the real tube mesh, so the far end is measured rather than argued about.
+     */
+    public static final class ThreadGeometry {
+
+        /**
+         * How near the camera any part of a thread may be drawn, in blocks.
+         *
+         * <p>Twice the 0.72 the first-person eye stands above the chest: the smallest clearance
+         * that puts the start of a thread outside the wielder's own head at every pitch a frame
+         * can take. It still leaves 56% of a level reach-3 run drawn at scale 1 and more of
+         * everything longer - a tick of light under the blade rather than a bar through the frame
+         * - and an opponent reading the Array from across the arena is nowhere near it and loses
+         * nothing at all.
+         */
+        public static final double NEAR_CLEAR = 1.5D;
+
+        private ThreadGeometry() {
+        }
+
+        /**
+         * The fraction of the run at which the thread may start, so that no drawn point of it
+         * comes within {@link #NEAR_CLEAR} of the camera.
+         *
+         * <p>Line against sphere, and the answer is the <em>far</em> root: the part of the run
+         * worth drawing is the part beyond the camera, never the stub in front of it. A returned
+         * {@code 1.0} means the blade itself is inside the clearance, so there is no such part and
+         * the thread is not drawn at all - which is what stops a station behind the wielder being
+         * threaded straight through a third-person camera sitting on top of it.
+         */
+        public static double start(double chestX, double chestY, double chestZ,
+                double bladeX, double bladeY, double bladeZ,
+                double cameraX, double cameraY, double cameraZ) {
+            double dx = bladeX - chestX;
+            double dy = bladeY - chestY;
+            double dz = bladeZ - chestZ;
+            double a = dx * dx + dy * dy + dz * dz;
+            if (a < 1.0E-12D) {
+                // The fusion: One Blade drives the frame scale to zero and puts every station on
+                // the origin, and a run with no length has no start to find.
+                return 1.0D;
+            }
+            double mx = chestX - cameraX;
+            double my = chestY - cameraY;
+            double mz = chestZ - cameraZ;
+            double b = 2.0D * (mx * dx + my * dy + mz * dz);
+            double c = mx * mx + my * my + mz * mz - NEAR_CLEAR * NEAR_CLEAR;
+            double discriminant = b * b - 4.0D * a * c;
+            if (discriminant <= 0.0D) {
+                // The line of the run misses the clearance altogether, which is every thread
+                // anybody but the wielder will ever see. Nothing comes off it.
+                return 0.0D;
+            }
+            double root = Math.sqrt(discriminant);
+            double enter = (-b - root) / (2.0D * a);
+            double leave = (-b + root) / (2.0D * a);
+            if (leave <= 0.0D || enter >= 1.0D) {
+                // The clearance sits off one end of the run - behind the chest, or past the blade.
+                // The segment actually drawn never enters it, so the whole run stands.
+                return 0.0D;
+            }
+            if (leave >= 1.0D) {
+                return 1.0D;
+            }
+            return leave;
+        }
     }
 
     // ---- the readings ---------------------------------------------------------------------------

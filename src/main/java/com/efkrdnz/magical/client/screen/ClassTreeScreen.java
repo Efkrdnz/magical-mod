@@ -250,7 +250,11 @@ public final class ClassTreeScreen extends AbstractContainerScreen<ClassTreeMenu
         MagicalGuiStyle.inset(guiGraphics, left + 8, y - 4, left + imageWidth - 8, y + 18);
 
         StringBuilder pools = new StringBuilder();
-        for (MagicalClassDefinition base : MagicalClasses.startingRoots()) {
+        // displayRoots rather than startingRoots: a wielder of a root that is not a starting
+        // choice owns a pool like anybody else, and asking the narrower list showed them the
+        // "choose a class" hint in place of their own XP. The hasClass guard below is what keeps
+        // the hidden chain hidden - an unowned secret root prints nothing, exactly as before.
+        for (MagicalClassDefinition base : MagicalClasses.displayRoots()) {
             if (state.hasClass(base.id())) {
                 if (pools.length() > 0) {
                     pools.append("   ");
@@ -360,7 +364,13 @@ public final class ClassTreeScreen extends AbstractContainerScreen<ClassTreeMenu
                 return ACCENTS[i % ACCENTS.length];
             }
         }
-        return MagicalGuiStyle.ACCENT_ARCANE;
+        // A root outside the palette - the Spell Creator, the hidden Sword chain - used to land on
+        // the arcane blue below, which is the Mage line's colour. The palette is only five wide
+        // and indexing past it would wrap onto a colour already in use, so a tree that speaks with
+        // one voice takes that school's own colour instead: pewter for the Sword line, which is
+        // exactly why MagicSchool.SWORD is the one near-neutral grey among the schools.
+        com.efkrdnz.magical.magic.MagicSchool school = MagicalClasses.schoolOf(baseId);
+        return school == null ? MagicalGuiStyle.ACCENT_ARCANE : 0xFF000000 | school.color();
     }
 
     @Override

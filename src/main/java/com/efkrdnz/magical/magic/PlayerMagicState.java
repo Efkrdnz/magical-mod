@@ -2400,9 +2400,6 @@ public final class PlayerMagicState {
                 tag.contains("paradoxFired") ? tag.getLong("paradoxFired") : Long.MIN_VALUE,
                 tag.contains("paradoxShut") ? tag.getLong("paradoxShut") : Long.MIN_VALUE);
         state.anchor.load(tag.getCompound("causalAnchor"));
-        // getIntArray answers an empty array for an absent or mistyped key, and load() is total
-        // and clears first, so the omitted-while-empty save needs no guard on the way back in.
-        state.swordArray.load(new IntArrayTag(tag.getIntArray("swordArray")));
         state.anchorSigilDimension = tag.getString("anchorSigilDimension");
         state.anchorSigilX = tag.getInt("anchorSigilX");
         state.anchorSigilY = tag.getInt("anchorSigilY");
@@ -2532,6 +2529,18 @@ public final class PlayerMagicState {
                 state.classProgress.put(id, MagicalClassProgress.load(classesTag.getCompound(key)));
             }
         }
+        // Below the classes and not up with the other tag reads, because SwordService.rulesFor
+        // reads the class progress and SwordArray.load re-runs the plant rules over every bearing
+        // it reads. Loaded before the rung is on, a Sword God's twelve stations are re-filtered
+        // down to SwordRules.SUMMONER's four stations and 24 of draw - and refreshRung cannot put
+        // back what the load already threw away, so it was a permanent loss on the disk and,
+        // because the client rebuilds from this same tag, a wrong Array on every sync as well.
+        // That is what a HUD reading "24/84" against a bill of 76 actually was: 24 is not a
+        // fraction of 76, it is SUMMONER's own draw, exactly.
+        // getIntArray answers an empty array for an absent or mistyped key, and load() is total
+        // and clears first, so the omitted-while-empty save needs no guard on the way back in.
+        state.swordArray.setRules(com.efkrdnz.magical.magic.sword.SwordService.rulesFor(state));
+        state.swordArray.load(new IntArrayTag(tag.getIntArray("swordArray")));
         CompoundTag echoTag = tag.getCompound("cooldownEchoCounters");
         for (String key : echoTag.getAllKeys()) {
             ResourceLocation id = ResourceLocation.parse(key);
