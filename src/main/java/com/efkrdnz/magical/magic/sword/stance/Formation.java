@@ -109,15 +109,22 @@ public final class Formation {
      * {@link #GUARD_STAGGER} is added - jaw to the crown of the head, and it reads as held over
      * the wielder rather than resting on them. It was 0.45, a shoulder, and before that 0.80.
      *
-     * <p>0.80 failed, and it failed for a reason that is still live: it put Guard's arc and
+     * <p>0.80 failed once, and it failed for a reason that is still live: it put Guard's arc and
      * Crown's ring within {@code 0.62} of each other blade for blade, under the 0.9 that
      * {@code FormationTest.everyStanceLooksDifferentFromEveryOtherStance} demands. Two stances
      * that close are one stance with two names, which is the exact failure this whole redesign
      * exists to prevent, and no other rule in the file would have mentioned it. So the ceiling
-     * here is set by {@link #CROWN_Y} and by nothing else, and it was measured rather than
-     * guessed: the mean per-index gap to Crown runs 0.9521 at 0.60, 0.9154 at 0.65 and 0.8799 at
-     * 0.70. <b>0.65 is the last value that passes and 0.60 is the last one with any margin</b> -
-     * 0.052, against 0.015. Raising Guard further means raising Crown first.
+     * here is set by {@link #CROWN_Y} and by nothing else, and it is measured rather than
+     * guessed.
+     *
+     * <p><b>Both numbers have moved since, and in the same direction.</b> Against Crown at 1.45
+     * the gap ran 0.9521 at 0.60 and 0.9154 at 0.65, so 0.60 was the last height with any margin
+     * at all. Crown then went to 1.70, which bought this constant most of that back: the gap is
+     * <b>1.1505 at 0.60</b> now, 0.9521 at 0.85 and 0.9154 at 0.90, and 0.95 is the first value
+     * that fails. Guard is deliberately left at 0.60 rather than spent up to the new ceiling -
+     * it is where it was asked to sit, and the headroom is worth more as headroom. Raising it
+     * further is now a taste call rather than a fight with Crown; raising it past 0.90 is still
+     * raising Crown first.
      *
      * <p>Everything else this moves, it moves the right way: the nearest slot to the wielder goes
      * 1.3125 to 1.3657, clear of {@link #BODY_CLEARANCE}, and the arc's own worst separation is
@@ -148,8 +155,24 @@ public final class Formation {
 
     // ---- Crown: a turning ring above the head --------------------------------------------------
 
-    /** Clear above the head: Guard has the shoulders, and a crown that shared them is a collar. */
-    private static final double CROWN_Y = 1.45D;
+    /**
+     * Well clear above the head, and it has room on both sides.
+     *
+     * <p>1.70 above the body centre is 2.60 above the feet, so the ring turns about eighty
+     * centimetres over the crown of the head. It was 1.45. Unlike {@link #GUARD_BASE_Y} this
+     * constant is nowhere near a wall: swept the same way, the mean per-index gap to the nearest
+     * other stance runs 0.9521 at 1.45, 1.1505 at 1.70 and peaks at 1.2857 at 1.90, which is
+     * where the nearest stance stops being Guard underneath and becomes Rain above. It only
+     * falls back to 1.1851 by 2.25, still far over the 0.9 floor.
+     *
+     * <p>So the ceiling here is taste rather than arithmetic, and 1.70 is short of that 1.90
+     * turning point on purpose: past it the ring is climbing into the band Rain's scattered disc
+     * owns, and Crown's whole identity is the thing turning just above your head rather than a
+     * halo hung somewhere over you. Nothing else constrains it - {@link #MAX_EXTENT} is 4.0 and
+     * the furthest slot here is 1.92 - and the two stances never coexist, so their blades are
+     * free to occupy the same air.
+     */
+    private static final double CROWN_Y = 1.70D;
 
     private static final double CROWN_RADIUS = 0.90D;
     private static final double CROWN_SPIN = 0.055D;
