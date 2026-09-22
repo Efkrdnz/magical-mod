@@ -29,6 +29,7 @@ import com.efkrdnz.magical.magic.visual.SchoolMaterial;
 import com.efkrdnz.magical.magic.visual.Silhouette;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
+import com.efkrdnz.magical.magic.visual.TierProfile;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -85,6 +86,22 @@ public final class CallTheBladeSkill implements SkillModule {
 
     /** Frame sides, unique within the SWORD school. Its six skills take 3..8 in kit order. */
     private static final int FRAME_SIDES = 3;
+
+    /**
+     * The cast circle's radius in blocks, and it is a property of the lattice rather than of the
+     * tier.
+     *
+     * <p>Every tier below zero resolves to {@code TierProfile.forTier(4)}, whose radius is 3.0 -
+     * a disc six blocks across, laid on whatever the crosshair is on. This skill writes
+     * <em>one bearing</em>, and a bearing is a point: the yaw lattice is
+     * {@link Station#YAW_STEP_DEGREES} wide, so at the furthest reach the skill can write to the
+     * two neighbouring bearings are {@code 2 * REACH_MAX * sin(7.5 degrees)} = 1.57 blocks apart.
+     * A mark wider than half that names two bearings at once and has stopped being a mark. So the
+     * ceiling is the half-cell at {@link Station#REACH_MAX}, and at 0.78 the disc is 1.57 blocks
+     * across - fifteen degrees of screen at the far end of the reach, which is four times the
+     * crosshair and is the floor this has to clear as well.
+     */
+    public static final float MARK_RADIUS = 0.78F;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -243,7 +260,29 @@ public final class CallTheBladeSkill implements SkillModule {
                         .band(GlyphKind.TICK_BAND, 24, ColorRole.BRIGHT)
                         .core(CoreKind.CROSS, ColorRole.HOT).spin(SpinSignature.ONE_WAY_FAST))
                 .anchor(CircleAnchor.AIM_SURFACE)
-                .silhouette(Silhouette.custom("call_the_blade", 1.0F))
+                .tier(TierProfile.forTier(definition().tier()).withRadius(MARK_RADIUS))
+                // Tier 4 draws its windup through terrain, and this circle is tilted onto the
+                // face the crosshair is on, up to AIM_RANGE away. With no depth test that face's
+                // own block does not hide it, so it is painted over the wielder, over whatever is
+                // standing between, and over the sky - the same thing Below was doing on the
+                // floor. Occluded, it reads as lying on the surface, which is where it is.
+                .throughTerrain(false)
+                // Never painted, and it must stay that way. SwordArrayEntity and SwordBladeEntity
+                // both carry CALL_THE_BLADE's id so they wear this profile, and both renderers
+                // call ProfileRendererShell.render, which walks profile.silhouettes() and paints
+                // every one whose mode mask admits the entity's draw mode. There is no painter
+                // registered under this id - CustomPainters.paint therefore takes its "visible
+                // fallback so a missing painter is noticed" branch and draws Orb.PLASMA at
+                // max(0.4, sizeA * 0.5) on the additive plasma_orb type, whose PLASMA branch is
+                // core 1.8 mixed 85% toward white and then multiplied by the glow again: it clips
+                // to white at every size. The Array's entity carries Life 0, so FxContext.fade()
+                // never falls, and that was a one-block white disc parked on the wielder's chest
+                // for as long as they held an Array, plus one on every blade in flight. An empty
+                // mode mask is what says "this profile's object is drawn by its own renderer":
+                // the silhouette stays because VisualProfile has no way to carry none, and
+                // Family.CUSTOM keeps it out of the roster's uniqueness maps where it would
+                // otherwise claim a form the school has not spent.
+                .silhouette(Silhouette.custom("call_the_blade", 1.0F).forModes())
                 .release(ReleaseMode.LIFT, ProfileCues.FirstPersonPreset.CASTER_LIGHT)
                 .impact(FxKinds.Mark.LATTICE_GRID, FxKinds.Smoke.SPARK_STREAK, FxKinds.Overlay.PRISM_RING)
                 .budget(1)

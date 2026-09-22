@@ -120,13 +120,18 @@ public final class ProfileCues {
                 case VOID -> SoundCue.of(SoundEvents.WARDEN_HEARTBEAT, 0.6F, pitch);
                 case SPATIAL -> SoundCue.of(SoundEvents.ENDERMAN_TELEPORT, 0.4F, pitch + 0.3F);
                 case SOUL -> SoundCue.of(SoundEvents.SOUL_ESCAPE.value(), 0.6F, pitch);
-                // Forbidden schools. Without these five they would all share the beacon fallback,
+                // Forbidden schools. Without these six they would all share the beacon fallback,
                 // which is the one sound in the set that reads as friendly.
                 case BLOOD -> SoundCue.of(SoundEvents.RESPAWN_ANCHOR_DEPLETE.value(), 0.6F, pitch - 0.3F);
                 case DARK -> SoundCue.of(SoundEvents.EVOKER_PREPARE_SUMMON, 0.55F, pitch - 0.2F);
                 case CHAOS -> SoundCue.of(SoundEvents.ENCHANTMENT_TABLE_USE, 0.6F, pitch + 0.3F);
                 case PRIMORDIAL -> SoundCue.of(SoundEvents.TRIDENT_THUNDER.value(), 0.5F, pitch - 0.5F);
                 case ELDRITCH -> SoundCue.of(SoundEvents.SCULK_SHRIEKER_SHRIEK, 0.45F, pitch - 0.4F);
+                // SWORD is the sixth, and it was added to the enum without a row here - so the
+                // whole school was casting on the friendly beacon the comment above warns about.
+                // Anvil rather than a blade sound because the bed plays under every cast in the
+                // school and struck steel is the one metal note that does not tire.
+                case SWORD -> SoundCue.of(SoundEvents.ANVIL_LAND, 0.35F, pitch + 0.6F);
                 default -> SoundCue.of(SoundEvents.BEACON_AMBIENT, 0.6F, pitch + 0.4F);
             };
             return new SoundSpec(bed,

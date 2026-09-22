@@ -33,6 +33,7 @@ import com.efkrdnz.magical.magic.visual.ReleaseMode;
 import com.efkrdnz.magical.magic.visual.SchoolMaterial;
 import com.efkrdnz.magical.magic.visual.Silhouette;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
+import com.efkrdnz.magical.magic.visual.TierProfile;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.HashMap;
@@ -111,6 +112,40 @@ public final class OneBladeSkill implements SkillModule {
 
     /** What carrying the thing costs in footwork. */
     public static final double CARRY_SLOW = -0.20D;
+
+    /**
+     * How long the greatsword is <em>drawn</em>, in blocks, and why it is not how long it is.
+     *
+     * <p>The blade's real length is {@code SwordMath.oneBladeReach(totalEdge)} -
+     * {@code 2.5 + 0.18 * Edge} - which runs from 2.68 at one point of Edge to 8.98 at a Sword
+     * God's whole 36, and the entity is handed exactly that as its synced radius. <b>A BODY
+     * silhouette cannot read it.</b> {@code ProfileRendererShell} feeds the synced radius to
+     * {@code MARK}, {@code SWARM} and a few {@code FIELD} forms and to {@code FILAMENT} lengths,
+     * and to nothing else - so a solid is drawn at whatever its profile says, forever. The
+     * profile said {@code 9.0}, which is {@code oneBladeReach} at the maximum Edge in the game:
+     * every fusion, down to the two-point one, was drawn as the largest blade the class can
+     * make. On {@code Form.PRISM} that number is the <em>height</em> and the form is not a travel
+     * form, so what stood in the world was a nine-block square post growing straight up out of
+     * the hand, world-aligned, seeded with a random yaw - and the hand is 0.6 blocks in front of
+     * the eye and a quarter of a block below it, so in first person the post was a bar forty
+     * degrees wide standing in the middle of the frame for the whole carry.
+     *
+     * <p>Since the drawing cannot follow the Edge, it takes the one length that is true of every
+     * fusion: {@code SwordMath.ONE_BLADE_BASE_REACH}, the shortest blade the skill can make. A
+     * short drawing of a long blade is a reading the player can correct by looking at the Edge;
+     * a long drawing of a short one is a promise of reach that is not there, and that is the
+     * failure this kit has now shipped four times. The complete fix is a renderer of its own
+     * drawing the Duskfall model, as {@code SwordBladeRenderer} now does for every other blade
+     * in the school.
+     */
+    public static final float DRAWN_LENGTH = (float) SwordMath.ONE_BLADE_BASE_REACH;
+
+    /**
+     * The blade's breadth scale. {@code BodyPainter} takes a {@code CROSSED_BLADES} cross-section
+     * as {@code 0.22 * sizeA} on both axes, so 1.0 is a blade 0.44 blocks across the flat -
+     * about twice a vanilla sword, which is what twelve of them fused into one comes to.
+     */
+    public static final float DRAWN_BREADTH = 1.0F;
 
     /**
      * Per-victim internal cooldown on the slash, and it is one half of a rule with two.
@@ -287,6 +322,12 @@ public final class OneBladeSkill implements SkillModule {
         fusion.ticks++;
         Vec3 hand = hand(player);
         blade.setPos(hand.x, hand.y, hand.z);
+        // Drawing only, and it has to be here rather than at the spawn. The silhouette is a
+        // travel form, so the renderer points it along this vector; set once at the gather it
+        // would be a greatsword frozen on the bearing the wielder happened to be facing twelve
+        // ticks ago, while the cut that follows reads player.getLookAngle() fresh every time.
+        // Nothing in this skill's behaviour ever reads effectDirection, so this moves no volume.
+        blade.setDirection(player.getLookAngle());
 
         if (!fusion.formed) {
             blade.setValue(1.0F - (float) fusion.ticks / FUSE_TICKS);
@@ -621,7 +662,19 @@ public final class OneBladeSkill implements SkillModule {
                         .star(8, 3)
                         .core(CoreKind.CROSS, ColorRole.HOT).spin(SpinSignature.COUNTER_FAST))
                 .anchor(CircleAnchor.EYE_FORWARD)
-                .silhouette(Silhouette.body(Silhouette.Form.PRISM, FxKinds.Body.METAL_BANDS, 4, 0.22F, 9.0F))
+                // The Bearing's arithmetic, for the same anchor: an EYE_FORWARD circle is hung
+                // 0.9 blocks from the eye and turned to face the camera, so tier 4's radius of
+                // 3.0 is 73 degrees of a 70-degree frame. Hold-gated, so it does not draw today.
+                .tier(TierProfile.forTier(definition().tier()).withRadius(TheBearingSkill.HAND_RING_RADIUS))
+                // CROSSED_BLADES rather than PRISM, and the form is the whole of it: it is one of
+                // the shell's travel forms, so the pose is turned until local +Z runs along the
+                // entity's synced direction, and BodyPainter lays the mesh from z = 0 to z =
+                // length. The blade therefore lies along the aim, out of the hand, instead of
+                // standing straight up through the camera. Still BODY - shard_body, depth-writing,
+                // opaque - because a greatsword is an object and an additive family would make it
+                // light.
+                .silhouette(Silhouette.body(Silhouette.Form.CROSSED_BLADES, FxKinds.Body.METAL_BANDS,
+                        4, DRAWN_BREADTH, DRAWN_LENGTH))
                 .release(ReleaseMode.FUNNEL, ProfileCues.FirstPersonPreset.CASTER_SURGE)
                 .impact(FxKinds.Mark.RAY_BURST, FxKinds.Smoke.GLASS_SPLINTER, FxKinds.Overlay.CRACKED_GLASS)
                 .holdable(true)

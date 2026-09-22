@@ -205,7 +205,33 @@ public final class LooseSkill implements SkillModule {
                 .material(SchoolMaterial.SWORD)
                 .circle(CircleScript.of(SchoolMaterial.SWORD).emblem(EMBLEM).frame(FRAME_SIDES)
                         .band(GlyphKind.TOOTH_BAND, 18, ColorRole.BRIGHT)
-                        .band(GlyphKind.FACET_BAND, 6, ColorRole.INK)
+                        // Sixteen facets in DIM, and both numbers are corrections.
+                        //
+                        // INK is not the darkest of four colours, it is a render mode.
+                        // GlyphCirclePainter switches on the role alone and sends an INK layer to
+                        // glyphVoid(), a straight-alpha pass (SRC_ALPHA / ONE_MINUS_SRC_ALPHA),
+                        // where the shader writes tint * 0.08 over whatever is behind it instead
+                        // of adding to it. This skill carries its own colour, so its ink slot
+                        // derives to 0x001440 and 8% of that is (0,2,5) at full coverage: an
+                        // opaque black ring over the sand, over an iron golem and over the
+                        // daylight sky, and the only opaque black anything in the mod draws. The
+                        // schools that ask for INK - Blood, Dark, Void, Eldritch - want a member
+                        // that darkens the ground. A school of polished steel does not, and the
+                        // three other SWORD skills with a second band all take DIM, which goes
+                        // out on glyphInk() (ONE / ONE) and so cannot subtract light from
+                        // anything.
+                        //
+                        // Six was the other half of it. FACET_BAND strokes |lu| + 0.75|c| = 0.85
+                        // per cell, so one facet's run along the band against its rise across it
+                        // is 1.5 * PI * rMid / (count * (r1 - r0)) - scale-free, since every term
+                        // is a fraction of the circle's radius. On the 0.62..0.71 annulus the
+                        // builder hands a second band, six comes to 5.8:1: ten degrees off the
+                        // tangent, at which the diamonds stretch until their tips meet and the
+                        // band stops reading as facets and starts reading as two smooth
+                        // overlapping circles. Sixteen is 2.2:1 - a ring of sixteen small blades,
+                        // which is the volley said in the right number as well as the right
+                        // shape: many, outward, fast.
+                        .band(GlyphKind.FACET_BAND, 16, ColorRole.DIM)
                         .core(CoreKind.SUNBURST, ColorRole.HOT).spin(SpinSignature.SINGLE_FAST))
                 .anchor(CircleAnchor.EYE_FORWARD)
                 .silhouette(Silhouette.custom("loose", 2.0F))
