@@ -2563,6 +2563,15 @@ public final class PlayerMagicState {
                 state.ritualTicks.put(id, Math.max(0, ritualTag.getInt(key)));
             }
         }
+        // Half of a pact is only ever granted with its clock running, and the clock running out is
+        // what takes it away, so one held with no clock was handed out for good - by the old
+        // passive unlockall, which counted all thirty-two as ordinary passives. Dropped here so
+        // every save that command touched is repaired on the next load, on both sides.
+        for (ResourceLocation id : List.copyOf(state.unlockedPassives)) {
+            if (MagicPassiveContent.isRitual(id) && state.ritualRemaining(id) <= 0) {
+                state.removePassive(id);
+            }
+        }
         CompoundTag envyTag = tag.getCompound("envyProgress");
         for (String key : envyTag.getAllKeys()) {
             ResourceLocation id = ResourceLocation.parse(key);

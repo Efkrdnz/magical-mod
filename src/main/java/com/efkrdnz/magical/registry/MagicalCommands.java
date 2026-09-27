@@ -671,7 +671,8 @@ public final class MagicalCommands {
                             .then(Commands.literal("unlockall")
                                     .executes(context -> withPlayer(context.getSource(), player -> {
                                         PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
-                                        for (var definition : MagicPassiveContent.normalPassives()) {
+                                        // Not a pact half: those come only from a sealed pact, with a clock.
+                                        for (var definition : MagicPassiveContent.grantablePassives()) {
                                             data.unlockPassive(definition.id());
                                         }
                                         data.sync(player);
@@ -684,7 +685,7 @@ public final class MagicalCommands {
                                             .executes(context -> withPlayer(context.getSource(), player -> {
                                                 ResourceLocation passiveId = parseMagicId(StringArgumentType.getString(context, "id"));
                                                 var definition = MagicPassiveContent.get(passiveId);
-                                                if (definition == null || definition.curse()) {
+                                                if (definition == null || definition.curse() || MagicPassiveContent.isRitual(passiveId)) {
                                                     player.displayClientMessage(Component.translatable("message.magical.unknown_passive"), false);
                                                     return 0;
                                                 }
@@ -720,7 +721,7 @@ public final class MagicalCommands {
                                                     .executes(context -> withPlayer(context.getSource(), player -> {
                                                         ResourceLocation passiveId = parseMagicId(StringArgumentType.getString(context, "id"));
                                                         var definition = MagicPassiveContent.get(passiveId);
-                                                        if (definition == null || definition.curse()) {
+                                                        if (definition == null || definition.curse() || MagicPassiveContent.isRitual(passiveId)) {
                                                             player.displayClientMessage(Component.translatable("message.magical.unknown_passive"), false);
                                                             return 0;
                                                         }

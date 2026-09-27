@@ -396,8 +396,17 @@ public final class MagicPassiveContent {
         return definition != null && definition.curse() ? curseId : null;
     }
 
+    /**
+     * Every passive a command may hand out: the normal ones less the two halves of a pact. A boon
+     * and a price are registered as normal passives only so they can carry a clock; a sealed pact
+     * is the one thing that grants them, and it always starts the clock as it does.
+     */
+    public static List<MagicPassiveDefinition> grantablePassives() {
+        return normalPassives().stream().filter(definition -> !isRitual(definition.id())).toList();
+    }
+
     public static List<String> normalCommandIds() {
-        return normalPassives().stream().map(definition -> definition.id().getPath()).toList();
+        return grantablePassives().stream().map(definition -> definition.id().getPath()).toList();
     }
 
     public static List<String> curseCommandIds() {

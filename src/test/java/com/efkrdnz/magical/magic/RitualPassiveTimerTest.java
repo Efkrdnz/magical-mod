@@ -102,6 +102,34 @@ class RitualPassiveTimerTest {
     }
 
     @Test
+    void aPactHalfHeldWithNoClockDoesNotSurviveALoad() {
+        // Only a sealed pact grants one, and it always starts the clock as it does. One held with
+        // no clock at all was handed out for good by the old passive unlockall, which counted every
+        // boon and every price as an ordinary passive - so the codex listed the prices as passives
+        // with a checkbox, and they never ran out.
+        PlayerMagicState state = new PlayerMagicState();
+        state.unlockPassive(boon());
+        state.unlockPassive(price());
+
+        PlayerMagicState loaded = PlayerMagicState.load(state.save());
+
+        assertFalse(loaded.hasPassive(price()), "a price nobody sealed a pact for is not owed");
+        assertFalse(loaded.hasPassive(boon()), "and a boon nobody paid for is not owned");
+    }
+
+    @Test
+    void aPactHalfWithItsClockRunningIsKeptByTheSameLoad() {
+        PlayerMagicState state = new PlayerMagicState();
+        state.grantRitualPassive(price(), 40);
+        state.unlockPassive(MagicPassiveContent.MANA_SKIN.id());
+
+        PlayerMagicState loaded = PlayerMagicState.load(state.save());
+
+        assertTrue(loaded.hasPassive(price()), "the repair drops only what has no clock");
+        assertTrue(loaded.hasPassive(MagicPassiveContent.MANA_SKIN.id()), "and never an ordinary passive");
+    }
+
+    @Test
     void theClockReachesTheClientThroughCopyAsWellAsThroughSave() {
         // ClientMagicState rebuilds through load() then copy(). A field missing from either draws a
         // codex row with no countdown on it, or no row at all.
