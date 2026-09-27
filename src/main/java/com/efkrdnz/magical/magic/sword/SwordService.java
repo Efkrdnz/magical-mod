@@ -55,7 +55,7 @@ import net.minecraft.world.phys.Vec3;
 public final class SwordService {
 
     /** The offset from a player's feet to the frame origin: their body centre, not their eyes. */
-    public static final double BODY_CENTRE = 0.9D;
+    public static final double BODY_CENTRE = ArrayPose.BODY_CENTRE;
 
     /** One away sword walks home this often. The class is unplayable without it. */
     public static final int RETURN_TICKS = 60;
@@ -228,11 +228,42 @@ public final class SwordService {
         }
         SwordRules wanted = rulesFor(state);
         SwordArray array = state.swordArray();
-        if (wanted.equals(array.rules())) {
-            return;
+        if (!wanted.equals(array.rules())) {
+            array.setRules(wanted);
+            state.sync(player);
         }
-        array.setRules(wanted);
+        // The rung opens sockets and Weapon God widens what they take, so both move the count.
+        refreshRack(player, state);
+    }
+
+    /**
+     * Counts the rack onto the Array, and puts the steel away if nothing is left in it.
+     *
+     * <p><b>The swords are the rack.</b> {@code SwordArray.racked} is a copy of which sockets hold
+     * a weapon this wielder may fly, because the count has to reach the client and ride the save;
+     * this is the one place the copy is taken. Called whenever something may have moved it: the
+     * formation's own tick while the steel is out, the rack menu every tick it is open, the slow
+     * tick through {@link #refreshRung}, a command, a press of Call the Blade.
+     *
+     * <p>A rack emptied while its swords stood sheathes them, because off means gone and there is
+     * nothing left to be on. A debt of swords away survives a change of rack the way it survives a
+     * change of stance - pushed back down to the bottom of the mask, never forgiven - so a sword out
+     * in the world still comes home on its clock whatever the rack now holds.
+     *
+     * @return whether the count moved
+     */
+    public static boolean refreshRack(ServerPlayer player, PlayerMagicState state) {
+        SwordArray array = state.swordArray();
+        if (!array.setRacked(com.efkrdnz.magical.magic.sword.rack.SwordArms.rackedMask(player, state))) {
+            return false;
+        }
+        recompactAway(held(player));
+        if (array.drawn() && array.swords() <= 0) {
+            sheathe(player, state);
+            return true;
+        }
         state.sync(player);
+        return true;
     }
 
     // ---- the steel ----------------------------------------------------------------------------
@@ -371,12 +402,16 @@ public final class SwordService {
     // ---- the toggle ---------------------------------------------------------------------------
 
     /**
-     * Call the Blade: every sword appears in the current stance, in one motion.
+     * Call the Blade: every sword in the rack appears in the current stance, in one motion.
      *
-     * @return false when the steel was already out, so the caller can toggle the other way
+     * <p>Refused when the rack holds nothing this wielder may fly, because only what is racked
+     * exists: a caller that wants to say why asks {@link #swords} first.
+     *
+     * @return false when the steel was already out or there is none to call
      */
     public static boolean draw(ServerPlayer player, PlayerMagicState state) {
-        if (!state.swordArray().setDrawn(true)) {
+        refreshRack(player, state);
+        if (swords(state) <= 0 || !state.swordArray().setDrawn(true)) {
             return false;
         }
         Held wielder = held(player);
@@ -495,12 +530,12 @@ public final class SwordService {
      * {@code Formation.BODY_CLEARANCE} would stop being true. See {@code FrameEase}.
      */
     private static Frame bodyFrame(ServerPlayer player, Held wielder) {
-        if (stanceOf(player).anchor() == SwordStance.Anchor.LOOK) {
-            Vec3 eye = player.getEyePosition();
-            return new Frame(eye.x, eye.y, eye.z, player.getYRot(), player.getXRot(), wielder.scale);
-        }
-        return new Frame(player.getX(), player.getY() + BODY_CENTRE, player.getZ(),
-                player.getYRot(), 0.0F, wielder.scale);
+        SwordStance.Anchor anchor = stanceOf(player).anchor();
+        // ArrayPose.heldOrigin, because the renderer takes the same origin off the same formula.
+        double[] origin = ArrayPose.heldOrigin(anchor, player.getX(), player.getY(), player.getZ(),
+                player.getEyeY());
+        float pitch = anchor == SwordStance.Anchor.LOOK ? player.getXRot() : 0.0F;
+        return new Frame(origin[0], origin[1], origin[2], player.getYRot(), pitch, wielder.scale);
     }
 
     /** Back to the resting state: the origin is on the wielder and the scale is one. */

@@ -32,6 +32,17 @@ import net.minecraft.world.phys.Vec3;
  * is for and why it is a mask and not a count - so an opponent counts the swords from thirty
  * blocks and reads how much Loose, Below and Watch is left without the wielder being asked.
  *
+ * <p><b>Only what is racked is drawn.</b> Sword <i>j</i> is the <i>j</i>-th weapon in the wielder's
+ * rack, so a rack of one is a formation of one, and a sword whose arm arrives empty is not drawn at
+ * all - there is no plain steel to stand in for it.
+ *
+ * <p><b>A held formation is drawn off its wielder, not off this entity.</b> The entity's position
+ * reaches the client in steps and a round trip behind the client's own movement, so a formation
+ * drawn from it stuttered and trailed round a walking wielder, while one round a wielder turning on
+ * the spot - whose facing is walked between ticks - was smooth. The origin is taken off the wielder
+ * as they are drawn this frame, through {@code ArrayPose.heldOrigin}, which is the formula the
+ * server places the frame with.
+ *
  * <p><b>There is nothing else here.</b> The formation used to carry a thread from the wielder's
  * chest to every sword and a red wash that deepened as the count ran down. Both were readings of
  * something the steel already says - where the swords are, and how many of them are left - so both
@@ -58,6 +69,10 @@ public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEnt
         public double phase;
         /** What each sword flies as: its rack socket's weapon, empty for Duskfall. */
         public final ItemStack[] arms = emptyArms();
+        /** From where the entity is drawn to the formation's origin, off the wielder; zero off the body. */
+        public double offsetX;
+        public double offsetY;
+        public double offsetZ;
     }
 
     private static ItemStack[] emptyArms() {
@@ -104,8 +119,21 @@ public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEnt
         // An entity's own age starts when its spawn packet lands, so the ring would be drawn at
         // one angle and fired from another, by an offset that was different for every observer.
         state.phase = entity.level().getGameTime() + partialTick;
-        for (int socket = 0; socket < state.arms.length; socket++) {
-            state.arms[socket] = entity.arm(socket);
+        for (int sword = 0; sword < state.arms.length; sword++) {
+            state.arms[sword] = entity.arm(sword);
+        }
+        // Where the server will put the origin next, rather than where it last said it was. See
+        // the class note: this is the whole of the fix for a formation stuttering at a walk.
+        state.offsetX = 0.0D;
+        state.offsetY = 0.0D;
+        state.offsetZ = 0.0D;
+        if (wielder != null && entity.bind().followsTheWielder()) {
+            Vec3 feet = wielder.getPosition(partialTick);
+            double[] origin = ArrayPose.heldOrigin(state.stance.anchor(), feet.x, feet.y, feet.z,
+                    wielder.getEyePosition(partialTick).y);
+            state.offsetX = origin[0] - state.origin.x;
+            state.offsetY = origin[1] - state.origin.y;
+            state.offsetZ = origin[2] - state.origin.z;
         }
     }
 
@@ -130,13 +158,17 @@ public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEnt
         if (state.mask == 0 || state.slots <= 0) {
             return;
         }
+        pose.pushPose();
+        pose.translate(state.offsetX, state.offsetY, state.offsetZ);
         FxContext ctx = new FxContext(pose, buffers, state.partialTick,
-                entityRenderDispatcher.cameraOrientation(), state.cameraOffset)
+                entityRenderDispatcher.cameraOrientation(),
+                state.cameraOffset.subtract(state.offsetX, state.offsetY, state.offsetZ))
                 .timing(state.age, state.life, state.seed);
         Frame frame = new Frame(0.0D, 0.0D, 0.0D, state.frameYaw, state.framePitch, state.scale);
         for (int index = 0; index < state.slots; index++) {
-            if ((state.mask & (1 << index)) == 0) {
-                // The gap is the point. See the class note.
+            ItemStack arm = index < state.arms.length ? state.arms[index] : ItemStack.EMPTY;
+            if ((state.mask & (1 << index)) == 0 || arm.isEmpty()) {
+                // The gap is the point, and a sword with no weapon is not there. See the class note.
                 continue;
             }
             // Both machines read the phase off the level's game time, so a formation that drifts,
@@ -146,10 +178,10 @@ public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEnt
             double[] facing = ArrayPose.worldDirection(slot, frame);
             pose.pushPose();
             pose.translate(offset[0], offset[1], offset[2]);
-            SwordBladeRenderer.blade(ctx, new Vec3(facing[0], facing[1], facing[2]), 0.0F,
-                    index < state.arms.length ? state.arms[index] : ItemStack.EMPTY);
+            SwordBladeRenderer.blade(ctx, new Vec3(facing[0], facing[1], facing[2]), 0.0F, arm);
             pose.popPose();
         }
+        pose.popPose();
     }
 
     // ---- the frame's facing, read back off the wire ----------------------------------------------

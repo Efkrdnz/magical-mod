@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.magic.sword;
 
 import com.efkrdnz.magical.magic.sword.stance.Slot;
+import com.efkrdnz.magical.magic.sword.stance.SwordStance;
 
 /**
  * A frame-local {@link Slot} turned into the world, and <b>the one rotation both sides run</b>.
@@ -21,7 +22,25 @@ import com.efkrdnz.magical.magic.sword.stance.Slot;
  */
 public final class ArrayPose {
 
+    /** The offset from a wielder's feet to a body-anchored frame's origin: their body centre, not their eyes. */
+    public static final double BODY_CENTRE = 0.9D;
+
     private ArrayPose() {
+    }
+
+    /**
+     * Where a held formation's origin is, off where its wielder is: the eye for a {@code LOOK}
+     * stance, the body centre for a {@code BODY} one.
+     *
+     * <p>The server calls this with the wielder where they are on the tick and the renderer with
+     * the wielder where they are drawn between ticks. That second call is what keeps a formation
+     * on a walking wielder smooth - the entity's own position arrives from the server in steps and
+     * behind the client's own movement - and it is only safe because both calls are this one.
+     */
+    public static double[] heldOrigin(SwordStance.Anchor anchor, double x, double y, double z, double eyeY) {
+        return anchor == SwordStance.Anchor.LOOK
+                ? new double[] {x, eyeY, z}
+                : new double[] {x, y + BODY_CENTRE, z};
     }
 
     /** Where this slot's sword sits, as an offset from the frame origin, in world axes. */

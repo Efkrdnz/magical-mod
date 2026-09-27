@@ -24,6 +24,7 @@ import com.efkrdnz.magical.magic.visual.Silhouette;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
@@ -92,6 +93,13 @@ public final class CallTheBladeSkill implements SkillModule {
                     SwordService.sheathe(player, state);
                     state.sync(player);
                     return CastResult.SUCCESS;
+                }
+                // Only what is racked flies, so an empty rack is refused before it is billed -
+                // and told where the swords come from, because nothing else would say.
+                SwordService.refreshRack(player, state);
+                if (SwordService.swords(state) <= 0) {
+                    player.displayClientMessage(Component.translatable("message.magical.sword_rack_empty"), true);
+                    return CastResult.FAILED;
                 }
                 if (!SwordService.payFor(player, state, definition(), -1)) {
                     return CastResult.FAILED;

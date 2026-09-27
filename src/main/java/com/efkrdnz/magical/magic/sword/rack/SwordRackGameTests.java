@@ -8,29 +8,35 @@ import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.menu.SwordRackMenu;
+import com.efkrdnz.magical.magic.sword.SwordMath;
 import com.efkrdnz.magical.magic.sword.SwordService;
 import com.efkrdnz.magical.magic.sword.stance.SwordStance;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlotGroup;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
- * The rack, in a level: what a socket holds is what its sword flies as, what it does when it lands,
- * and what the menu lets in.
+ * The rack, in a level: only what is racked flies, it lands as hard as its weapon, it does what its
+ * weapon does, and the menu lets in only what may fly.
  */
 @GameTestHolder(MagicalMod.MODID)
 @PrefixGameTestTemplate(false)
@@ -82,11 +88,11 @@ public final class SwordRackGameTests {
     }
 
     /**
-     * An axe is a weapon and not a sword: it waits in its socket as plain steel until Weapon God,
-     * and a socket the rung has not opened flies nothing at all.
+     * An axe is a weapon and not a sword: it does not fly until Weapon God, and nor does anything in
+     * a socket the rung has not opened. What is left is the formation - here one sword.
      */
     @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "sword_rack_2")
-    public static void anAxeFliesAsSteelUntilWeaponGod(GameTestHelper helper) {
+    public static void anAxeWaitsForWeaponGod(GameTestHelper helper) {
         ServerPlayer player = wielder(helper, "rack-axe", BELOW_THE_APEX);
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
         helper.runAtTickTime(1, () -> {
@@ -95,11 +101,18 @@ public final class SwordRackGameTests {
             SwordArms.rack(player).setItem(0, new ItemStack(Items.IRON_AXE));
             SwordArms.rack(player).setItem(1, new ItemStack(Items.IRON_SWORD));
             SwordArms.rack(player).setItem(11, new ItemStack(Items.GOLDEN_SWORD));
-            helper.assertTrue(SwordArms.arm(player, state, 0).isEmpty(), "an axe flies before Weapon God");
-            helper.assertTrue(SwordArms.arm(player, state, 1).is(Items.IRON_SWORD), "a sword does not fly");
-            helper.assertTrue(SwordArms.arm(player, state, 11).isEmpty(), "a socket the rung has not opened flies");
+            SwordService.refreshRack(player, state);
+            helper.assertValueEqual(state.swordArray().racked(), 0b10,
+                    "sockets that fly - the sword alone, not the axe nor a socket past the rung");
+            helper.assertValueEqual(SwordService.swords(state), 1, "swords a rack of one sword fields");
+            helper.assertTrue(SwordArms.arm(player, state, 0).is(Items.IRON_SWORD),
+                    "the first sword is not the one weapon the rack may fly");
+            helper.assertTrue(SwordArms.arm(player, state, 1).isEmpty(), "a second sword flies out of a rack of one");
             state.unlockPassive(MagicPassiveContent.WEAPON_GOD.id());
+            SwordService.refreshRack(player, state);
+            helper.assertValueEqual(state.swordArray().racked(), 0b11, "sockets that fly under Weapon God");
             helper.assertTrue(SwordArms.arm(player, state, 0).is(Items.IRON_AXE), "Weapon God does not fly the axe");
+            helper.assertTrue(SwordArms.arm(player, state, 1).is(Items.IRON_SWORD), "the sword is not the second");
             helper.succeed();
         });
     }
@@ -138,12 +151,15 @@ public final class SwordRackGameTests {
                 helper.assertTrue(rack.getItem(socket).is(Items.IRON_SWORD), "socket " + socket + " stayed empty");
             }
             helper.assertTrue(rack.getItem(4).isEmpty(), "a Summoner racked a fifth sword");
+            helper.assertValueEqual(menu.fielded(), 4, "swords the rack says fly with four racked in Guard");
             helper.assertValueEqual(player.getInventory().countItem(Items.IRON_SWORD), 1,
                     "swords left in the inventory after a Summoner's four sockets filled");
             menu.quickMoveStack(player, 2);
             helper.assertTrue(rack.getItem(2).isEmpty(), "a racked sword could not be taken back out");
             helper.assertValueEqual(player.getInventory().countItem(Items.IRON_SWORD), 2,
                     "swords in the inventory after one came back out of the rack");
+            helper.assertValueEqual(menu.fielded(), 3, "swords the rack says fly once one came back out");
+            helper.assertTrue(menu.flies(3) && !menu.flies(2), "the gold rims are not the racked sockets");
             helper.succeed();
         });
     }
@@ -163,6 +179,7 @@ public final class SwordRackGameTests {
             helper.assertTrue(array != null, "no formation stood up");
             helper.assertTrue(array.arm(0).is(Items.DIAMOND_SWORD), "the first sword is not the racked one");
             helper.assertTrue(array.arm(1).isEmpty(), "an empty socket flies as something");
+            helper.assertValueEqual(array.presentCount(), 1, "swords standing round a rack of one sword");
             SwordArms.rack(player).setItem(0, new ItemStack(Items.NETHERITE_SWORD));
         });
         helper.runAtTickTime(4, () -> {
@@ -171,6 +188,89 @@ public final class SwordRackGameTests {
                     "a sword swapped in the rack is still drawn as the old one");
             helper.succeed();
         });
+    }
+
+    /**
+     * Two swords racked with a gap between them stand as a formation of two, in order, and a rack
+     * emptied while they stand puts the steel away - and an empty rack draws nothing at all.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "sword_rack_6")
+    public static void onlyTheRackedSwordsStand(GameTestHelper helper) {
+        ServerPlayer player = wielder(helper, "rack-count", EVERY_RUNG);
+        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+        helper.runAtTickTime(1, () -> {
+            SwordRack rack = SwordArms.rack(player);
+            state.swordArray().clear();
+            state.swordArray().setStance(SwordStance.RAIN);
+            helper.assertTrue(!SwordService.draw(player, state), "an empty rack drew swords");
+            helper.assertTrue(!state.swordArray().drawn(), "an empty rack left the steel out");
+            rack.setItem(3, new ItemStack(Items.IRON_SWORD));
+            rack.setItem(9, new ItemStack(Items.GOLDEN_SWORD));
+            helper.assertTrue(SwordService.draw(player, state), "two racked swords would not draw");
+            SwordService.tendArrayEntity(player, state);
+            helper.assertValueEqual(SwordService.swords(state), 2, "swords Rain fields with two racked");
+            SwordArrayEntity array = SwordService.arrayEntity(player);
+            helper.assertTrue(array != null, "no formation stood up");
+            helper.assertValueEqual(array.presentCount(), 2, "swords the formation draws");
+            helper.assertTrue(array.arm(0).is(Items.IRON_SWORD), "the first sword is not socket four's");
+            helper.assertTrue(array.arm(1).is(Items.GOLDEN_SWORD), "the second sword is not socket ten's");
+            helper.assertTrue(array.arm(2).isEmpty(), "a third sword stands out of two");
+            rack.removeItemNoUpdate(3);
+            rack.removeItemNoUpdate(9);
+        });
+        helper.runAtTickTime(4, () -> {
+            helper.assertTrue(!state.swordArray().drawn(), "the rack was emptied and the steel stayed out");
+            helper.assertTrue(SwordService.arrayEntity(player) == null, "a formation stands with nothing racked");
+            helper.succeed();
+        });
+    }
+
+    /**
+     * The complaint that started it: a sword of 230 attack flew and landed like any other. One
+     * blade of it lands 230 - the kit's unit of one sword replaced by the weapon's own hit.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 80, batch = "sword_rack_7")
+    public static void aRackedSwordLandsItsOwnAttack(GameTestHelper helper) {
+        ServerPlayer player = wielder(helper, "rack-damage", List.of(MagicalClasses.SWORD_SUMMONER));
+        ItemStack sword = new ItemStack(Items.IRON_SWORD);
+        sword.set(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.builder()
+                .add(Attributes.ATTACK_DAMAGE, new AttributeModifier(
+                        ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "test_attack"), 229.0D,
+                        AttributeModifier.Operation.ADD_VALUE), EquipmentSlotGroup.MAINHAND)
+                .build());
+        SwordArms.rack(player).setItem(0, sword);
+        Pig pig = helper.spawnWithNoFreeWill(EntityType.PIG, TARGET);
+        pig.getAttribute(Attributes.MAX_HEALTH).setBaseValue(1000.0D);
+        pig.setHealth(1000.0F);
+        SwordBladeEntity[] blade = new SwordBladeEntity[1];
+        helper.runAtTickTime(10, () -> {
+            Vec3 from = player.getEyePosition();
+            Vec3 to = pig.getBoundingBox().getCenter();
+            blade[0] = SwordBladeEntity.loose(helper.getLevel(), player, MagicContent.LOOSE.id(),
+                    from, to.subtract(from), 0, 1, SwordMath.bladeDamage(), 0.0D, 0.5D, 20);
+            helper.assertTrue(blade[0] != null, "the blade was refused");
+        });
+        helper.runAtTickTime(40, () -> {
+            helper.assertTrue(blade[0] != null && blade[0].state() == SwordBladeEntity.STATE_SPENT,
+                    "the blade never landed in the pig");
+            float taken = 1000.0F - pig.getHealth();
+            helper.assertTrue(Math.abs(taken - 230.0F) < 0.5F, "a sword of 230 attack landed " + taken);
+            helper.succeed();
+        });
+    }
+
+    /**
+     * Fills the first {@code count} sockets the rung has opened with iron swords and counts them:
+     * only what is racked flies, so a test that wants a formation has to rack one first.
+     */
+    public static void rackSwords(ServerPlayer player, int count) {
+        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+        SwordRack rack = SwordArms.rack(player);
+        int sockets = Math.min(count, SwordArms.unlocked(state));
+        for (int socket = 0; socket < sockets; socket++) {
+            rack.setItem(socket, new ItemStack(Items.IRON_SWORD));
+        }
+        SwordService.refreshRack(player, state);
     }
 
     /**

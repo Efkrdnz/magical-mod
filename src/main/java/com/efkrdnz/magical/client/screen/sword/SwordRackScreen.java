@@ -20,10 +20,11 @@ import net.neoforged.api.distmarker.OnlyIn;
 /**
  * The rack, drawn: twelve sockets on a ring round the stance they fly in.
  *
- * <p>Three kinds of socket and they differ by their rims. <b>Gold</b> is a sword the stance fields
- * - what is racked there is what flies. <b>Slate</b> is a socket the rung has opened that the
- * stance does not reach: it is kept for the stance that does. <b>Dark and dimmed</b> is a socket a
- * higher rung opens; it takes nothing, and gives back anything already in it.
+ * <p>Three kinds of socket and they differ by their rims. <b>Gold</b> holds a weapon that flies:
+ * only what is racked exists, so the formation is exactly the gold sockets. <b>Slate</b> is open -
+ * empty, or holding a sword the stance does not field, or a weapon waiting for Weapon God.
+ * <b>Dark and dimmed</b> is a socket a higher rung opens; it takes nothing, and gives back anything
+ * already in it.
  */
 @OnlyIn(Dist.CLIENT)
 public final class SwordRackScreen extends AbstractContainerScreen<SwordRackMenu> implements HudDebug.Captured {
@@ -53,9 +54,12 @@ public final class SwordRackScreen extends AbstractContainerScreen<SwordRackMenu
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
         Slot hovered = hoveredSlot;
-        if (hovered != null && hovered.index < SwordRack.SIZE && !hovered.hasItem() && menu.getCarried().isEmpty()) {
-            graphics.renderComponentTooltip(font, emptySocketLines(hovered.index), mouseX, mouseY);
-            return;
+        if (hovered != null && hovered.index < SwordRack.SIZE && menu.getCarried().isEmpty()) {
+            List<Component> lines = hovered.hasItem() ? idleWeaponLines(hovered) : emptySocketLines(hovered.index);
+            if (lines != null) {
+                graphics.renderComponentTooltip(font, lines, mouseX, mouseY);
+                return;
+            }
         }
         renderTooltip(graphics, mouseX, mouseY);
     }
@@ -101,7 +105,10 @@ public final class SwordRackScreen extends AbstractContainerScreen<SwordRackMenu
                 MagicalGuiStyle.TEXT_MUTED, false);
         SwordStance stance = SwordStance.byOrdinal(menu.stanceOrdinal());
         centred(graphics, Component.translatable(stance.nameKey()), SwordRackLayout.STANCE_LINE_Y, GOLD_TEXT);
-        centred(graphics, Component.translatable("screen.magical.sword_rack.flying", menu.fielded(), menu.unlocked()),
+        int racked = menu.rackedCount();
+        centred(graphics, racked == 0
+                ? Component.translatable("screen.magical.sword_rack.none")
+                : Component.translatable("screen.magical.sword_rack.flying", menu.fielded(), racked),
                 SwordRackLayout.COUNT_LINE_Y, MagicalGuiStyle.TEXT_MUTED);
     }
 
@@ -119,7 +126,24 @@ public final class SwordRackScreen extends AbstractContainerScreen<SwordRackMenu
         if (socket >= menu.unlocked()) {
             return RIM_LOCKED;
         }
-        return socket < menu.fielded() ? RIM_FIELDED : RIM_RESTING;
+        return menu.flies(socket) ? RIM_FIELDED : RIM_RESTING;
+    }
+
+    /**
+     * A weapon in a socket that does not fly: its own tooltip and a line on why. Null for one that
+     * flies, which needs nothing said beyond its own tooltip.
+     */
+    private List<Component> idleWeaponLines(Slot slot) {
+        int socket = slot.index;
+        if (menu.flies(socket)) {
+            return null;
+        }
+        String why = socket >= menu.unlocked() ? "screen.magical.sword_rack.locked"
+                : menu.racked(socket) ? "screen.magical.sword_rack.resting"
+                : "screen.magical.sword_rack.waiting";
+        List<Component> lines = new ArrayList<>(getTooltipFromContainerItem(slot.getItem()));
+        lines.add(Component.translatable(why).withStyle(style -> style.withColor(MagicalGuiStyle.TEXT_MUTED)));
+        return lines;
     }
 
     private List<Component> emptySocketLines(int socket) {
@@ -128,8 +152,7 @@ public final class SwordRackScreen extends AbstractContainerScreen<SwordRackMenu
             lines.add(Component.translatable("screen.magical.sword_rack.locked"));
             return lines;
         }
-        lines.add(Component.translatable(socket < menu.fielded()
-                ? "screen.magical.sword_rack.empty" : "screen.magical.sword_rack.resting"));
+        lines.add(Component.translatable("screen.magical.sword_rack.empty"));
         lines.add(Component.translatable(menu.weaponGod()
                 ? "screen.magical.sword_rack.takes_weapons" : "screen.magical.sword_rack.takes_swords")
                 .withStyle(style -> style.withColor(MagicalGuiStyle.TEXT_MUTED)));

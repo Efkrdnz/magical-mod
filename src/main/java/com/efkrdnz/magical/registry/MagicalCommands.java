@@ -669,6 +669,8 @@ public final class MagicalCommands {
                                     .executes(context -> withPlayer(context.getSource(), player -> swordShow(player))))
                             .then(Commands.literal("rack")
                                     .executes(context -> withPlayer(context.getSource(), player -> swordRack(player)))
+                                    .then(Commands.literal("clear")
+                                            .executes(context -> withPlayer(context.getSource(), player -> swordRackClear(player))))
                                     .then(Commands.literal("put")
                                             .then(Commands.argument("socket", IntegerArgumentType.integer(1, 12))
                                                     .then(Commands.argument("item", net.minecraft.commands.arguments.item.ItemArgument.item(event.getBuildContext()))
@@ -1157,6 +1159,10 @@ public final class MagicalCommands {
                 ? com.efkrdnz.magical.magic.sword.SwordService.draw(player, data)
                 : com.efkrdnz.magical.magic.sword.SwordService.sheathe(player, data);
         data.sync(player);
+        if (out && !moved && com.efkrdnz.magical.magic.sword.SwordService.swords(data) <= 0) {
+            player.displayClientMessage(Component.translatable("message.magical.sword_rack_empty"), false);
+            return 0;
+        }
         player.displayClientMessage(Component.literal(moved
                 ? (out ? "Drawn." : "Sheathed.")
                 : (out ? "Already out." : "Already away.")), false);
@@ -1190,6 +1196,26 @@ public final class MagicalCommands {
     }
 
     /**
+     * Every racked weapon back into the inventory. The rack outlives a reset, and only what is
+     * racked flies, so a capture starts here or it flies whatever the last run left behind.
+     */
+    private static int swordRackClear(ServerPlayer player) {
+        PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+        com.efkrdnz.magical.magic.sword.rack.SwordRack rack = com.efkrdnz.magical.magic.sword.rack.SwordArms.rack(player);
+        int returned = 0;
+        for (int socket = 0; socket < rack.getContainerSize(); socket++) {
+            net.minecraft.world.item.ItemStack stack = rack.removeItemNoUpdate(socket);
+            if (!stack.isEmpty()) {
+                player.getInventory().placeItemBackInInventory(stack);
+                returned++;
+            }
+        }
+        com.efkrdnz.magical.magic.sword.SwordService.refreshRack(player, data);
+        player.displayClientMessage(Component.translatable("message.magical.sword_rack_cleared", returned), false);
+        return 1;
+    }
+
+    /**
      * Racks a weapon in socket {@code socket}, counted from one the way the ring is read, by the
      * rules the menu keeps, and hands back whatever stood there. A capture cannot drag an item.
      */
@@ -1208,6 +1234,7 @@ public final class MagicalCommands {
         if (!displaced.isEmpty()) {
             player.getInventory().placeItemBackInInventory(displaced);
         }
+        com.efkrdnz.magical.magic.sword.SwordService.refreshRack(player, data);
         player.displayClientMessage(Component.translatable("message.magical.sword_rack_put",
                 stack.getHoverName(), socket), false);
         return 1;

@@ -24,8 +24,71 @@ class SwordArrayTest {
         SwordArray array = new SwordArray();
         assertEquals(SwordStance.first(), array.stance());
         assertFalse(array.drawn(), "a wielder who has never pressed anything has no steel out");
-        assertEquals(SwordRules.SUMMONER.swords(), array.swords(),
-                "an Array with no class on it must still be legal at the base rung");
+        assertEquals(0, array.racked(), "a wielder who has never opened the rack has racked nothing");
+        assertEquals(0, array.swords(), "and nothing racked is nothing to fly");
+    }
+
+    /** The complaint, stated as a test: one sword in the rack is one sword round the wielder. */
+    @Test
+    void onlyWhatIsRackedFlies() {
+        SwordArray array = new SwordArray();
+        array.setRules(SwordRules.GOD);
+        assertTrue(array.setStance(SwordStance.RAIN));
+        array.setRacked(0b1);
+        assertEquals(1, array.swords(), "one sword racked");
+        array.setRacked(0b1000_0000_0101);
+        assertEquals(3, array.swords(), "three racked, wherever they sit on the ring");
+        array.setRacked(SwordArray.FULL_RACK);
+        assertEquals(SwordRules.GOD.swords(), array.swords(), "a full rack in the widest stance");
+        assertTrue(array.setStance(SwordStance.GUARD));
+        assertEquals(SwordStance.GUARD.swordCap(), array.swords(), "the stance still caps what it fields");
+        array.setRules(SwordRules.SUMMONER);
+        assertEquals(SwordRules.SUMMONER.swords(), array.swords(), "and the rung still caps what it opens");
+        assertEquals(3, SwordArray.fielded(SwordRules.GOD, SwordStance.RAIN, 0b111),
+                "a stance's count off a rung and a rack, for the picker's diagram");
+    }
+
+    /**
+     * Sword <i>j</i> is the <i>j</i>-th racked socket, so a gap on the ring is never a gap in the
+     * formation: three swords racked anywhere stand as a formation of three.
+     */
+    @Test
+    void theSwordsAreTheRackedSocketsInOrder() {
+        int rack = 0b1000_0000_0101;
+        assertEquals(0, SwordArray.socketOf(rack, 0));
+        assertEquals(2, SwordArray.socketOf(rack, 1));
+        assertEquals(11, SwordArray.socketOf(rack, 2));
+        assertEquals(-1, SwordArray.socketOf(rack, 3), "a fourth sword out of three racked");
+        assertEquals(-1, SwordArray.socketOf(rack, -1), "a sword before the first");
+        assertEquals(-1, SwordArray.socketOf(0, 0), "a sword out of an empty rack");
+    }
+
+    /**
+     * The rack rides the save, because the client counts the formation off the same tag the server
+     * writes: the HUD's ring and the picker's diagrams would otherwise read an empty rack.
+     */
+    @Test
+    void theRackRidesTheSaveAndOnlyTwelveSocketsExist() {
+        SwordArray array = new SwordArray();
+        array.setRules(SwordRules.GOD);
+        assertTrue(array.setRacked(-1), "a whole mask is a change");
+        assertEquals(SwordArray.FULL_RACK, array.racked(), "a bit past the twelfth socket survived");
+        assertFalse(array.setRacked(SwordArray.FULL_RACK), "the same rack twice is not a change");
+        array.setRacked(0b101);
+        assertFalse(array.isDefault(), "a racked wielder is off the default, sheathed in Guard or not");
+
+        SwordArray back = new SwordArray();
+        back.setRules(SwordRules.GOD);
+        back.load(array.save());
+        assertEquals(0b101, back.racked(), "the rack did not survive a save");
+
+        SwordArray older = new SwordArray();
+        older.load(new IntArrayTag(new int[] {SwordArray.SAVE_VERSION, 0, 1}));
+        assertEquals(0, older.racked(), "a tag from before the rack reads as nothing racked");
+        assertTrue(older.drawn(), "and the rest of it still loads");
+
+        array.clear();
+        assertEquals(0, array.racked(), "a reset leaves nothing counted; the next refresh re-reads the rack");
     }
 
     @Test
@@ -150,6 +213,7 @@ class SwordArrayTest {
         from.setRules(SwordRules.SAINT);
         from.setStance(SwordStance.COIL);
         from.setDrawn(true);
+        from.setRacked(0b111_1111);
 
         SwordArray to = new SwordArray();
         to.copyFrom(from);
@@ -158,8 +222,9 @@ class SwordArrayTest {
         assertEquals(SwordRules.SAINT, to.rules(),
                 "copyFrom that left the rung behind would clamp the stance it just copied on the"
                         + " next setRules");
-        assertEquals(SwordStance.COIL.swords(SwordRules.SAINT.swords()), to.swords(),
-                "and the count is the copied stance's cap over the copied rung, not either alone");
+        assertEquals(0b111_1111, to.racked(), "the rack travels with the copy or the client counts nothing");
+        assertEquals(SwordStance.COIL.swords(7), to.swords(),
+                "and the count is the copied stance's cap over the copied rack, under the copied rung");
     }
 
     private static void assertOpens(SwordRules rules, SwordStance... open) {

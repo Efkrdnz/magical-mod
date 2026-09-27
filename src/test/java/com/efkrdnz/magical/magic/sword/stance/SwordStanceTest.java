@@ -48,6 +48,20 @@ class SwordStanceTest {
     }
 
     /**
+     * Nothing racked, nothing flies.
+     *
+     * <p>The count a stance is handed is the swords in the rack, and an empty rack is zero of them.
+     * The floor of one this used to carry is what stood a sword round a wielder who had racked
+     * nothing at all.
+     */
+    @Test
+    void anEmptyRackFieldsNothing() {
+        for (SwordStance stance : SwordStance.values()) {
+            assertEquals(0, stance.swords(0), stance + " fields a sword out of an empty rack");
+        }
+    }
+
+    /**
      * A stance must not greet you already capped.
      *
      * <p>The cap is meant to be a thing you meet by <em>growing</em> - you climb a rung, the other

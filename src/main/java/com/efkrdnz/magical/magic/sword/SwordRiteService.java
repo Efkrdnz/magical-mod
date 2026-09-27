@@ -4,6 +4,9 @@ import com.efkrdnz.magical.classes.MagicalClassDefinition;
 import com.efkrdnz.magical.classes.MagicalClasses;
 import com.efkrdnz.magical.forge.ForgedWeapons;
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.sword.rack.SwordArms;
+import com.efkrdnz.magical.magic.sword.rack.SwordRack;
+import com.efkrdnz.magical.magic.sword.rack.SwordRackRules;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -532,6 +535,10 @@ public final class SwordRiteService {
             return;
         }
 
+        // Only what is racked flies, so the four laid on the ground go into the rack first and
+        // are what stands up: drawn before, the rite would raise nothing at all.
+        SwordService.refreshRung(player, state);
+        rackTheOffering(player, state, rite);
         SwordService.draw(player, state);
         state.sync(player);
 
@@ -549,5 +556,42 @@ public final class SwordRiteService {
             player.displayClientMessage(Component.translatable("message.magical.class_unlocked",
                     Component.translatable(definition.nameKey())), false);
         }
+    }
+
+    /**
+     * Each offered sword into the first empty socket the new rung opens, as a copy - the entity it
+     * lay in is discarded after. One with nowhere to go goes back to the wielder rather than into
+     * the ground with the rest of the offering.
+     */
+    private static void rackTheOffering(ServerPlayer player, PlayerMagicState state, Rite rite) {
+        SwordRack rack = SwordArms.rack(player);
+        boolean weaponGod = SwordArms.weaponGod(state);
+        int open = SwordArms.unlocked(state);
+        for (ItemEntity blade : rite.blades()) {
+            ItemStack offered = blade.getItem();
+            if (blade.isRemoved() || offered.isEmpty()) {
+                continue;
+            }
+            ItemStack sword = offered.copyWithCount(1);
+            ItemStack rest = offered.copyWithCount(offered.getCount() - 1);
+            int socket = firstEmpty(rack, open);
+            if (socket >= 0 && SwordRackRules.accepts(sword, weaponGod)) {
+                rack.setItem(socket, sword);
+            } else {
+                player.getInventory().placeItemBackInInventory(sword);
+            }
+            if (!rest.isEmpty()) {
+                player.getInventory().placeItemBackInInventory(rest);
+            }
+        }
+    }
+
+    private static int firstEmpty(SwordRack rack, int open) {
+        for (int socket = 0; socket < open; socket++) {
+            if (rack.getItem(socket).isEmpty()) {
+                return socket;
+            }
+        }
+        return -1;
     }
 }

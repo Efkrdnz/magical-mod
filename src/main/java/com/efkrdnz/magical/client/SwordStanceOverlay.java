@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.client;
 
+import com.efkrdnz.magical.magic.sword.SwordArray;
 import com.efkrdnz.magical.magic.sword.SwordRules;
 import com.efkrdnz.magical.magic.sword.stance.Formation;
 import com.efkrdnz.magical.magic.sword.stance.Slot;
@@ -119,7 +120,7 @@ public final class SwordStanceOverlay {
 
         SwordRules rules = rules();
         SwordStance worn = ClientMagicState.get().swordArray().stance();
-        int complement = rules.swords();
+        int racked = ClientMagicState.get().swordArray().racked();
         int limit = SwordStanceLayout.textLimit(width);
 
         for (int i = 0; i < SwordStanceLayout.CELLS; i++) {
@@ -128,10 +129,11 @@ public final class SwordStanceOverlay {
             boolean locked = !rules.allows(stance);
             int centre = SwordStanceLayout.cellCentre(width, i);
 
-            // Each cell its own stance's count, not the rung's: a stance caps its complement,
-            // so a diagram drawn at the rung's number would show six swords in a Guard that
-            // fields six and twelve in a Guard that fields six.
-            drawFormation(graphics, stance, stance.swords(complement), centre,
+            // Each cell its own stance's count out of the rack, not the rung's: a stance caps
+            // what it fields and only what is racked flies, so a diagram drawn at the rung's
+            // number would show twelve swords in a Guard that fields six, or round a wielder
+            // with two in their rack.
+            drawFormation(graphics, stance, SwordArray.fielded(rules, stance, racked), centre,
                     SwordStanceLayout.diagramCentreY(width, height),
                     SwordStanceLayout.diagramHalf(width), locked ? LOCKED_INK : STEEL,
                     focused ? 0xFF : 0x9A);
@@ -187,7 +189,7 @@ public final class SwordStanceOverlay {
      */
     private static void drawFormation(GuiGraphics graphics, SwordStance stance, int swords,
             int centreX, int centreY, int half, int rgb, int alpha) {
-        int count = Math.max(1, swords);
+        int count = Math.max(0, swords);
         Slot[] slots = new Slot[count];
         double extent = 0.5D;
         for (int i = 0; i < count; i++) {

@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.magic.sword.rack;
 
+import com.efkrdnz.magical.magic.sword.SwordArray;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
@@ -27,7 +28,7 @@ import net.minecraft.world.item.ItemStack;
 public final class SwordRack implements Container {
 
     /** One socket per sword the apex rung fields. */
-    public static final int SIZE = 12;
+    public static final int SIZE = SwordArray.RACK_SOCKETS;
 
     private final NonNullList<ItemStack> items = NonNullList.withSize(SIZE, ItemStack.EMPTY);
 

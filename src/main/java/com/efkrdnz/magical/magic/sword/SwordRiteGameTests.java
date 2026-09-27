@@ -113,6 +113,10 @@ public final class SwordRiteGameTests {
                     "and the rite leaves the steel out: the four swords laid on the ground stand "
                             + "up as the formation, which is the whole of the payoff and is why "
                             + "the Summoner rung fields exactly four of them");
+            helper.assertValueEqual(com.efkrdnz.magical.magic.sword.SwordService.swords(state), 4,
+                    "swords standing after the rite - the four offered, racked, since only what is racked flies");
+            helper.assertTrue(com.efkrdnz.magical.magic.sword.rack.SwordArms.rack(caster).getItem(3).is(Items.IRON_SWORD),
+                    "the offered swords are not in the rack");
             helper.succeed();
         });
     }

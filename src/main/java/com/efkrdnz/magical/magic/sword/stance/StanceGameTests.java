@@ -5,6 +5,8 @@ import com.efkrdnz.magical.classes.MagicalClasses;
 import com.efkrdnz.magical.entity.sword.SwordArrayEntity;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.sword.SwordService;
+import com.efkrdnz.magical.magic.sword.rack.SwordRack;
+import com.efkrdnz.magical.magic.sword.rack.SwordRackGameTests;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.List;
 import java.util.UUID;
@@ -211,6 +213,7 @@ public final class StanceGameTests {
         SwordService.refreshRung(player, state);
         state.swordArray().clear();
         state.swordArray().setStance(stance);
+        SwordRackGameTests.rackSwords(player, SwordRack.SIZE);
         SwordService.draw(player, state);
         SwordService.tendArrayEntity(player, state);
     }

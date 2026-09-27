@@ -31,6 +31,9 @@ class PlayerMagicStateSwordArrayTest {
      */
     private static final SwordStance CHOSEN = SwordStance.RAIN;
 
+    /** Sockets one, two and twelve: a rack with a gap in it, so a count cannot pass for the mask. */
+    private static final int RACKED = 0b1000_0000_0011;
+
     @BeforeAll
     static void bootstrap() {
         SharedConstants.tryDetectVersion();
@@ -44,6 +47,7 @@ class PlayerMagicStateSwordArrayTest {
         state.swordArray().setRules(SwordRules.GOD);
         assertTrue(state.swordArray().setStance(CHOSEN), "the apex rung opens every stance");
         assertTrue(state.swordArray().setDrawn(true), "and the steel is out");
+        assertTrue(state.swordArray().setRacked(RACKED), "with swords in the rack to be out");
         return state;
     }
 
@@ -53,16 +57,18 @@ class PlayerMagicStateSwordArrayTest {
         assertEquals(CHOSEN, copied.stance());
         assertTrue(copied.drawn());
         assertEquals(SwordRules.GOD, copied.rules(), "the rung travels with it or the stance is illegal");
+        assertEquals(RACKED, copied.racked(), "and the rack, or the client's formation counts nothing");
     }
 
     @Test
     void aSaveAndLoadKeepsTheStanceAndTheSteel() {
         CompoundTag tag = written().save();
         int[] packed = tag.getIntArray("swordArray");
-        assertEquals(3, packed.length, "the version, the stance ordinal and the drawn flag");
+        assertEquals(4, packed.length, "the version, the stance ordinal, the drawn flag and the rack");
         assertEquals(SwordArray.SAVE_VERSION, packed[0]);
         assertEquals(CHOSEN.ordinal(), packed[1]);
         assertEquals(1, packed[2]);
+        assertEquals(RACKED, packed[3]);
 
         // Loaded onto a state with no class progress, so the rung falls back to the base rung and
         // Rain is clamped away. That is the documented behaviour and it is what makes the load

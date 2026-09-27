@@ -36,4 +36,12 @@ public enum Bind {
     public boolean offTheBody() {
         return this == SET || this == SUNK;
     }
+
+    /**
+     * True where the origin rides the wielder, so the renderer may take it off the wielder as they
+     * are drawn rather than off the entity where the server last put it.
+     */
+    public boolean followsTheWielder() {
+        return this == HELD || this == RIDDEN;
+    }
 }

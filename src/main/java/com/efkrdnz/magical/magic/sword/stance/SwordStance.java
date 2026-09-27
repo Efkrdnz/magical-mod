@@ -150,14 +150,17 @@ public enum SwordStance {
     }
 
     /**
-     * How many blades this stance fields for a wielder whose rung allows {@code complement}.
+     * How many blades this stance fields out of {@code complement} - the swords in the wielder's
+     * rack, under what their rung opens.
      *
      * <p>The one place the cap is applied, so nothing anywhere else has to remember it: this is
      * what {@code SwordArray.swords} answers with and therefore what the mask, the pool, the
-     * volley and the picker's diagram are all counted in.
+     * volley and the picker's diagram are all counted in. <b>Zero is an answer</b>: an empty rack
+     * fields nothing, and the floor of one this used to carry is what stood a sword round a
+     * wielder who had racked none.
      */
     public int swords(int complement) {
-        return Math.max(1, Math.min(complement, swords));
+        return Math.max(0, Math.min(complement, swords));
     }
 
     /** Ticks for the formation to close half the angle between itself and the body. */

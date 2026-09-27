@@ -386,11 +386,12 @@ public final class HudState {
         }
         // rulesFor reads the class progress, which is where the rung actually lives - the Array's
         // own rules are a copy of it that PlayerMagicState.load sets on the way in, and one source
-        // of truth for the denominator is worth the extra call. Through the stance, because the
-        // stance caps the rung: a Sword God in Guard fields six, and a ring that put six over
-        // twelve would sit at half with nothing spent and read as a formation permanently broken.
-        int whole = Math.max(1, array.stance().swords(
-                com.efkrdnz.magical.magic.sword.SwordService.rulesFor(state).swords()));
+        // of truth for the denominator is worth the extra call. Through the stance and the rack,
+        // because both cap the rung: a Sword God in Guard fields six, a wielder with two swords
+        // racked fields two, and a ring that put either over twelve would sit part-empty with
+        // nothing spent and read as a formation permanently broken.
+        int whole = Math.max(1, com.efkrdnz.magical.magic.sword.SwordArray.fielded(
+                com.efkrdnz.magical.magic.sword.SwordService.rulesFor(state), array.stance(), array.racked()));
         int present = Math.min(whole, com.efkrdnz.magical.client.SwordKeelClient.presentSwords(whole));
         boolean spent = present < whole;
         DRAW.set(present / (float) whole, now);

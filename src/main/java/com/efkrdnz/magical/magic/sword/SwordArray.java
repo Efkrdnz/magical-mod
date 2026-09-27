@@ -18,6 +18,12 @@ import net.minecraft.nbt.Tag;
  * good thing the kit did was a projection of something the wielder had never seen. The formations
  * are designed now. What is left to own is which one.
  *
+ * <p><b>And the rack, counted.</b> The swords are the weapons in the wielder's rack - an empty
+ * socket is nothing, not plain steel - so the Array carries {@link #racked()}, which sockets hold a
+ * weapon the wielder may fly. It is a copy: {@code SwordService.refreshRack} reads it off the rack
+ * whenever the rack, the rung or Weapon God may have moved it, and it rides the save because the
+ * client counts the formation off the same tag the server writes.
+ *
  * <p>Pure but for {@link IntArrayTag}, which it needs in order to live on {@code PlayerMagicState},
  * exactly as {@code Fracture} and {@code Grimoire} already do. Nothing here knows what a level is.
  */
@@ -35,14 +41,28 @@ public final class SwordArray {
      */
     public static final int SAVE_VERSION = 2;
 
-    /** Index 1 is the stance ordinal, index 2 the drawn flag. */
+    /**
+     * Index 1 is the stance ordinal, index 2 the drawn flag: the shortest tag {@link #load} reads.
+     * The rack rides a fourth int, and a tag written before it had one loads as nothing racked.
+     */
     private static final int LENGTH = 3;
+
+    private static final int RACK_INDEX = 3;
+
+    /** Sockets on the rack, one a sword the apex fields. {@code SwordRack.SIZE} is this number. */
+    public static final int RACK_SOCKETS = 12;
+
+    /** Every socket at once. Nothing above it is a socket, so nothing above it is ever kept. */
+    public static final int FULL_RACK = (1 << RACK_SOCKETS) - 1;
 
     private SwordStance stance = SwordStance.first();
 
     private boolean drawn;
 
     private SwordRules rules = SwordRules.SUMMONER;
+
+    /** Bit <i>s</i> set means rack socket <i>s</i> holds a weapon this wielder may fly. */
+    private int racked;
 
     /** The base rung is the floor, so an Array read off a wielder with no class is still legal. */
     public SwordArray() {
@@ -63,27 +83,53 @@ public final class SwordArray {
         return drawn;
     }
 
+    /** Bit <i>s</i> set means rack socket <i>s</i> holds a weapon this wielder may fly. */
+    public int racked() {
+        return racked;
+    }
+
     /**
-     * The one number the whole class is counted in: what the rung fields, capped by the shape.
+     * The one number the whole class is counted in: the swords in the rack, under what the rung
+     * opens, capped by the shape.
      *
-     * <p>The rung offers 4 / 7 / 10 / 12 and the stance takes as much of it as its silhouette
-     * can carry - see {@code SwordStance}. Both halves are here rather than at the call sites
-     * because every one of them (the live mask, Sword Heart's pool, a volley, the picker's
-     * diagram) has to agree, and a second place that applied only the rung would be a count that
-     * is right until somebody stands in Guard.
+     * <p>The rung opens 4 / 7 / 10 / 12 sockets, the rack fills as many of them as the wielder
+     * has weapons for, and the stance takes as much of that as its silhouette can carry - see
+     * {@code SwordStance}. All three are here rather than at the call sites because every one of
+     * them (the live mask, Sword Heart's pool, a volley, the picker's diagram) has to agree, and a
+     * second place that forgot the rack would stand swords round a wielder who has none.
      */
     public int swords() {
-        return stance.swords(rules.swords());
+        return fielded(rules, stance, racked);
+    }
+
+    /** What {@code stance} fields at {@code rules} with {@code racked} in the rack: the picker's count. */
+    public static int fielded(SwordRules rules, SwordStance stance, int racked) {
+        return stance.swords(Math.min(rules.swords(), Integer.bitCount(racked & FULL_RACK)));
+    }
+
+    /**
+     * The rack socket sword {@code sword} flies from: the {@code sword}-th set bit of the rack, so
+     * a gap on the ring is never a gap in the formation. -1 when there is no such sword.
+     */
+    public static int socketOf(int racked, int sword) {
+        if (sword < 0) {
+            return -1;
+        }
+        int rest = racked & FULL_RACK;
+        for (int i = 0; i < sword && rest != 0; i++) {
+            rest &= rest - 1;
+        }
+        return rest == 0 ? -1 : Integer.numberOfTrailingZeros(rest);
     }
 
     /**
      * Whether this is the untouched default, which is what lets the save tag be omitted entirely.
      *
      * <p>The rung is not part of the answer: it is re-derived from the class progress on every
-     * load, so a Sword God who has never taken a stance nor drawn is still worth no bytes.
+     * load, so a Sword God who has never taken a stance, drawn nor racked is still worth no bytes.
      */
     public boolean isDefault() {
-        return !drawn && stance == SwordStance.first();
+        return !drawn && stance == SwordStance.first() && racked == 0;
     }
 
     // ---- writing ------------------------------------------------------------------------------
@@ -129,10 +175,29 @@ public final class SwordArray {
         stance = rules.clamp(stance);
     }
 
-    /** Back to the default posture with the steel away. What {@code /magical reset} leaves. */
+    /**
+     * Takes the rack's count, as {@code SwordService.refreshRack} read it.
+     *
+     * @return whether it changed, so the caller syncs only a rack that moved
+     */
+    public boolean setRacked(int mask) {
+        int next = mask & FULL_RACK;
+        if (next == racked) {
+            return false;
+        }
+        racked = next;
+        return true;
+    }
+
+    /**
+     * Back to the default posture with the steel away and nothing counted. What
+     * {@code /magical reset} leaves; the rack itself outlives a reset, and the next refresh counts
+     * it again.
+     */
     public void clear() {
         stance = SwordStance.first();
         drawn = false;
+        racked = 0;
     }
 
     public void copyFrom(SwordArray other) {
@@ -142,12 +207,13 @@ public final class SwordArray {
         rules = other.rules;
         stance = other.stance;
         drawn = other.drawn;
+        racked = other.racked;
     }
 
     // ---- persistence --------------------------------------------------------------------------
 
     public IntArrayTag save() {
-        return new IntArrayTag(new int[] {SAVE_VERSION, stance.ordinal(), drawn ? 1 : 0});
+        return new IntArrayTag(new int[] {SAVE_VERSION, stance.ordinal(), drawn ? 1 : 0, racked});
     }
 
     /**
@@ -171,6 +237,7 @@ public final class SwordArray {
         }
         stance = rules.clamp(SwordStance.byOrdinal(data[1]));
         drawn = data[2] != 0;
+        racked = data.length > RACK_INDEX ? data[RACK_INDEX] & FULL_RACK : 0;
     }
 
     public static int tagType() {

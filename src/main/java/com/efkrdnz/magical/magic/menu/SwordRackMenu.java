@@ -1,10 +1,12 @@
 package com.efkrdnz.magical.magic.menu;
 
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.sword.SwordService;
 import com.efkrdnz.magical.magic.sword.rack.SwordArms;
 import com.efkrdnz.magical.magic.sword.rack.SwordRack;
 import com.efkrdnz.magical.magic.sword.rack.SwordRackLayout;
 import com.efkrdnz.magical.magic.sword.rack.SwordRackRules;
+import com.efkrdnz.magical.magic.sword.stance.SwordStance;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import com.efkrdnz.magical.registry.MagicalMenus;
 import net.minecraft.network.chat.Component;
@@ -23,10 +25,15 @@ import net.minecraft.world.item.ItemStack;
 /**
  * The rack: twelve sockets round a ring, and the player's inventory under it.
  *
- * <p>Opened by sneaking as Call the Blade is pressed, or by {@code /magical sword rack}. The four
- * numbers the screen needs - how many sockets the rung opens, whether Weapon God is held, how many
- * the stance fields, which stance it is - ride {@link ContainerData}, read off the live state every
- * time the server asks, so a rung climbed with the rack open opens its sockets without a reopen.
+ * <p>Opened by sneaking as Call the Blade is pressed, or by {@code /magical sword rack}. The three
+ * numbers the screen needs - how many sockets the rung opens, whether Weapon God is held, which
+ * stance it is - ride {@link ContainerData}, read off the live state every time the server asks, so
+ * a rung climbed with the rack open opens its sockets without a reopen. How many fly is worked out
+ * from the sockets themselves ({@link #fielded}), which the client already has: only what is racked
+ * flies, so the count is the rack.
+ *
+ * <p>The rack is counted onto the wielder every tick the menu is open ({@link #broadcastChanges}),
+ * so the formation, the HUD and the picker follow a weapon racked or taken back at once.
  *
  * <p><b>A socket refuses, it never takes.</b> A locked socket or a weapon the wielder may not fly
  * is refused on the way in; nothing already in a socket is ever refused on the way out, so a
@@ -36,15 +43,15 @@ public final class SwordRackMenu extends AbstractContainerMenu {
 
     public static final int DATA_UNLOCKED = 0;
     public static final int DATA_WEAPON_GOD = 1;
-    public static final int DATA_FIELDED = 2;
-    public static final int DATA_STANCE = 3;
-    public static final int DATA_COUNT = 4;
+    public static final int DATA_STANCE = 2;
+    public static final int DATA_COUNT = 3;
 
     private static final int RACK_END = SwordRack.SIZE;
     private static final int COLUMNS = 9;
 
     private final Container rack;
     private final ContainerData data;
+    private final Player owner;
 
     /** The client's half: the contents arrive by slot sync and the numbers by data sync. */
     public SwordRackMenu(int containerId, Inventory inventory) {
@@ -57,6 +64,7 @@ public final class SwordRackMenu extends AbstractContainerMenu {
         checkContainerDataCount(data, DATA_COUNT);
         this.rack = rack;
         this.data = data;
+        this.owner = inventory.player;
         for (int socket = 0; socket < SwordRack.SIZE; socket++) {
             addSlot(new Socket(rack, socket, SwordRackLayout.socketX(socket), SwordRackLayout.socketY(socket)));
         }
@@ -79,7 +87,7 @@ public final class SwordRackMenu extends AbstractContainerMenu {
                 Component.translatable("screen.magical.sword_rack")));
     }
 
-    /** The four numbers, read off the live state whenever the menu is asked for them. */
+    /** The three numbers, read off the live state whenever the menu is asked for them. */
     public static ContainerData data(ServerPlayer player) {
         return new ContainerData() {
             @Override
@@ -88,7 +96,6 @@ public final class SwordRackMenu extends AbstractContainerMenu {
                 return switch (index) {
                     case DATA_UNLOCKED -> SwordArms.unlocked(state);
                     case DATA_WEAPON_GOD -> SwordArms.weaponGod(state) ? 1 : 0;
-                    case DATA_FIELDED -> Math.min(SwordArms.unlocked(state), state.swordArray().swords());
                     case DATA_STANCE -> state.swordArray().stance().ordinal();
                     default -> 0;
                 };
@@ -113,8 +120,45 @@ public final class SwordRackMenu extends AbstractContainerMenu {
         return data.get(DATA_WEAPON_GOD) != 0;
     }
 
+    /** Whether this socket holds a sword that exists: opened by the rung, holding what the wielder may fly. */
+    public boolean racked(int socket) {
+        if (socket < 0 || socket >= unlocked()) {
+            return false;
+        }
+        ItemStack stack = rack.getItem(socket);
+        return !stack.isEmpty() && SwordRackRules.accepts(stack, weaponGod());
+    }
+
+    public int rackedCount() {
+        int count = 0;
+        for (int socket = 0; socket < SwordRack.SIZE; socket++) {
+            if (racked(socket)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /** How many of the racked swords the stance fields: the ones that fly. */
     public int fielded() {
-        return data.get(DATA_FIELDED);
+        return SwordStance.byOrdinal(stanceOrdinal()).swords(rackedCount());
+    }
+
+    /**
+     * Whether the weapon in this socket flies: racked, and among the first {@link #fielded} racked,
+     * because sword <i>j</i> is the <i>j</i>-th racked socket.
+     */
+    public boolean flies(int socket) {
+        if (!racked(socket)) {
+            return false;
+        }
+        int rank = 0;
+        for (int earlier = 0; earlier < socket; earlier++) {
+            if (racked(earlier)) {
+                rank++;
+            }
+        }
+        return rank < fielded();
     }
 
     public int stanceOrdinal() {
@@ -129,6 +173,23 @@ public final class SwordRackMenu extends AbstractContainerMenu {
     @Override
     public boolean stillValid(Player player) {
         return rack.stillValid(player);
+    }
+
+    /** Every tick the rack is open, on the server: the formation follows the rack while it is still open. */
+    @Override
+    public void broadcastChanges() {
+        if (owner instanceof ServerPlayer player) {
+            SwordService.refreshRack(player, player.getData(MagicalAttachments.MAGIC_STATE));
+        }
+        super.broadcastChanges();
+    }
+
+    @Override
+    public void removed(Player player) {
+        super.removed(player);
+        if (player instanceof ServerPlayer server) {
+            SwordService.refreshRack(server, server.getData(MagicalAttachments.MAGIC_STATE));
+        }
     }
 
     @Override

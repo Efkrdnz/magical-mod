@@ -3,6 +3,8 @@ package com.efkrdnz.magical.magic.sword;
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.skill.sword.TheKeelSkill;
+import com.efkrdnz.magical.magic.sword.rack.SwordRack;
+import com.efkrdnz.magical.magic.sword.rack.SwordRackGameTests;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.List;
 import java.util.UUID;
@@ -123,6 +125,7 @@ public final class SwordKeelGameTests {
     private static void standUpTheArray(ServerPlayer player, PlayerMagicState state) {
         SwordService.refreshRung(player, state);
         state.swordArray().clear();
+        SwordRackGameTests.rackSwords(player, SwordRack.SIZE);
         SwordService.draw(player, state);
         SwordService.tendArrayEntity(player, state);
     }

@@ -7,7 +7,6 @@ import com.efkrdnz.magical.magic.sword.Bind;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -123,13 +122,7 @@ public final class SwordKeelClient {
 
     /** What the Array's one compound says it is hanging off, or {@code HELD} if it says nothing. */
     private static Bind bind(SwordArrayEntity array) {
-        CompoundTag data = array.syncedData();
-        if (data == null) {
-            return Bind.HELD;
-        }
-        int ordinal = data.getByte(SwordArrayEntity.TAG_BIND);
-        Bind[] values = Bind.values();
-        return ordinal >= 0 && ordinal < values.length ? values[ordinal] : Bind.HELD;
+        return array.bind();
     }
 
     /**

@@ -6,9 +6,11 @@ import com.efkrdnz.magical.forge.ForgedWeapon;
 import com.efkrdnz.magical.forge.ForgedWeapons;
 import com.efkrdnz.magical.forge.FormFamily;
 import com.efkrdnz.magical.forge.StrikeContext;
+import com.efkrdnz.magical.forge.strike.ForgeStrikeMath;
 import com.efkrdnz.magical.magic.MagicDamageService;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.sword.SwordArray;
 import com.efkrdnz.magical.magic.sword.SwordService;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.ArrayList;
@@ -23,7 +25,7 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -33,24 +35,27 @@ import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * The rack in the fight: which weapon each sword carries, and what that weapon does when its sword
- * lands.
+ * The rack in the fight: which weapon each sword is, and what it does when it lands.
  *
- * <p><b>Socket <i>i</i> is sword <i>i</i>.</b> The same index the away mask, the formation and
- * every blade's {@code Slot} already use, so a weapon follows its sword out of the formation, into
- * a body and home again without anything having to remember which weapon went where. A socket the
- * rung has not opened, an empty one, or one holding something the wielder may no longer fly is
- * plain steel.
+ * <p><b>The swords are the rack.</b> Sword <i>j</i> of the formation is the <i>j</i>-th socket
+ * holding a weapon the wielder may fly ({@link SwordArray#socketOf}), so a formation is exactly as
+ * many swords as the rack holds and a gap on the ring is never a gap round the wielder. An empty
+ * socket is nothing - there is no plain steel. {@link #rackedMask} is that set read off the rack as
+ * it stands, and {@code SwordService.refreshRack} copies it onto the Array, which is what the count,
+ * the save and the client read. Every read here is off the rack itself, so a weapon swapped this
+ * tick is the one that flies this tick.
  *
- * <p><b>What a weapon brings, once a hit.</b> Its hit is scaled by {@link ArmFlavour} - a little,
- * by design. Its enchantments' after-hit effects run once, off the first enchanted weapon in the
- * hit, exactly as vanilla runs them for an arrow; the source handed to them is a direct attack by
- * the wielder, because Fire Aspect and its kind ask for one and a sword the wielder threw is the
- * wielder's attack. A forged weapon's element rides the hit the way it rides the forge's own
- * strikes, rolled rather than guaranteed, and a wound made of many swords carries each element in
- * it once rather than once a sword.
+ * <p><b>A sword hits for its weapon.</b> The kit's number for a move is written in units of one
+ * sword landing, and {@link #strike} replaces the unit with each weapon's own hit through
+ * {@link ArmDamage}: its attack as its tooltip reads it, the forge's own hit if it was forged, and
+ * what its enchantments add against this body. Its enchantments' after-hit effects then run once,
+ * off the first enchanted weapon in the hit, exactly as vanilla runs them for an arrow - the source
+ * handed to them is a direct attack by the wielder, because Fire Aspect and its kind ask for one and
+ * a sword the wielder threw is the wielder's attack. A forged weapon's element rides the hit the way
+ * it rides the forge's own strikes, rolled rather than guaranteed, and a wound made of many swords
+ * carries each element in it once rather than once a sword.
  *
- * <p>Only a hit that landed brings any of it: a wound the barrier ate, a shield took or an
+ * <p>Only a hit that landed brings its effects: a wound the barrier ate, a shield took or an
  * invulnerable body shrugged off sets nothing on fire.
  */
 public final class SwordArms {
@@ -75,23 +80,47 @@ public final class SwordArms {
         return Math.max(0, Math.min(SwordRack.SIZE, SwordService.rulesFor(state).swords()));
     }
 
-    /** The weapon sword {@code slot} flies as, or empty for plain steel. The rack's own stack: read it, never change it. */
-    public static ItemStack arm(Player player, PlayerMagicState state, int slot) {
-        if (slot < 0 || slot >= unlocked(state)) {
-            return ItemStack.EMPTY;
+    /**
+     * Bit <i>s</i> set means socket <i>s</i> holds a weapon this wielder may fly: a socket the rung
+     * has opened, holding what Weapon God - or its absence - allows. The swords, as a mask.
+     */
+    public static int rackedMask(Player player, PlayerMagicState state) {
+        // Asked of every player on login and on every class taken, and getData would give each
+        // of them an empty rack to carry round in their save for good.
+        if (!player.hasData(MagicalAttachments.SWORD_RACK)) {
+            return 0;
         }
-        ItemStack stack = rack(player).getItem(slot);
-        return !stack.isEmpty() && SwordRackRules.accepts(stack, weaponGod(state)) ? stack : ItemStack.EMPTY;
+        SwordRack rack = rack(player);
+        boolean weaponGod = weaponGod(state);
+        int open = unlocked(state);
+        int mask = 0;
+        for (int socket = 0; socket < open; socket++) {
+            ItemStack stack = rack.getItem(socket);
+            if (!stack.isEmpty() && SwordRackRules.accepts(stack, weaponGod)) {
+                mask |= 1 << socket;
+            }
+        }
+        return mask;
     }
 
-    /** The weapons of every sword in {@code mask}, plain steel left out. */
+    /**
+     * The weapon sword {@code sword} is, or empty when the rack holds no such sword. The rack's own
+     * stack: read it, never change it.
+     */
+    public static ItemStack arm(Player player, PlayerMagicState state, int sword) {
+        return armOf(rack(player), rackedMask(player, state), sword);
+    }
+
+    /** The weapons of every sword in {@code mask}, any the rack no longer holds left out. */
     public static List<ItemStack> arms(Player player, PlayerMagicState state, int mask) {
+        SwordRack rack = rack(player);
+        int racked = rackedMask(player, state);
         List<ItemStack> out = new ArrayList<>();
-        for (int slot = 0; slot < SwordRack.SIZE; slot++) {
-            if ((mask & (1 << slot)) == 0) {
+        for (int sword = 0; sword < SwordRack.SIZE; sword++) {
+            if ((mask & (1 << sword)) == 0) {
                 continue;
             }
-            ItemStack arm = arm(player, state, slot);
+            ItemStack arm = armOf(rack, racked, sword);
             if (!arm.isEmpty()) {
                 out.add(arm);
             }
@@ -99,13 +128,20 @@ public final class SwordArms {
         return out;
     }
 
-    /** All twelve, in socket order, plain steel as empty stacks: what the formation is drawn with. */
+    /** Every sword's weapon in formation order, empty past the last: what the formation is drawn with. */
     public static ItemStack[] allArms(Player player, PlayerMagicState state) {
+        SwordRack rack = rack(player);
+        int racked = rackedMask(player, state);
         ItemStack[] out = new ItemStack[SwordRack.SIZE];
-        for (int slot = 0; slot < SwordRack.SIZE; slot++) {
-            out[slot] = arm(player, state, slot);
+        for (int sword = 0; sword < SwordRack.SIZE; sword++) {
+            out[sword] = armOf(rack, racked, sword);
         }
         return out;
+    }
+
+    private static ItemStack armOf(SwordRack rack, int racked, int sword) {
+        int socket = SwordArray.socketOf(racked, sword);
+        return socket < 0 ? ItemStack.EMPTY : rack.getItem(socket);
     }
 
     public static List<ItemStack> one(ItemStack arm) {
@@ -115,10 +151,11 @@ public final class SwordArms {
     // ---- the hit ------------------------------------------------------------------------------
 
     /**
-     * One wound made of {@code swords} swords, {@code arms} of which carry a weapon.
+     * One wound made of {@code swords} swords, {@code arms} of which carry a weapon, billed at
+     * {@code amount} in the kit's own units.
      *
-     * <p>Plain steel, or an attacker that is not a living thing - a blade whose wielder has gone -
-     * is the plain hit and nothing else.
+     * <p>An attacker that is not a living thing - a blade whose wielder has gone - or a wound with no
+     * weapon in it lands the kit's number as it stands and nothing else.
      */
     public static void strike(ServerLevel level, Entity attacker, LivingEntity victim, List<ItemStack> arms,
             int swords, DamageSource source, double amount, ResourceLocation skillId) {
@@ -132,9 +169,9 @@ public final class SwordArms {
         DamageSource direct = direct(level, wielder);
         double[] scales = new double[arms.size()];
         for (int i = 0; i < scales.length; i++) {
-            scales[i] = scaleOf(level, arms.get(i), victim, direct);
+            scales[i] = ArmDamage.scale(weaponHit(level, arms.get(i), wielder, victim, direct));
         }
-        float dealt = (float) (amount * ArmFlavour.mean(scales, swords));
+        float dealt = (float) (amount * ArmDamage.mean(scales, swords));
         StrikeContext.TargetState before = new StrikeContext.TargetState(victim.isOnFire(), victim.getTicksFrozen() > 0);
         float health = victim.getHealth() + victim.getAbsorptionAmount();
         MagicDamageService.hurt(victim, source, dealt, skillId);
@@ -144,23 +181,49 @@ public final class SwordArms {
         }
     }
 
-    /** What one weapon multiplies its sword's hit on this body by. */
-    public static double scaleOf(ServerLevel level, ItemStack arm, LivingEntity victim, DamageSource direct) {
-        double enchant = EnchantmentHelper.modifyDamage(level, arm, victim, direct, 0.0F);
-        int grade = ForgedWeapons.get(arm).map(weapon -> weapon.grade().ordinal()).orElse(-1);
-        return ArmFlavour.scale(attackBonus(arm), enchant, grade);
+    /**
+     * What this weapon lands on this body when it is swung: its attack as its tooltip reads it, the
+     * forge's own hit ({@code ForgeStrikeMath.baseHit}, exactly what a forged swing starts from) if
+     * it was forged, and what its enchantments add against this body - Sharpness, Smite on the
+     * undead - the way a melee hit adds them.
+     */
+    public static double weaponHit(ServerLevel level, ItemStack arm, LivingEntity wielder, LivingEntity victim,
+            DamageSource direct) {
+        double attack = attack(arm, baseAttack(wielder));
+        double hit = ForgedWeapons.get(arm)
+                .map(weapon -> (double) ForgeStrikeMath.baseHit((float) attack, weapon.grade(), weapon.quality()))
+                .orElse(attack);
+        return hit + EnchantmentHelper.modifyDamage(level, arm, victim, direct, 0.0F);
     }
 
-    /** The weapon's main-hand attack bonus: the {@code +N Attack Damage} line on its tooltip. */
-    public static double attackBonus(ItemStack stack) {
-        double[] sum = {0.0D};
+    /**
+     * The weapon's main-hand attack on top of {@code base}: the {@code N Attack Damage} line on its
+     * tooltip, where {@code base} is the wielder's own attack before anything is held - one, for a
+     * player.
+     */
+    public static double attack(ItemStack stack, double base) {
+        double[] add = {0.0D};
+        double[] multiplyBase = {0.0D};
+        double[] multiplyTotal = {1.0D};
         stack.forEachModifier(EquipmentSlot.MAINHAND, (attribute, modifier) -> {
-            if (attribute.value() == Attributes.ATTACK_DAMAGE.value()
-                    && modifier.operation() == AttributeModifier.Operation.ADD_VALUE) {
-                sum[0] += modifier.amount();
+            if (attribute.value() != Attributes.ATTACK_DAMAGE.value()) {
+                return;
+            }
+            switch (modifier.operation()) {
+                case ADD_VALUE -> add[0] += modifier.amount();
+                case ADD_MULTIPLIED_BASE -> multiplyBase[0] += modifier.amount();
+                case ADD_MULTIPLIED_TOTAL -> multiplyTotal[0] *= 1.0D + modifier.amount();
+                default -> {
+                }
             }
         });
-        return sum[0];
+        return ArmDamage.attack(base, add[0], multiplyBase[0], multiplyTotal[0]);
+    }
+
+    /** The wielder's attack before anything is held: what a tooltip adds a weapon onto. */
+    private static double baseAttack(LivingEntity wielder) {
+        AttributeInstance instance = wielder.getAttribute(Attributes.ATTACK_DAMAGE);
+        return instance == null ? 1.0D : instance.getBaseValue();
     }
 
     private static void afterHit(ServerLevel level, LivingEntity wielder, LivingEntity victim, List<ItemStack> arms,
