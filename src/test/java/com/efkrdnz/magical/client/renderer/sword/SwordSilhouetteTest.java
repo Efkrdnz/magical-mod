@@ -1,7 +1,6 @@
 package com.efkrdnz.magical.client.renderer.sword;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -43,8 +42,8 @@ import org.junit.jupiter.api.Test;
  *
  * <p><b>The picture never outgrows the hit.</b> The drawn steel stays inside what the sweep reaches
  * sideways, stays shorter than one step of its own raycast, and never reaches back past the frame
- * origin from the nearest station a wielder can set. The glow and the head are deliberately
- * outside that measurement: light is allowed to spill past the edge that cuts.
+ * origin from the nearest station a wielder can set. There is no glow and no glint round it any
+ * more - the steel is the whole of the drawing, so the steel is the whole of the measurement.
  *
  * <p>Pure arithmetic and one resource read: {@code SwordBladeRenderer$Geometry} is a nested class
  * precisely so that measuring a silhouette never drags {@code EntityRenderer} into a unit test.
@@ -53,17 +52,6 @@ class SwordSilhouetteTest {
 
     /** The render origin of a vanilla item model: the middle of the sixteen-unit cube. */
     private static final double MODEL_ORIGIN = 8.0D;
-
-    /**
-     * The red the Array mixes toward under strain.
-     *
-     * <p>Copied from {@code SwordArrayRenderer.STRAIN_RED} rather than referenced, so this file
-     * does not compile against a renderer it is not paired with. {@code Geometry.steelFlushes} is
-     * written to be indifferent to which red it is - it measures warmth, not distance from one
-     * colour - but where the rung lands in strain does depend on it, so if that constant moves
-     * this number has to move with it.
-     */
-    private static final int STRAIN_RED = 0xD4402F;
 
     /** Re-measuring a rotated export never lands on the authored decimal exactly. */
     private static final double MEASURED = 1.0E-6D;
@@ -125,8 +113,7 @@ class SwordSilhouetteTest {
     void aBladeIsDrawnNoWiderThanTheCorridorItCatchesIn() {
         // An arc measured from the centre of its own circle put every one of the wave's pixels a
         // radius off the strike; a sword canted or scaled too hard does the same thing. The steel
-        // has to sit inside what the sweep reaches sideways, whatever the Edge on it - which is
-        // why Edge buys palette and aura and never a wider sword.
+        // has to sit inside what the sweep reaches sideways.
         double reach = Geometry.lateralReach();
         assertTrue(reach <= Geometry.CATCH_HALF_EXTENT,
                 "the blade is drawn " + reach + " blocks off its flight line but only catches within "
@@ -223,87 +210,6 @@ class SwordSilhouetteTest {
     }
 
     @Test
-    void theEdgeStillReadsThoughTheSteelCanNoLongerCarryIt() {
-        // renderStatic takes no tint and Duskfall's faces carry no tintindex, so the steel is one
-        // fixed picture for every blade in the game. Edge therefore moved onto the aura, on two
-        // channels: its colour, and how far it stands off the steel. Both ends have to differ or
-        // the reading is gone, and the aura must never shrink inside the sword it is lighting.
-        int thin = Geometry.edgeColor(1);
-        int heavy = Geometry.edgeColor(Geometry.RAMP_FULL_EDGE);
-        assertTrue(thin != heavy, "a one-Edge blade and a twelve-Edge blade are the same colour");
-        assertTrue(Geometry.sheathHalfWidth(Geometry.RAMP_FULL_EDGE) > Geometry.sheathHalfWidth(1),
-                "heavy metal no longer carries a heavier aura");
-        float previous = -1.0F;
-        for (int edge = 1; edge <= Geometry.RAMP_FULL_EDGE; edge++) {
-            float aura = Geometry.sheathHalfWidth(edge);
-            assertTrue(aura >= Geometry.HALF_BREADTH,
-                    "the aura at Edge " + edge + " is " + aura + ", inside the " + Geometry.HALF_BREADTH
-                            + " half-breadth of the steel, so it is hidden by the sword it lights");
-            assertTrue(aura >= previous, "the aura shrinks going from Edge " + (edge - 1) + " to " + edge);
-            previous = aura;
-        }
-    }
-
-    @Test
-    void theStrainStillReadsThoughTheSteelCanNoLongerCarryIt() {
-        // Strain arrives as a colour already pulled toward cinnabar by the Array, and the aura
-        // carries all of it continuously. The steel gets the one channel renderStatic does give
-        // us - vanilla's overlay, whose red row is what a hurt mob flashes - and it is a rung
-        // rather than a ramp because that row is one fixed red. The rung has to sit near the
-        // middle at BOTH ends of the Edge ramp, or a heavy blade would warn later than a thin one.
-        for (int edge = 1; edge <= Geometry.RAMP_FULL_EDGE; edge++) {
-            assertFalse(Geometry.steelFlushes(Geometry.edgeColor(edge)),
-                    "an unstrained Edge " + edge + " blade already reads as strained");
-            assertTrue(Geometry.steelFlushes(cinnabar(edge, 1.0F)),
-                    "a fully strained Edge " + edge + " blade never flushes");
-            float crossing = 1.0F;
-            for (int step = 0; step <= 100; step++) {
-                if (Geometry.steelFlushes(cinnabar(edge, step / 100.0F))) {
-                    crossing = step / 100.0F;
-                    break;
-                }
-            }
-            assertTrue(crossing >= 0.35F && crossing <= 0.60F,
-                    "Edge " + edge + " flushes at " + crossing + " strain, which is not the middle");
-        }
-    }
-
-    @Test
-    void aWholeBladeWearsNoOverlayAndADissolvingOneWearsAllOfIt() {
-        // The shard_body crack channel went with the prism, so the dissolve needed somewhere else
-        // to live or it would have been dropped in silence. It is the white half of the same
-        // overlay: whole steel takes vanilla's own no-white column, and steel out of time washes
-        // to the far end of it and goes while the aura outlives it by a moment.
-        assertEquals(0, Geometry.whiteOut(0.0F),
-                "a whole blade is washed out, which is vanilla's damage flash on an undamaged thing");
-        assertEquals(0, Geometry.whiteOut(-1.0F), "a negative integrity is not clamped");
-        assertEquals(Geometry.OVERLAY_U_FULL, Geometry.whiteOut(1.0F),
-                "a fully dissolved blade never reaches the end of the wash");
-        assertEquals(Geometry.OVERLAY_U_FULL, Geometry.whiteOut(4.0F), "an over-full integrity is not clamped");
-        int previous = -1;
-        for (int step = 0; step <= 20; step++) {
-            int u = Geometry.whiteOut(step / 20.0F);
-            assertTrue(u >= previous, "the wash goes backwards at integrity " + (step / 20.0F));
-            previous = u;
-        }
-    }
-
-    @Test
-    void aMirrorTwinAndABladeOutOfTimeAreBothPalerThanRealSteel() {
-        // A model cannot fade, so the two things alpha used to say - this one is a Mirror twin,
-        // this one is running out - both have to arrive as pallor. Solid and whole asks for
-        // nothing; either complaint alone shows; and the worse of the two wins, so a dissolving
-        // twin never reads as more solid than a dissolving blade.
-        assertEquals(0.0F, Geometry.ghost(1.0F, 0.0F), 1.0E-6F,
-                "a solid whole blade is drawn pale, which is the dissolve firing on nothing");
-        assertTrue(Geometry.ghost(0.55F, 0.0F) > 0.0F, "a Mirror twin is drawn as solid as real steel");
-        assertTrue(Geometry.ghost(1.0F, 0.5F) > 0.0F, "a blade half gone is drawn as solid as a whole one");
-        assertEquals(Geometry.ghost(1.0F, 0.8F), Geometry.ghost(0.55F, 0.8F), 1.0E-6F,
-                "a dissolving twin reads differently from a dissolving blade");
-        assertEquals(1.0F, Geometry.ghost(0.0F, 2.0F), 1.0E-6F, "the pallor is not clamped");
-    }
-
-    @Test
     void theSteelIsNeverDrawnBiggerThanTheScaleEveryBoundWasMeasuredAt() {
         // The dissolve closes the sword on nothing rather than popping it out at full size, which
         // is what the crack shader used to do for us. The floor that matters is the other end: the
@@ -320,11 +226,6 @@ class SwordSilhouetteTest {
             assertTrue(drawn <= previous, "the steel grows back at integrity " + (step / 20.0F));
             previous = drawn;
         }
-    }
-
-    /** A colour the Array would hand in at {@code heat} strain on this Edge. */
-    private static int cinnabar(int edge, float heat) {
-        return Geometry.lerpRgb(Geometry.edgeColor(edge), STRAIN_RED, heat);
     }
 
     /**

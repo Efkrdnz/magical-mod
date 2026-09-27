@@ -14,5 +14,6 @@ public final class MagicalPainters {
         SpatialPainters.register();
         ClassPainters.register();
         FusionPainters.register();
+        SwordPainters.register();
     }
 }

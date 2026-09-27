@@ -20,7 +20,6 @@ import com.efkrdnz.magical.magic.visual.ReleaseMode;
 import com.efkrdnz.magical.magic.visual.SchoolMaterial;
 import com.efkrdnz.magical.magic.visual.Silhouette;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
-import com.efkrdnz.magical.magic.visual.TierProfile;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import net.minecraft.network.chat.Component;
@@ -71,30 +70,6 @@ public final class SwordStanceSkill implements SkillModule {
 
     /** Frame sides, unique within the SWORD school. Its six skills take 3..8 in kit order. */
     private static final int FRAME_SIDES = 4;
-
-    /**
-     * The cast circle's radius in blocks, and it is a property of the screen rather than of the
-     * tier.
-     *
-     * <p>An {@code EYE_FORWARD} circle is not placed in the world at all: {@code SpellFx.windup}
-     * hangs it {@link #HAND_DISTANCE} blocks along the look from the eye and turns it to face
-     * the camera, so its size on screen is {@code atan(radius / HAND_DISTANCE)} and nothing
-     * else. Every tier below zero resolves to {@code TierProfile.forTier(4)} and its radius of
-     * 3.0 is <b>73 degrees</b> there - a disc that runs off all four edges of a default
-     * seventy-degree frame, which is exactly the picture the first Loose capture returned. The
-     * ceiling is the frame itself, {@code HAND_DISTANCE * tan(35 degrees)} = 0.63; 0.28 is
-     * seventeen degrees, half the half-frame, so the ring sits in the middle of the shot with
-     * the world still visible round it.
-     *
-     * <p>This circle does not draw today - see {@link #handler()}: the skill is hold-gated, so
-     * {@code castViaRegistry} returns before {@code SpellFx.windup} is ever reached. The number
-     * is right anyway, because the day somebody gives the hold a windup is not the day to
-     * discover the tier default.
-     */
-    public static final float HAND_RING_RADIUS = 0.28F;
-
-    /** Where {@code SpellFx.windup} puts an {@code EYE_FORWARD} circle: along the look from the eye. */
-    public static final double HAND_DISTANCE = 0.9D;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -175,14 +150,18 @@ public final class SwordStanceSkill implements SkillModule {
                         // lattice bearings. The ring is the choice it opens.
                         .spokes(6, 0.22F, true)
                         .core(CoreKind.IRIS, ColorRole.HOT).spin(SpinSignature.SLOW))
-                .anchor(CircleAnchor.EYE_FORWARD)
-                .tier(TierProfile.forTier(definition().tier()).withRadius(HAND_RING_RADIUS))
+                // Never hung in the world: the circle is where the HUD card takes its emblem from.
+                .anchor(CircleAnchor.NONE)
                 // Nothing carries this profile onto an entity, so this silhouette is never
                 // painted - but there is no painter registered under "sword_stance" either, and
                 // a miss draws nothing and warns. An empty mode mask is the same insurance Call
                 // the Blade takes, where that fallback was live.
                 .silhouette(Silhouette.custom("sword_stance", 1.0F).forModes())
-                .release(ReleaseMode.LIFT, ProfileCues.FirstPersonPreset.CASTER_LIGHT)
+                .release(ReleaseMode.LIFT, ProfileCues.FirstPersonPreset.NONE)
+                .firstPerson(ProfileCues.FirstPersonSpec.NONE)
+                // Never fired: no sword hit goes through SpellFx.impact, and SwordSteelOnlyTest holds
+                // that. It stays because VisualProfiles.validate keys every school victim overlay, and
+                // six Sword profiles on the default overlay is five hard collisions at common setup.
                 .impact(FxKinds.Mark.CLOCK_SPOKES, FxKinds.Smoke.RUNE_MOTE, FxKinds.Overlay.HEX_PULSE)
                 .budget(1)
                 .bounds(1.5F, 1.5F, 1.5F);

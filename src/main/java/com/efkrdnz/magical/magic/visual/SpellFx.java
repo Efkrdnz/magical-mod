@@ -89,14 +89,18 @@ public final class SpellFx {
         }
     }
 
-    /** Release beat: muzzle flash at the hand, release accent, caster preset. */
+    /** Release beat: muzzle flash at the hand (only where a circle was hung), release accent, caster preset. */
     public static void release(LivingEntity player, MagicSkillDefinition definition, Vec3 aimDir) {
         VisualProfile profile = VisualProfiles.of(definition);
         if (!(player.level() instanceof ServerLevel level)) {
             return;
         }
         Vec3 hand = player.getEyePosition().add(aimDir.normalize().scale(0.8D)).add(0.0D, -0.2D, 0.0D);
-        cue(level, profile, VisualCuePayload.CUE_RELEASE, hand, aimDir, -1, 1.0F, false);
+        // A release is the cast circle collapsing, so a skill that hangs no circle has nothing to
+        // collapse and no muzzle flash to throw. The accent and the caster preset still play.
+        if (profile.anchor() != CircleAnchor.NONE) {
+            cue(level, profile, VisualCuePayload.CUE_RELEASE, hand, aimDir, -1, 1.0F, false);
+        }
         play(level, player.position(), profile.sounds().release(), 1.0F, 0.0F);
         if (player instanceof ServerPlayer serverPlayer) {
             firstPerson(serverPlayer, profile, profile.release().casterPreset(), profile.release().casterOverlay(), ColorRole.HOT, FirstPersonEffectPayload.OMNI);

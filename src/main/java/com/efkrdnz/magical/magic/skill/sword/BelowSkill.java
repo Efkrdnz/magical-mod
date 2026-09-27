@@ -17,6 +17,7 @@ import com.efkrdnz.magical.magic.skill.SkillModule;
 import com.efkrdnz.magical.magic.sword.ArrayPose;
 import com.efkrdnz.magical.magic.sword.Bind;
 import com.efkrdnz.magical.magic.sword.Frame;
+import com.efkrdnz.magical.magic.sword.SwordImpacts;
 import com.efkrdnz.magical.magic.sword.SwordMath;
 import com.efkrdnz.magical.magic.sword.SwordService;
 import com.efkrdnz.magical.magic.sword.stance.Pattern;
@@ -33,7 +34,6 @@ import com.efkrdnz.magical.magic.visual.ReleaseMode;
 import com.efkrdnz.magical.magic.visual.SchoolMaterial;
 import com.efkrdnz.magical.magic.visual.Silhouette;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
-import com.efkrdnz.magical.magic.visual.TierProfile;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.List;
@@ -58,20 +58,20 @@ import net.minecraft.world.phys.Vec3;
  * feet of the body that was under the crosshair at that instant, and after {@link #COMMIT_TICK}
  * nothing about the strike can change.
  *
- * <p>It used to read the <em>downward half</em> of an authored lattice, which was a fine rule
- * with one fatal property: the shape it was a projection of had been authored blind, through a
- * crosshair that could not reach half of it. The stance is the choice now, and the stance's
- * {@link Pattern} is what the swords left standing in the ground are laid out on - so the six
- * postures give six pictures of the same skill without a per-skill dial anywhere.
+ * <p>The stance's {@link Pattern} is the shape the swords come up in and the shape the ones that
+ * struck nothing are left standing in, so the six postures give six pictures of the same skill
+ * without a per-skill dial anywhere.
  *
- * <p><b>The telegraph and the wielder's feet must never be drawn in the same place.</b> Below
- * commits to a point and not to a body, which reads as a bug to anyone trained on homing area
- * attacks unless the mark visibly stays where it was put while the target walks out of it. The
- * dodge is arithmetic and not a promise: sixteen ticks of warning to clear
+ * <p><b>The warning is the ground, and it stays where it was put.</b> Below commits to a point and
+ * not to a body, which reads as a bug to anyone trained on homing area attacks unless the warning
+ * visibly stays put while the target walks out of it. So for the whole of it the ground on the rim
+ * of the ring that will catch shudders - crumbs of whatever it is made of, every
+ * {@link #TREMOR_INTERVAL} ticks, sent by the server - and nothing else is drawn: no ring and no
+ * steel. The dodge is arithmetic and not a promise: sixteen ticks of warning to clear
  * {@link #ERUPT_RADIUS} blocks laterally is 5.7 ticks sprinting and 7.4 walking, and 24.7
  * sneaking. Air is not a refuge - no floor is consulted anywhere in this file, the origin is a
- * point in three dimensions, and jumping peaks at 1.25 blocks against a cylinder 3.5 tall.
- * Speed is the refuge.
+ * point in three dimensions, and jumping peaks at 1.25 blocks against a cylinder 3.5 tall. Speed
+ * is the refuge.
  *
  * <p>The swords are gone from the formation the moment they sink: a sword under the ground is
  * not a sword at your shoulder, so every one of them leaves through
@@ -84,19 +84,19 @@ public final class BelowSkill implements SkillModule {
     /** How far off a point may be committed. */
     public static final double AIM_RANGE = 20.0D;
 
-    /** Ticks of descent before the ring appears. */
+    /** Ticks of descent before the warning proper. */
     public static final int SINK_TICKS = 6;
 
-    /** Ticks the ring is on the ground before the strike is locked. This is the whole warning. */
+    /** Ticks after the sink before the strike is locked. With the sink, this is the whole warning. */
     public static final int TELEGRAPH_TICKS = 10;
 
     /** Nothing about the strike can change after this tick. */
     public static final int COMMIT_TICK = SINK_TICKS + TELEGRAPH_TICKS;
 
-    /** Ticks each blade takes to travel from {@code reach} below the origin to {@code reach} above. */
+    /** Ticks the risers take to come up out of the ground to their full height. */
     public static final int RISE_TICKS = 6;
 
-    /** Press to hit. Twenty-two, and sixteen of them are a ring telling you to move. */
+    /** Press to hit. Twenty-two, and sixteen of them are the ground telling you to move. */
     public static final int HIT_TICK = COMMIT_TICK + RISE_TICKS;
 
     /** The cylinder's radius, and the distance a dodge has to cover. */
@@ -106,23 +106,41 @@ public final class BelowSkill implements SkillModule {
     public static final double ERUPT_HEIGHT = 3.0D;
 
     /**
-     * How many plates the eruption is drawn with. Six, because {@code FxMesh.plateFan} fans its
-     * plates 37 degrees apart, so six of them span 222 degrees and there is no bearing the fan is
-     * edge-on from - the sheet problem this mod has now met in the wave, the thread and the thrown
-     * blade, answered the same way each time.
+     * How high the middle of a riser comes up to, over the committed point.
+     *
+     * <p>A drawn blade reaches 0.63 blocks either way along its own axis, so the risers top out at
+     * 2.83: inside {@link #ERUPT_HEIGHT}, and well over half of it. {@code BelowSilhouetteTest}
+     * measures both against the blade renderer's own geometry rather than trusting this sentence.
      */
-    public static final int ERUPT_PLATES = 6;
+    public static final double RISE_LIFT = 2.2D;
 
     /**
-     * {@code FxMesh.plateFan} lays plate <i>i</i> of <i>n</i> between {@code y = i/n} and
-     * {@code y = (i+1)/n + 0.08} - the top band overshoots so consecutive plates overlap instead of
-     * seaming - so a fan asked for height <i>h</i> is drawn 1.08<i>h</i> tall. Public because the
-     * extent test measures what is drawn and not what was asked for.
+     * How far out the widest riser comes up, from the committed point to its middle.
+     *
+     * <p>A drawn blade reaches 0.41 blocks sideways, so the widest steel stands 1.51 out: inside
+     * {@link #ERUPT_RADIUS}, and far enough out that a volley comes up as a ring and not a knot.
      */
-    public static final float PLATE_FAN_OVERSHOOT = 1.08F;
+    public static final double RISE_SPREAD = 1.1D;
 
-    /** Asked for, so the drawn fan tops out at exactly {@link #ERUPT_HEIGHT} and no higher. */
-    public static final float RISE_HEIGHT = (float) (ERUPT_HEIGHT / PLATE_FAN_OVERSHOOT);
+    /** Ticks between two shudders of the ground during the warning. */
+    public static final int TREMOR_INTERVAL = 2;
+
+    /**
+     * The draw mode the risers are drawn in, and it is two rather than one on purpose: every
+     * {@code SwordBladeEntity} is draw mode one (its mode byte is {@code MODE_SILENT}), and a blade
+     * Below leaves standing in the ground carries this skill's id - so a riser painter on mode one
+     * would be painted again round every one of them.
+     */
+    public static final int RISE_DRAW_MODE = 2;
+
+    /** Synced for the painter: how many swords went under. */
+    public static final String DATA_SWORDS = "Swords";
+
+    /** Synced for the painter: the ordinal of the stance's pattern at the press. */
+    public static final String DATA_PATTERN = "Pattern";
+
+    /** Synced for the painter: the wielder's yaw at the press, which the pattern is turned by. */
+    public static final String DATA_YAW = "Yaw";
 
     /**
      * How wide the swords that struck nothing are laid out, as a reach handed to the pattern.
@@ -133,6 +151,8 @@ public final class BelowSkill implements SkillModule {
      * target, so they are scaled down to this rather than passed through.
      */
     private static final double PLANT_SPREAD = 0.35D;
+
+    private static final Vec3 DOWN = new Vec3(0.0D, -1.0D, 0.0D);
 
     private static final String TAG_COUNT = "Swords";
     private static final String TAG_PATTERN = "Pattern";
@@ -206,8 +226,8 @@ public final class BelowSkill implements SkillModule {
      *
      * <p>A plain press, so the registry has already taken the mana and will write the cooldown -
      * there is no {@code payFor} here and a refusal answers {@link CastResult#FAILED}, which
-     * refunds. A wielder with no swords present still pays and still gets the ring: the skill did
-     * what it does, and what it does is decided by how much steel they still have.
+     * refunds. A wielder with no swords present still pays and the ground still shakes: the skill
+     * did what it does, and what it does is decided by how much steel they still have.
      */
     private static CastResult sink(CastContext ctx, ServerPlayer player, PlayerMagicState state) {
         Vec3 origin = committedPoint(ctx);
@@ -221,12 +241,22 @@ public final class BelowSkill implements SkillModule {
 
         int life = Math.max(HIT_TICK + 1, ctx.duration());
         SpellEffectEntity eruption = SpellEffectEntity.spawn(ctx, origin, life, (float) ERUPT_RADIUS, new Vec3(0.0D, 1.0D, 0.0D));
-        CompoundTag scratch = eruption.serverData();
-        scratch.putInt(TAG_COUNT, sunk);
         // The stance is read once, here, and not again at the strike: a wielder who changes
         // posture during the sixteen ticks of warning has not moved the swords that are already
         // under the ground, and the shape they come up in is the shape they went down in.
-        scratch.putInt(TAG_PATTERN, state.swordArray().stance().pattern().ordinal());
+        int pattern = state.swordArray().stance().pattern().ordinal();
+        CompoundTag scratch = eruption.serverData();
+        scratch.putInt(TAG_COUNT, sunk);
+        scratch.putInt(TAG_PATTERN, pattern);
+        // The same numbers again for every client, which draws the risers from them with the same
+        // arithmetic the planted swords are laid out with here.
+        CompoundTag picture = new CompoundTag();
+        picture.putInt(DATA_SWORDS, sunk);
+        picture.putInt(DATA_PATTERN, pattern);
+        picture.putFloat(DATA_YAW, player.getYRot());
+        eruption.setSyncedData(picture);
+        // The first shudder is the press itself; the entity's own tick never sees age zero.
+        SwordImpacts.tremor(ctx.level(), origin, ERUPT_RADIUS);
         ctx.level().playSound(null, origin.x, origin.y, origin.z,
                 SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.7F, 0.6F);
         return CastResult.SUCCESS;
@@ -253,10 +283,8 @@ public final class BelowSkill implements SkillModule {
      * Sink, warn, commit, rise, strike - once, at {@link #HIT_TICK}, and never again.
      *
      * <p>The phases are the entity's own: {@code WINDUP} while the blades descend, {@code ACTIVE}
-     * for the ten ticks the ring is on the ground, {@code CLOSING} for the rise. That is all the
-     * renderer needs and it costs no accessor. {@code value} carries the progress inside the
-     * current phase so the ring can open and the blade tips can break the surface without the
-     * client ever being told where a blade is - {@link ArrayPose} is pure and both sides run it.
+     * for the rest of the warning, {@code CLOSING} for the rise. The ground shudders on
+     * {@link #tremorAt} through all of the warning and stops the tick the strike commits.
      */
     @Override
     public SpellBehavior behavior() {
@@ -264,6 +292,9 @@ public final class BelowSkill implements SkillModule {
             @Override
             public void tick(SpellEffectEntity effect) {
                 int age = effect.tickCount;
+                if (tremorAt(age)) {
+                    SwordImpacts.tremor(effect.serverLevel(), effect.position(), ERUPT_RADIUS);
+                }
                 if (age < SINK_TICKS) {
                     effect.setValue((float) age / SINK_TICKS);
                     return;
@@ -308,11 +339,9 @@ public final class BelowSkill implements SkillModule {
     /**
      * COMMIT: the bill is written down, and nothing after this tick can move it.
      *
-     * <p>Written here rather than read at the hit for the reason the spec gives the tick a name -
-     * sixteen ticks in, nothing about the strike can change. How many swords went down was fixed
-     * six ticks earlier, at the press; this is the other half of the number, and with one flat
-     * {@link SwordMath#bladeDamage} per sword the whole eruption is a multiplication the wielder
-     * can read off their own HUD before they press it.
+     * <p>How many swords went down was fixed six ticks earlier, at the press; this is the other
+     * half of the number, and with one flat {@link SwordMath#bladeDamage} per sword the whole
+     * eruption is a multiplication the wielder can read off their own HUD before they press it.
      */
     private static void commit(SpellEffectEntity effect) {
         effect.setPhase(SpellEffectEntity.PHASE_CLOSING);
@@ -346,6 +375,8 @@ public final class BelowSkill implements SkillModule {
 
         level.playSound(null, origin.x, origin.y, origin.z,
                 SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 0.9F, 0.6F);
+        // The ground breaks across the whole ring the steel came up through, hit or miss.
+        SwordImpacts.eruption(level, origin, ERUPT_RADIUS);
 
         List<LivingEntity> caught = amount <= 0.0F ? List.of()
                 : SkillTargets.hostilesInCylinder(level, effect.owner(), origin, ERUPT_RADIUS, ERUPT_HEIGHT);
@@ -356,6 +387,9 @@ public final class BelowSkill implements SkillModule {
             // Straight up: the blades came out of the floor, so the shove has no direction in the
             // plane and SkillTargets.shove with zero strength is exactly that.
             SkillTargets.shove(victim, origin, 0.0D, knockback);
+            // Steel coming up through a body throws its sparks up and out of the top of it. A cut
+            // rings against the travel it is handed, so it is handed the way down.
+            SwordImpacts.cut(level, victim.getBoundingBox().getCenter(), DOWN);
         }
         if (caught.isEmpty()) {
             standInTheGround(effect, level, origin);
@@ -369,11 +403,10 @@ public final class BelowSkill implements SkillModule {
      * <p>It is already away from the formation, so this creates no steel - it creates the place
      * the wielder can walk to and take it back in a stride, and the place the enemy can break.
      * That is the whole recovery loop of the class pointed at the ground the wielder was just
-     * losing, and it is the one place Below's {@link Pattern} is visible after the fact: Guard
-     * leaves a fence across the path, Crown a ring round the spot, Rain a scatter.
+     * losing: Guard leaves a fence across the path, Crown a ring round the spot, Rain a scatter.
      *
-     * <p>The pattern's y is dropped and its spread scaled to {@link #PLANT_SPREAD}. A sword
-     * standing in the ground stands in the ground whatever the pattern thought about height.
+     * <p>The pattern's y is dropped and its spread scaled to {@link #PLANT_SPREAD}, and it is
+     * turned by the yaw the risers were drawn at, so what is left standing is the eruption's shape.
      */
     private static void standInTheGround(SpellEffectEntity effect, ServerLevel level, Vec3 origin) {
         if (!(effect.livingOwner() instanceof ServerPlayer player)) {
@@ -386,10 +419,9 @@ public final class BelowSkill implements SkillModule {
         }
         Pattern[] patterns = Pattern.values();
         Pattern pattern = patterns[Math.floorMod(scratch.getInt(TAG_PATTERN), patterns.length)];
-        // Pattern-local, turned into the world about the origin by the same rotation everything
-        // else uses. Yaw only: the eruption came straight up, so there is no pitch to apply and
-        // a facing would only tilt a layout that is already lying on the floor.
-        Frame flat = new Frame(origin.x, origin.y, origin.z, player.getYRot(), 0.0F, 1.0F);
+        // Yaw only: the eruption came straight up, so there is no pitch to apply and a facing
+        // would only tilt a layout that is already lying on the floor.
+        Frame flat = new Frame(origin.x, origin.y, origin.z, effect.syncedData().getFloat(DATA_YAW), 0.0F, 1.0F);
         double scale = PLANT_SPREAD / Pattern.RING_RADIUS;
         for (int i = 0; i < count; i++) {
             Slot spread = Pattern.spread(pattern, i, count, PLANT_SPREAD);
@@ -403,16 +435,72 @@ public final class BelowSkill implements SkillModule {
     // ---- what it looks like ------------------------------------------------------------------------
 
     /**
+     * Where riser {@code index} of {@code count} comes up, as {@code {dx, dz}} from the committed
+     * point.
+     *
+     * <p>The stance's pattern laid on the ground - a pattern stood square-on to the aim tips over
+     * onto its back, so its height becomes depth, and one already lying level keeps its plan -
+     * centred on the mark, scaled so the widest riser stands {@link #RISE_SPREAD} out, and turned by
+     * the wielder's yaw at the press. A single sword comes up on the mark itself. Pure, so the
+     * painter and the test run the same arithmetic.
+     */
+    public static double[] riseOffset(Pattern pattern, int index, int count, float yaw) {
+        int n = Math.max(1, count);
+        if (n == 1) {
+            return new double[] {0.0D, 0.0D};
+        }
+        double[] xs = new double[n];
+        double[] zs = new double[n];
+        double cx = 0.0D;
+        double cz = 0.0D;
+        for (int i = 0; i < n; i++) {
+            Slot slot = Pattern.spread(pattern, i, n, RISE_SPREAD);
+            xs[i] = slot.x();
+            zs[i] = slot.z() + slot.y();
+            cx += xs[i];
+            cz += zs[i];
+        }
+        cx /= n;
+        cz /= n;
+        double widest = 0.0D;
+        for (int i = 0; i < n; i++) {
+            widest = Math.max(widest, Math.hypot(xs[i] - cx, zs[i] - cz));
+        }
+        int i = Math.max(0, Math.min(n - 1, index));
+        double scale = widest < 1.0E-9D ? 0.0D : RISE_SPREAD / widest;
+        double[] turned = ArrayPose.rotate((xs[i] - cx) * scale, 0.0D, (zs[i] - cz) * scale,
+                new Frame(0.0D, 0.0D, 0.0D, yaw, 0.0F, 1.0F));
+        return new double[] {turned[0], turned[2]};
+    }
+
+    /**
+     * How high the middle of every riser is at {@code age}, over the committed point.
+     *
+     * <p>At the commit a riser is wholly underground - its middle {@code buried} below the mark,
+     * where {@code buried} is how far the drawn blade reaches along its own axis - and it comes up
+     * fast and settles, to {@link #RISE_LIFT} on the very tick the strike lands.
+     */
+    public static double riseHeight(float age, double buried) {
+        double t = Math.max(0.0D, Math.min(1.0D, (age - COMMIT_TICK) / (double) RISE_TICKS));
+        double eased = 1.0D - (1.0D - t) * (1.0D - t);
+        return -buried + (RISE_LIFT + buried) * eased;
+    }
+
+    /** Whether the ground shudders on this tick of the eruption: every other tick of the warning. */
+    public static boolean tremorAt(int age) {
+        return age >= 0 && age < COMMIT_TICK && age % TREMOR_INTERVAL == 0;
+    }
+
+    /**
      * Which subset of the drawing is live, as a function of the eruption's age.
      *
-     * <p>The ring on the ground <em>is</em> the sixteen ticks of warning, so steel standing in the
-     * world during them would be a lie - the dodge would be read off the blades and not off the
-     * mark, and the mark is the only thing that stays where it was put. Mode 0 is the telegraph and
-     * nothing else; mode 1 is the rise. {@link #commit} flips it on the tick the strike stops being
-     * changeable, which is the same tick for the same reason.
+     * <p>Nothing during the warning: the warning is the ground, and steel standing in the world
+     * during it would be read as the dodge instead of the ground. The risers from the tick the
+     * strike stops being changeable, on {@link #RISE_DRAW_MODE}; {@link #commit} flips it on that
+     * tick for that reason.
      */
     public static int drawModeAt(int age) {
-        return age < COMMIT_TICK ? 0 : 1;
+        return age < COMMIT_TICK ? 0 : RISE_DRAW_MODE;
     }
 
     /** The draw mode as a {@code SpellEffectEntity} mode byte, with bit 0 - the sneak flag - kept. */
@@ -421,56 +509,12 @@ public final class BelowSkill implements SkillModule {
     }
 
     /**
-     * {@code EmblemId.UPTHRUST} is three blades of unequal height breaking up through a ground
-     * line - the pitch reflection, drawn. An emblem may not be shared: {@code VisualProfiles}
-     * calls a repeated one a <b>hard</b> collision and throws at common setup, so each of the six
-     * SWORD marks is its own constant with its own arm in {@code FxTextures.emblemStrokes}.
-     *
-     * <p>The telegraph is deliberately a <b>horizontal</b> mark: the caster is looking down at the
-     * eruption and a vertical blade is end-on from above too, which is the first-person bolt trap
-     * pointed at the floor. No {@code stamps(...)} layer - the school's stamp is
-     * {@code StampId.EDGE} at atlas cell 32 and {@code STAMP_BAND}'s {@code paramB} is five bits.
-     *
-     * <p><b>Everything here is measured against the cylinder that catches</b>
-     * ({@link #ERUPT_RADIUS} by {@link #ERUPT_HEIGHT}), because the first version of this profile
-     * was not, and a third-person capture of it at midnight is a single white ellipse with no
-     * terrain, no player and no sky left in the frame. Three things had gone wrong and they
-     * compounded:
-     *
-     * <ul>
-     * <li><b>{@link ReleaseMode#SLAM}.</b> A slam hangs {@code Mark.SIGIL_SLAM_FLASH} flat under
-     * the caster's own hand at {@code tier.radius() * 1.3}, and that kind is the one mark in the
-     * library that is a <em>filled disc</em> rather than a stroke: {@code rendertype_ground_mark}
-     * lights it at {@code 2.5 * (1 - phase)} over a colour it mixes all the way to {@code vec3(1)}
-     * for the first half of its life, on the additive twin. At the tier radius that is a
-     * pure-white disc <b>7.8 blocks across, hung a stride in front of the caster's face</b>. It
-     * survives on every other skill that asks for it because in first person that quad all but
-     * contains the eye and is seen edge-on; the sword kit is judged from behind. It is also the
-     * one
-     * reading this skill may never give - Below commits to a <em>point</em>, and a slam stamps an
-     * impact under the wielder's feet at the instant of the press.</li>
-     * <li><b>The tier radius.</b> Every tier below zero resolves to {@code TierProfile.forTier(4)}
-     * and its 3.0-block circle, 1.9 times the ring that actually catches - so the telegraph
-     * promised a cylinder three and a half times the area of the one you had to leave, and
-     * {@code TransientVisuals} then grew it another 1.4 on the slam. Pinned to
-     * {@link #ERUPT_RADIUS} here: the circle at the committed point <em>is</em> the hit ring, at
-     * whatever tier this skill is ever given.</li>
-     * <li><b>The object was a sphere.</b> {@code Form.SPIKE_CLUSTER} is
-     * {@code FxMesh.spikeCluster}, which lays its spikes over a whole sphere on the golden angle -
-     * at six, three of them point downward - and {@code BodyPainter} scales {@code sizeA} on all
-     * three axes and never reads {@code sizeB}, so the authored three-block height was dead code
-     * and the drawing was a 1.6-block ball half buried in the floor. Nothing about it went up.</li>
-     * </ul>
-     *
-     * <p>So the object is a {@code PLATE_FAN}: the only body form in the library that grows out of
-     * {@code y = 0} and spends both extents, on the depth-writing {@code shardBody} path where a
-     * thing can be an object rather than a light. Its glow is the rim that shader already carries.
-     * The telegraph is a {@code CLOCK_SPOKES} ring laid flat, all hairline strokes, whose hand
-     * sweeps on the effect's own phase - so the warning is a clock and not a glare - and
-     * {@code ProfileRendererShell} sizes it off the synced radius, which is {@link #ERUPT_RADIUS}
-     * by construction. A shallow pool of grit marks the soil line as the steel comes through; it
-     * is the one thing here allowed outside the measurement, because debris thrown out of a hole
-     * genuinely leaves the hole, the way a wake is allowed behind a forged wave.
+     * {@code EmblemId.UPTHRUST} is three blades of unequal height breaking up through a ground line.
+     * The circle carries it to the HUD card and the codex and is never hung in the world:
+     * {@link CircleAnchor#NONE}, so the press draws no ring at the mark and the release no flash at
+     * the hand. The one thing drawn is the risers - Duskfall, one per sword that went under, painted
+     * by {@code SwordPainters.below} off {@link #riseOffset} and {@link #riseHeight} - and the ground
+     * breaking is vanilla crumbs thrown by {@code SwordImpacts}, not a silhouette.
      */
     @Override
     public VisualProfile.Builder profile() {
@@ -481,22 +525,13 @@ public final class BelowSkill implements SkillModule {
                         .band(GlyphKind.TOOTH_BAND, 12, ColorRole.DIM)
                         .spokes(6, 0.25F, true)
                         .core(CoreKind.CROSS, ColorRole.HOT).spin(SpinSignature.ONE_WAY_FAST))
-                .anchor(CircleAnchor.AIM_SURFACE)
-                .tier(TierProfile.forTier(definition().tier()).withRadius((float) ERUPT_RADIUS))
-                // Tier 4 draws its windup through terrain, which for a circle lying on the floor
-                // twenty blocks out means it is drawn over every block and every body between it
-                // and the camera - including the wielder, whose feet this mark may never appear
-                // on. Occluded, it reads as lying on the ground, which is where it is.
-                .throughTerrain(false)
-                .silhouette(Silhouette.body(Silhouette.Form.PLATE_FAN, FxKinds.Body.METAL_BANDS,
-                        ERUPT_PLATES, (float) ERUPT_RADIUS, RISE_HEIGHT).forModes(1))
-                .silhouette(Silhouette.mark(FxKinds.Mark.CLOCK_SPOKES, (float) ERUPT_RADIUS, ERUPT_PLATES)
-                        .withRole(ColorRole.BRIGHT).forModes(0))
-                .silhouette(Silhouette.swarm(Silhouette.Form.POOL, FxKinds.Smoke.DUST, 8,
-                        (float) ERUPT_RADIUS, 0.5F).withRole(ColorRole.DIM).withOpacity(0.45F).forModes(1))
-                // FUNNEL, not SLAM: the circle collapses to a quarter and goes, which is what the
-                // frame actually does - it leaves the wielder and sinks under a place elsewhere.
-                .release(ReleaseMode.FUNNEL, ProfileCues.FirstPersonPreset.CASTER_RECOIL)
+                .anchor(CircleAnchor.NONE)
+                .silhouette(Silhouette.custom("below", (float) ERUPT_RADIUS).forModes(RISE_DRAW_MODE))
+                .release(ReleaseMode.FUNNEL, ProfileCues.FirstPersonPreset.NONE)
+                .firstPerson(ProfileCues.FirstPersonSpec.NONE)
+                // Never fired: no sword hit goes through SpellFx.impact, and SwordSteelOnlyTest holds
+                // that. It stays because VisualProfiles.validate keys every school victim overlay, and
+                // six Sword profiles on the default overlay is five hard collisions at common setup.
                 .impact(FxKinds.Mark.SHOCK_RING, FxKinds.Smoke.DUST, FxKinds.Overlay.SHOCK_RING)
                 .budget(3)
                 .bounds(3.0F, 4.0F, 2.0F);

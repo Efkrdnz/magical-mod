@@ -66,14 +66,15 @@ class CustomPainterCoverageTest {
         DRAWN_SOMEWHERE_ELSE.put("blood_sacrifice", "nothing - the skill is a screen and a pact");
         // The Sword school, and the reason this file exists. SwordArrayEntity and SwordBladeEntity
         // wear a Sword profile and both renderers extend ProfileRendererShell, so the silhouette
-        // walk really does reach these: the first two have been held out of it with .forModes()
-        // since the white disc was found, and "loose" is still in it on every blade Loose fires -
-        // harmless only because the miss now draws nothing. SwordArrayRenderer draws the formation
-        // and SwordBladeRenderer draws Duskfall itself, its aura and its glint, so the shared
-        // painters have nothing to add to a school whose whole subject is one piece of steel.
+        // walk really does reach these, and each is held out of it with .forModes(). The formation
+        // and every blade are Duskfall drawn by SwordArrayRenderer and SwordBladeRenderer; the two
+        // pieces of steel that are not a sword of the formation - One Blade's greatsword and
+        // Below's risers - have real painters in SwordPainters, so they are not on this list.
         DRAWN_SOMEWHERE_ELSE.put("call_the_blade", "SwordArrayRenderer and SwordBladeRenderer");
         DRAWN_SOMEWHERE_ELSE.put("sword_stance", "nothing carries this profile onto an entity");
         DRAWN_SOMEWHERE_ELSE.put("loose", "SwordBladeRenderer, on every blade Loose fires");
+        DRAWN_SOMEWHERE_ELSE.put("the_keel",
+                "SwordArrayRenderer - the board under the feet is a sword of the formation");
     }
 
     private static final Map<String, Set<ResourceLocation>> DECLARED = new LinkedHashMap<>();

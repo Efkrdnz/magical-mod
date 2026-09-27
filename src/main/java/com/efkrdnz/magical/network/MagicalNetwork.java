@@ -86,6 +86,8 @@ public final class MagicalNetwork {
                         context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToClient(VisualCuePayload.TYPE, VisualCuePayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> handleClientPayload(payload)))
+                .playToClient(SwordImpactPayload.TYPE, SwordImpactPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToClient(StatusSyncPayload.TYPE, StatusSyncPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToServer(MagicBarrageHoldPayload.TYPE, MagicBarrageHoldPayload.STREAM_CODEC, (payload, context) ->
@@ -371,6 +373,10 @@ public final class MagicalNetwork {
     }
 
     /** Transient visual event to every player within range of a point. */
+    public static void sendSwordImpact(net.minecraft.server.level.ServerLevel level, net.minecraft.world.phys.Vec3 pos, double range, SwordImpactPayload payload) {
+        PacketDistributor.sendToPlayersNear(level, null, pos.x, pos.y, pos.z, range, payload);
+    }
+
     public static void sendVisualCue(net.minecraft.server.level.ServerLevel level, net.minecraft.world.phys.Vec3 pos, double range, VisualCuePayload payload) {
         PacketDistributor.sendToPlayersNear(level, null, pos.x, pos.y, pos.z, range, payload);
     }

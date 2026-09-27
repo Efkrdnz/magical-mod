@@ -23,7 +23,6 @@ import com.efkrdnz.magical.magic.visual.SchoolMaterial;
 import com.efkrdnz.magical.magic.visual.Silhouette;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
-import com.efkrdnz.magical.magic.visual.TierProfile;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -66,19 +65,6 @@ public final class CallTheBladeSkill implements SkillModule {
 
     /** Frame sides, unique within the SWORD school. Its six skills take 3..8 in kit order. */
     private static final int FRAME_SIDES = 3;
-
-    /**
-     * The cast circle's radius in blocks, and it is a property of the formation rather than of
-     * the tier.
-     *
-     * <p>Every tier below zero resolves to {@code TierProfile.forTier(4)}, whose radius is 3.0 -
-     * a disc six blocks across. The circle is anchored on the caster now rather than on a surface
-     * the crosshair found, and the thing it is announcing is a formation that stands inside
-     * {@code Formation.MAX_EXTENT} = 4.0 blocks of the wielder. A disc wider than the formation
-     * reads as a spell going off somewhere near the swords; at 1.8 it is a ring the swords appear
-     * out of, which is what happened.
-     */
-    public static final float MARK_RADIUS = 1.8F;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -150,14 +136,8 @@ public final class CallTheBladeSkill implements SkillModule {
                         // swords coming out of it.
                         .band(GlyphKind.TICK_BAND, 12, ColorRole.BRIGHT)
                         .core(CoreKind.CROSS, ColorRole.HOT).spin(SpinSignature.ONE_WAY_FAST))
-                // On the caster and not on a surface the crosshair found: the toggle happens
-                // where the wielder is standing, and there is no aim ray in a selfManaged handler
-                // to have found a surface with.
-                .anchor(CircleAnchor.GROUND)
-                .tier(TierProfile.forTier(definition().tier()).withRadius(MARK_RADIUS))
-                // Tier 4 draws its windup through terrain. Occluded, this one reads as lying on
-                // the floor the wielder is standing on, which is where it is.
-                .throughTerrain(false)
+                // Never hung in the world: the circle is where the HUD card takes its emblem from.
+                .anchor(CircleAnchor.NONE)
                 // Never painted, and it must stay that way. SwordArrayEntity and SwordBladeEntity
                 // both carry CALL_THE_BLADE's id so they wear this profile, and both renderers
                 // call ProfileRendererShell.render, which walks profile.silhouettes() and paints
@@ -174,7 +154,11 @@ public final class CallTheBladeSkill implements SkillModule {
                 // Family.CUSTOM keeps it out of the roster's uniqueness maps where it would
                 // otherwise claim a form the school has not spent.
                 .silhouette(Silhouette.custom("call_the_blade", 1.0F).forModes())
-                .release(ReleaseMode.LIFT, ProfileCues.FirstPersonPreset.CASTER_LIGHT)
+                .release(ReleaseMode.LIFT, ProfileCues.FirstPersonPreset.NONE)
+                .firstPerson(ProfileCues.FirstPersonSpec.NONE)
+                // Never fired: no sword hit goes through SpellFx.impact, and SwordSteelOnlyTest holds
+                // that. It stays because VisualProfiles.validate keys every school victim overlay, and
+                // six Sword profiles on the default overlay is five hard collisions at common setup.
                 .impact(FxKinds.Mark.LATTICE_GRID, FxKinds.Smoke.SPARK_STREAK, FxKinds.Overlay.PRISM_RING)
                 .budget(1)
                 .bounds(1.5F, 1.5F, 1.5F);

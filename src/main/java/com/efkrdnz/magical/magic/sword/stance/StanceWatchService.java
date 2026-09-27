@@ -1,12 +1,12 @@
 package com.efkrdnz.magical.magic.sword.stance;
 
-import com.efkrdnz.magical.entity.SkillClashEffectEntity;
 import com.efkrdnz.magical.entity.sword.SwordBladeEntity;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.incantation.VersePassives;
 import com.efkrdnz.magical.magic.service.SkillTargets;
+import com.efkrdnz.magical.magic.sword.SwordImpacts;
 import com.efkrdnz.magical.magic.sword.SwordService;
 import java.util.List;
 import net.minecraft.server.level.ServerLevel;
@@ -62,11 +62,6 @@ public final class StanceWatchService {
     public static final double SHRED_SHOVE = 0.55D;
 
     public static final double SHRED_LIFT = 0.18D;
-
-    /** The flare a turned projectile leaves, the same size the Halo verse uses. */
-    private static final float FLARE_SCALE = 0.22F;
-
-    private static final int FLARE_LIFE = 6;
 
     /** Refreshed while falling, so the posture ends the instant the stance changes. */
     private static final int GLIDE_DURATION = 40;
@@ -183,11 +178,12 @@ public final class StanceWatchService {
             if (!due(wielder, interval, mirror)) {
                 return;
             }
+            Vec3 incoming = shot.getDeltaMovement();
             if (!shot.deflect(ProjectileDeflection.REVERSE, wielder, wielder, true)) {
                 return;
             }
             SwordService.spendSword(wielder, state);
-            flare(level, shot.position());
+            parried(level, shot.position(), incoming);
             state.sync(wielder);
             return;
         }
@@ -266,6 +262,7 @@ public final class StanceWatchService {
         }
         for (LivingEntity body : caught) {
             SkillTargets.hurt(level, wielder, body, watch.bite(), MagicContent.CALL_THE_BLADE.id());
+            SwordImpacts.shear(level, body.getBoundingBox().getCenter());
             if (shove) {
                 SkillTargets.shove(body, centre, SHRED_SHOVE, SHRED_LIFT);
             }
@@ -339,9 +336,9 @@ public final class StanceWatchService {
         return present.isEmpty() ? wielder.getEyePosition() : present.get(0);
     }
 
-    private static void flare(ServerLevel level, Vec3 at) {
-        int color = MagicContent.CALL_THE_BLADE.color();
-        level.addFreshEntity(SkillClashEffectEntity.create(level, at, color, color, FLARE_LIFE, FLARE_SCALE));
+    /** A turned shot: a small wave where the sword met it, facing the way it came, and the clang. */
+    private static void parried(ServerLevel level, Vec3 at, Vec3 incoming) {
+        SwordImpacts.parry(level, at, incoming);
         level.playSound(null, at.x, at.y, at.z, SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 0.6F, 1.5F);
     }
 }

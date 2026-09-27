@@ -93,6 +93,8 @@ public final class ProfileCues {
 
     public record FirstPersonSpec(FirstPersonPreset cast, FxKinds.Overlay castOverlay, FirstPersonPreset hitConfirm, FirstPersonPreset hitBy) {
         public static final FirstPersonSpec DEFAULT = new FirstPersonSpec(FirstPersonPreset.CASTER_LIGHT, FxKinds.Overlay.VIGNETTE, FirstPersonPreset.HIT_CONFIRM, FirstPersonPreset.VICTIM_HIT);
+        /** Touches nobody's screen: no wash, shake or kick on the press, the confirm or the victim. */
+        public static final FirstPersonSpec NONE = new FirstPersonSpec(FirstPersonPreset.NONE, FxKinds.Overlay.VIGNETTE, FirstPersonPreset.NONE, FirstPersonPreset.NONE);
     }
 
     public record SoundCue(Holder<SoundEvent> sound, float volume, float pitch, float jitter) {

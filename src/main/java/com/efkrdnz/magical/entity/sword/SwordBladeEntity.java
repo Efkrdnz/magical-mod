@@ -6,11 +6,13 @@ import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicDamageService;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.service.SkillTargets;
+import com.efkrdnz.magical.magic.sword.SwordImpacts;
 import com.efkrdnz.magical.magic.sword.SwordService;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import com.efkrdnz.magical.registry.MagicalEntities;
 import java.util.List;
 import java.util.Optional;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -339,6 +341,9 @@ public class SwordBladeEntity extends SpellEffectEntity {
             return;
         }
         if (wall.getType() != HitResult.Type.MISS) {
+            Direction face = wall.getDirection();
+            SwordImpacts.clang(level, wall.getLocation(), new Vec3(face.getStepX(), face.getStepY(), face.getStepZ()),
+                    level.getBlockState(wall.getBlockPos()));
             recall();
             return;
         }
@@ -379,6 +384,14 @@ public class SwordBladeEntity extends SpellEffectEntity {
     /** The blade is in, its Edge stays spent, and it rides the body it landed in for 600 ticks. */
     private void land(ServerLevel level, LivingEntity body) {
         Entity owner = owner();
+        // The wave rings where the blade went in rather than where it ends up standing: the
+        // face of the body it crossed, or its middle if it was already inside.
+        Vec3 from = position();
+        Vec3 to = from.add(velocity);
+        Vec3 entry = body.getBoundingBox().clip(from, to)
+                .or(() -> body.getBoundingBox().inflate(SWEEP_SLACK).clip(from, to))
+                .orElse(body.getBoundingBox().getCenter());
+        SwordImpacts.cut(level, entry, velocity);
         wound(body, owner == null ? this : owner, damage());
         if (knockback() > 0.0F) {
             SkillTargets.shove(body, position(), knockback(), 0.05D);

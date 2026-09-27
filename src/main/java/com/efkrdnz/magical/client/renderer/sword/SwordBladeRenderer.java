@@ -4,12 +4,8 @@ import com.efkrdnz.magical.client.renderer.fx.FxBudget;
 import com.efkrdnz.magical.client.renderer.fx.FxContext;
 import com.efkrdnz.magical.client.renderer.fx.ProfileRendererShell;
 import com.efkrdnz.magical.client.renderer.fx.paint.FilamentPainter;
-import com.efkrdnz.magical.client.renderer.fx.paint.OrbPainter;
 import com.efkrdnz.magical.entity.sword.SwordBladeEntity;
 import com.efkrdnz.magical.forge.weapon.MagicalWeapons;
-import com.efkrdnz.magical.magic.MagicSchool;
-import com.efkrdnz.magical.magic.visual.FxKinds;
-import com.efkrdnz.magical.magic.visual.SchoolMaterial;
 import com.efkrdnz.magical.registry.MagicalItems;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
@@ -22,86 +18,47 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * One blade, and the one piece of steel the whole school is drawn with.
+ * One blade, and the one thing the whole school is drawn with.
  *
- * <p><b>The steel is Duskfall.</b> This used to be {@code prism(4)} - a 0.15 by 1.6 diamond needle
- * on a crack shader - and the argument for it was that a Blockbench model would be quads the frame
- * throttle cannot see. That argument lost, because what a four-sided prism actually looks like on
- * screen is a flat dark domino with one blown highlight on it: no point, no taper, no crossguard,
- * nothing that says <em>sword</em> in a class whose entire subject is swords. So a blade is now the
- * one real 3D weapon this mod already ships - {@code magical:item/duskfall}, a 130-cuboid export -
- * drawn through {@code ItemRenderer.renderStatic} the way {@link
- * com.efkrdnz.magical.client.renderer.fx.WrenchedItemRenderer} draws its item. The throttle's
- * objection is answered rather than ignored: the model's quads are counted into {@link FxBudget}
- * exactly like hand-built ones, so they are headroom nothing else gets to spend twice.
+ * <p><b>The steel is Duskfall</b> - {@code magical:item/duskfall}, the one real 3D weapon this mod
+ * ships, a 130-cuboid export - drawn through {@code ItemRenderer.renderStatic} the way {@link
+ * com.efkrdnz.magical.client.renderer.fx.WrenchedItemRenderer} draws its item. The model's quads
+ * are counted into {@link FxBudget} exactly like hand-built ones, so they are headroom nothing
+ * else gets to spend twice.
+ *
+ * <p><b>And nothing else.</b> A blade used to carry a glow along its spine, a glint billboarded on
+ * it, a red flush through vanilla's overlay texture as the formation was spent and a white wash as
+ * a standing blade ran out of time, and the verdict on all of it was that none of it was a sword.
+ * So a blade is the model, lit full bright, and the only things that ever change about it are
+ * where it is, which way it points and how big it is: a standing blade out of time closes on
+ * nothing rather than fading. What a blade <em>does</em> - landing in a body, meeting a wall - is a
+ * small wave of vanilla particles thrown by {@code SwordImpactParticles}, not anything drawn here.
  *
  * <p><b>{@link ItemDisplayContext#NONE} and nothing else.</b> Every other context applies the
  * model's authored display block, and Duskfall's was hand-tuned for a hand and a slot in this mod -
- * {@code ground} alone is a 0.3 scale and a three-unit lift, {@code fixed} a -35 degree roll. A
- * blade hanging in the air on a bearing owns its own orientation, and {@code NONE} is the only
- * context vanilla resolves to {@code ItemTransform.NO_TRANSFORM}. What survives is the {@code
- * translate(-0.5, -0.5, -0.5)} every context gets, which puts the pose origin at model
- * {@code (8, 8, 8)} - the middle of Duskfall's grip. See {@link Geometry#PIVOT_BACK} for why the
- * drawing does not leave it there.
+ * {@code ground} alone is a 0.3 scale and a three-unit lift. {@code NONE} is the only context
+ * vanilla resolves to {@code ItemTransform.NO_TRANSFORM}. What survives is the {@code
+ * translate(-0.5, -0.5, -0.5)} every context gets, which puts the pose origin in the middle of
+ * Duskfall's grip. See {@link Geometry#PIVOT_BACK} for why the drawing does not leave it there.
  *
- * <p><b>The cant is load-bearing and survives the swap.</b> A blade flown point-first along its own
- * flight vector collapses toward its cross-section for the person who threw it, because the
- * thrower's eye <em>is</em> the flight line. It is also the genre: 飞剑 travel canted and
- * broadside, never nose-on like arrows. So every blade is yawed {@link Geometry#CANT_YAW} degrees
- * and rolled {@link Geometry#CANT_ROLL} degrees off its flight line and wears a billboarded glint
- * emitted <em>outside</em> the orienting push and pop, so the glint is camera-facing in world space
- * rather than in the blade's.
- *
- * <p><b>Edge and strain moved onto the light, because the steel can no longer carry them.</b>
- * {@code renderStatic} takes no tint, and vanilla's one tint route - a quad's {@code tintindex}
- * multiplied by the render state's tint layers - is dead here because Duskfall's 780 faces declare
- * no tint index. So the palette reading that used to be the metal's own colour is now the aura
- * around it, on two channels at once: {@link Geometry#edgeColor(int)} is its hue and {@link
- * Geometry#sheathHalfWidth(int)} is how far it stands off the steel, so a twelve-Edge blade is
- * dark <em>and</em> haloed and a one-Edge blade is bright and tight. Strain arrives already mixed
- * into that colour by the Array and rides both. The steel itself gets the one channel an item
- * render does give us - vanilla's overlay texture, whose red row is what a hurt mob flashes and
- * whose white column is what a mob flashes as it dies - as a rung at about half strain and a wash
- * for a blade running out of time.
+ * <p><b>The cant is load-bearing.</b> A blade flown point-first along its own flight vector
+ * collapses toward its cross-section for the person who threw it, because the thrower's eye
+ * <em>is</em> the flight line. It is also the genre: 飞剑 travel canted and broadside, never
+ * nose-on like arrows. So a flown blade is yawed {@link Geometry#CANT_YAW} degrees and rolled
+ * {@link Geometry#CANT_ROLL} degrees off its flight line ({@link #blade}); steel that is held, or
+ * that comes up out of the ground, has no flight line to hide along and is drawn as it is pointed
+ * ({@link #steel}).
  */
 public final class SwordBladeRenderer extends ProfileRendererShell<SwordBladeEntity> {
 
-    /**
-     * The beam shader's reveal is a <em>window</em>, not a fraction drawn: 0.5 is a whole beam and
-     * 1.0 has receded to nothing. The aura is a whole band for as long as the blade exists.
-     */
-    public static final float BEAM_WHOLE = 0.5F;
-
-    /**
-     * What the aura may contribute beside the steel. Well under it: it is light, not edge.
-     *
-     * <p>0.55 when the blade was a four-sided prism, because the aura was doing half the work of
-     * making a thin dark shape visible at all. A textured model has its own silhouette from every
-     * angle, so the aura is back to being only the Edge tell - and at 0.55 on an additive pass
-     * beside an opaque model it was a blown white slab with a sword lost inside it.
-     */
-    private static final float SHEATH_OPACITY = 0.15F;
-
-    /**
-     * What the glint may contribute.
-     *
-     * <p>It was the reading that survived a prism seen edge-on, and it was priced for that job.
-     * Duskfall has real thickness and a guard, so there is no angle at which the sword disappears
-     * and nothing for the glint to stand in for; it is kept, small, as the highlight on the steel
-     * rather than as a substitute for it.
-     */
-    private static final float HEAD_OPACITY = 0.20F;
-
-    /** Where a standing blade starts to come apart, as a fraction of its lying life. */
+    /** Where a standing blade starts to close on nothing, as a fraction of its lying life. */
     private static final float DISSOLVE_FROM = 0.85F;
 
     /**
      * A summoned blade is a conjured thing and lights itself: {@code 0xF000F0} is block 15, sky 15,
-     * the same full bright {@code UnwakingSceneryRenderer} hands its figures. It is not laziness
-     * about a light probe. Everything else this school draws is additive and therefore already
-     * independent of the world's light, and the one thing here that is not - a painted texture -
-     * would otherwise read as a black bar in exactly the places an Array is worth photographing:
-     * at night, underground, and against a lit sky.
+     * the same full bright {@code UnwakingSceneryRenderer} hands its figures. A painted texture would
+     * otherwise read as a black bar in exactly the places an Array is worth photographing: at night,
+     * underground, and against a lit sky.
      */
     private static final int CONJURED_LIGHT = 0xF000F0;
 
@@ -114,8 +71,7 @@ public final class SwordBladeRenderer extends ProfileRendererShell<SwordBladeEnt
      *
      * <p>A holder class rather than a field, so the lookup happens on the first blade anyone draws
      * and not when this renderer's class is loaded - the item registry is not filled at that point.
-     * Nothing ever mutates it, and an item render reads a stack without writing to it, so one
-     * instance serves all twenty-four blades of a frame instead of twenty-four allocations.
+     * An item render reads a stack without writing to it, so one instance serves every blade.
      */
     private static final class Steel {
         static final ItemStack STACK = resolve();
@@ -133,10 +89,8 @@ public final class SwordBladeRenderer extends ProfileRendererShell<SwordBladeEnt
 
     public static final class State extends ProfileRendererShell.State {
         public byte bladeState;
-        public int edge;
-        /** Which way the blade points. A lying blade has none of its own and stands point-down. */
+        /** Which way the blade points. A standing blade has none of its own and stands point-down. */
         public Vec3 heading = new Vec3(0.0D, 0.0D, 1.0D);
-        public float alpha = 1.0F;
         public float integrity;
     }
 
@@ -154,7 +108,6 @@ public final class SwordBladeRenderer extends ProfileRendererShell<SwordBladeEnt
         // radius it is handed. EldritchConstructRenderer zeroes it for the same reason.
         state.radius = 0.0F;
         state.bladeState = entity.state();
-        state.edge = entity.edge();
         Vec3 direction = entity.direction();
         boolean lying = state.bladeState == SwordBladeEntity.STATE_SPENT
                 || state.bladeState == SwordBladeEntity.STATE_PLANTED;
@@ -165,12 +118,7 @@ public final class SwordBladeRenderer extends ProfileRendererShell<SwordBladeEnt
         // while it stands - so a standing blade gives up its last sixth of life to the dissolve
         // and a flying one never reaches it.
         float progress = lying ? Math.min(1.0F, Math.max(0.0F, entity.value())) : 0.0F;
-        float gone = progress <= DISSOLVE_FROM ? 0.0F : (progress - DISSOLVE_FROM) / (1.0F - DISSOLVE_FROM);
-        state.alpha = 1.0F - gone * 0.6F;
-        // Straight up to a full dissolve, because integrity now drives a wash and a shrink rather
-        // than the shard_body crack band: the steel goes white and closes on nothing instead of
-        // fading, which is what running out of time looks like for a conjured thing.
-        state.integrity = gone;
+        state.integrity = progress <= DISSOLVE_FROM ? 0.0F : (progress - DISSOLVE_FROM) / (1.0F - DISSOLVE_FROM);
     }
 
     @Override
@@ -180,30 +128,20 @@ public final class SwordBladeRenderer extends ProfileRendererShell<SwordBladeEnt
         FxContext ctx = new FxContext(pose, buffers, state.partialTick,
                 entityRenderDispatcher.cameraOrientation(), state.cameraOffset)
                 .timing(state.age, state.life, state.seed);
-        ctx.detail = FxBudget.detailForDistance(3, state.distanceSqr);
-        ctx.lod = FxBudget.lodForDistance(state.distanceSqr);
-        blade(ctx, state.heading, state.edge, state.alpha, state.integrity, Geometry.edgeColor(state.edge));
+        blade(ctx, state.heading, state.integrity);
     }
 
-    // ---- the steel, shared with the Array -------------------------------------------------------
+    // ---- the steel, shared with the Array and the painters -----------------------------------------
 
     /**
-     * One blade at the current pose, pointing along {@code heading}.
+     * One flown blade at the current pose, travelling along {@code heading}, canted off its line.
      *
-     * <p>Both renderers draw their steel through here, so a blade at rest in the formation and the
-     * same blade a tick after it has left its bearing are the same object and cannot drift apart.
+     * <p>The Array draws every sword of its formation through here, so a blade at rest and the same
+     * blade a tick after it has left its place are the same object and cannot drift apart.
      *
-     * @param alpha how much of a blade this is: 1 for a real one, less for a Mirror twin. The aura
-     *     and the glint take it directly; the steel cannot fade, so it takes it as a pallor
-     *     through {@link Geometry#ghost(float, float)}
      * @param integrity how far a blade out of time has come apart: 0 is whole, 1 has gone
-     * @param rgb the colour to draw the light in, which is {@link Geometry#edgeColor(int)} unless
-     *     strain has pulled the whole Array toward cinnabar
      */
-    public static void blade(FxContext ctx, Vec3 heading, int edge, float alpha, float integrity, int rgb) {
-        if (alpha <= 0.0F) {
-            return;
-        }
+    public static void blade(FxContext ctx, Vec3 heading, float integrity) {
         PoseStack pose = ctx.pose;
         pose.pushPose();
         FilamentPainter.orientAlong(pose, heading);
@@ -212,60 +150,43 @@ public final class SwordBladeRenderer extends ProfileRendererShell<SwordBladeEnt
         // is CANT_YAW degrees off the flight vector at every bearing and pitch there is.
         pose.mulPose(Axis.ZP.rotationDegrees(Geometry.CANT_ROLL));
         pose.mulPose(Axis.YP.rotationDegrees(Geometry.CANT_YAW));
+        model(ctx, Geometry.drawnScale(integrity));
+        pose.popPose();
+    }
 
-        // The aura over the spine, once for the blade and never once per trail copy, because it is
-        // the light the steel is giving off and not another copy of the steel. A crossed pair
-        // rather than one plate: two quads at right angles have no view that collapses both.
+    /**
+     * Duskfall pointing along {@code heading} with no cant, at {@code scale}, about the middle of
+     * its length: steel that is held or that comes up out of the ground rather than flown.
+     */
+    public static void steel(FxContext ctx, Vec3 heading, float scale) {
+        PoseStack pose = ctx.pose;
         pose.pushPose();
-        pose.translate(0.0D, 0.0D, -Geometry.LENGTH * 0.5D);
-        FilamentPainter.beam(ctx, FxKinds.Filament.BLADE_RIM, Geometry.sheathHalfWidth(edge),
-                Geometry.LENGTH, rgb, alpha * SHEATH_OPACITY, BEAM_WHOLE, 2, 6);
+        FilamentPainter.orientAlong(pose, heading);
+        model(ctx, scale);
         pose.popPose();
+    }
 
-        float drawn = Geometry.drawnScale(integrity);
-        if (!Steel.STACK.isEmpty() && drawn > 0.0F) {
-            pose.pushPose();
-            // A vanilla item model runs its height up +Y and the blade runs along local +Z, so the
-            // same quarter turn the prism needed puts Duskfall's point down the bearing.
-            pose.mulPose(Axis.XP.rotationDegrees(90.0F));
-            pose.scale(drawn, drawn, drawn);
-            // Inside the scale, so the shift scales with the sword: Duskfall's origin sits in its
-            // grip, and a blade pivoting on its grip swings its point through a 1.5-block arc like
-            // a clock hand every time its bearing moves. On its own middle it turns in place.
-            pose.translate(0.0D, -Geometry.PIVOT_BACK, 0.0D);
-            int overlay = OverlayTexture.pack(Geometry.whiteOut(Geometry.ghost(alpha, integrity)),
-                    Geometry.steelFlushes(rgb) ? OverlayTexture.RED_OVERLAY_V : OverlayTexture.WHITE_OVERLAY_V);
-            Minecraft.getInstance().getItemRenderer().renderStatic(Steel.STACK, ItemDisplayContext.NONE,
-                    CONJURED_LIGHT, overlay, pose, ctx.buffers, Minecraft.getInstance().level, ctx.seed);
-            pose.popPose();
-            // 780 quads a blade and up to 24 blades is Geometry.WORST_CASE_QUADS - 31% of the
-            // 60000-quad frame target, and dear enough to say out loud rather than to hide by
-            // drawing fewer swords than the Array actually holds. Counting it is what keeps it
-            // honest: FxBudget.pressure() falls, and every other effect in the frame demotes
-            // around the thing the frame is actually of.
-            FxBudget.countQuads(Geometry.MODEL_QUADS);
+    /** The model itself, point down local +Z, centred on the middle of its length. */
+    private static void model(FxContext ctx, float scale) {
+        if (Steel.STACK.isEmpty() || scale <= 0.0F) {
+            return;
         }
+        PoseStack pose = ctx.pose;
+        pose.pushPose();
+        // A vanilla item model runs its height up +Y and the blade runs along local +Z, so a
+        // quarter turn puts Duskfall's point down the bearing.
+        pose.mulPose(Axis.XP.rotationDegrees(90.0F));
+        pose.scale(scale, scale, scale);
+        // Inside the scale, so the shift scales with the sword: Duskfall's origin sits in its
+        // grip, and a blade pivoting on its grip swings its point through a wide arc like a clock
+        // hand every time its bearing moves. On its own middle it turns in place.
+        pose.translate(0.0D, -Geometry.PIVOT_BACK, 0.0D);
+        Minecraft.getInstance().getItemRenderer().renderStatic(Steel.STACK, ItemDisplayContext.NONE,
+                CONJURED_LIGHT, OverlayTexture.NO_OVERLAY, pose, ctx.buffers, Minecraft.getInstance().level, ctx.seed);
         pose.popPose();
-        // Outside the orient, so the glint is camera-facing in world space. This is the half of the
-        // reading the cant cannot do: at the one angle where even a canted sword is nearly edge-on,
-        // the glint is the only thing left carrying the Edge's colour.
-        OrbPainter.billboard(ctx, FxKinds.Orb.PLASMA, Geometry.headRadius(), rgb,
-                alpha * HEAD_OPACITY, 0.5F, 3, 8);
-    }
-
-    /** Three bits of palette ramp off the Edge already on the wire: 0 is a needle, 7 is a slab. */
-    public static int edgeRamp(int edge) {
-        return Geometry.edgeRamp(edge);
-    }
-
-    /** Bright pewter at one Edge, the school's own shadow at twelve. Heavy metal reads heavy. */
-    public static int edgeColor(int edge) {
-        return Geometry.edgeColor(edge);
-    }
-
-    /** Channel-wise, because these are two points on one metal ramp and not two separate inks. */
-    public static int lerpRgb(int from, int to, float t) {
-        return Geometry.lerpRgb(from, to, t);
+        // 780 quads a blade, counted so FxBudget.pressure() falls and every other effect in the
+        // frame demotes around the thing the frame is actually of.
+        FxBudget.countQuads(Geometry.MODEL_QUADS);
     }
 
     // ---- the pure half ---------------------------------------------------------------------------
@@ -275,10 +196,9 @@ public final class SwordBladeRenderer extends ProfileRendererShell<SwordBladeEnt
      *
      * <p>A static nested class rather than methods on the renderer, and deliberately so: loading
      * {@code SwordBladeRenderer$Geometry} does not load {@code SwordBladeRenderer}, so
-     * {@code SwordSilhouetteTest} can measure the silhouette and the readings without ever bringing
-     * {@code EntityRenderer}, {@code Minecraft} or the item pipeline into a unit test. Nothing in
-     * here touches Minecraft, GL or a pose; it is arithmetic on doubles and ints, the way
-     * {@code WaveGeometry} is.
+     * {@code SwordSilhouetteTest} and {@code BelowSilhouetteTest} can measure the steel without ever
+     * bringing {@code EntityRenderer}, {@code Minecraft} or the item pipeline into a unit test.
+     * Nothing in here touches Minecraft, GL or a pose; it is arithmetic on doubles and ints.
      */
     public static final class Geometry {
 
@@ -390,20 +310,13 @@ public final class SwordBladeRenderer extends ProfileRendererShell<SwordBladeEnt
         /** The floor the cant is held above. Below this the blade is nearly nose-on again. */
         public static final float MIN_CANT_DEGREES = 5.0F;
 
-        /** Steps of palette ramp the three bits of Edge buy. */
-        public static final int RAMP_STEPS = 8;
-
-        /** The Edge at which a blade is as dark and as heavy as the ramp goes. */
-        public static final int RAMP_FULL_EDGE = 12;
-
         /**
          * How far off its own flight line a blade still catches, in blocks.
          *
          * <p>{@code SwordBladeEntity} is registered {@code .sized(0.3F, 0.3F)} and sweeps its box
          * with {@code SWEEP_SLACK = 0.3}, and every candidate body's box is inflated by the same
          * slack, so 0.15 + 0.3 is what the raycast actually reaches sideways. The drawn steel must
-         * sit inside it; the aura and the glint deliberately need not, because those are light and
-         * light is allowed to spill past the edge that cuts.
+         * sit inside it, or the picture promises a hit the raycast never makes.
          */
         public static final double CATCH_HALF_EXTENT = 0.45D;
 
@@ -415,104 +328,7 @@ public final class SwordBladeRenderer extends ProfileRendererShell<SwordBladeEnt
          */
         public static final double FLIGHT_PER_TICK = 1.8D;
 
-        /** The tightest the aura ever sits, as a multiple of the steel's own half-breadth. */
-        public static final float SHEATH_MIN = 1.15F;
-
-        /** The widest it ever stands off, at full Edge. Heavy metal carries a heavier halo. */
-        public static final float SHEATH_MAX = 1.45F;
-
-        /** The glint, sized against the flat of the blade: a highlight on it, not a lamp beside it. */
-        public static final float HEAD_SCALE = 0.35F;
-
-        /**
-         * How warm a colour has to read before the steel itself flushes.
-         *
-         * <p>Warmth is the red channel's lead over the better of the other two, so it is a property
-         * of the colour rather than of which red the Array happens to mix toward, and every cool
-         * pewter on the SWORD ramp starts well negative. Sixty puts the crossing at 0.44 strain for
-         * a one-Edge blade and 0.46 for a twelve-Edge one - near enough the same rung at both ends
-         * that a heavy blade does not warn later than a thin one.
-         */
-        public static final int FLUSH_WARMTH = 60;
-
-        /** The far end of vanilla's white overlay column, where the wash is at its strongest. */
-        public static final int OVERLAY_U_FULL = 15;
-
         private Geometry() {
-        }
-
-        /** The glint's radius in blocks. */
-        public static float headRadius() {
-            return HALF_BREADTH * HEAD_SCALE;
-        }
-
-        /**
-         * How far the aura stands off the blade's centreline at this Edge, in blocks.
-         *
-         * <p>Never inside {@link #HALF_BREADTH}, or the light would be hidden by the sword it is
-         * lighting and the whole Edge reading would go with it.
-         */
-        public static float sheathHalfWidth(int edge) {
-            float ramp = edgeRamp(edge) / (RAMP_STEPS - 1.0F);
-            return HALF_BREADTH * (SHEATH_MIN + (SHEATH_MAX - SHEATH_MIN) * ramp);
-        }
-
-        /** Three bits of palette ramp off the Edge already on the wire: 0 is a needle, 7 is a slab. */
-        public static int edgeRamp(int edge) {
-            int clamped = Math.max(1, Math.min(RAMP_FULL_EDGE, edge));
-            return Math.round((clamped - 1) * (RAMP_STEPS - 1.0F) / (RAMP_FULL_EDGE - 1.0F));
-        }
-
-        /** Bright pewter at one Edge, the school's own shadow at twelve. Heavy metal reads heavy. */
-        public static int edgeColor(int edge) {
-            SchoolMaterial material = SchoolMaterial.of(MagicSchool.SWORD);
-            return lerpRgb(material.variantColor(1), material.variantColor(2),
-                    edgeRamp(edge) / (RAMP_STEPS - 1.0F));
-        }
-
-        /** Channel-wise, because these are two points on one metal ramp and not two separate inks. */
-        public static int lerpRgb(int from, int to, float t) {
-            float k = Math.max(0.0F, Math.min(1.0F, t));
-            int r = Math.round(((from >> 16) & 0xFF) + (((to >> 16) & 0xFF) - ((from >> 16) & 0xFF)) * k);
-            int g = Math.round(((from >> 8) & 0xFF) + (((to >> 8) & 0xFF) - ((from >> 8) & 0xFF)) * k);
-            int b = Math.round((from & 0xFF) + ((to & 0xFF) - (from & 0xFF)) * k);
-            return (r << 16) | (g << 8) | b;
-        }
-
-        /** The red channel's lead over the better of the other two. Negative for every pewter. */
-        public static int warmth(int rgb) {
-            return ((rgb >> 16) & 0xFF) - Math.max((rgb >> 8) & 0xFF, rgb & 0xFF);
-        }
-
-        /**
-         * Whether the steel itself takes vanilla's red overlay row.
-         *
-         * <p>A rung rather than a ramp, because that row is one fixed red and the overlay's only
-         * continuous axis is already spent on the wash. The continuous half of the strain reading
-         * is the aura, which takes the mixed colour whole.
-         */
-        public static boolean steelFlushes(int rgb) {
-            return warmth(rgb) >= FLUSH_WARMTH;
-        }
-
-        /**
-         * How little of a blade this is, as one number: a Mirror twin is half-real and a blade out
-         * of time is on its way to nothing, and to a picture that cannot fade those are the same
-         * complaint. The worse of the two wins, so a dissolving twin does not read as more solid
-         * than a dissolving blade.
-         */
-        public static float ghost(float alpha, float integrity) {
-            return Math.max(0.0F, Math.min(1.0F, Math.max(1.0F - alpha, integrity)));
-        }
-
-        /**
-         * Vanilla's overlay u for that pallor: column 0 is the no-white end, 15 the far end.
-         *
-         * <p>{@code OverlayTexture.pack(0, WHITE_OVERLAY_V)} is exactly {@code NO_OVERLAY}, so a
-         * solid whole blade asks for nothing and pays nothing.
-         */
-        public static int whiteOut(float pallor) {
-            return Math.round(Math.max(0.0F, Math.min(1.0F, pallor)) * OVERLAY_U_FULL);
         }
 
         /**
@@ -520,8 +336,7 @@ public final class SwordBladeRenderer extends ProfileRendererShell<SwordBladeEnt
          *
          * <p>Never above {@link #SCALE}, which is the scale every bound in this class was measured
          * at, and zero once the blade is gone - a conjured thing closes on nothing rather than
-         * popping out at full size, which is what the {@code shard_body} crack band used to do
-         * before the steel became a model that cannot crack.
+         * popping out at full size.
          */
         public static float drawnScale(float integrity) {
             return SCALE * (1.0F - Math.max(0.0F, Math.min(1.0F, integrity)));

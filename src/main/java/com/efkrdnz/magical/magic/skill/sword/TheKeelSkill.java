@@ -26,7 +26,6 @@ import com.efkrdnz.magical.magic.visual.ReleaseMode;
 import com.efkrdnz.magical.magic.visual.SchoolMaterial;
 import com.efkrdnz.magical.magic.visual.Silhouette;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
-import com.efkrdnz.magical.magic.visual.TierProfile;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.HashMap;
@@ -104,23 +103,6 @@ public final class TheKeelSkill implements SkillModule {
 
     /** One hit of this much ends a ride. A rider is fast, not safe, and a bow answers it. */
     public static final float RIDE_BREAK_DAMAGE = 4.0F;
-
-    /**
-     * The cast circle's radius in blocks, and it is the blade under the feet.
-     *
-     * <p>Every tier below zero resolves to {@code TierProfile.forTier(4)}, whose radius is 3.0
-     * and whose {@code throughTerrain} is true - so this skill's {@code GROUND} circle was a
-     * six-block disc under the caster with no depth test, drawn over the wielder's own legs and
-     * over everything between the floor and the camera. The thing the circle is about is the one
-     * station that comes under the feet, and a station is a bearing at
-     * {@link Station#REACH_MIN}..{@link Station#REACH_MAX} blocks: one block of radius is the
-     * shortest arm in the structure, which is the widest a mark can be and still be a mark of
-     * <em>one</em> place to stand rather than of the whole formation.
-     *
-     * <p>Like the Bearing's, this circle does not draw today: the handler is self-managed, so
-     * {@code castViaRegistry} returns before {@code SpellFx.windup}. The number is right anyway.
-     */
-    public static final float FOOTING_RADIUS = 1.0F;
 
     /** Live rides, keyed by wielder. Never saved: a ride does not survive a logout or a portal. */
     private static final Map<UUID, Ride> RIDES = new HashMap<>();
@@ -452,14 +434,17 @@ public final class TheKeelSkill implements SkillModule {
                         .band(GlyphKind.TICK_BAND, 30, ColorRole.BRIGHT)
                         .band(GlyphKind.DASHED_RING, 10, ColorRole.DIM)
                         .core(CoreKind.CROSS, ColorRole.HOT).spin(SpinSignature.STATIC))
-                .anchor(CircleAnchor.GROUND)
-                .tier(TierProfile.forTier(definition().tier()).withRadius(FOOTING_RADIUS))
-                // A circle lying on the floor under the caster, drawn with no depth test, is
-                // painted over the caster's own legs and over anything they are standing behind.
-                // Below took the same decision for the same reason.
-                .throughTerrain(false)
-                .silhouette(Silhouette.body(Silhouette.Form.CAGE, FxKinds.Body.METAL_BANDS, 4, 0.5F, 1.1F))
-                .release(ReleaseMode.LIFT, ProfileCues.FirstPersonPreset.CASTER_LIGHT)
+                // Never hung in the world: the circle is where the HUD card takes its emblem from.
+                .anchor(CircleAnchor.NONE)
+                // Held out. The board under the feet is a sword of the formation and
+                // SwordArrayRenderer draws it; nothing carries this profile onto an entity of its
+                // own, and VisualProfile has no way to carry no silhouette at all.
+                .silhouette(Silhouette.custom("the_keel", 1.0F).forModes())
+                .release(ReleaseMode.LIFT, ProfileCues.FirstPersonPreset.NONE)
+                .firstPerson(ProfileCues.FirstPersonSpec.NONE)
+                // Never fired: no sword hit goes through SpellFx.impact, and SwordSteelOnlyTest holds
+                // that. It stays because VisualProfiles.validate keys every school victim overlay, and
+                // six Sword profiles on the default overlay is five hard collisions at common setup.
                 .impact(FxKinds.Mark.LATTICE_GRID, FxKinds.Smoke.SPARK_STREAK, FxKinds.Overlay.HEAT_SHIMMER)
                 .budget(2)
                 .bounds(3.0F, 2.0F, 2.0F);

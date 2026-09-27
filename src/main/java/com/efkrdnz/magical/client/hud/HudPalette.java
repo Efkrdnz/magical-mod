@@ -36,11 +36,9 @@ public final class HudPalette {
     /** Fixed on purpose: the barrier has to read the same whatever school tints the mana. */
     public static final int BARRIER = 0xC8F0F4;
     /**
-     * Cinnabar: the mod's one "you are over the line" colour, and the Array's strain wears it.
+     * Cinnabar: the mod's one "you are over the line" colour.
      *
-     * <p>The same literal {@code SwordArrayRenderer.STRAIN_RED} and {@code SwordBearingOverlay}
-     * use, so a bill past the draw reads identically on the sigil, in the plot and on the steel
-     * itself. It is not {@link #DANGER}, which is the barrier's blood and already means something.
+     * <p>It is not {@link #DANGER}, which is the barrier's blood and already means something.
      */
     public static final int STRAIN = 0xD4402F;
 
