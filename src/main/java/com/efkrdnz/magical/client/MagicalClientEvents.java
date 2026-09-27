@@ -110,6 +110,19 @@ public final class MagicalClientEvents {
         com.efkrdnz.magical.client.renderer.fx.MagicalFxRenderTypes.registerShaders(event);
     }
 
+    /** The mod's four tinted sprites, one class moving them four ways. See {@code MagicalParticles}. */
+    @SubscribeEvent
+    public static void registerParticleProviders(net.neoforged.neoforge.client.event.RegisterParticleProvidersEvent event) {
+        event.registerSpriteSet(com.efkrdnz.magical.registry.MagicalParticles.RUNE.get(),
+                sprites -> new com.efkrdnz.magical.client.particle.TintedSpriteParticle.Provider(sprites, com.efkrdnz.magical.client.particle.TintedSpriteParticle.Motion.RUNE));
+        event.registerSpriteSet(com.efkrdnz.magical.registry.MagicalParticles.SHARD.get(),
+                sprites -> new com.efkrdnz.magical.client.particle.TintedSpriteParticle.Provider(sprites, com.efkrdnz.magical.client.particle.TintedSpriteParticle.Motion.SHARD));
+        event.registerSpriteSet(com.efkrdnz.magical.registry.MagicalParticles.MOTE.get(),
+                sprites -> new com.efkrdnz.magical.client.particle.TintedSpriteParticle.Provider(sprites, com.efkrdnz.magical.client.particle.TintedSpriteParticle.Motion.MOTE));
+        event.registerSpriteSet(com.efkrdnz.magical.registry.MagicalParticles.WISP.get(),
+                sprites -> new com.efkrdnz.magical.client.particle.TintedSpriteParticle.Provider(sprites, com.efkrdnz.magical.client.particle.TintedSpriteParticle.Motion.WISP));
+    }
+
     @SubscribeEvent
     public static void registerRenderBuffers(net.neoforged.neoforge.client.event.RegisterRenderBuffersEvent event) {
         com.efkrdnz.magical.client.renderer.fx.MagicalFxRenderTypes.registerRenderBuffers(event);
@@ -235,6 +248,9 @@ public final class MagicalClientEvents {
                 FirstPersonEffects.tick(minecraft);
                 com.efkrdnz.magical.client.fx.TransientVisuals.tick();
                 com.efkrdnz.magical.client.fx.SpellParticles.tick();
+                if (minecraft.level != null && !minecraft.isPaused()) {
+                    com.efkrdnz.magical.client.fx.SpellAccents.tickTrails(minecraft.level);
+                }
                 // Still ticked with a screen open: it drops any pending press or running charge
                 // rather than firing it the moment the screen closes.
                 ForgeComboInput.tick(minecraft);
@@ -244,6 +260,9 @@ public final class MagicalClientEvents {
             FirstPersonEffects.tick(minecraft);
             com.efkrdnz.magical.client.fx.TransientVisuals.tick();
             com.efkrdnz.magical.client.fx.SpellParticles.tick();
+            if (minecraft.level != null && !minecraft.isPaused()) {
+                com.efkrdnz.magical.client.fx.SpellAccents.tickTrails(minecraft.level);
+            }
             ClientStatusState.tick(minecraft);
             com.efkrdnz.magical.client.hud.ClientCooldowns.tick(minecraft);
             GenericHoldInput.tick(minecraft);

@@ -39,7 +39,8 @@ public record VisualProfile(
         int budgetClass,
         BoundsSpec bounds,
         boolean holdable,
-        boolean explicit) {
+        boolean explicit,
+        Accent accent) {
 
     public Silhouette primary() {
         return silhouettes.get(0);
@@ -60,6 +61,23 @@ public record VisualProfile(
     /** A never-null fallback so a half-registered skill renders instead of crashing. */
     public static VisualProfile defaultFor(MagicSkillDefinition definition) {
         return builder(definition).explicit(false).build();
+    }
+
+    /**
+     * The matter this profile throws, or {@link Accent#NONE}.
+     *
+     * <p>Named on the builder, or else the school's: except that an Authority keeps the look it
+     * was designed with whatever it names, and a skill still on a default profile keeps the old
+     * look until somebody writes it one. See {@link Accent}.
+     */
+    public static Accent resolveAccent(MagicSkillDefinition definition, SchoolMaterial material, Accent named, boolean explicit) {
+        if (com.efkrdnz.magical.magic.MagicContent.isAuthoritySkill(definition.id())) {
+            return Accent.NONE;
+        }
+        if (named != null) {
+            return named;
+        }
+        return explicit ? Accent.of(material) : Accent.NONE;
     }
 
     public static final class Builder {
@@ -84,6 +102,7 @@ public record VisualProfile(
         private BoundsSpec bounds = BoundsSpec.DEFAULT;
         private boolean holdable;
         private boolean explicit = true;
+        private Accent accent;
         private FxKinds.Mark impactMark = FxKinds.Mark.SHOCK_RING;
         private FxKinds.Smoke impactMatter = FxKinds.Smoke.DUST;
         private FxKinds.Overlay victimOverlay = FxKinds.Overlay.VIGNETTE;
@@ -116,6 +135,12 @@ public record VisualProfile(
         public Builder bounds(float horizontal, float up, float down) { this.bounds = new BoundsSpec(horizontal, up, down); return this; }
         public Builder holdable(boolean value) { this.holdable = value; return this; }
         public Builder explicit(boolean value) { this.explicit = value; return this; }
+        /** The matter this skill throws; {@link Accent#NONE} keeps the old all-shader look. See {@link Accent}. */
+        public Builder accent(Accent value) { this.accent = value; return this; }
+
+        private Accent resolveAccent() {
+            return VisualProfile.resolveAccent(definition, material, accent, explicit);
+        }
 
         public VisualProfile build() {
             int t = definition.tier();
@@ -133,7 +158,7 @@ public record VisualProfile(
             }
             boolean through = windupThroughTerrain != null ? windupThroughTerrain : tp.throughTerrain();
             return new VisualProfile(definition.id(), material, paletteVariant, pal, tp, cast, anchor, through, delivery, wu, release,
-                    List.copyOf(silhouettes), trail, imp, linger, firstPerson, snd, budget, bounds, holdable, explicit);
+                    List.copyOf(silhouettes), trail, imp, linger, firstPerson, snd, budget, bounds, holdable, explicit, resolveAccent());
         }
     }
 }

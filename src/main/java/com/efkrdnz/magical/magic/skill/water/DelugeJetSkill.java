@@ -11,6 +11,7 @@ import com.efkrdnz.magical.magic.cast.MobCastProfile;
 import com.efkrdnz.magical.magic.cast.SkillCastHandler;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
+import com.efkrdnz.magical.magic.visual.Accent;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
 import com.efkrdnz.magical.magic.visual.CircleScript;
 import com.efkrdnz.magical.magic.visual.CoreKind;
@@ -167,6 +168,8 @@ public final class DelugeJetSkill implements SkillModule {
     @Override
     public VisualProfile.Builder profile() {
         return VisualProfile.builder(definition())
+                // a jet, drawn as a beam is light all the way through: it has no matter to hand the particle engine
+                .accent(Accent.NONE)
                 .material(SchoolMaterial.WATER)
                 .circle(CircleScript.of(SchoolMaterial.WATER).emblem(EmblemId.DROP).frame(3).band(GlyphKind.DASHED_RING, 24).spokes(12, 0.3F, true).stamps(StampId.NEEDLE, 3).core(CoreKind.SUNBURST).spin(SpinSignature.COUNTER_FAST))
                 .anchor(CircleAnchor.EYE_FORWARD)

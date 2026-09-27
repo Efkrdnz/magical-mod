@@ -11,6 +11,7 @@ import com.efkrdnz.magical.magic.cast.SkillCastHandler;
 import com.efkrdnz.magical.magic.cast.TuningView;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
+import com.efkrdnz.magical.magic.visual.Accent;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
 import com.efkrdnz.magical.magic.visual.CircleScript;
 import com.efkrdnz.magical.magic.visual.CoreKind;
@@ -193,6 +194,8 @@ public final class PrismCascadeSkill implements SkillModule {
     @Override
     public VisualProfile.Builder profile() {
         return VisualProfile.builder(definition())
+                // a beam is light all the way through: it has no matter to hand the particle engine
+                .accent(Accent.NONE)
                 .material(SchoolMaterial.LIGHT)
                 .circle(CircleScript.of(SchoolMaterial.LIGHT).emblem(EmblemId.ARROW).frame(5).band(GlyphKind.RUNE_BAND, 14).stamps(StampId.FEATHER_ARC, 5).star(10, 3).spokes(5, 0.3F, true).orbit(5, 0.84F, 5).core(CoreKind.SUNBURST).stack(2, 0.35F).spin(SpinSignature.COUNTER_FAST))
                 .anchor(CircleAnchor.EYE_FORWARD)

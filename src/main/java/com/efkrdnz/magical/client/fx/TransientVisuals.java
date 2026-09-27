@@ -7,6 +7,7 @@ import com.efkrdnz.magical.client.renderer.fx.paint.FilamentPainter;
 import com.efkrdnz.magical.client.renderer.fx.paint.GlyphCirclePainter;
 import com.efkrdnz.magical.client.renderer.fx.paint.MarkPainter;
 import com.efkrdnz.magical.client.renderer.fx.paint.OrbPainter;
+import com.efkrdnz.magical.magic.visual.AccentPlan;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
 import com.efkrdnz.magical.magic.visual.CircleScript;
 import com.efkrdnz.magical.magic.visual.ColorRole;
@@ -59,10 +60,27 @@ public final class TransientVisuals {
     public static void handle(VisualCuePayload payload) {
         VisualProfile profile = VisualProfiles.byIndex(payload.skillIndex());
         ProfileCues.TrailSpec trail = profile.trail();
+        // An accented profile hands its matter to SpellAccents and keeps only its light here, drawn
+        // lighter: see AccentPlan for every factor and why. A NONE profile is drawn as it always was.
+        boolean accented = profile.accent().active();
         switch (payload.cue()) {
             case VisualCuePayload.CUE_CAST_WINDUP -> {
                 int windup = Math.max(4, profile.windup().windupTicks());
-                add(new Effect(Kind.WINDUP, profile, payload, windup + profile.tier().lingerTicks(), windup));
+                Effect effect = new Effect(Kind.WINDUP, profile, payload, windup + profile.tier().lingerTicks(), windup);
+                boolean own = accented && isOwnCircle(profile, payload);
+                if (own) {
+                    float radius = profile.tier().radius();
+                    effect.circleScale = AccentPlan.ownCircleRadius(profile.anchor(), radius, profile.tier().tier()) / radius;
+                    effect.circleOpacity = AccentPlan.ownCircleOpacity(profile.anchor());
+                }
+                add(effect);
+                if (accented) {
+                    // runes lifting off a sigil held at the eyes would lift straight through the view
+                    if (!(own && profile.anchor() == CircleAnchor.EYE_FORWARD)) {
+                        SpellAccents.windup(profile, payload.pos(), profile.tier().radius() * effect.circleScale, windup);
+                    }
+                    return;
+                }
                 // rune motes lift off the band into the hand
                 int motes = Math.round(profile.windup().runeMoteCount() * FxBudget.lodMultiplier());
                 for (int i = 0; i < motes; i++) {
@@ -74,24 +92,74 @@ public final class TransientVisuals {
                 }
             }
             case VisualCuePayload.CUE_RELEASE, VisualCuePayload.CUE_MUZZLE -> {
-                add(new Effect(Kind.RELEASE, profile, payload, 8, 0));
+                add(new Effect(Kind.RELEASE, profile, payload, accented ? 6 : 8, 0));
                 ProfileCues.ReleaseCue release = profile.release();
-                SpellParticles.burst(trail.active() ? trail.kind() : profile.impact().matterKind(), payload.pos(), payload.dir(), Math.max(4, release.muzzleParticleBurst()), 0.35F, 0.16F, 14, profile.color(ColorRole.BRIGHT), 1.0F, 26);
+                int motes = Math.max(4, release.muzzleParticleBurst());
+                SpellParticles.burst(trail.active() ? trail.kind() : profile.impact().matterKind(), payload.pos(), payload.dir(), accented ? shaderShare(motes) : motes, 0.35F, 0.16F, 14, profile.color(ColorRole.BRIGHT), 1.0F, 26);
+                if (accented) {
+                    SpellAccents.release(profile, payload.pos(), payload.dir());
+                }
             }
             case VisualCuePayload.CUE_IMPACT -> {
                 ProfileCues.ImpactSpec impact = profile.impact();
-                int life = payload.victimId() >= 0
-                        ? CREATURE_IMPACT_TICKS
-                        : Math.max(10, impact.markTicks());
+                boolean onBody = payload.victimId() >= 0;
+                int markTicks = accented ? Math.min(AccentPlan.MARK_TICKS_CAP, impact.markTicks()) : impact.markTicks();
+                int life = onBody ? CREATURE_IMPACT_TICKS : Math.max(10, markTicks);
                 add(new Effect(Kind.IMPACT, profile, payload, life, 0));
-                SpellParticles.burst(impact.matterKind(), payload.pos(), payload.dir(), Math.round(impact.matterCount() * payload.scale()), impact.matterSpeed(), 0.14F + profile.tier().tier() * 0.03F, 18, profile.color(ColorRole.BASE), 1.0F, impact.matterKind().dark() ? 6 : 26);
+                int matter = Math.round(impact.matterCount() * payload.scale());
+                SpellParticles.burst(impact.matterKind(), payload.pos(), payload.dir(), accented ? shaderShare(matter) : matter, impact.matterSpeed(), 0.14F + profile.tier().tier() * 0.03F, 18, profile.color(ColorRole.BASE), 1.0F, impact.matterKind().dark() ? 6 : 26);
+                if (accented) {
+                    SpellAccents.impact(profile, payload.pos(), payload.dir(), payload.scale(), onBody);
+                }
             }
             case VisualCuePayload.CUE_DECAL -> add(new Effect(Kind.DECAL, profile, payload, Math.max(10, profile.linger().decalTicks()), 0));
-            case VisualCuePayload.CUE_BARRIER_HIT -> add(new Effect(Kind.BARRIER_HIT, profile, payload, 10, 0));
-            case VisualCuePayload.CUE_ZONE_TICK -> add(new Effect(Kind.ZONE_TICK, profile, payload, 14, 0));
-            case VisualCuePayload.CUE_PARTICLE_BURST -> SpellParticles.burst(trail.active() ? trail.kind() : profile.impact().matterKind(), payload.pos(), payload.dir(), Math.round(12 * payload.scale()), 0.3F, 0.15F, 16, profile.color(ColorRole.BASE), 1.0F, 24);
+            case VisualCuePayload.CUE_BARRIER_HIT -> {
+                add(new Effect(Kind.BARRIER_HIT, profile, payload, 10, 0));
+                if (accented) {
+                    SpellAccents.barrierHit(profile, payload.pos(), payload.dir());
+                }
+            }
+            case VisualCuePayload.CUE_ZONE_TICK -> {
+                add(new Effect(Kind.ZONE_TICK, profile, payload, 14, 0));
+                if (accented) {
+                    SpellAccents.zone(profile, payload.pos(), profile.tier().radius() * Math.max(0.2F, payload.scale()));
+                }
+            }
+            case VisualCuePayload.CUE_PARTICLE_BURST -> {
+                int motes = Math.round(12 * payload.scale());
+                SpellParticles.burst(trail.active() ? trail.kind() : profile.impact().matterKind(), payload.pos(), payload.dir(), accented ? shaderShare(motes) : motes, 0.3F, 0.15F, 16, profile.color(ColorRole.BASE), 1.0F, 24);
+                if (accented) {
+                    SpellAccents.impact(profile, payload.pos(), payload.dir(), payload.scale() * 0.6F, true);
+                }
+            }
             default -> { }
         }
+    }
+
+    /** What is left of a legacy additive burst once the matter layer throws the rest. */
+    private static int shaderShare(int count) {
+        return Math.max(2, Math.round(count * AccentPlan.SHADER_MATTER_SHARE));
+    }
+
+    /**
+     * True when a windup is the viewer's own circle, seen from inside their own head.
+     *
+     * <p>A circle a block in front of the eyes, or under the feet, is drawn for everybody else at
+     * the distance they stand from it. Seen from the caster's own camera it is the whole of the
+     * frame, which is the single largest thing the capture of the roster showed. Someone standing
+     * right beside the caster gets the caster's view of it too, which is the price of deciding it
+     * from a position rather than an entity id the cue does not carry.
+     */
+    private static boolean isOwnCircle(VisualProfile profile, VisualCuePayload payload) {
+        if (profile.anchor() != CircleAnchor.EYE_FORWARD && profile.anchor() != CircleAnchor.GROUND) {
+            return false;
+        }
+        Minecraft minecraft = Minecraft.getInstance();
+        if (!minecraft.options.getCameraType().isFirstPerson()) {
+            return false;
+        }
+        double reach = AccentPlan.OWN_CIRCLE_REACH;
+        return minecraft.gameRenderer.getMainCamera().getPosition().distanceToSqr(payload.pos()) < reach * reach;
     }
 
     private static void add(Effect effect) {
@@ -177,6 +245,9 @@ public final class TransientVisuals {
         private final int windup;
         private final int seed;
         private int age;
+        /** The viewer's own circle is drawn smaller and fainter; see {@link #isOwnCircle}. */
+        private float circleScale = 1.0F;
+        private float circleOpacity = 1.0F;
 
         private Effect(Kind kind, VisualProfile profile, VisualCuePayload payload, int life, int windup) {
             this.kind = kind;
@@ -201,6 +272,7 @@ public final class TransientVisuals {
             PoseStack pose = ctx.pose;
             CircleScript script = payload.sneak() ? profile.castCircle().mirroredSpin() : profile.castCircle();
             float radius = profile.tier().radius() * Math.max(0.2F, payload.scale());
+            boolean accented = profile.accent().active();
             switch (kind) {
                 case WINDUP -> {
                     // radius eases 0.6R -> R over the windup, release collapse after
@@ -222,17 +294,19 @@ public final class TransientVisuals {
                         opacity = 1.0F - Mth.clamp((post - 6.0F) / Math.max(1.0F, life - windup - 6.0F), 0.0F, 1.0F);
                     }
                     orientCircle(pose, ctx, profile.anchor(), payload.dir());
-                    GlyphCirclePainter.paint(script, profile.palette(), r, ctx.age, life, ctx.detail, pose, ctx.buffers, seed, through, opacity, 0.0F);
+                    GlyphCirclePainter.paint(script, profile.palette(), r * circleScale, ctx.age, life, ctx.detail, pose, ctx.buffers, seed, through, opacity * circleOpacity, 0.0F);
                     if (!through && post <= 0.0F) {
                         pose.pushPose();
                         pose.translate(0.0F, 0.0F, 0.02F);
-                        OrbPainter.billboard(ctx, profile.windup().handOrbKind(), profile.windup().handOrbRadius() * (0.4F + 0.6F * ease), profile.color(ColorRole.HOT), 0.8F, ease, 8, 12);
+                        float orb = profile.windup().handOrbRadius() * (0.4F + 0.6F * ease) * (accented ? AccentPlan.HAND_ORB_SCALE : 1.0F);
+                        OrbPainter.billboard(ctx, profile.windup().handOrbKind(), orb, profile.color(ColorRole.HOT), accented ? 0.55F : 0.8F, ease, 8, 12);
                         pose.popPose();
                     }
                 }
                 case RELEASE -> {
                     float p = ctx.age / (float) life;
-                    OrbPainter.billboard(ctx, profile.release().muzzleFlashKind(), 0.5F + profile.tier().tier() * 0.15F, profile.color(ColorRole.HOT), 1.0F, p, 8, 10);
+                    float muzzle = (0.5F + profile.tier().tier() * 0.15F) * (accented ? AccentPlan.MUZZLE_SCALE : 1.0F);
+                    OrbPainter.billboard(ctx, profile.release().muzzleFlashKind(), muzzle, profile.color(accented ? ColorRole.BRIGHT : ColorRole.HOT), accented ? 0.7F : 1.0F, p, 8, 10);
                     if (profile.release().mode() == ReleaseMode.SLAM) {
                         pose.pushPose();
                         pose.mulPose(Axis.XP.rotationDegrees(90.0F));
@@ -243,9 +317,17 @@ public final class TransientVisuals {
                 case IMPACT -> {
                     ProfileCues.ImpactSpec impact = profile.impact();
                     float p = ctx.age / (float) life;
-                    float flashLife = Math.min(1.0F, ctx.age / 8.0F);
-                    if (ctx.age < 10.0F) {
-                        OrbPainter.billboard(ctx, impact.flashKind(), impact.flashSize() * 1.6F * payload.scale(), profile.color(ColorRole.HOT), 1.0F, flashLife, 8, 12);
+                    if (accented) {
+                        // a spark at the point, not a sun: the matter layer carries the rest of the hit
+                        float flashTicks = AccentPlan.FLASH_TICKS;
+                        if (ctx.age < flashTicks) {
+                            OrbPainter.billboard(ctx, impact.flashKind(), impact.flashSize() * AccentPlan.FLASH_SCALE * payload.scale(), profile.color(ColorRole.BRIGHT), AccentPlan.FLASH_OPACITY, ctx.age / flashTicks, 8, 12);
+                        }
+                    } else {
+                        float flashLife = Math.min(1.0F, ctx.age / 8.0F);
+                        if (ctx.age < 10.0F) {
+                            OrbPainter.billboard(ctx, impact.flashKind(), impact.flashSize() * AccentPlan.LEGACY_FLASH_SCALE * payload.scale(), profile.color(ColorRole.HOT), 1.0F, flashLife, 8, 12);
+                        }
                     }
                     // Nothing flat on a living target. The mark and the delivery stamp are single
                     // quads held at the hit normal, while position() drags them along with the
@@ -259,8 +341,9 @@ public final class TransientVisuals {
                         pose.pushPose();
                         orientToNormal(pose, payload.dir());
                         pose.translate(0.0F, 0.0F, 0.03F);
-                        MarkPainter.mark(ctx, impact.markKind(), (0.8F + 0.35F * payload.scale()) * (1.0F + profile.tier().tier() * 0.25F), profile.color(ColorRole.BASE), 1.0F - p * 0.6F, p, 8, 6);
-                        if (impact.stampDeliveryCircle() && ctx.age < 16.0F) {
+                        MarkPainter.mark(ctx, impact.markKind(), (0.8F + 0.35F * payload.scale()) * (1.0F + profile.tier().tier() * 0.25F), profile.color(ColorRole.BASE), (1.0F - p * 0.6F) * (accented ? 0.8F : 1.0F), p, 8, 6);
+                        // an accented hit does not stamp a second glyph circle over its own mark
+                        if (impact.stampDeliveryCircle() && !accented && ctx.age < 16.0F) {
                             // the delivery circle blinks in and un-draws backward: reversed lifecycle over 16 ticks
                             float stampAge = 16.0F - ctx.age;
                             pose.translate(0.0F, 0.0F, 0.02F);
@@ -289,7 +372,7 @@ public final class TransientVisuals {
                     pose.pushPose();
                     pose.mulPose(Axis.XP.rotationDegrees(90.0F));
                     pose.translate(0.0F, 0.0F, 0.02F);
-                    MarkPainter.mark(ctx, FxKinds.Mark.RIPPLES, radius * payload.scale(), profile.color(ColorRole.BASE), 0.8F - p * 0.8F, p, 3, 6);
+                    MarkPainter.mark(ctx, FxKinds.Mark.RIPPLES, radius * payload.scale(), profile.color(ColorRole.BASE), (0.8F - p * 0.8F) * (accented ? 0.7F : 1.0F), p, 3, 6);
                     pose.popPose();
                 }
             }

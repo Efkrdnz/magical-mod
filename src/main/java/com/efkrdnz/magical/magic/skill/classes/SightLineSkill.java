@@ -12,6 +12,7 @@ import com.efkrdnz.magical.magic.cast.SkillCastHandler;
 import com.efkrdnz.magical.magic.cast.TuningView;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
+import com.efkrdnz.magical.magic.visual.Accent;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
 import com.efkrdnz.magical.magic.visual.CircleScript;
 import com.efkrdnz.magical.magic.visual.CoreKind;
@@ -121,6 +122,8 @@ public final class SightLineSkill implements SkillModule {
     @Override
     public VisualProfile.Builder profile() {
         return VisualProfile.builder(definition())
+                // a sighted line is light all the way through: it has no matter to hand the particle engine
+                .accent(Accent.NONE)
                 .material(SchoolMaterial.SPATIAL)
                 .palette(3)
                 .circle(CircleScript.of(SchoolMaterial.SPATIAL).emblem(EmblemId.FEATHER).frame(11).band(GlyphKind.DASHED_RING, 32).band(GlyphKind.CHAIN_BAND, 4).stamps(StampId.CROSS, 12).core(CoreKind.IRIS).spin(SpinSignature.ONE_WAY_FAST))

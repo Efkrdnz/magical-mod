@@ -15,6 +15,7 @@ import com.efkrdnz.magical.magic.skill.SkillModule;
 import com.efkrdnz.magical.magic.status.MagicStatus;
 import com.efkrdnz.magical.magic.status.MagicStatusData;
 import com.efkrdnz.magical.magic.status.MagicStatusService;
+import com.efkrdnz.magical.magic.visual.Accent;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
 import com.efkrdnz.magical.magic.visual.CircleScript;
 import com.efkrdnz.magical.magic.visual.CoreKind;
@@ -166,6 +167,8 @@ public final class HeavensGazeSkill implements SkillModule {
     @Override
     public VisualProfile.Builder profile() {
         return VisualProfile.builder(definition())
+                // a beam is light all the way through: it has no matter to hand the particle engine
+                .accent(Accent.NONE)
                 .material(SchoolMaterial.LIGHT)
                 .circle(CircleScript.of(SchoolMaterial.LIGHT).emblem(EmblemId.EYE).frame(12).band(GlyphKind.TOOTH_BAND, 24).band(GlyphKind.CHAIN_BAND, 12, com.efkrdnz.magical.magic.visual.ColorRole.BASE).band(GlyphKind.RUNE_BAND, 24, com.efkrdnz.magical.magic.visual.ColorRole.DIM).stamps(StampId.EYE, 6).spokes(12, 0.3F, false).orbit(7, 0.9F, 6).core(CoreKind.IRIS).stack(3, 0.6F).spin(SpinSignature.COUNTER_SLOW))
                 .anchor(CircleAnchor.GROUND)

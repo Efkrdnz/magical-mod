@@ -13,6 +13,7 @@ import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
 import com.efkrdnz.magical.magic.status.MagicStatus;
 import com.efkrdnz.magical.magic.status.MagicStatusService;
+import com.efkrdnz.magical.magic.visual.Accent;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
 import com.efkrdnz.magical.magic.visual.CircleScript;
 import com.efkrdnz.magical.magic.visual.CoreKind;
@@ -144,6 +145,8 @@ public final class CleansingRaySkill implements SkillModule {
     @Override
     public VisualProfile.Builder profile() {
         return VisualProfile.builder(definition())
+                // a beam is light all the way through: it has no matter to hand the particle engine
+                .accent(Accent.NONE)
                 .material(SchoolMaterial.LIGHT)
                 .circle(CircleScript.of(SchoolMaterial.LIGHT).emblem(EmblemId.SCRIPTURE).frame(8).band(GlyphKind.RUNE_BAND, 24).stamps(StampId.CROSS, 3).spokes(3, 0.3F, true).orbit(3, 0.84F, 4).core(CoreKind.SUNBURST).spin(SpinSignature.COUNTER_SLOW))
                 .anchor(CircleAnchor.EYE_FORWARD)
