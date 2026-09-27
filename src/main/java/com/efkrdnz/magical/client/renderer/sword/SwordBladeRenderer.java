@@ -4,6 +4,7 @@ import com.efkrdnz.magical.client.renderer.fx.FxBudget;
 import com.efkrdnz.magical.client.renderer.fx.FxContext;
 import com.efkrdnz.magical.client.renderer.fx.ProfileRendererShell;
 import com.efkrdnz.magical.client.renderer.fx.paint.FilamentPainter;
+import com.efkrdnz.magical.client.renderer.forge.ForgeView;
 import com.efkrdnz.magical.entity.sword.SwordBladeEntity;
 import com.efkrdnz.magical.forge.weapon.MagicalWeapons;
 import com.efkrdnz.magical.registry.MagicalItems;
@@ -92,6 +93,8 @@ public final class SwordBladeRenderer extends ProfileRendererShell<SwordBladeEnt
         /** Which way the blade points. A standing blade has none of its own and stands point-down. */
         public Vec3 heading = new Vec3(0.0D, 0.0D, 1.0D);
         public float integrity;
+        /** What it flies as: a racked weapon, or empty for Duskfall. */
+        public ItemStack arm = ItemStack.EMPTY;
     }
 
     @Override
@@ -119,6 +122,7 @@ public final class SwordBladeRenderer extends ProfileRendererShell<SwordBladeEnt
         // and a flying one never reaches it.
         float progress = lying ? Math.min(1.0F, Math.max(0.0F, entity.value())) : 0.0F;
         state.integrity = progress <= DISSOLVE_FROM ? 0.0F : (progress - DISSOLVE_FROM) / (1.0F - DISSOLVE_FROM);
+        state.arm = entity.arm();
     }
 
     @Override
@@ -128,7 +132,7 @@ public final class SwordBladeRenderer extends ProfileRendererShell<SwordBladeEnt
         FxContext ctx = new FxContext(pose, buffers, state.partialTick,
                 entityRenderDispatcher.cameraOrientation(), state.cameraOffset)
                 .timing(state.age, state.life, state.seed);
-        blade(ctx, state.heading, state.integrity);
+        blade(ctx, state.heading, state.integrity, state.arm);
     }
 
     // ---- the steel, shared with the Array and the painters -----------------------------------------
@@ -142,6 +146,11 @@ public final class SwordBladeRenderer extends ProfileRendererShell<SwordBladeEnt
      * @param integrity how far a blade out of time has come apart: 0 is whole, 1 has gone
      */
     public static void blade(FxContext ctx, Vec3 heading, float integrity) {
+        blade(ctx, heading, integrity, ItemStack.EMPTY);
+    }
+
+    /** The same blade flying as a racked weapon: {@code arm} empty is Duskfall. */
+    public static void blade(FxContext ctx, Vec3 heading, float integrity, ItemStack arm) {
         PoseStack pose = ctx.pose;
         pose.pushPose();
         FilamentPainter.orientAlong(pose, heading);
@@ -150,7 +159,7 @@ public final class SwordBladeRenderer extends ProfileRendererShell<SwordBladeEnt
         // is CANT_YAW degrees off the flight vector at every bearing and pitch there is.
         pose.mulPose(Axis.ZP.rotationDegrees(Geometry.CANT_ROLL));
         pose.mulPose(Axis.YP.rotationDegrees(Geometry.CANT_YAW));
-        model(ctx, Geometry.drawnScale(integrity));
+        model(ctx, Geometry.drawnScale(integrity), arm);
         pose.popPose();
     }
 
@@ -159,16 +168,31 @@ public final class SwordBladeRenderer extends ProfileRendererShell<SwordBladeEnt
      * its length: steel that is held or that comes up out of the ground rather than flown.
      */
     public static void steel(FxContext ctx, Vec3 heading, float scale) {
+        steel(ctx, heading, scale, ItemStack.EMPTY);
+    }
+
+    /** The same, as a racked weapon: {@code arm} empty is Duskfall. */
+    public static void steel(FxContext ctx, Vec3 heading, float scale, ItemStack arm) {
         PoseStack pose = ctx.pose;
         pose.pushPose();
         FilamentPainter.orientAlong(pose, heading);
-        model(ctx, scale);
+        model(ctx, scale, arm);
         pose.popPose();
     }
 
-    /** The model itself, point down local +Z, centred on the middle of its length. */
-    private static void model(FxContext ctx, float scale) {
-        if (Steel.STACK.isEmpty() || scale <= 0.0F) {
+    /**
+     * The model itself, point down local +Z, centred on the middle of its length: Duskfall, or a
+     * racked weapon's icon. A racked Duskfall is Duskfall, because its model is the real thing.
+     */
+    private static void model(FxContext ctx, float scale, ItemStack arm) {
+        if (scale <= 0.0F) {
+            return;
+        }
+        if (arm != null && !arm.isEmpty() && !arm.is(Steel.STACK.getItem())) {
+            icon(ctx, scale, arm);
+            return;
+        }
+        if (Steel.STACK.isEmpty()) {
             return;
         }
         PoseStack pose = ctx.pose;
@@ -187,6 +211,40 @@ public final class SwordBladeRenderer extends ProfileRendererShell<SwordBladeEnt
         // 780 quads a blade, counted so FxBudget.pressure() falls and every other effect in the
         // frame demotes around the thing the frame is actually of.
         FxBudget.countQuads(Geometry.MODEL_QUADS);
+    }
+
+    /**
+     * A racked weapon, drawn as the picture the player knows it by: its inventory icon, corner to
+     * corner along the bearing. The {@code GUI} context is chosen for that reason - it is the flat
+     * icon for every weapon, a trident's included, where the in-hand context hands some of them a
+     * 3D model that points nowhere in particular.
+     *
+     * <p>An icon's blade runs from its lower left to its upper right, so an eighth of a turn about
+     * its face lays that diagonal up the item's +Y, and the same quarter turn Duskfall takes lays
+     * +Y down the bearing. Sized against Duskfall's own drawn scale, so a dissolving or a Below
+     * blade shrinks with the steel it stands in for.
+     *
+     * <p><b>It turns about its own length to face the viewer.</b> Duskfall is a solid and reads
+     * from any side; an icon is a sheet, and a sheet seen along its own plane is a dark line -
+     * which is what a Guard formation seen from behind its wielder was, six black bars. So the
+     * sheet keeps its long axis on the (canted) bearing and spins round it until its face points
+     * at the eye, read off the pose the way {@link ForgeView#eye} reads it for a strike. After the
+     * quarter turn the face looks down local -Y, so the turn that points it at an eye at
+     * {@code (x, y)} is {@code atan2(x, -y)}.
+     */
+    private static void icon(FxContext ctx, float scale, ItemStack arm) {
+        PoseStack pose = ctx.pose;
+        pose.pushPose();
+        float[] eye = ForgeView.eye(pose.last().pose());
+        pose.mulPose(Axis.ZP.rotation((float) Math.atan2(eye[0], -eye[1])));
+        pose.mulPose(Axis.XP.rotationDegrees(90.0F));
+        pose.mulPose(Axis.ZP.rotationDegrees(45.0F));
+        float size = Geometry.ICON_SCALE * scale / Geometry.SCALE;
+        pose.scale(size, size, size);
+        Minecraft.getInstance().getItemRenderer().renderStatic(arm, ItemDisplayContext.GUI,
+                CONJURED_LIGHT, OverlayTexture.NO_OVERLAY, pose, ctx.buffers, Minecraft.getInstance().level, ctx.seed);
+        pose.popPose();
+        FxBudget.countQuads(Geometry.ICON_QUADS);
     }
 
     // ---- the pure half ---------------------------------------------------------------------------
@@ -264,6 +322,16 @@ public final class SwordBladeRenderer extends ProfileRendererShell<SwordBladeEnt
          * left against a bound that is a gameplay fact rather than a preference.
          */
         public static final float SCALE = 0.60F;
+
+        /**
+         * A racked weapon's icon at Duskfall's drawn scale: a sixteen-pixel sprite is a block across
+         * at 1:1, and its diagonal at this size is within a few percent of Duskfall's length, so a
+         * racked diamond sword and the steel it replaced read as the same size of sword.
+         */
+        public static final float ICON_SCALE = 0.85F;
+
+        /** Quads a flat item icon costs at most: its two faces and the edge strips round its pixels. */
+        public static final int ICON_QUADS = 96;
 
         /** Blocks from pommel to point, as drawn. The Array's cull box is inflated by it. */
         public static final float LENGTH = (float) ((MODEL_MAX_Y - MODEL_MIN_Y) * SCALE / MODEL_UNITS);
@@ -470,6 +538,11 @@ public final class SwordBladeRenderer extends ProfileRendererShell<SwordBladeEnt
         }
 
         /** The largest {@link #SCALE} whose drawn steel still fits the corridor at this cant. */
+        /** Half an icon's diagonal: how far a racked weapon reaches either way from its middle. */
+        public static double iconReach() {
+            return ICON_SCALE * Math.sqrt(2.0D) * 0.5D;
+        }
+
         public static double scaleCeiling() {
             double yaw = Math.toRadians(CANT_YAW);
             double breadth = MODEL_HALF_X / MODEL_UNITS;

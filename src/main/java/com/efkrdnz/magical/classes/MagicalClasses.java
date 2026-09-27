@@ -285,7 +285,7 @@ public final class MagicalClasses {
         register(new MagicalClassDefinition(SWORD_GOD, List.of(SWORD_SAINT), 3,
                 nameKey(SWORD_GOD), descriptionKey(SWORD_GOD), COST_SWORD_GOD,
                 List.of(),
-                List.of(MagicPassiveContent.MIRROR_OF_THE_ARRAY.id()),
+                List.of(MagicPassiveContent.MIRROR_OF_THE_ARRAY.id(), MagicPassiveContent.WEAPON_GOD.id()),
                 List.of(), true));
     }
 

@@ -91,6 +91,7 @@ public final class MagicalClientEvents {
         event.register(MagicalMenus.SPACE_ARSENAL_STORAGE.get(), SpaceArsenalStorageScreen::new);
         event.register(MagicalMenus.BLACKSMITH_FORGE.get(), BlacksmithForgeScreen::new);
         event.register(MagicalMenus.TRAINING_DUMMY.get(), com.efkrdnz.magical.client.screen.TrainingDummyScreen::new);
+        event.register(MagicalMenus.SWORD_RACK.get(), com.efkrdnz.magical.client.screen.sword.SwordRackScreen::new);
     }
 
     @SubscribeEvent

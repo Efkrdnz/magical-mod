@@ -144,6 +144,21 @@ class SwordSilhouetteTest {
     }
 
     @Test
+    void aRackedWeaponIsTheSizeOfTheSteelItReplacesAndStaysOutOfTheBody() {
+        // An icon is drawn corner to corner along the bearing and about its own middle, exactly as
+        // Duskfall is, so the same clearance holds it: half its diagonal must not reach back past
+        // the nearest place a stance puts a sword.
+        double half = Geometry.iconReach();
+        assertTrue(half <= Formation.BODY_CLEARANCE,
+                "a racked weapon reaches " + half + " blocks back from its middle, into the wielder");
+        assertTrue(2.0D * half <= Geometry.FLIGHT_PER_TICK,
+                "a racked weapon is drawn longer than one step of its own raycast");
+        double ratio = 2.0D * half / Geometry.LENGTH;
+        assertTrue(ratio > 0.9D && ratio < 1.1D,
+                "a racked sword is drawn " + ratio + " times the length of the steel it replaced");
+    }
+
+    @Test
     void aBladeIsStillBigEnoughToReadAsASword() {
         // The floor, and the reason this file was rewritten: the thing that was here before was
         // 0.15 blocks across and read as a domino. A sword has to be long enough to see across a

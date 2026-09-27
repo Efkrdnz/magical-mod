@@ -13,7 +13,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
- * The -3 layer as a whole: six verbs, four passives, and the three places a new school has to be
+ * The -3 layer as a whole: six verbs, five passives, and the three places a new school has to be
  * wired in by hand.
  *
  * <p>Two of those three fail silently, which is the reason this file exists at all.
@@ -39,7 +39,7 @@ class SwordSchoolTest {
     }
 
     @Test
-    void theLayerHoldsExactlySixVerbsAndFourPassives() {
+    void theLayerHoldsExactlySixVerbsAndFivePassives() {
         assertEquals(List.of(MagicContent.CALL_THE_BLADE, MagicContent.SWORD_STANCE,
                         MagicContent.THE_KEEL, MagicContent.LOOSE,
                         MagicContent.BELOW, MagicContent.ONE_BLADE),
@@ -50,11 +50,11 @@ class SwordSchoolTest {
                 "the sword school must be the whole of layer -3");
         for (MagicPassiveDefinition passive : List.of(MagicPassiveContent.SWORD_HEART,
                 MagicPassiveContent.WARD_OF_THE_ARRAY, MagicPassiveContent.RETURNING,
-                MagicPassiveContent.MIRROR_OF_THE_ARRAY)) {
+                MagicPassiveContent.MIRROR_OF_THE_ARRAY, MagicPassiveContent.WEAPON_GOD)) {
             // forbiddenPassive and never classPassive: a class passive granted only by a hidden
             // chain reads as ungranted to ClassTreeTest's global count, and the codex Passives tab
             // would print the class name as a group header for a class nobody has heard of.
-            assertTrue(MagicPassiveContent.isForbiddenPassive(passive.id()), passive.id() + " is one of the four");
+            assertTrue(MagicPassiveContent.isForbiddenPassive(passive.id()), passive.id() + " is one of the five");
             assertFalse(MagicPassiveContent.classPassives().contains(passive.id()),
                     passive.id() + " must not be registered as a class passive");
         }

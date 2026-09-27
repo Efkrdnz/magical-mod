@@ -8,7 +8,11 @@ import com.efkrdnz.magical.magic.skill.sword.BelowSkill;
 import com.efkrdnz.magical.magic.sword.stance.Pattern;
 import com.efkrdnz.magical.magic.visual.Silhouette;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import net.minecraft.client.Minecraft;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -31,6 +35,12 @@ public final class SwordPainters {
 
     /** Duskfall's whole length at 1:1, in blocks. */
     private static final double MODEL_LENGTH = (Geometry.MODEL_MAX_Y - Geometry.MODEL_MIN_Y) / Geometry.MODEL_UNITS;
+
+    private static final ItemStack[] NO_ARMS = new ItemStack[0];
+
+    /** The last riser list read and what it parsed to: the synced tag is replaced, never edited. */
+    private static ListTag lastArmsTag;
+    private static ItemStack[] lastArms = NO_ARMS;
 
     private SwordPainters() {
     }
@@ -77,6 +87,7 @@ public final class SwordPainters {
         Pattern[] patterns = Pattern.values();
         Pattern pattern = patterns[Math.floorMod(data.getInt(BelowSkill.DATA_PATTERN), patterns.length)];
         float yaw = data.getFloat(BelowSkill.DATA_YAW);
+        ItemStack[] arms = arms(data);
         double height = BelowSkill.riseHeight(ctx.age, Geometry.axialReach());
         double sin = Math.sin(RISER_LEAN);
         double cos = Math.cos(RISER_LEAN);
@@ -86,8 +97,28 @@ public final class SwordPainters {
             Vec3 heading = out < 1.0E-6D ? UP : new Vec3(offset[0] / out * sin, cos, offset[1] / out * sin);
             ctx.pose.pushPose();
             ctx.pose.translate(offset[0], height, offset[1]);
-            SwordBladeRenderer.steel(ctx, heading, Geometry.SCALE);
+            SwordBladeRenderer.steel(ctx, heading, Geometry.SCALE, i < arms.length ? arms[i] : ItemStack.EMPTY);
             ctx.pose.popPose();
         }
+    }
+
+    /**
+     * What each riser was racked as, parsed once per eruption. The tag is the synced compound's
+     * own list and a new eruption brings a new one, so identity is the whole of the cache key.
+     */
+    private static ItemStack[] arms(CompoundTag data) {
+        if (!data.contains(BelowSkill.DATA_ARMS, Tag.TAG_LIST) || Minecraft.getInstance().level == null) {
+            return NO_ARMS;
+        }
+        ListTag list = data.getList(BelowSkill.DATA_ARMS, Tag.TAG_COMPOUND);
+        if (list != lastArmsTag) {
+            ItemStack[] parsed = new ItemStack[list.size()];
+            for (int i = 0; i < parsed.length; i++) {
+                parsed[i] = ItemStack.parseOptional(Minecraft.getInstance().level.registryAccess(), list.getCompound(i));
+            }
+            lastArmsTag = list;
+            lastArms = parsed;
+        }
+        return lastArms;
     }
 }

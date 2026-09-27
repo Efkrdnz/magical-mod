@@ -4,7 +4,6 @@ import com.efkrdnz.magical.entity.fx.SpellBehavior;
 import com.efkrdnz.magical.entity.fx.SpellEffectEntity;
 import com.efkrdnz.magical.entity.sword.SwordBladeEntity;
 import com.efkrdnz.magical.magic.MagicContent;
-import com.efkrdnz.magical.magic.MagicDamageService;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.cast.CastContext;
@@ -20,6 +19,8 @@ import com.efkrdnz.magical.magic.sword.Frame;
 import com.efkrdnz.magical.magic.sword.SwordImpacts;
 import com.efkrdnz.magical.magic.sword.SwordMath;
 import com.efkrdnz.magical.magic.sword.SwordService;
+import com.efkrdnz.magical.magic.sword.rack.SwordArms;
+import com.efkrdnz.magical.magic.sword.rack.SwordRack;
 import com.efkrdnz.magical.magic.sword.stance.Pattern;
 import com.efkrdnz.magical.magic.sword.stance.Slot;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
@@ -38,12 +39,14 @@ import com.efkrdnz.magical.magic.visual.VisualProfile;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.List;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -142,6 +145,9 @@ public final class BelowSkill implements SkillModule {
     /** Synced for the painter: the wielder's yaw at the press, which the pattern is turned by. */
     public static final String DATA_YAW = "Yaw";
 
+    /** Synced for the painter: what each riser was racked as, one item compound a riser, empty for steel. */
+    public static final String DATA_ARMS = "Arms";
+
     /**
      * How wide the swords that struck nothing are laid out, as a reach handed to the pattern.
      *
@@ -158,6 +164,8 @@ public final class BelowSkill implements SkillModule {
     private static final String TAG_PATTERN = "Pattern";
     private static final String TAG_BILL = "Bill";
     private static final String TAG_STRUCK = "Struck";
+    /** Which swords went under, as a mask: their rack sockets are their weapons. */
+    private static final String TAG_SLOTS = "Slots";
 
     @Override
     public MagicSkillDefinition definition() {
@@ -233,7 +241,9 @@ public final class BelowSkill implements SkillModule {
         Vec3 origin = committedPoint(ctx);
         // Through spendSwords, always: it is the one door out of the formation, and it is the
         // only reason the count stays honest without anybody adding anything up.
+        int standing = SwordService.presentMask(player, state);
         int sunk = SwordService.spendSwords(player, state, SwordService.present(player, state));
+        int slots = SwordService.lowestOf(standing, sunk);
 
         SwordService.sink(player, origin);
         SwordService.tendArrayEntity(player, state);
@@ -248,18 +258,31 @@ public final class BelowSkill implements SkillModule {
         CompoundTag scratch = eruption.serverData();
         scratch.putInt(TAG_COUNT, sunk);
         scratch.putInt(TAG_PATTERN, pattern);
+        scratch.putInt(TAG_SLOTS, slots);
         // The same numbers again for every client, which draws the risers from them with the same
         // arithmetic the planted swords are laid out with here.
         CompoundTag picture = new CompoundTag();
         picture.putInt(DATA_SWORDS, sunk);
         picture.putInt(DATA_PATTERN, pattern);
         picture.putFloat(DATA_YAW, player.getYRot());
+        picture.put(DATA_ARMS, armsTag(player, state, slots, ctx.level()));
         eruption.setSyncedData(picture);
         // The first shudder is the press itself; the entity's own tick never sees age zero.
         SwordImpacts.tremor(ctx.level(), origin, ERUPT_RADIUS);
         ctx.level().playSound(null, origin.x, origin.y, origin.z,
                 SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.7F, 0.6F);
         return CastResult.SUCCESS;
+    }
+
+    /** What each sunk sword is racked as, riser by riser, for the painter: an empty compound is steel. */
+    private static ListTag armsTag(ServerPlayer player, PlayerMagicState state, int slots, ServerLevel level) {
+        ListTag list = new ListTag();
+        for (int socket = 0; socket < SwordRack.SIZE; socket++) {
+            if ((slots & (1 << socket)) != 0) {
+                list.add(SwordArms.arm(player, state, socket).saveOptional(level.registryAccess()));
+            }
+        }
+        return list;
     }
 
     /**
@@ -375,21 +398,28 @@ public final class BelowSkill implements SkillModule {
 
         level.playSound(null, origin.x, origin.y, origin.z,
                 SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 0.9F, 0.6F);
+        // The weapons the sunk swords were racked as: read off the rack at their sockets now,
+        // the same place the risers' pictures came from at the press.
+        int count = scratch.getInt(TAG_COUNT);
+        List<ItemStack> arms = effect.livingOwner() instanceof ServerPlayer owner
+                ? SwordArms.arms(owner, owner.getData(MagicalAttachments.MAGIC_STATE), scratch.getInt(TAG_SLOTS))
+                : List.of();
+        int accent = SwordArms.accent(arms);
         // The ground breaks across the whole ring the steel came up through, hit or miss.
-        SwordImpacts.eruption(level, origin, ERUPT_RADIUS);
+        SwordImpacts.eruption(level, origin, ERUPT_RADIUS, accent);
 
         List<LivingEntity> caught = amount <= 0.0F ? List.of()
                 : SkillTargets.hostilesInCylinder(level, effect.owner(), origin, ERUPT_RADIUS, ERUPT_HEIGHT);
         for (LivingEntity victim : caught) {
             victim.invulnerableTime = 0;
-            MagicDamageService.hurt(victim, level.damageSources().indirectMagic(effect, effect.owner()),
-                    amount, effect.skillId());
+            SwordArms.strike(level, effect.owner(), victim, arms, count,
+                    level.damageSources().indirectMagic(effect, effect.owner()), amount, effect.skillId());
             // Straight up: the blades came out of the floor, so the shove has no direction in the
             // plane and SkillTargets.shove with zero strength is exactly that.
             SkillTargets.shove(victim, origin, 0.0D, knockback);
             // Steel coming up through a body throws its sparks up and out of the top of it. A cut
             // rings against the travel it is handed, so it is handed the way down.
-            SwordImpacts.cut(level, victim.getBoundingBox().getCenter(), DOWN);
+            SwordImpacts.cut(level, victim.getBoundingBox().getCenter(), DOWN, accent);
         }
         if (caught.isEmpty()) {
             standInTheGround(effect, level, origin);
@@ -428,8 +458,22 @@ public final class BelowSkill implements SkillModule {
             double[] offset = ArrayPose.worldOffset(
                     Slot.at(spread.x() * scale, 0.0D, spread.z() * scale, 0.0D, 1.0D, 0.0D), flat);
             Vec3 at = origin.add(offset[0], 0.0D, offset[2]);
-            SwordBladeEntity.plant(level, player, MagicContent.BELOW.id(), at, i, 1);
+            SwordBladeEntity.plant(level, player, MagicContent.BELOW.id(), at,
+                    socketOf(scratch.getInt(TAG_SLOTS), i), 1);
         }
+    }
+
+    /**
+     * The socket of the {@code nth} sword that went under: riser <i>n</i> and the sword it was are
+     * one, so the blade left standing carries that sword's weapon. {@code nth} itself when the mask
+     * runs out, which only an eruption older than the mask can do.
+     */
+    private static int socketOf(int slots, int nth) {
+        int rest = slots;
+        for (int i = 0; i < nth && rest != 0; i++) {
+            rest &= rest - 1;
+        }
+        return rest == 0 ? nth : Integer.numberOfTrailingZeros(rest);
     }
 
     // ---- what it looks like ------------------------------------------------------------------------

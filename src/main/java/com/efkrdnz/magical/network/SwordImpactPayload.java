@@ -14,9 +14,14 @@ import net.minecraft.resources.ResourceLocation;
  * @param radius how far the wave runs, in blocks
  * @param kind an {@code ImpactWave.Kind} ordinal, clamped on use because it arrives off the wire
  * @param block the struck block's state id ({@code Block.getId}), or 0 - air - for none
+ * @param accent the racked weapon's colour as 0xRRGGBB, or 0 for plain steel; three bytes on the wire
  */
 public record SwordImpactPayload(double x, double y, double z, float nx, float ny, float nz, float radius,
-        int kind, int block) implements CustomPacketPayload {
+        int kind, int block, int accent) implements CustomPacketPayload {
+
+    public SwordImpactPayload {
+        accent &= 0xFFFFFF;
+    }
 
     public static final Type<SwordImpactPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "sword_impact"));
@@ -32,6 +37,7 @@ public record SwordImpactPayload(double x, double y, double z, float nx, float n
                 buf.writeFloat(payload.radius);
                 buf.writeByte(payload.kind);
                 buf.writeVarInt(payload.block);
+                buf.writeMedium(payload.accent);
             },
             buf -> new SwordImpactPayload(
                     buf.readDouble(),
@@ -42,7 +48,8 @@ public record SwordImpactPayload(double x, double y, double z, float nx, float n
                     buf.readFloat(),
                     buf.readFloat(),
                     buf.readByte(),
-                    buf.readVarInt()));
+                    buf.readVarInt(),
+                    buf.readUnsignedMedium()));
 
     @Override
     public Type<? extends CustomPacketPayload> type() {

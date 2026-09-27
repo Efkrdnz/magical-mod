@@ -666,7 +666,18 @@ public final class MagicalCommands {
                                             .executes(context -> withPlayer(context.getSource(), player -> swordAway(player,
                                                     IntegerArgumentType.getInteger(context, "count"))))))
                             .then(Commands.literal("show")
-                                    .executes(context -> withPlayer(context.getSource(), player -> swordShow(player)))))
+                                    .executes(context -> withPlayer(context.getSource(), player -> swordShow(player))))
+                            .then(Commands.literal("rack")
+                                    .executes(context -> withPlayer(context.getSource(), player -> swordRack(player)))
+                                    .then(Commands.literal("put")
+                                            .then(Commands.argument("socket", IntegerArgumentType.integer(1, 12))
+                                                    .then(Commands.argument("item", net.minecraft.commands.arguments.item.ItemArgument.item(event.getBuildContext()))
+                                                            .executes(context -> {
+                                                                int socket = IntegerArgumentType.getInteger(context, "socket");
+                                                                net.minecraft.world.item.ItemStack stack = net.minecraft.commands.arguments.item.ItemArgument
+                                                                        .getItem(context, "item").createItemStack(1, false);
+                                                                return withPlayer(context.getSource(), player -> swordRackPut(player, socket, stack));
+                                                            }))))))
                     .then(Commands.literal("passive")
                             .then(Commands.literal("unlockall")
                                     .executes(context -> withPlayer(context.getSource(), player -> {
@@ -1166,6 +1177,39 @@ public final class MagicalCommands {
         com.efkrdnz.magical.magic.sword.SwordService.tendArrayEntity(player, data);
         data.sync(player);
         player.displayClientMessage(Component.literal(spent + " away."), false);
+        return 1;
+    }
+
+    /**
+     * Opens the rack without the skill: the way in for a capture, and for a player who has lost the
+     * class but not the weapons they racked while they had it.
+     */
+    private static int swordRack(ServerPlayer player) {
+        com.efkrdnz.magical.magic.menu.SwordRackMenu.open(player);
+        return 1;
+    }
+
+    /**
+     * Racks a weapon in socket {@code socket}, counted from one the way the ring is read, by the
+     * rules the menu keeps, and hands back whatever stood there. A capture cannot drag an item.
+     */
+    private static int swordRackPut(ServerPlayer player, int socket, net.minecraft.world.item.ItemStack stack) {
+        PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+        int index = socket - 1;
+        if (index >= com.efkrdnz.magical.magic.sword.rack.SwordArms.unlocked(data)
+                || !com.efkrdnz.magical.magic.sword.rack.SwordRackRules.accepts(stack,
+                        com.efkrdnz.magical.magic.sword.rack.SwordArms.weaponGod(data))) {
+            player.displayClientMessage(Component.translatable("message.magical.sword_rack_refused"), false);
+            return 0;
+        }
+        com.efkrdnz.magical.magic.sword.rack.SwordRack rack = com.efkrdnz.magical.magic.sword.rack.SwordArms.rack(player);
+        net.minecraft.world.item.ItemStack displaced = rack.removeItemNoUpdate(index);
+        rack.setItem(index, stack);
+        if (!displaced.isEmpty()) {
+            player.getInventory().placeItemBackInInventory(displaced);
+        }
+        player.displayClientMessage(Component.translatable("message.magical.sword_rack_put",
+                stack.getHoverName(), socket), false);
         return 1;
     }
 

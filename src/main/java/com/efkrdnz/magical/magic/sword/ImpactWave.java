@@ -219,6 +219,25 @@ public final class ImpactWave {
         return Math.max(1, kind.sparks() / 2);
     }
 
+    /**
+     * Motes in the weapon's colour a hit throws, when its sword carries a weapon with one: a
+     * forged element, or fire. An echo throws one, and gives up a spark for it
+     * ({@link #sparks(Kind, boolean, boolean)}), so a volley of racked blades costs exactly what a
+     * volley of plain ones did. The tremor is a warning rather than a hit and carries no weapon.
+     */
+    public static int accents(Kind kind, boolean echo) {
+        if (kind == Kind.TREMOR) {
+            return 0;
+        }
+        return echo ? 1 : Math.max(2, kind.puffs() / 3);
+    }
+
+    /** Sparks for a hit that may carry a colour: an accented echo trades one for its mote. */
+    public static int sparks(Kind kind, boolean echo, boolean accented) {
+        int sparks = sparks(kind, echo);
+        return accented && echo ? Math.max(0, sparks - accents(kind, true)) : sparks;
+    }
+
     /** How many crumbs of the struck block a hit throws. An echo throws half. */
     public static int crumbs(Kind kind, boolean echo) {
         if (!echo || kind.crumbs() == 0) {

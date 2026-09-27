@@ -8,6 +8,7 @@ import com.efkrdnz.magical.magic.incantation.VersePassives;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.sword.SwordImpacts;
 import com.efkrdnz.magical.magic.sword.SwordService;
+import com.efkrdnz.magical.magic.sword.rack.SwordArms;
 import java.util.List;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -16,6 +17,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.projectile.ProjectileDeflection;
 import net.minecraft.world.phys.AABB;
@@ -179,11 +181,13 @@ public final class StanceWatchService {
                 return;
             }
             Vec3 incoming = shot.getDeltaMovement();
+            // The sword the spend takes, read before it goes: its weapon is the one that rang.
+            int turning = SwordService.nextSword(wielder, state);
             if (!shot.deflect(ProjectileDeflection.REVERSE, wielder, wielder, true)) {
                 return;
             }
             SwordService.spendSword(wielder, state);
-            parried(level, shot.position(), incoming);
+            parried(level, shot.position(), incoming, SwordArms.accent(SwordArms.arm(wielder, state, turning)));
             state.sync(wielder);
             return;
         }
@@ -200,8 +204,10 @@ public final class StanceWatchService {
         }
         Vec3 from = launchPoint(wielder, state);
         Vec3 to = mark.getBoundingBox().getCenter();
+        // The sword the spend below takes, so the blade that flies is the one that leaves.
         SwordBladeEntity blade = SwordBladeEntity.loose(level, wielder, MagicContent.CALL_THE_BLADE.id(),
-                from, to.subtract(from), 0, 1, watch.bite(), 0.15D, STAB_SPEED, STAB_FLIGHT);
+                from, to.subtract(from), SwordService.nextSword(wielder, state), 1, watch.bite(), 0.15D,
+                STAB_SPEED, STAB_FLIGHT);
         if (blade == null) {
             return;
         }
@@ -260,9 +266,15 @@ public final class StanceWatchService {
         if (caught.isEmpty()) {
             return;
         }
+        // The ring is every sword standing in it, so it cuts with every weapon racked there.
+        int standing = SwordService.presentMask(wielder, state);
+        List<ItemStack> arms = SwordArms.arms(wielder, state, standing);
+        int accent = SwordArms.accent(arms);
         for (LivingEntity body : caught) {
-            SkillTargets.hurt(level, wielder, body, watch.bite(), MagicContent.CALL_THE_BLADE.id());
-            SwordImpacts.shear(level, body.getBoundingBox().getCenter());
+            SwordArms.strike(level, wielder, body, arms, Integer.bitCount(standing),
+                    level.damageSources().indirectMagic(wielder, wielder), watch.bite(),
+                    MagicContent.CALL_THE_BLADE.id());
+            SwordImpacts.shear(level, body.getBoundingBox().getCenter(), accent);
             if (shove) {
                 SkillTargets.shove(body, centre, SHRED_SHOVE, SHRED_LIFT);
             }
@@ -320,7 +332,8 @@ public final class StanceWatchService {
         }
         Vec3 from = to.add(0.0D, DROP_HEIGHT, 0.0D);
         SwordBladeEntity blade = SwordBladeEntity.loose(level, wielder, MagicContent.CALL_THE_BLADE.id(),
-                from, new Vec3(0.0D, -1.0D, 0.0D), 0, 1, watch.bite(), 0.1D, DROP_SPEED, DROP_FLIGHT);
+                from, new Vec3(0.0D, -1.0D, 0.0D), SwordService.nextSword(wielder, state), 1, watch.bite(),
+                0.1D, DROP_SPEED, DROP_FLIGHT);
         if (blade == null) {
             return;
         }
@@ -337,8 +350,8 @@ public final class StanceWatchService {
     }
 
     /** A turned shot: a small wave where the sword met it, facing the way it came, and the clang. */
-    private static void parried(ServerLevel level, Vec3 at, Vec3 incoming) {
-        SwordImpacts.parry(level, at, incoming);
+    private static void parried(ServerLevel level, Vec3 at, Vec3 incoming, int accent) {
+        SwordImpacts.parry(level, at, incoming, accent);
         level.playSound(null, at.x, at.y, at.z, SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 0.6F, 1.5F);
     }
 }

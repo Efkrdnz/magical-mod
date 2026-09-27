@@ -180,6 +180,8 @@ public final class MagicPassiveContent {
     public static final MagicPassiveDefinition WARD_OF_THE_ARRAY = forbiddenPassive("ward_of_the_array", 0x6F7D8A);
     public static final MagicPassiveDefinition RETURNING = forbiddenPassive("returning", 0xE9F1F6);
     public static final MagicPassiveDefinition MIRROR_OF_THE_ARRAY = forbiddenPassive("mirror_of_the_array", 0x2A323A);
+    /** Sword God's second passive: the rack takes any weapon, not only swords. Read by {@code SwordArms.weaponGod}. */
+    public static final MagicPassiveDefinition WEAPON_GOD = forbiddenPassive("weapon_god", 0xD9B45A);
 
 
     // ---------------------------------------------------------------------------------------

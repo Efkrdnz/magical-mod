@@ -3,6 +3,7 @@ package com.efkrdnz.magical.registry;
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.arcane.ArcanePlayerData;
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.sword.rack.SwordRack;
 import net.minecraft.nbt.CompoundTag;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
@@ -46,6 +47,29 @@ public final class MagicalAttachments {
                         @Override
                         public CompoundTag write(PlayerMagicState attachment, net.minecraft.core.HolderLookup.Provider provider) {
                             return attachment.save();
+                        }
+                    })
+                    .copyHandler((attachment, holder, provider) -> attachment.copy())
+                    .copyOnDeath()
+                    .build());
+
+    /**
+     * The weapons a sword wielder racks. Real items, so it is saved with the registry they need,
+     * kept on death, and never part of the magic state - a reset rebuilds that and must not
+     * take anybody's swords with it. See {@code SwordRack}.
+     */
+    public static final DeferredHolder<AttachmentType<?>, AttachmentType<SwordRack>> SWORD_RACK = ATTACHMENTS.register(
+            "sword_rack",
+            () -> AttachmentType.builder(SwordRack::new)
+                    .serialize(new IAttachmentSerializer<CompoundTag, SwordRack>() {
+                        @Override
+                        public SwordRack read(IAttachmentHolder holder, CompoundTag tag, net.minecraft.core.HolderLookup.Provider provider) {
+                            return SwordRack.load(tag, provider);
+                        }
+
+                        @Override
+                        public CompoundTag write(SwordRack attachment, net.minecraft.core.HolderLookup.Provider provider) {
+                            return attachment.save(provider);
                         }
                     })
                     .copyHandler((attachment, holder, provider) -> attachment.copy())

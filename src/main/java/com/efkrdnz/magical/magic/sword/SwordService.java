@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.UUID;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -215,6 +216,16 @@ public final class SwordService {
      * disk, because the clamped value is what gets written back.
      */
     public static void refreshRung(ServerPlayer player, PlayerMagicState state) {
+        // Weapon God came after the apex did, and a class hands out its passives only on the
+        // evolve - so a wielder who reached Sword God before it existed would never have it.
+        // Asked first rather than unlocked blind: unlockPassive also clears the disabled flag, and
+        // this runs every slow tick, so a blind call would switch it back on under a player who
+        // had turned it off.
+        ResourceLocation weaponGod = com.efkrdnz.magical.magic.MagicPassiveContent.WEAPON_GOD.id();
+        if (state.hasClass(MagicalClasses.SWORD_GOD) && !state.hasPassive(weaponGod)) {
+            state.unlockPassive(weaponGod);
+            state.sync(player);
+        }
         SwordRules wanted = rulesFor(state);
         SwordArray array = state.swordArray();
         if (wanted.equals(array.rules())) {
@@ -304,6 +315,24 @@ public final class SwordService {
             wielder.nextReturn = Math.max(wielder.nextReturn, wielder.world.now() + returnTicks(state));
         }
         return taken;
+    }
+
+    /** The sword the next spend takes: the lowest one present, or -1 when none is. */
+    public static int nextSword(ServerPlayer player, PlayerMagicState state) {
+        int present = presentMask(player, state);
+        return present == 0 ? -1 : Integer.numberOfTrailingZeros(present);
+    }
+
+    /** The lowest {@code n} bits of {@code mask}: the swords a spend of {@code n} takes out of it. */
+    public static int lowestOf(int mask, int n) {
+        int out = 0;
+        int rest = mask;
+        for (int i = 0; i < n && rest != 0; i++) {
+            int bit = Integer.lowestOneBit(rest);
+            out |= bit;
+            rest &= ~bit;
+        }
+        return out;
     }
 
     /** One sword away, or false when there were none to send. */

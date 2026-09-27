@@ -205,6 +205,33 @@ class ImpactWaveTest {
     }
 
     @Test
+    void aVolleyOfRackedBladesCostsWhatAPlainOneDid() {
+        // A fire blade rings with embers, and a volley of them into one body must still spend no
+        // more than a plain volley does: every echo gives up a spark for its mote.
+        int plainEcho = ImpactWave.sparks(Kind.CUT, true);
+        int accentedEcho = ImpactWave.sparks(Kind.CUT, true, true) + ImpactWave.accents(Kind.CUT, true);
+        assertEquals(plainEcho, accentedEcho, "an accented echo costs a different number of particles");
+        assertTrue(ImpactWave.accents(Kind.CUT, true) >= 1, "a racked blade landing late shows no colour");
+        int first = Kind.CUT.puffs() + ImpactWave.sparks(Kind.CUT, false, true) + ImpactWave.accents(Kind.CUT, false);
+        int volley = first + (SwordBladeEntity.MAX_IN_FLIGHT - 1) * accentedEcho;
+        assertTrue(volley <= VANILLA_CRIT_ATTEMPTS,
+                "a volley of racked blades throws " + volley + " particles where vanilla throws "
+                        + VANILLA_CRIT_ATTEMPTS + " for one critical hit");
+    }
+
+    @Test
+    void theWarningCarriesNoWeapon() {
+        assertEquals(0, ImpactWave.accents(Kind.TREMOR, false), "the tremor rings in a weapon's colour");
+        for (Kind kind : Kind.values()) {
+            if (kind != Kind.TREMOR) {
+                assertTrue(ImpactWave.accents(kind, false) >= 2, kind + " shows a weapon's colour as a speck");
+            }
+            assertEquals(ImpactWave.sparks(kind, false), ImpactWave.sparks(kind, false, true),
+                    kind + " gives up sparks on a first hit, which is not an echo");
+        }
+    }
+
+    @Test
     void aForgedKindIsClampedAndNotThrown() {
         assertEquals(Kind.CUT, Kind.byOrdinal(-4));
         assertEquals(Kind.values()[Kind.values().length - 1], Kind.byOrdinal(99));

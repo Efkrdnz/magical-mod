@@ -32,14 +32,15 @@ class SwordImpactPayloadTest {
     @Test
     void aBladeIntoABodyRoundTrips() {
         roundTrip(new SwordImpactPayload(100.25D, 64.5D, -31.75D, 0.0F, 0.6F, -0.8F, 0.7F,
-                ImpactWave.Kind.CUT.ordinal(), 0));
+                ImpactWave.Kind.CUT.ordinal(), 0, 0));
         assertEquals("magical:sword_impact", SwordImpactPayload.TYPE.id().toString());
     }
 
     @Test
     void everyKindAndARealBlockRoundTrip() {
         for (ImpactWave.Kind kind : ImpactWave.Kind.values()) {
-            roundTrip(new SwordImpactPayload(-5.0D, 70.0D, 12.0D, 0.0F, 1.0F, 0.0F, 1.6F, kind.ordinal(), 27912));
+            roundTrip(new SwordImpactPayload(-5.0D, 70.0D, 12.0D, 0.0F, 1.0F, 0.0F, 1.6F, kind.ordinal(), 27912,
+                    0xFF6A2A));
         }
     }
 
@@ -48,11 +49,21 @@ class SwordImpactPayloadTest {
         RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
         try {
             SwordImpactPayload.STREAM_CODEC.encode(buffer, new SwordImpactPayload(
-                    1.0D, 2.0D, 3.0D, 0.0F, 1.0F, 0.0F, 0.7F, ImpactWave.Kind.CLANG.ordinal(), 27912));
+                    1.0D, 2.0D, 3.0D, 0.0F, 1.0F, 0.0F, 0.7F, ImpactWave.Kind.CLANG.ordinal(), 27912, 0xFFFFFF));
             assertTrue(buffer.readableBytes() <= 48,
                     "one sword hit costs " + buffer.readableBytes() + " bytes on the wire");
         } finally {
             buffer.release();
         }
+    }
+
+    @Test
+    void aWeaponsColourIsThreeBytesAndNeverItsAlpha() {
+        // An element colour is written 0xRRGGBB, and a caller handing over an ARGB one must not
+        // turn the colour into something the wire cannot carry and the decoder cannot match.
+        SwordImpactPayload argb = new SwordImpactPayload(0.0D, 0.0D, 0.0D, 0.0F, 1.0F, 0.0F, 0.7F,
+                ImpactWave.Kind.CUT.ordinal(), 0, 0xFF7FE7FF);
+        assertEquals(0x7FE7FF, argb.accent(), "the alpha rode along with the colour");
+        roundTrip(argb);
     }
 }

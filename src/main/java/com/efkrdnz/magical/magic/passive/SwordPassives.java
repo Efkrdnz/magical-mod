@@ -49,13 +49,15 @@ public final class SwordPassives implements ClassPassiveHandler {
         return Set.of(
                 MagicPassiveContent.SWORD_HEART.id(),
                 MagicPassiveContent.WARD_OF_THE_ARRAY.id(),
-                // Returning is read by SwordService.returnTicks and Mirror of the Array by
-                // StanceWatchService.tick; neither has a hook here. They are claimed anyway
+                // Returning is read by SwordService.returnTicks, Mirror of the Array by
+                // StanceWatchService.tick and Weapon God by SwordArms.weaponGod; none of them
+                // has a hook here. They are claimed anyway
                 // because ClassPassiveEffectsTest matches the registry against the handlers in
                 // BOTH directions, so an unclaimed id is a red build rather than a quiet one.
                 // That is the right trade and this comment is why the list looks odd.
                 MagicPassiveContent.RETURNING.id(),
-                MagicPassiveContent.MIRROR_OF_THE_ARRAY.id());
+                MagicPassiveContent.MIRROR_OF_THE_ARRAY.id(),
+                MagicPassiveContent.WEAPON_GOD.id());
     }
 
     /**

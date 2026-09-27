@@ -3,11 +3,11 @@ package com.efkrdnz.magical.entity.sword;
 import com.efkrdnz.magical.entity.fx.SpellBehavior;
 import com.efkrdnz.magical.entity.fx.SpellEffectEntity;
 import com.efkrdnz.magical.magic.MagicContent;
-import com.efkrdnz.magical.magic.MagicDamageService;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.sword.SwordImpacts;
 import com.efkrdnz.magical.magic.sword.SwordService;
+import com.efkrdnz.magical.magic.sword.rack.SwordArms;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import com.efkrdnz.magical.registry.MagicalEntities;
 import java.util.List;
@@ -23,6 +23,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
@@ -115,6 +116,13 @@ public class SwordBladeEntity extends SpellEffectEntity {
 
     private static final EntityDataAccessor<Byte> STATE =
             SynchedEntityData.defineId(SwordBladeEntity.class, EntityDataSerializers.BYTE);
+
+    /**
+     * The weapon this sword flies as: its rack socket's, copied at spawn, empty for plain steel.
+     * Synced because it is the picture; read back on the server because it is the hit.
+     */
+    private static final EntityDataAccessor<ItemStack> ARM =
+            SynchedEntityData.defineId(SwordBladeEntity.class, EntityDataSerializers.ITEM_STACK);
 
     /** How wide a net the segment sweep casts around the blade's own line. */
     private static final double SWEEP_SLACK = 0.3D;
@@ -210,6 +218,11 @@ public class SwordBladeEntity extends SpellEffectEntity {
         blade.serverData().putInt(TAG_VICTIM, -1);
         blade.setExtra(Math.max(0, edge));
         blade.setPos(at.x, at.y, at.z);
+        // A copy: the blade outlives the moment it left, and must not share a stack with the rack.
+        ItemStack arm = SwordArms.arm(wielder, wielder.getData(MagicalAttachments.MAGIC_STATE), slot);
+        if (!arm.isEmpty()) {
+            blade.entityData.set(ARM, arm.copy());
+        }
         return blade;
     }
 
@@ -263,10 +276,16 @@ public class SwordBladeEntity extends SpellEffectEntity {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(STATE, STATE_FLYING);
+        builder.define(ARM, ItemStack.EMPTY);
     }
 
     public byte state() {
         return entityData.get(STATE);
+    }
+
+    /** The weapon this sword flies as, or empty for plain steel. */
+    public ItemStack arm() {
+        return entityData.get(ARM);
     }
 
     /**
@@ -343,7 +362,7 @@ public class SwordBladeEntity extends SpellEffectEntity {
         if (wall.getType() != HitResult.Type.MISS) {
             Direction face = wall.getDirection();
             SwordImpacts.clang(level, wall.getLocation(), new Vec3(face.getStepX(), face.getStepY(), face.getStepZ()),
-                    level.getBlockState(wall.getBlockPos()));
+                    level.getBlockState(wall.getBlockPos()), SwordArms.accent(arm()));
             recall();
             return;
         }
@@ -391,7 +410,7 @@ public class SwordBladeEntity extends SpellEffectEntity {
         Vec3 entry = body.getBoundingBox().clip(from, to)
                 .or(() -> body.getBoundingBox().inflate(SWEEP_SLACK).clip(from, to))
                 .orElse(body.getBoundingBox().getCenter());
-        SwordImpacts.cut(level, entry, velocity);
+        SwordImpacts.cut(level, entry, velocity, SwordArms.accent(arm()));
         wound(body, owner == null ? this : owner, damage());
         if (knockback() > 0.0F) {
             SkillTargets.shove(body, position(), knockback(), 0.05D);
@@ -418,7 +437,9 @@ public class SwordBladeEntity extends SpellEffectEntity {
         }
         target.invulnerableTime = 0;
         serverData().putInt(icdKey(target), tickCount + VICTIM_COOLDOWN_TICKS);
-        MagicDamageService.hurt(target, damageSources().indirectMagic(this, source), (float) amount, skillId());
+        // Through the rack: the weapon this sword carries colours the hit and rides it.
+        SwordArms.strike((ServerLevel) level(), source, target, SwordArms.one(arm()), 1,
+                damageSources().indirectMagic(this, source), amount, skillId());
     }
 
     private boolean waitingOn(LivingEntity target) {

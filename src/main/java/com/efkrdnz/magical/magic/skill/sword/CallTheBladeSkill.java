@@ -80,6 +80,12 @@ public final class CallTheBladeSkill implements SkillModule {
                     return CastResult.FAILED;
                 }
                 PlayerMagicState state = ctx.state();
+                if (player.isShiftKeyDown()) {
+                    // Sneaking opens the rack instead: free, uncooled, and the steel stays as it
+                    // is, drawn or not. What is racked there is what flies from the next tick.
+                    com.efkrdnz.magical.magic.menu.SwordRackMenu.open(player);
+                    return CastResult.SUCCESS;
+                }
                 if (state.swordArray().drawn()) {
                     // Free and uncooled. See the class note: a wielder who cannot afford to put
                     // their own swords away is a wielder stuck holding them.

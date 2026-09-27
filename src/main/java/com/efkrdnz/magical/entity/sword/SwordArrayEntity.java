@@ -7,14 +7,22 @@ import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.sword.Bind;
 import com.efkrdnz.magical.magic.sword.Frame;
 import com.efkrdnz.magical.magic.sword.SwordService;
+import com.efkrdnz.magical.magic.sword.rack.SwordArms;
+import com.efkrdnz.magical.magic.sword.rack.SwordRack;
 import com.efkrdnz.magical.magic.sword.stance.StanceWatchService;
 import com.efkrdnz.magical.magic.sword.stance.SwordStance;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import com.efkrdnz.magical.registry.MagicalEntities;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
@@ -29,7 +37,7 @@ import net.minecraft.world.phys.Vec3;
  * range, which is twelve movement packets a tick to every observer within 256 blocks for a picture
  * that is one rigid formation, and four players with their steel out would be forty-eight of them.
  *
- * <p><b>Zero new {@code EntityDataAccessor}s.</b> It rides the slots {@link SpellEffectEntity}
+ * <p><b>No new {@code EntityDataAccessor}s for the formation itself.</b> It rides the slots {@link SpellEffectEntity}
  * already has: {@code EXTRA} is the present mask (bit <i>i</i> set means sword <i>i</i> is in
  * formation), {@code VALUE} the frame scale, {@code DIR} the frame facing, {@code RADIUS} held at
  * zero - the renderer must zero it again, because the radius a sword entity carries is the frame's
@@ -38,6 +46,13 @@ import net.minecraft.world.phys.Vec3;
  * one compound that is <b>replaced and never mutated</b>: mutating the tag {@code syncedData()}
  * hands back does not dirty the accessor, so it desyncs in silence and appears to work whenever
  * some other field happens to change in the same tick.
+ *
+ * <p><b>The twelve arms are the exception</b>, one {@code ITEM_STACK} accessor a socket of the
+ * wielder's rack ({@code SwordArms}): what each sword flies as. An item stack is not a primitive
+ * and its accessor compares by identity, so {@link #writeArms} compares with
+ * {@code ItemStack.matches} first and writes a copy only when a socket really changed - otherwise
+ * twelve stacks would go out to everybody in range twenty times a second. A spawn packet carries
+ * only the sockets that differ from empty, so plain steel costs nothing at all.
  *
  * <p>The wielder rides the {@code TARGET} slot, which the formation has no other use for, because
  * {@code OWNER_ID} is written only by {@code SpellEffectEntity.create} and there is no public way
@@ -59,6 +74,17 @@ public class SwordArrayEntity extends SpellEffectEntity {
 
     /** See {@link #behavior()}: the formation's tick is written out in full and dispatches to nothing. */
     private static final SpellBehavior NOTHING = entity -> { };
+
+    /** What sword <i>i</i> flies as: socket <i>i</i> of the rack, empty for plain steel. */
+    private static final List<EntityDataAccessor<ItemStack>> ARMS = defineArms();
+
+    private static List<EntityDataAccessor<ItemStack>> defineArms() {
+        List<EntityDataAccessor<ItemStack>> arms = new ArrayList<>(SwordRack.SIZE);
+        for (int socket = 0; socket < SwordRack.SIZE; socket++) {
+            arms.add(SynchedEntityData.defineId(SwordArrayEntity.class, EntityDataSerializers.ITEM_STACK));
+        }
+        return List.copyOf(arms);
+    }
 
     public SwordArrayEntity(EntityType<? extends SwordArrayEntity> type, Level level) {
         super(type, level);
@@ -95,6 +121,7 @@ public class SwordArrayEntity extends SpellEffectEntity {
         PlayerMagicState state = wielder.getData(MagicalAttachments.MAGIC_STATE);
         entity.writePicture(state.swordArray().stance(), SwordService.bind(wielder),
                 SwordService.presentMask(wielder, state));
+        entity.writeArms(SwordArms.allArms(wielder, state));
         level.addFreshEntity(entity);
         return entity;
     }
@@ -128,6 +155,7 @@ public class SwordArrayEntity extends SpellEffectEntity {
         follow(SwordService.frame(wielder));
         writePicture(state.swordArray().stance(), SwordService.bind(wielder),
                 SwordService.presentMask(wielder, state));
+        writeArms(SwordArms.allArms(wielder, state));
         StanceWatchService.tick(level, wielder, state);
     }
 
@@ -181,7 +209,31 @@ public class SwordArrayEntity extends SpellEffectEntity {
         }
     }
 
+    @Override
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        for (EntityDataAccessor<ItemStack> arm : ARMS) {
+            builder.define(arm, ItemStack.EMPTY);
+        }
+    }
+
+    /** The rack as the formation flies it, written socket by socket and only where it moved. */
+    public void writeArms(ItemStack[] arms) {
+        for (int socket = 0; socket < ARMS.size(); socket++) {
+            ItemStack want = socket < arms.length && arms[socket] != null ? arms[socket] : ItemStack.EMPTY;
+            EntityDataAccessor<ItemStack> accessor = ARMS.get(socket);
+            if (!ItemStack.matches(entityData.get(accessor), want)) {
+                entityData.set(accessor, want.copy());
+            }
+        }
+    }
+
     // ---- what the client reads -------------------------------------------------------------------
+
+    /** What sword {@code socket} flies as, or empty for plain steel. */
+    public ItemStack arm(int socket) {
+        return socket >= 0 && socket < ARMS.size() ? entityData.get(ARMS.get(socket)) : ItemStack.EMPTY;
+    }
 
     /** Total: an ordinal that arrived out of range answers the default rather than throwing. */
     public SwordStance stance() {

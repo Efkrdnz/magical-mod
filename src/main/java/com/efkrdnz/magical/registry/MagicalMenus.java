@@ -10,6 +10,7 @@ import com.efkrdnz.magical.magic.menu.GreedVaultMenu;
 import com.efkrdnz.magical.magic.menu.MagicPyramidMenu;
 import com.efkrdnz.magical.magic.menu.SpaceArsenalStorageMenu;
 import com.efkrdnz.magical.magic.menu.SpaceWalkerMenu;
+import com.efkrdnz.magical.magic.menu.SwordRackMenu;
 import com.efkrdnz.magical.magic.menu.TrainingDummyMenu;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.inventory.MenuType;
@@ -48,6 +49,9 @@ public final class MagicalMenus {
             MENUS.register("training_dummy", () -> new MenuType<>(
                     (net.neoforged.neoforge.network.IContainerFactory<TrainingDummyMenu>) TrainingDummyMenu::new,
                     net.minecraft.world.flag.FeatureFlags.DEFAULT_FLAGS));
+
+    public static final DeferredHolder<MenuType<?>, MenuType<SwordRackMenu>> SWORD_RACK =
+            MENUS.register("sword_rack", () -> new MenuType<>(SwordRackMenu::new, net.minecraft.world.flag.FeatureFlags.DEFAULT_FLAGS));
 
     private MagicalMenus() {}
 

@@ -15,6 +15,7 @@ import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -55,6 +56,14 @@ public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEnt
         public double lookElevation;
         /** The argument Formation.place takes for its wave terms. See the note in extract. */
         public double phase;
+        /** What each sword flies as: its rack socket's weapon, empty for Duskfall. */
+        public final ItemStack[] arms = emptyArms();
+    }
+
+    private static ItemStack[] emptyArms() {
+        ItemStack[] arms = new ItemStack[com.efkrdnz.magical.magic.sword.rack.SwordRack.SIZE];
+        java.util.Arrays.fill(arms, ItemStack.EMPTY);
+        return arms;
     }
 
     @Override
@@ -95,6 +104,9 @@ public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEnt
         // An entity's own age starts when its spawn packet lands, so the ring would be drawn at
         // one angle and fired from another, by an offset that was different for every observer.
         state.phase = entity.level().getGameTime() + partialTick;
+        for (int socket = 0; socket < state.arms.length; socket++) {
+            state.arms[socket] = entity.arm(socket);
+        }
     }
 
     /**
@@ -134,7 +146,8 @@ public final class SwordArrayRenderer extends ProfileRendererShell<SwordArrayEnt
             double[] facing = ArrayPose.worldDirection(slot, frame);
             pose.pushPose();
             pose.translate(offset[0], offset[1], offset[2]);
-            SwordBladeRenderer.blade(ctx, new Vec3(facing[0], facing[1], facing[2]), 0.0F);
+            SwordBladeRenderer.blade(ctx, new Vec3(facing[0], facing[1], facing[2]), 0.0F,
+                    index < state.arms.length ? state.arms[index] : ItemStack.EMPTY);
             pose.popPose();
         }
     }

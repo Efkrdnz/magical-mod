@@ -8,6 +8,7 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleEngine;
 import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ParticleStatus;
@@ -47,6 +48,9 @@ public final class SwordImpactParticles {
     /** Sideways drift on a trembling crumb, so the rim reads as shaken rather than as a row. */
     private static final double TREMOR_DRIFT = 0.02D;
 
+    /** How big a mote of the weapon's colour is drawn: vanilla's redstone dust is 1. */
+    private static final float ACCENT_SIZE = 0.9F;
+
     private static final ImpactWave.Ledger LEDGER = new ImpactWave.Ledger();
 
     private SwordImpactParticles() {
@@ -77,8 +81,12 @@ public final class SwordImpactParticles {
         ParticleEngine engine = minecraft.particleEngine;
         RandomSource random = level.random;
 
+        boolean accented = payload.accent() != 0;
         ring(engine, kind, echo, stride, x, y, z, n, payload.radius(), random);
-        sparks(engine, kind, echo, stride, x, y, z, n, random);
+        sparks(engine, kind, echo, accented, stride, x, y, z, n, random);
+        if (accented) {
+            accents(engine, kind, echo, payload.accent(), x, y, z, n, random);
+        }
         BlockState struck = payload.block() == 0 ? null : Block.stateById(payload.block());
         if (struck != null && !struck.isAir()) {
             crumbs(engine, kind, echo, stride, x, y, z, n, payload.radius(), struck, random);
@@ -112,15 +120,36 @@ public final class SwordImpactParticles {
     }
 
     /** Sparks back the way the blade came, inside the cone round the normal. */
-    private static void sparks(ParticleEngine engine, Kind kind, boolean echo, int stride,
+    private static void sparks(ParticleEngine engine, Kind kind, boolean echo, boolean accented, int stride,
             double x, double y, double z, double[] n, RandomSource random) {
-        int sparks = ImpactWave.sparks(kind, echo);
+        int sparks = ImpactWave.sparks(kind, echo, accented);
         for (int i = 0; i < sparks; i += stride) {
             double[] d = ImpactWave.spark(n[0], n[1], n[2], random.nextDouble(), random.nextDouble());
             double speed = ImpactWave.SPARK_SPEED * (0.6D + 0.6D * random.nextDouble());
             Particle spark = engine.createParticle(ParticleTypes.CRIT, x, y, z, 0.0D, 0.0D, 0.0D);
             if (spark != null) {
                 spark.setParticleSpeed(d[0] * speed, d[1] * speed, d[2] * speed);
+            }
+        }
+    }
+
+    /**
+     * Motes in the racked weapon's colour, thrown the way the sparks are. Not thinned at Decreased:
+     * there are two or three, and an echo's one stands in for a spark it already gave up.
+     */
+    private static void accents(ParticleEngine engine, Kind kind, boolean echo, int accent,
+            double x, double y, double z, double[] n, RandomSource random) {
+        int motes = ImpactWave.accents(kind, echo);
+        if (motes <= 0) {
+            return;
+        }
+        DustParticleOptions dust = new DustParticleOptions(accent, ACCENT_SIZE);
+        for (int i = 0; i < motes; i++) {
+            double[] d = ImpactWave.spark(n[0], n[1], n[2], random.nextDouble(), random.nextDouble());
+            double speed = ImpactWave.SPARK_SPEED * (0.5D + 0.5D * random.nextDouble());
+            Particle mote = engine.createParticle(dust, x, y, z, 0.0D, 0.0D, 0.0D);
+            if (mote != null) {
+                mote.setParticleSpeed(d[0] * speed, d[1] * speed, d[2] * speed);
             }
         }
     }

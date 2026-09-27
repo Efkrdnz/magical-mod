@@ -4,7 +4,6 @@ import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.entity.fx.SpellBehavior;
 import com.efkrdnz.magical.entity.fx.SpellEffectEntity;
 import com.efkrdnz.magical.magic.MagicContent;
-import com.efkrdnz.magical.magic.MagicDamageService;
 import com.efkrdnz.magical.magic.MagicSinService;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
@@ -20,6 +19,7 @@ import com.efkrdnz.magical.magic.skill.SkillModule;
 import com.efkrdnz.magical.magic.sword.SwordImpacts;
 import com.efkrdnz.magical.magic.sword.SwordMath;
 import com.efkrdnz.magical.magic.sword.SwordService;
+import com.efkrdnz.magical.magic.sword.rack.SwordArms;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
 import com.efkrdnz.magical.magic.visual.CircleScript;
 import com.efkrdnz.magical.magic.visual.ColorRole;
@@ -35,9 +35,11 @@ import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -165,16 +167,19 @@ public final class OneBladeSkill implements SkillModule {
         private final int slot;
         private final int entityId;
         private final int swords;
+        /** Which swords were fused, as a mask: their rack sockets are what the edge carries. */
+        private final int slots;
         private final int carryTicks;
         private final Map<Integer, Integer> struck = new HashMap<>();
         private int ticks;
         private boolean formed;
         private int nextSlash;
 
-        private Fusion(int slot, int entityId, int swords, int carryTicks) {
+        private Fusion(int slot, int entityId, int swords, int slots, int carryTicks) {
             this.slot = slot;
             this.entityId = entityId;
             this.swords = swords;
+            this.slots = slots;
             this.carryTicks = carryTicks;
         }
     }
@@ -272,6 +277,7 @@ public final class OneBladeSkill implements SkillModule {
             return;
         }
 
+        int standing = SwordService.presentMask(player, state);
         int gathered = SwordService.spendSwords(player, state, SwordService.present(player, state));
         if (gathered <= 0) {
             player.displayClientMessage(Component.translatable("message.magical.sword_none_present"), true);
@@ -281,7 +287,8 @@ public final class OneBladeSkill implements SkillModule {
         Vec3 hand = hand(player);
         SpellEffectEntity blade = SpellEffectEntity.spawn(ctx, hand, FUSE_TICKS + carry + 2,
                 (float) SwordMath.oneBladeReach(gathered), player.getLookAngle());
-        FUSIONS.put(player.getUUID(), new Fusion(ctx.slot(), blade.getId(), gathered, carry));
+        FUSIONS.put(player.getUUID(), new Fusion(ctx.slot(), blade.getId(), gathered,
+                SwordService.lowestOf(standing, gathered), carry));
         SwordService.tendArrayEntity(player, state);
         ctx.level().playSound(null, hand.x, hand.y, hand.z,
                 SoundEvents.RESPAWN_ANCHOR_CHARGE, SoundSource.PLAYERS, 0.8F, 0.7F);
@@ -466,7 +473,8 @@ public final class OneBladeSkill implements SkillModule {
         cut(player, fusion, length * BLAST_LENGTH_FACTOR, 0.0D, length * BLAST_WIDTH_FACTOR * 0.5D, amount, 1.2D);
         // The air at the point as the blade drives home, whether or not anything stood there.
         Vec3 look = player.getLookAngle();
-        SwordImpacts.thrust(player.serverLevel(), hand(player).add(look.scale(length)), look);
+        SwordImpacts.thrust(player.serverLevel(), hand(player).add(look.scale(length)), look,
+                SwordArms.accent(SwordArms.arms(player, state, fusion.slots)));
         player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
                 SoundEvents.WARDEN_SONIC_BOOM, SoundSource.PLAYERS, 1.0F, 1.1F);
 
@@ -499,6 +507,8 @@ public final class OneBladeSkill implements SkillModule {
         Vec3 side = new Vec3(-flat.z, 0.0D, flat.x);
         double cos = arcDegrees > 0.0D ? Math.cos(Math.toRadians(arcDegrees) / 2.0D) : 0.0D;
         AABB box = new AABB(eye, eye).inflate(reach, SLASH_HEIGHT / 2.0D + 0.5D, reach);
+        List<ItemStack> arms = SwordArms.arms(player, player.getData(MagicalAttachments.MAGIC_STATE), fusion.slots);
+        int accent = SwordArms.accent(arms);
 
         for (LivingEntity victim : SkillTargets.hostilesIn(level, player, box)) {
             Vec3 centre = victim.getBoundingBox().getCenter();
@@ -523,18 +533,21 @@ public final class OneBladeSkill implements SkillModule {
             if (waitingOn(fusion, victim)) {
                 continue;
             }
-            wound(player, fusion, victim, amount);
-            SwordImpacts.cut(level, centre, centre.subtract(eye));
+            wound(player, fusion, victim, amount, arms);
+            SwordImpacts.cut(level, centre, centre.subtract(eye), accent);
             SkillTargets.shove(victim, eye, knockback, 0.15D);
         }
     }
 
     /** Both halves of the i-frame rule, in the one place this skill wounds anything. */
-    private static void wound(ServerPlayer player, Fusion fusion, LivingEntity victim, float amount) {
+    private static void wound(ServerPlayer player, Fusion fusion, LivingEntity victim, float amount,
+            List<ItemStack> arms) {
         victim.invulnerableTime = 0;
         fusion.struck.put(victim.getId(), fusion.ticks + VICTIM_COOLDOWN_TICKS);
-        MagicDamageService.hurt(victim, player.serverLevel().damageSources().indirectMagic(player, player),
-                amount, MagicContent.ONE_BLADE.id());
+        // One edge made of every fused sword, so every weapon racked in it rides the cut.
+        SwordArms.strike(player.serverLevel(), player, victim, arms, fusion.swords,
+                player.serverLevel().damageSources().indirectMagic(player, player), amount,
+                MagicContent.ONE_BLADE.id());
     }
 
     private static boolean waitingOn(Fusion fusion, LivingEntity victim) {
