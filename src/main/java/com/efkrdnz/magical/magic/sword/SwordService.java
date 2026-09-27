@@ -506,9 +506,12 @@ public final class SwordService {
         }
         Frame target = bodyFrame(player, wielder);
         double dt = wielder.followTick == Long.MIN_VALUE ? 0.0D : Math.max(0.0D, now - wielder.followTick);
-        double halfLife = stanceOf(player).followHalfLife();
-        wielder.followYaw = FrameEase.approachAngle(wielder.followYaw, target.yaw(), halfLife, dt);
-        wielder.followPitch = FrameEase.approachAngle(wielder.followPitch, target.pitch(), halfLife, dt);
+        SwordStance stance = stanceOf(player);
+        // Through ArrayPose, because an orbit takes none of the turn: Crown and Coil keep their
+        // bearing and only their pitch settles level.
+        wielder.followYaw = ArrayPose.nextYaw(stance, wielder.followYaw, target.yaw(), dt);
+        wielder.followPitch = FrameEase.approachAngle(wielder.followPitch, target.pitch(),
+                stance.followHalfLife(), dt);
         wielder.followTick = now;
     }
 

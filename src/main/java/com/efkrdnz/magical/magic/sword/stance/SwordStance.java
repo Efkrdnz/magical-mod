@@ -14,10 +14,11 @@ import java.util.Locale;
  * <p>Each constant carries four decisions and nothing else:
  *
  * <ul>
- *   <li>{@link Anchor} - whether the formation's <em>position</em> follows the wielder's look or
- *       only their body yaw. This is not cosmetic: a Crown anchored to the look swings under the
- *       wielder's feet the moment they glance down, which is the single most obvious way to get a
- *       stance wrong and the reason the field exists at all.
+ *   <li>{@link Anchor} - whether the formation's <em>position</em> follows the wielder's look,
+ *       only their body yaw, or neither. This is not cosmetic: a Crown anchored to the look swings
+ *       under the wielder's feet the moment they glance down, which is the single most obvious way
+ *       to get a stance wrong and the reason the field exists at all - and a Crown that took the
+ *       body's yaw swung round every time its wielder turned the camera, on top of its own spin.
  *   <li>{@link Facing} - which way the blades point, which is a separate question from where they
  *       are. Guard sits behind the shoulders and points <em>forward</em>; collapsing the two
  *       fields into one would make that impossible to say.
@@ -42,7 +43,9 @@ import java.util.Locale;
  * <p><b>The half-life is how long the formation takes to catch up with a turn</b>, in ticks, and
  * it is per stance because the stances want different things from it. Vanguard is a cluster on
  * the aim line and has to stay on the crosshair, so it is nearly rigid; Rain hangs eight feet up
- * and should swing like something heavy. See {@code FrameEase}.
+ * and should swing like something heavy. An {@link Anchor#ORBIT} takes no turn at all, so for
+ * Crown and Coil it is only how fast the ring levels out after a stance that was tilted. See
+ * {@code FrameEase}.
  *
  * <p>Declaration order is the unlock order and {@code SwordRules.stances()} is a count taken off
  * the front of it, so <b>a stance may not be reordered</b> without moving which rung owns it. The
@@ -65,25 +68,33 @@ public enum SwordStance {
     VANGUARD(Anchor.LOOK, Facing.LOOK, Watch.STAB, Pattern.COLUMN, 0, 5, 1.2D),
 
     /** A turning ring above the head, points outward. Close ground denial. */
-    CROWN(Anchor.BODY, Facing.OUTWARD, Watch.SHEAR, Pattern.RING, 1, 10, 4.0D),
+    CROWN(Anchor.ORBIT, Facing.OUTWARD, Watch.SHEAR, Pattern.RING, 1, 10, 4.0D),
 
     /** Two swept-back fans at the shoulders, angled up. Mobility. */
     WINGS(Anchor.BODY, Facing.ALONG, Watch.GLIDE, Pattern.FAN, 1, 8, 2.5D),
 
     /** A fast level orbit at the waist, points outward. A bodyguard you cannot walk through. */
-    COIL(Anchor.BODY, Facing.OUTWARD, Watch.SHRED, Pattern.SPRAY, 2, 10, 2.0D),
+    COIL(Anchor.ORBIT, Facing.OUTWARD, Watch.SHRED, Pattern.SPRAY, 2, 10, 2.0D),
 
     /** High overhead on a scattered disc, points straight down. Waiting to fall on something. */
     RAIN(Anchor.BODY, Facing.DOWN, Watch.DROP, Pattern.FALL, 2, 12, 5.0D);
 
-    /** Whether the formation's position turns with the wielder's look or only with their body. */
+    /** Whether the formation's position turns with the wielder's look, only with their body, or not at all. */
     public enum Anchor {
 
         /** Yaw only. The formation stays level however the wielder tilts their head. */
         BODY,
 
         /** Yaw and pitch. The formation is rigid to the aim line. */
-        LOOK
+        LOOK,
+
+        /**
+         * Neither. The formation rides the body but takes none of its turn: it spins on its own
+         * clock, and one that also swung round whenever its wielder turned the camera was two
+         * rotations fighting. It takes the wielder's bearing once, as it is called, keeps whatever
+         * bearing it was entered at, and stays level. See {@code ArrayPose.nextYaw}.
+         */
+        ORBIT
     }
 
     /** Which way a blade points, which is a different question from where the blade is. */

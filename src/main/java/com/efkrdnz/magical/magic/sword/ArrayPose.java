@@ -43,6 +43,22 @@ public final class ArrayPose {
                 : new double[] {x, y + BODY_CENTRE, z};
     }
 
+    /**
+     * Where a held frame's yaw goes next, from {@code current}, with the wielder's body turned to
+     * {@code body} and {@code dt} ticks gone since the last advance.
+     *
+     * <p>Every stance chases the body over its half-life, except an {@link SwordStance.Anchor#ORBIT},
+     * which keeps the bearing it has: Crown and Coil spin on their own clock, and turning them with
+     * the wielder as well was two rotations fighting. A {@code dt} of zero is the first advance
+     * after a call, which places every stance - an orbit included - in its wielder's frame.
+     */
+    public static float nextYaw(SwordStance stance, float current, float body, double dt) {
+        if (stance.anchor() == SwordStance.Anchor.ORBIT && dt > 0.0D) {
+            return current;
+        }
+        return FrameEase.approachAngle(current, body, stance.followHalfLife(), dt);
+    }
+
     /** Where this slot's sword sits, as an offset from the frame origin, in world axes. */
     public static double[] worldOffset(Slot slot, Frame frame) {
         double scale = frame.scale();

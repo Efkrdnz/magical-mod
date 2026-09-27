@@ -4,6 +4,7 @@ import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.classes.MagicalClasses;
 import com.efkrdnz.magical.entity.sword.SwordArrayEntity;
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.sword.FrameEase;
 import com.efkrdnz.magical.magic.sword.SwordService;
 import com.efkrdnz.magical.magic.sword.rack.SwordRack;
 import com.efkrdnz.magical.magic.sword.rack.SwordRackGameTests;
@@ -118,9 +119,11 @@ public final class StanceGameTests {
         });
         // Several ticks later, because the entity is discarded rather than removed outright and a
         // discarded entity is still in the level's list for the rest of its own tick.
+        // Its own formation and nobody else's: the cells are adjacent, and another test's wielder
+        // may be standing a few blocks away with their steel still out.
         helper.runAtTickTime(12, () -> {
             helper.assertTrue(helper.getLevel().getEntitiesOfClass(SwordArrayEntity.class,
-                            player.getBoundingBox().inflate(32.0D)).isEmpty(),
+                            player.getBoundingBox().inflate(32.0D), entity -> entity.owner() == player).isEmpty(),
                     "a formation entity is still standing near a wielder who sheathed nine ticks ago");
             helper.assertValueEqual(SwordService.present(player, state), 0,
                     "swords with a sheathed wielder");
@@ -198,6 +201,43 @@ public final class StanceGameTests {
             helper.assertValueEqual(SwordService.present(player, state), SwordStance.RAIN.swordCap(),
                     "swords back in Rain - anything short of the full complement is steel the"
                             + " return machinery could not reach through Vanguard's window");
+            helper.succeed();
+        });
+    }
+
+    /**
+     * Crown's ring spins on its own clock, so turning the wielder must not turn it as well - and
+     * Guard, which points where the wielder looks, must still come round. Through the formation's
+     * own tick, which is the one place the frame is advanced. Every reading is taken before any
+     * assertion and the steel put away between, so a failure leaves no formation standing in a
+     * neighbouring cell for the sheathe test to find.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 100, batch = "sword_stance_5")
+    public static void anOrbitTakesNoneOfItsWielderTurn(GameTestHelper helper) {
+        ServerPlayer player = wielder(helper, "stance-orbit");
+        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+        float[] before = new float[1];
+        float[] crown = new float[1];
+        helper.runAtTickTime(1, () -> {
+            player.setYRot(0.0F);
+            standUp(player, state, SwordStance.CROWN);
+        });
+        helper.runAtTickTime(5, () -> {
+            before[0] = SwordService.frame(player).yaw();
+            player.setYRot(before[0] + 90.0F);
+        });
+        helper.runAtTickTime(40, () -> {
+            crown[0] = SwordService.frame(player).yaw();
+            stand(player, state, SwordStance.GUARD);
+        });
+        helper.runAtTickTime(70, () -> {
+            float guard = SwordService.frame(player).yaw();
+            float body = player.getYRot();
+            SwordService.sheathe(player, state);
+            helper.assertTrue(Math.abs(FrameEase.difference(before[0], crown[0])) < 0.01D,
+                    "Crown turned with its wielder, from " + before[0] + " to " + crown[0]);
+            helper.assertTrue(Math.abs(FrameEase.difference(body, guard)) < 5.0D,
+                    "Guard did not come round to its wielder: frame at " + guard + ", wielder at " + body);
             helper.succeed();
         });
     }
