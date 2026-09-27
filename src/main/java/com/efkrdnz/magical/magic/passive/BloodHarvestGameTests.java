@@ -41,9 +41,13 @@ public final class BloodHarvestGameTests {
     private static final String BATCH = "blood_harvest";
 
     private static final BlockPos NEAR = new BlockPos(2, 2, 2);
-    private static final Vec3 CORPSE = new Vec3(5.5D, 2.05D, 2.5D);
+    /** Against the east wall of the cell, inside it: see {@link #inCell}. */
+    private static final Vec3 CORPSE = new Vec3(4.5D, 2.05D, 2.5D);
 
-    /** Well outside pull range, still inside the chunks the player themselves keeps loaded. */
+    /**
+     * Well outside pull range, and outside the cell, which only a player may be: a pool finds its
+     * owner wherever they stand, but a fake player keeps no ground ticking round it (see {@link #inCell}).
+     */
     private static final BlockPos FAR = new BlockPos(2, 2, 16);
 
     private BloodHarvestGameTests() {}
@@ -53,7 +57,7 @@ public final class BloodHarvestGameTests {
         ServerPlayer player = bloodMage(helper, NEAR);
         int before = state(player).bloodVessel();
         int yield = BloodHarvestRules.VESSEL_PER_DROP;
-        BloodHarvestEntity pool = BloodHarvestEntity.spawn(helper.getLevel(), player, helper.absoluteVec(CORPSE), yield);
+        BloodHarvestEntity pool = BloodHarvestEntity.spawn(helper.getLevel(), player, inCell(helper, CORPSE), yield);
         double distance = BloodHarvestEntity.chestOf(player).distanceTo(pool.position());
         int flight = BloodHarvestRules.flightTicks(distance);
 
@@ -74,7 +78,7 @@ public final class BloodHarvestGameTests {
     @GameTest(template = TEMPLATE, timeoutTicks = 100, batch = BATCH)
     public static void farBloodPoolsUntilThePlayerComesNear(GameTestHelper helper) {
         ServerPlayer player = bloodMage(helper, FAR);
-        BloodHarvestEntity pool = BloodHarvestEntity.spawn(helper.getLevel(), player, helper.absoluteVec(CORPSE),
+        BloodHarvestEntity pool = BloodHarvestEntity.spawn(helper.getLevel(), player, inCell(helper, CORPSE),
                 BloodHarvestRules.VESSEL_PER_DROP);
         helper.runAtTickTime(10, () -> {
             helper.assertTrue(pool.isPooled(), "Blood out of reach must wait");
@@ -91,10 +95,15 @@ public final class BloodHarvestGameTests {
     public static void bloodNobodyComesForDries(GameTestHelper helper) {
         ServerPlayer player = bloodMage(helper, FAR);
         int before = state(player).bloodVessel();
-        BloodHarvestEntity pool = BloodHarvestEntity.spawn(helper.getLevel(), player, helper.absoluteVec(CORPSE),
+        BloodHarvestEntity pool = BloodHarvestEntity.spawn(helper.getLevel(), player, inCell(helper, CORPSE),
                 BloodHarvestRules.VESSEL_PER_DROP);
-        helper.runAtTickTime(BloodHarvestRules.POOL_LIFETIME - 2, () ->
-                helper.assertTrue(pool.isPooled() && !pool.isRemoved(), "A pool must wait out its whole lifetime"));
+        int waited = BloodHarvestRules.POOL_LIFETIME - 2;
+        helper.runAtTickTime(waited, () -> {
+            // A pool that never ticked passes the second check and fails only at the end; its age says why.
+            helper.assertTrue(pool.tickCount >= waited, "The pool must have aged with the test, " + pool.tickCount
+                    + " ticks by tick " + waited);
+            helper.assertTrue(pool.isPooled() && !pool.isRemoved(), "A pool must wait out its whole lifetime");
+        });
         helper.runAtTickTime(BloodHarvestRules.POOL_LIFETIME + 3, () -> {
             helper.assertTrue(pool.isRemoved(), "A pool nobody came for must dry");
             helper.assertTrue(state(player).bloodVessel() == before, "Dried blood pays nothing");
@@ -105,9 +114,9 @@ public final class BloodHarvestGameTests {
     @GameTest(template = TEMPLATE, timeoutTicks = 100, batch = BATCH)
     public static void aBatteryWaitsWithinReachAndATraceIsWorthNothing(GameTestHelper helper) {
         ServerPlayer player = bloodMage(helper, NEAR);
-        BloodHarvestEntity battery = BloodHarvestEntity.spawn(helper.getLevel(), player, helper.absoluteVec(CORPSE),
+        BloodHarvestEntity battery = BloodHarvestEntity.spawn(helper.getLevel(), player, inCell(helper, CORPSE),
                 BloodHarvestRules.KIND_BATTERY, 20, BloodHarvestRules.POOL_LIFETIME);
-        BloodHarvestEntity trace = BloodHarvestEntity.spawn(helper.getLevel(), player, helper.absoluteVec(CORPSE.add(1.0D, 0.0D, 0.0D)),
+        BloodHarvestEntity trace = BloodHarvestEntity.spawn(helper.getLevel(), player, inCell(helper, CORPSE.add(0.0D, 0.0D, 1.0D)),
                 BloodHarvestRules.KIND_TRACE, 0, 60);
         helper.runAtTickTime(30, () -> {
             helper.assertTrue(battery.isPooled(), "A battery within pull range must not lift on its own");
@@ -123,7 +132,7 @@ public final class BloodHarvestGameTests {
         Vec3 origin = player.position();
         // Inside the barrier shell the framework puts round the template, like everything a test
         // relies on: a pool in the next cell over is in another test's space.
-        Vec3 at = helper.absoluteVec(new Vec3(0.5D, 2.05D, 0.5D));
+        Vec3 at = inCell(helper, new Vec3(0.5D, 2.05D, 0.5D));
         BloodHarvestEntity battery = BloodHarvestEntity.spawn(helper.getLevel(), player, at,
                 BloodHarvestRules.KIND_BATTERY, 20, BloodHarvestRules.POOL_LIFETIME);
         int before = state(player).bloodVessel();
@@ -176,9 +185,9 @@ public final class BloodHarvestGameTests {
     @GameTest(template = TEMPLATE, timeoutTicks = 100, batch = BATCH)
     public static void coagulateDrinksThePoolsInReachAndSetsThemIntoBarrier(GameTestHelper helper) {
         ServerPlayer player = bloodMage(helper, NEAR, MagicContent.COAGULATE.id());
-        BloodHarvestEntity.spawn(helper.getLevel(), player, helper.absoluteVec(CORPSE),
+        BloodHarvestEntity.spawn(helper.getLevel(), player, inCell(helper, CORPSE),
                 BloodHarvestRules.KIND_BATTERY, 20, BloodHarvestRules.POOL_LIFETIME);
-        BloodHarvestEntity.spawn(helper.getLevel(), player, helper.absoluteVec(CORPSE.add(0.0D, 0.0D, 3.0D)),
+        BloodHarvestEntity.spawn(helper.getLevel(), player, inCell(helper, CORPSE.add(0.0D, 0.0D, 2.0D)),
                 BloodHarvestRules.KIND_BATTERY, 30, BloodHarvestRules.POOL_LIFETIME);
         state(player).setBarrier(0);
         int vessel = state(player).bloodVessel();
@@ -261,6 +270,23 @@ public final class BloodHarvestGameTests {
 
     private static PlayerMagicState state(ServerPlayer player) {
         return player.getData(MagicalAttachments.MAGIC_STATE);
+    }
+
+    /**
+     * {@code relative} in the level, provided it is inside the cell, which every pool these tests set
+     * down has to be.
+     *
+     * <p>A pool that does not tick never lifts, lands or dries, and nothing outside the cell is sure to
+     * tick: the server force-loads only the chunks a cell touches, a fake player's chunk ticket never
+     * leaves world spawn, and the grid starts from a random corner every run. {@code CORPSE} used to lie
+     * one block past the east wall, so in a run that put that wall on a chunk boundary with no cell
+     * beyond it the pool never aged a tick, and {@code bloodNobodyComesForDries} failed.
+     */
+    private static Vec3 inCell(GameTestHelper helper, Vec3 relative) {
+        Vec3 at = helper.absoluteVec(relative);
+        helper.assertTrue(helper.getBounds().contains(at),
+                "A pool outside the cell may stand where nothing ticks, at " + relative);
+        return at;
     }
 
     private static ServerPlayer bloodMage(GameTestHelper helper, BlockPos at) {
