@@ -125,6 +125,61 @@ When building a skill's own visuals on top of the cues:
   (every skill cast at a golem on a clean stage, three frames each) is what found every one of the
   problems above.
 
+### Sigils — a symbol in an ink
+
+When a skill or a passive has to *say* something rather than throw something — this body is named,
+that hit was banked, a curse is falling, a debt is running — draw a sigil: one of 43 pixel symbols in
+a two-tone ink, sent as one particle. `magic/visual/sigil/` is the whole library, and a combination
+is one line:
+
+```java
+Sigils.crown(level, target, SigilMark.of(Sigil.runes()).ink(SigilInk.from(base)).scale(1.5F), 8, 8);
+Sigils.pop(level, player, SigilMark.of(Sigil.HOURGLASS).ink(SigilInk.GOLD));
+Sigils.burst(level, at, SigilMark.of(Sigil.EYE, Sigil.KEY).inks(SigilInk.GOLD, SigilInk.NIGHT)
+        .motion(SigilMotion.DRIFT), 12, 0.15D);
+```
+
+- **`Sigil`**, the symbols, in five families: the eight runes `RUNE_0`..`RUNE_7` (the drawings
+  `MagicalParticles.RUNE` throws), ELEMENT (`FLAME`, `DROP`, `SNOWFLAKE`, `LEAF`, `WAVE`, `SUN`,
+  `MOON`, `STAR`, `SPROUT`), CREATURE (`EYE`, `SKULL`, `BONE`, `FANG`, `HEART`, `PAW`, `FEATHER`),
+  OBJECT (`KEY`, `HOURGLASS`, `CROWN`, `SHIELD`, `COIN`, `SWORD`, `HAMMER`, `FLASK`, `ANCHOR`,
+  `GEAR`, `LINK`) and MARK (`PLUS`, `ARROW`, `CHEVRON`, `DIAMOND`, `TRIANGLE`, `RING`, `SPIRAL`,
+  `THORN`). Where the HUD already has a stamp for an idea — a sin, a status — use the sigil of the
+  same name, so the HUD and the world speak one vocabulary.
+- **`SigilInk`**, a core colour for the strokes and a glow colour for the one-texel halo round
+  them. Fifteen presets — `VIOLET`, `GOLD`, `EMBER`, `CRIMSON`, `ROSE`, `AZURE`, `FROST`, `TEAL`,
+  `VERDANT`, `LIME`, `UMBRA`, `SHADOW` (a near-black halo), `STEEL`, `BONE`, and `NIGHT`, the one
+  dark core in a pale halo — or `SigilInk.from(rgb)` for any colour: a passive's own, a profile's
+  `BASE`.
+- **`SigilMotion`**: `RISE` (lifts, holds, fades — the default, the rune's own motion), `HOVER`
+  (stays where it is written), `DRIFT` (carries the velocity it is sent with: bursts, throws),
+  `FALL` (sinks, sways and settles: a thing shed, a curse).
+- **`SigilMark`**, the combination: symbols, inks, a motion, a scale. The *i*-th sigil a placement
+  writes takes the *i*-th symbol and the *i*-th ink, each list cycling, so a ring in two inks
+  alternates and slot *i* always wears the same symbol.
+- **`Sigils`**, the placements, sent from the server: `crown(level, body, mark, slots, filled)` (a
+  level ring over the head with the first `filled` of `slots` written — Long Debt's tally), `pop`
+  (one sigil drifting up off the head: *this just happened to me*), `halo` (a ring at chest height),
+  `burst` (out in every direction), `rise` (up out of the ground over a disc). The geometry is
+  `SigilPlacement`, pure and pinned by `SigilPlacementTest`.
+
+**Readability is a number.** A two-tone mark reads over any background at least as well as the
+square root of the contrast between its two colours — wherever the ground defeats one layer the
+other carries it — so every preset holds `sqrt(Palette.contrast(core, glow)) >= SigilInk.READABLE`
+(1.8), and `from(rgb)` deepens its glow toward black until it does. A white core in a pale cyan halo
+scored 1.23 and vanished into a daylight sky; gold in an orange halo, 1.31, read on blue only by hue
+and would have gone on noon sand. Tune an ink by deepening its halo, never by darkening its core,
+and never lower the threshold: `SigilInkTest` holds every preset and a sweep of derived inks to it.
+
+A sigil is a sign, not a swarm: a crown is eight, a pop is one, a burst a dozen. It is full bright,
+never lit by the world, and kept off the caster's lens like the tinted sprites. Look at the whole
+library with `/magical-debug sigils` (every ink a row of all 43; look up to hang it on the sky) or
+`/magical-debug sigils <ink>` (one ink as a block up close; look down to lay it over the ground). A
+new symbol goes at the end of its family in `Sigil` and as a 7x7 grid in `SIGILS` in
+`scripts/particle-sprites.py`; rerun the script, and `SigilSpritesTest` holds the texture list to the
+enum and every drawing at least two strokes from every other. Two strokes is the floor, not the aim:
+the first flame was sixteen texels from the drop, passed, and read as a second drop in the capture.
+
 ## Skill Design
 
 - Build skills as unique mechanics first, visuals second.
