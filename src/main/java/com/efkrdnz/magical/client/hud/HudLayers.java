@@ -88,13 +88,11 @@ public final class HudLayers {
 
         @SubscribeEvent
         public static void onLoggingIn(ClientPlayerNetworkEvent.LoggingIn event) {
-            HudAnnouncer.reset();
             RuleFlash.reset();
         }
 
         @SubscribeEvent
         public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
-            HudAnnouncer.reset();
             RuleFlash.reset();
             HudState.markDirty();
         }
@@ -125,9 +123,17 @@ public final class HudLayers {
         // of them. It steps aside while a law is being written and comes back when the key is let
         // go. The small radials below do not need this: they sit round the crosshair, clear of it.
         // The Sword Stance picker is the same case and stands the sigil down for the same reason.
+        // The loadout rail sits on the left edge; the corner block clears it at the top corners,
+        // and where it does not - a bottom corner - the block steps aside while the rail is drawn,
+        // fading out included, rather than print its readouts through the rail's names. Only the
+        // block: the status chips sit
+        // under the crosshair, nowhere near the rail, and a rooted player choosing a loadout
+        // mid-fight still needs to see the root.
+        HudSnapshot snapshot = HudState.snapshot();
+        boolean underRail = MagicWheelOverlay.isVisible() && snapshot != null && !snapshot.layout().clearsLoadoutRail();
         if (!SpaceManipulationOverlay.active()
                 && !com.efkrdnz.magical.client.SwordStanceOverlay.isActive()) {
-            SigilRenderer.render(graphics, delta);
+            SigilRenderer.render(graphics, delta, !underRail);
         }
         ForgeComboHud.render(graphics, minecraft);
         ClientCounterPrompt.render(graphics, minecraft);

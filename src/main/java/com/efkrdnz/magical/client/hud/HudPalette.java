@@ -20,7 +20,7 @@ import com.efkrdnz.magical.magic.visual.VisualProfile;
  * body colour no school owns.
  */
 public final class HudPalette {
-    /** The lit register's plate body. */
+    /** The lit register's plate body, and the dark track under every corner-block bar. */
     public static final int CHROME_INK = 0x070A12;
     /** The ink register's body: violet-black, so the reflection reads as something else. */
     public static final int FORBIDDEN_INK = 0x0B0612;
@@ -30,17 +30,10 @@ public final class HudPalette {
     public static final int PLATE = 0x141C2E;
     public static final int TEXT_PRIMARY = MagicalGuiStyle.TEXT_PRIMARY;
     public static final int TEXT_MUTED = MagicalGuiStyle.TEXT_MUTED;
-    public static final int XP = MagicalGuiStyle.ACCENT_GOLD & 0xFFFFFF;
     public static final int DANGER = MagicalGuiStyle.ACCENT_BLOOD & 0xFFFFFF;
     public static final int VIOLET = MagicalGuiStyle.ACCENT_VIOLET & 0xFFFFFF;
     /** Fixed on purpose: the barrier has to read the same whatever school tints the mana. */
     public static final int BARRIER = 0xC8F0F4;
-    /**
-     * Cinnabar: the mod's one "you are over the line" colour.
-     *
-     * <p>It is not {@link #DANGER}, which is the barrier's blood and already means something.
-     */
-    public static final int STRAIN = 0xD4402F;
 
     public static final int ALPHA_PLATE = 0xD2;
 
@@ -51,29 +44,10 @@ public final class HudPalette {
 
     private HudPalette() {}
 
-    /** The mana ring's palette for a school: body {@code base}, head {@code hot}, track {@code ink}, rim {@code dim}. */
+    /** The mana bar's palette for a school: the bar fills in its {@code bright}. */
     public static Palette mana(MagicSchool school) {
         SchoolMaterial material = SchoolMaterial.of(school);
         return Palette.derive(material.variantColor(0), material.variantColor(1));
-    }
-
-    public static Palette vessel() {
-        return Palette.derive(SchoolMaterial.BLOOD.variantColor(0));
-    }
-
-    public static Palette corruption() {
-        return Palette.derive(SchoolMaterial.DARK.variantColor(0));
-    }
-
-    /**
-     * The draw arc: the Sword school's pewter while the bill is inside the draw, cinnabar past it.
-     *
-     * <p>Two colours and no gradient between them, because the reading is a threshold and not a
-     * temperature - inside the draw the Array is stable and outside it the next settle sheds a
-     * blade. A ramp would make the moment that matters the hardest part of the ring to see.
-     */
-    public static int draw(boolean over) {
-        return over ? STRAIN : SchoolMaterial.SWORD.variantColor(0);
     }
 
     /**
@@ -122,6 +96,82 @@ public final class HudPalette {
     /** Text colour: the colour itself if it is light enough on a plate, otherwise lifted. */
     public static int textTint(int rgb) {
         return Palette.luminance(rgb) < MIN_TEXT_LUMINANCE ? Palette.mix(rgb, 0xFFFFFF, 0.45F) : rgb;
+    }
+
+    // ---- the readouts' colours ------------------------------------------------------------------
+
+    /** Vanilla draws a text shadow at a quarter of the text's colour. */
+    private static final float VANILLA_SHADOW = 0.25F;
+    /** How far {@link #ink} lifts toward white per step; the smallest step that still reads is taken. */
+    private static final float INK_STEP = 0.05F;
+    /**
+     * What the HUD's own muted text reads at over the worst background there is, with vanilla's
+     * shadow under it. Every colour the corner block writes in clears this; see
+     * {@code HudLegibilityTest}.
+     */
+    public static final double TEXT_FLOOR = worstOverAnyBackground(TEXT_MUTED, scale(TEXT_MUTED, VANILLA_SHADOW));
+
+    /**
+     * The trouble red: the blood accent lifted just far enough to read as well as muted text. Raw
+     * {@link #DANGER} is a shade under, and a warning that is the faintest thing on screen is not a
+     * warning. Only the part in trouble wears it - a number, a preset's name.
+     */
+    public static final int TROUBLE = ink(DANGER);
+
+    /**
+     * A colour lifted toward white in twentieths until, with vanilla's shadow under it, it reads
+     * at least as well as the HUD's muted text over any background. It is the smallest lift that
+     * does, so the hue survives: Wrath stays red, where {@link #textTint} would make it salmon.
+     */
+    public static int ink(int rgb) {
+        for (int step = 0; step <= 20; step++) {
+            int candidate = Palette.mix(rgb, 0xFFFFFF, step * INK_STEP);
+            if (worstOverAnyBackground(candidate, scale(candidate, VANILLA_SHADOW)) >= TEXT_FLOOR) {
+                return candidate;
+            }
+        }
+        return 0xFFFFFF;
+    }
+
+    /**
+     * Whose a resource reading is: the colour its school's mana bar fills with, as text, lifted
+     * the last step {@link #ink} asks where it still falls short. A Vessel is blood's rose,
+     * Corruption dark's lavender, Notice eldritch's teal.
+     */
+    public static int owner(MagicSchool school) {
+        return ink(textTint(mana(school).bright()));
+    }
+
+    private static int scale(int rgb, float factor) {
+        int r = Math.round(((rgb >> 16) & 0xFF) * factor);
+        int g = Math.round(((rgb >> 8) & 0xFF) * factor);
+        int b = Math.round((rgb & 0xFF) * factor);
+        return (r << 16) | (g << 8) | b;
+    }
+
+    /** WCAG relative luminance: linear light, not the gamma-space luma {@link Palette#luminance} gives. */
+    static double relativeLuminance(int rgb) {
+        return 0.2126 * linear((rgb >> 16) & 0xFF) + 0.7152 * linear((rgb >> 8) & 0xFF) + 0.0722 * linear(rgb & 0xFF);
+    }
+
+    private static double linear(int channel) {
+        double c = channel / 255.0;
+        return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+
+    private static double contrast(int a, int b) {
+        double la = relativeLuminance(a);
+        double lb = relativeLuminance(b);
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+    }
+
+    /**
+     * How well a mark over its shadow reads over the worst background there is: where the world is
+     * bright the shadow carries it, where it is dark the mark does, and the worst is where the two
+     * carry equally - the square root of the mark's contrast with its shadow.
+     */
+    private static double worstOverAnyBackground(int mark, int shadow) {
+        return Math.sqrt(contrast(mark, shadow));
     }
 
     public static int argb(int rgb, int alpha) {

@@ -3,17 +3,19 @@ package com.efkrdnz.magical.client.hud;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.efkrdnz.magical.client.hud.HudSnapshot.Announcement;
-import com.efkrdnz.magical.client.hud.HudSnapshot.Card;
 import com.efkrdnz.magical.client.hud.HudSnapshot.Chip;
-import com.efkrdnz.magical.client.hud.HudSnapshot.GaugeLine;
 import com.efkrdnz.magical.client.hud.HudSnapshot.Label;
-import com.efkrdnz.magical.client.hud.HudSnapshot.Line;
-import com.efkrdnz.magical.client.hud.HudSnapshot.Satellite;
+import com.efkrdnz.magical.client.hud.HudSnapshot.Readout;
+import com.efkrdnz.magical.client.hud.HudSnapshot.Slot;
+import com.efkrdnz.magical.client.hud.HudSnapshot.Stamp;
+import com.efkrdnz.magical.client.renderer.fx.FxTextures;
 import com.efkrdnz.magical.magic.MagicContent;
-import com.efkrdnz.magical.magic.MagicSchool;
 import com.efkrdnz.magical.magic.status.MagicStatus;
+import com.efkrdnz.magical.magic.visual.StampId;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import net.minecraft.SharedConstants;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.Bootstrap;
@@ -24,14 +26,16 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The sigil layer rendered into a counting sink, so "one batch" is a number and not a claim. The
- * whole HUD at once has to stay under {@link HudBudget#MAX_QUADS}, and the idle HUD under
- * {@link HudBudget#IDLE_QUADS}.
+ * whole HUD at once has to stay under {@link HudBudget#MAX_QUADS}, the idle corner block is
+ * exactly {@link HudBudget#IDLE_QUADS}, nothing a slot does costs a quad, and a reading costs
+ * exactly its stamp.
  */
 class HudSnapshotBudgetTest {
 
-    /** Counts vertices. The six abstract methods are all {@code MagicVertex.emit} needs. */
+    /** Counts vertices, and keeps each one's packed data. The six abstract methods are all {@code MagicVertex.emit} needs. */
     static final class QuadCounter implements VertexConsumer {
         int vertices;
+        final List<int[]> packed = new ArrayList<>();
 
         @Override
         public VertexConsumer addVertex(float x, float y, float z) {
@@ -56,6 +60,7 @@ class HudSnapshotBudgetTest {
 
         @Override
         public VertexConsumer setUv2(int u, int v) {
+            packed.add(new int[] {u, v});
             return this;
         }
 
@@ -68,70 +73,55 @@ class HudSnapshotBudgetTest {
     private static final Label LABEL = new Label(FormattedCharSequence.EMPTY, 12, 0xFFFFFF);
     private static final SigilRenderer.ChargeSource HALF_CHARGED = (slot, partial) -> 0.5F;
     private static final SigilRenderer.ChargeSource IDLE = (slot, partial) -> 0.0F;
-    /** Three rings, the core plate and glyph, the level tag, four spokes, cards and tags, the caption plate. */
-    private static final int IDLE_EXPECTED = 3 + 2 + 1 + 4 * 3 + 1;
+    private static final HudOptions COMPACT = new HudOptions(true, HudAnchor.TOP_LEFT, 1.0F, 1.0F, true, true, true, false, false);
+    private static final int SLOTS = MagicContent.LOADOUT_SIZE;
 
     @BeforeAll
     static void bootstrap() {
         SharedConstants.tryDetectVersion();
         Bootstrap.bootStrap();
         HudState.fade().snap(1.0F);
+        HudState.mana().snap(0.6F);
+        HudState.barrier().snap(0.4F);
     }
 
     private static ResourceLocation id(String path) {
         return ResourceLocation.fromNamespaceAndPath("magical", path);
     }
 
-    private static HudSnapshot snapshot(HudLayout layout, boolean maximal) {
-        return snapshot(layout, maximal, maximal);
+    /** A snapshot with the first {@code equipped} slots filled, cooling or not, and the given extras. */
+    private static HudSnapshot snapshot(HudLayout layout, HudOptions options, int equipped, boolean cooling, int chipCount, int readoutCount) {
+        Slot[] slots = new Slot[SLOTS];
+        for (int k = 0; k < SLOTS; k++) {
+            boolean empty = k >= equipped;
+            slots[k] = new Slot(k, empty ? null : id("skill_" + k), 40 + k, 0x88DDFF, 0.0F, 1.0F, empty,
+                    cooling ? 100L : 0L, cooling ? 60 : 0, cooling ? 80 : 0, Long.MIN_VALUE, LABEL,
+                    layout.glyph(k), layout.cell(k));
+        }
+        MagicStatus[] statuses = MagicStatus.values();
+        Chip[] chips = new Chip[chipCount];
+        for (int i = 0; i < chipCount; i++) {
+            chips[i] = new Chip(statuses[i], 5 + i, 0xB48AFF, true, i, 100L, 200, layout.statusChip(i, chipCount));
+        }
+        int[] widths = new int[readoutCount];
+        Arrays.fill(widths, HudLayout.STAMP_LEAD + 12);
+        HudLayout.Flow flow = layout.flow(widths, readoutCount);
+        HudLayout.Rect[] at = flow.tokens();
+        Readout[] readouts = new Readout[at.length + (flow.more() == null ? 0 : 1)];
+        for (int i = 0; i < at.length; i++) {
+            readouts[i] = new Readout(LABEL, at[i], new Stamp(5, 0xFFD166));
+        }
+        if (flow.more() != null) {
+            readouts[at.length] = new Readout(LABEL, flow.more(), null);
+        }
+        Readout[] pools = {
+                new Readout(LABEL, layout.poolsText(), null),
+                new Readout(LABEL, layout.poolsStackedLine(), null)};
+        return new HudSnapshot(1, 100L, options, layout, 0xFF7A45, pools, equipped > 0, slots, readouts, chips);
     }
 
-    private static HudSnapshot snapshot(HudLayout layout, boolean maximal, boolean drawArc) {
-        Line[] core = {new Line(LABEL, layout.coreLine(0, 2, LABEL.width())), new Line(LABEL, layout.coreLine(1, 2, LABEL.width()))};
-        Line level = new Line(LABEL, layout.levelTag(LABEL.width()));
-        int cards = MagicContent.LOADOUT_SIZE;
-        Card[] cardArray = new Card[cards];
-        for (int k = 0; k < cards; k++) {
-            boolean empty = !maximal && k == cards - 1;
-            cardArray[k] = new Card(k, empty ? null : id("skill_" + k), 40 + k, 0x88DDFF, maximal && k == 1, empty,
-                    maximal ? 100L : 0L, maximal ? 60 : 0, maximal ? 80 : 0, Long.MIN_VALUE, LABEL,
-                    layout.card(k), layout.keyTag(k, 10), layout.cardText(k));
-        }
-        Satellite[] satellites = HudSnapshot.NO_SATELLITES;
-        GaugeLine[] gauges = HudSnapshot.NO_GAUGES;
-        Chip[] chips = HudSnapshot.NO_CHIPS;
-        Announcement[] announcements = HudSnapshot.NO_ANNOUNCEMENTS;
-        if (maximal) {
-            satellites = new Satellite[HudLayout.CROWN_SEATS];
-            for (int seat = 0; seat < satellites.length; seat++) {
-                satellites[seat] = new Satellite(seat, id("sin_" + seat), 20 + seat, 0xFFD166, seat == 6, layout.crownSeat(seat));
-                HudState.sinGauge(seat).snap(0.8F);
-            }
-            gauges = new GaugeLine[HudLayout.GAUGE_LINES_MAX];
-            for (int i = 0; i < gauges.length; i++) {
-                gauges[i] = new GaugeLine(i, LABEL, layout.gaugeLine(i));
-            }
-            MagicStatus[] statuses = MagicStatus.values();
-            chips = new Chip[HudLayout.STATUS_CHIPS_MAX];
-            for (int i = 0; i < chips.length; i++) {
-                chips[i] = new Chip(statuses[i], 5 + i, 0xB48AFF, true, i, 100L, 200, layout.statusChip(i, chips.length));
-            }
-            announcements = new Announcement[] {new Announcement(33, 0xFFD166, false, LABEL, 100L, HudAnnouncer.LIFETIME_TICKS, layout.announceEmblem(), layout.announceText())};
-            HudState.halo().snap(0.6F);
-            HudState.vessel().snap(0.5F);
-            HudState.corruption().snap(0.74F);
-        } else {
-            HudState.halo().snap(0.0F);
-        }
-        Line[] captions = new Line[maximal ? HudLayout.CAPTIONS_MAX : 1];
-        for (int i = 0; i < captions.length; i++) {
-            captions[i] = new Line(LABEL, layout.captionLine(i));
-        }
-        HudState.draw().snap(drawArc ? 0.75F : 0.0F);
-        return new HudSnapshot(1, 100L, HudOptions.DEFAULTS, layout, MagicSchool.FIRE, 0xFF7A45, 0xFFB15A, 16, 4, 0xFFB15A,
-                false, maximal, maximal, drawArc, HudPalette.draw(false),
-                core, level, cardArray, satellites, gauges, chips, announcements, captions,
-                maximal ? 200L : 0L);
+    private static HudSnapshot snapshot(HudLayout layout, int equipped, boolean cooling, int chips, int readouts) {
+        return snapshot(layout, HudOptions.DEFAULTS, equipped, cooling, chips, readouts);
     }
 
     private static int quads(HudSnapshot snapshot, SigilRenderer.ChargeSource charge) {
@@ -143,63 +133,190 @@ class HudSnapshotBudgetTest {
         return batch.quads();
     }
 
+    private static HudLayout design() {
+        return HudLayout.of(480, 270, HudAnchor.TOP_LEFT, 1.0F);
+    }
+
     @Test
-    void theMaximalSigilStaysInsideTheQuadBudget() {
-        HudLayout layout = HudLayout.of(480, 270, HudAnchor.TOP_LEFT, 1.0F);
-        int quads = quads(snapshot(layout, true), HALF_CHARGED);
+    void theIdleBlockIsTwoBarsAndOneGlyphPerEquippedSlot() {
+        assertEquals(HudBudget.IDLE_QUADS, quads(snapshot(design(), SLOTS, false, 0, 0), IDLE), "four equipped and ready");
+        assertEquals(2 + 3, quads(snapshot(design(), 3, false, 0, 0), IDLE), "three equipped, one empty");
+        assertEquals(2, quads(snapshot(design(), 0, false, 0, 0), IDLE), "nothing equipped draws the bars alone");
+    }
+
+    @Test
+    void theMaximalBlockStaysInsideTheQuadBudget() {
+        int quads = quads(snapshot(design(), SLOTS, true, HudLayout.STATUS_CHIPS_MAX, HudLayout.READOUT_TOKENS_MAX + 3), HALF_CHARGED);
+        assertEquals(2 + SLOTS + HudLayout.READOUT_TOKENS_MAX + HudLayout.STATUS_CHIPS_MAX, quads);
         assertTrue(quads <= HudBudget.MAX_QUADS, "the maximal HUD emitted " + quads + " quads");
         assertTrue(quads > HudBudget.IDLE_QUADS, "the maximal HUD drew less than an idle one: " + quads);
     }
 
+    /** Cooling and charging are drawn inside quads that are already there; a reading adds its stamp and nothing else. */
     @Test
-    void theIdleSigilIsTiny() {
-        HudLayout layout = HudLayout.of(480, 270, HudAnchor.TOP_LEFT, 1.0F);
-        int quads = quads(snapshot(layout, false), IDLE);
-        assertEquals(IDLE_EXPECTED, quads, "the idle HUD emitted " + quads + " quads");
-        assertTrue(quads <= HudBudget.IDLE_QUADS, "the idle HUD emitted " + quads + " quads");
+    void aSlotCostsNothingExtraAndAReadingCostsExactlyItsStamp() {
+        int ready = quads(snapshot(design(), SLOTS, false, 0, 0), IDLE);
+        assertEquals(ready, quads(snapshot(design(), SLOTS, true, 0, 0), IDLE), "a cooling slot grew a quad");
+        assertEquals(ready, quads(snapshot(design(), SLOTS, false, 0, 0), HALF_CHARGED), "a charging slot grew a quad");
+        for (int n = 1; n <= HudLayout.READOUT_TOKENS_MAX; n++) {
+            assertEquals(ready + n, quads(snapshot(design(), SLOTS, false, 0, n), IDLE), n + " readings");
+        }
+        // The "+n" is text: eight stamps whatever is left off.
+        assertEquals(ready + HudLayout.READOUT_TOKENS_MAX, quads(snapshot(design(), SLOTS, false, 0, HudLayout.READOUT_TOKENS_MAX + 4), IDLE));
+    }
+
+    private static final SigilRenderer.ChargeSource HELD = (slot, partial) -> 1.0F;
+
+    /** One quad's packed data, read back the way the vertex shader reads it. */
+    private record Quad(int kind, int paramB, float phase, int seed, int mode) {
+        static List<Quad> of(QuadCounter sink) {
+            List<Quad> quads = new ArrayList<>();
+            for (int i = 0; i < sink.packed.size(); i += 4) {
+                int x = sink.packed.get(i)[0];
+                int y = sink.packed.get(i)[1];
+                quads.add(new Quad(x & 31, x >> 11 & 31, (y & 255) / 255.0F, y >> 8 & 63, y >> 14 & 3));
+            }
+            return quads;
+        }
+    }
+
+    private static List<Quad> emitted(HudSnapshot snapshot, SigilRenderer.ChargeSource charge) {
+        QuadCounter sink = new QuadCounter();
+        SigilRenderer.emitAll(new HudBatch().begin(sink, new Matrix4f()), snapshot, 110.5F, 0.5F, charge);
+        return Quad.of(sink);
+    }
+
+    /**
+     * A hold input counts a held key whether or not its skill can fire, so the cooldown has to win:
+     * a glyph lit whole by a key held through its cooldown reads as ready when it is not.
+     */
+    @Test
+    void aCoolingGlyphStaysGreyWhileItsKeyIsHeld() {
+        int side = design().glyphSize();
+        List<Quad> cooling = emitted(snapshot(design(), SLOTS, true, 0, 0), HELD).stream().filter(q -> q.seed() == side).toList();
+        assertEquals(SLOTS, cooling.size());
+        for (Quad glyph : cooling) {
+            assertEquals(HudKind.SLOT.id(), glyph.kind());
+            assertEquals(0, glyph.paramB() & 4, "a cooling glyph was drawn as charging");
+            // 60 of 80 ticks left at tick 100, read at 110.5: 49.5 / 80.
+            assertEquals(49.5F / 80.0F, glyph.phase(), 1.0F / 255.0F, "a cooling glyph lost its cooldown");
+        }
+        for (Quad glyph : emitted(snapshot(design(), SLOTS, false, 0, 0), HALF_CHARGED)) {
+            if (glyph.seed() == side) {
+                assertEquals(4, glyph.paramB() & 4, "a ready glyph did not show its charge");
+                assertEquals(0.5F, glyph.phase(), 1.0F / 255.0F);
+            }
+        }
+    }
+
+    private static HudSnapshot withSlot(HudSnapshot base, Slot slot) {
+        Slot[] slots = base.slots().clone();
+        slots[slot.slot()] = slot;
+        return new HudSnapshot(base.version(), base.builtAtTick(), base.options(), base.layout(), base.manaFill(),
+                base.pools(), base.slotBand(), slots, base.readouts(), base.chips());
+    }
+
+    /**
+     * A bar across the middle of its square is a ninth of it tall. Counted over the square, the
+     * line between grey and lit crossed it in a tenth of the cooldown and it read as ready for the
+     * last two fifths; counted over its ink, the part of the bar that is grey is the part of the
+     * cooldown still to run, from the first tick to the last. Charging fills it the same way.
+     */
+    @Test
+    void aShortGlyphIsGreyForItsWholeCooldown() {
+        float[] bar = FxTextures.inkRows(StampId.BAR.atlasCell());
+        float[] ring = FxTextures.inkRows(StampId.RING.atlasCell());
+        assertTrue(bar[1] - bar[0] < 0.2F, "a bar should be a short glyph: " + Arrays.toString(bar));
+        assertTrue(ring[1] - ring[0] > 0.8F, "a ring should fill its square: " + Arrays.toString(ring));
+        float span = bar[1] - bar[0];
+        float step = 1.0F / (255.0F * span) + 0.001F;
+        HudLayout layout = design();
+        HudSnapshot base = snapshot(layout, 1, false, 0, 0);
+        int side = layout.glyphSize();
+        for (int remaining : new int[] {100, 90, 60, 30, 12}) {
+            Slot slot = new Slot(0, id("skill_0"), StampId.BAR.atlasCell(), 0x88DDFF, bar[0], bar[1], false,
+                    100L, remaining, 100, Long.MIN_VALUE, LABEL, layout.glyph(0), layout.cell(0));
+            float left = SigilRenderer.cooldownRemaining(slot, 110.5F);
+            List<Quad> glyphs = emitted(withSlot(base, slot), IDLE).stream().filter(q -> q.seed() == side).toList();
+            assertEquals(1, glyphs.size());
+            float line = 1.0F - glyphs.get(0).phase();
+            assertTrue(line > bar[0] - step && line < bar[1] + step, remaining + " ticks: the line is off the bar's ink at " + line);
+            assertEquals(left, (bar[1] - line) / span, step, remaining + " ticks: the grey part of the bar is not the part of the cooldown left");
+        }
+        Slot ready = new Slot(0, id("skill_0"), StampId.BAR.atlasCell(), 0x88DDFF, bar[0], bar[1], false,
+                0L, 0, 0, Long.MIN_VALUE, LABEL, layout.glyph(0), layout.cell(0));
+        Quad charging = emitted(withSlot(base, ready), HALF_CHARGED).stream().filter(q -> q.seed() == side).findFirst().orElseThrow();
+        assertEquals(4, charging.paramB() & 4);
+        assertEquals(0.5F, (bar[1] - (1.0F - charging.phase())) / span, step, "half a charge did not light half the bar");
+    }
+
+    /** A stamp is a skill glyph at nine units drawn whole: no clock, no gauge, no second mode. */
+    @Test
+    void aStampIsAGlyphAtNineUnitsDrawnWhole() {
+        List<Quad> stamps = emitted(snapshot(design(), 0, false, 0, 3), IDLE).stream().filter(q -> q.seed() == HudLayout.STAMP).toList();
+        assertEquals(3, stamps.size());
+        for (Quad stamp : stamps) {
+            assertEquals(HudKind.SLOT.id(), stamp.kind());
+            assertEquals(0.0F, stamp.phase());
+            assertEquals(0, stamp.mode());
+            assertEquals(0, stamp.paramB() & 4);
+        }
+    }
+
+    /** Under the loadout rail the corner block stands down, and nothing else does: a root still shows. */
+    @Test
+    void underTheLoadoutRailOnlyTheChipsAreDrawn() {
+        HudSnapshot full = snapshot(design(), SLOTS, true, 3, 4);
+        QuadCounter sink = new QuadCounter();
+        HudBatch batch = new HudBatch().begin(sink, new Matrix4f());
+        SigilRenderer.emitAll(batch, full, 110.5F, 0.5F, IDLE, false);
+        assertEquals(3, batch.quads(), "the chips alone");
+        for (Quad chip : Quad.of(sink)) {
+            assertEquals(HudKind.CHIP.id(), chip.kind());
+        }
+        HudText.Counting text = new HudText.Counting();
+        SigilRenderer.text(text, full, 110.5F, 0.5F, IDLE, false);
+        assertEquals(0, text.draws(), "the corner block's strings were drawn under the rail");
+    }
+
+    /** Vanilla draws a string whose alpha is under four fully opaque; the HUD never hands it one. */
+    @Test
+    void aNearlyTransparentStringIsNeverDrawn() {
+        HudText.OnGraphics text = new HudText.OnGraphics();
+        // No GuiGraphics behind it: reaching it would throw.
+        text.draw(FormattedCharSequence.EMPTY, 0, 0, 0x03FFFFFF);
+        text.drawScaled(FormattedCharSequence.EMPTY, 0.0F, 0.0F, 2.0F, 2.0F, 0x00FFFFFF);
+        assertEquals(0, text.draws());
     }
 
     @Test
     void textIsDrawnOnceAndCounted() {
-        HudLayout layout = HudLayout.of(480, 270, HudAnchor.TOP_RIGHT, 1.25F);
         HudText.Counting text = new HudText.Counting();
-        SigilRenderer.text(text, snapshot(layout, true), 110.5F, 0.5F);
-        // two core lines, the level, four key tags, three captions, eight readouts, the announcement;
-        // the seconds over cooling cards are shaped by the tick, which has not run here
-        assertEquals(2 + 1 + 4 + 3 + 8 + 1, text.draws());
-        text = new HudText.Counting();
-        SigilRenderer.text(text, snapshot(HudLayout.of(480, 270, HudAnchor.TOP_LEFT, 1.0F), false), 110.5F, 0.5F);
-        // two core lines, the level, four key tags, the caption
-        assertEquals(2 + 1 + 4 + 1, text.draws());
-    }
+        HudLayout wide = HudLayout.of(480, 270, HudAnchor.TOP_RIGHT, 1.25F);
+        SigilRenderer.text(text, snapshot(wide, SLOTS, true, HudLayout.STATUS_CHIPS_MAX, HudLayout.READOUT_TOKENS_MAX + 3), 110.5F, 0.5F, HALF_CHARGED);
+        // the two counts, four cells, eight readings and the "+n"; the seconds are shaped by the
+        // tick, which has not run here, so a cooling cell shows its key
+        assertEquals(2 + SLOTS + HudLayout.READOUT_TOKENS_MAX + 1, text.draws());
+        assertTrue(text.draws() + 1 <= HudBudget.MAX_TEXT_DRAWS, "no room left for the debug line");
 
-    /**
-     * The Array's draw arc: exactly one quad, and only while an Array is standing.
-     *
-     * <p>Pinned as a difference rather than as a total, because the total is the whole sigil and
-     * the point of this one is that a wielder who never found the chain pays nothing for it -
-     * which is also why it is absent from the idle count above rather than folded into it.
-     */
-    @Test
-    void theDrawArcIsOneQuadAndOnlyWhileAnArrayStands() {
-        HudLayout layout = HudLayout.of(480, 270, HudAnchor.TOP_LEFT, 1.0F);
-        int without = quads(snapshot(layout, true, false), HALF_CHARGED);
-        int with = quads(snapshot(layout, true, true), HALF_CHARGED);
-        assertEquals(without + 1, with, "the draw arc is not exactly one quad");
-        assertEquals(IDLE_EXPECTED, quads(snapshot(layout, false, false), IDLE), "an idle HUD grew");
-        // And it lives in the hairline gap the two pools leave, rather than on top of either: a
-        // ring drawn over the barrier or the mana would be read as part of that pool's meter.
-        assertTrue(HudLayout.DRAW_R_IN >= HudLayout.BARRIER_R_OUT, "the draw arc sits on the barrier");
-        assertTrue(HudLayout.DRAW_R_OUT <= HudLayout.MANA_R_IN, "the draw arc sits on the mana ring");
-        assertTrue(HudLayout.DRAW_R_OUT > HudLayout.DRAW_R_IN, "the draw arc has no width");
+        text = new HudText.Counting();
+        SigilRenderer.text(text, snapshot(design(), SLOTS, false, 0, 0), 110.5F, 0.5F, IDLE);
+        assertEquals(2 + SLOTS, text.draws(), "idle: the two counts and four keys");
+
+        text = new HudText.Counting();
+        SigilRenderer.text(text, snapshot(design(), COMPACT, SLOTS, false, 0, 0), 110.5F, 0.5F, IDLE);
+        assertEquals(2, text.draws(), "compact drops the keys");
+
+        text = new HudText.Counting();
+        SigilRenderer.text(text, snapshot(design(), 0, false, 0, 0), 110.5F, 0.5F, IDLE);
+        assertEquals(2, text.draws(), "with nothing equipped there are no cells to label");
     }
 
     @Test
     void aFadedOutSigilDrawsNothing() {
-        HudLayout layout = HudLayout.of(480, 270, HudAnchor.TOP_LEFT, 1.0F);
         HudState.fade().snap(0.0F);
         try {
-            assertEquals(0, quads(snapshot(layout, true), HALF_CHARGED));
+            assertEquals(0, quads(snapshot(design(), SLOTS, true, HudLayout.STATUS_CHIPS_MAX, 0), HALF_CHARGED));
         } finally {
             HudState.fade().snap(1.0F);
         }

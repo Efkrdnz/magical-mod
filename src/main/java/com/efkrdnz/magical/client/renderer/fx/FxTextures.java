@@ -26,6 +26,9 @@ public final class FxTextures {
     private static final int NOISE_SIZE = 256;
     private static final int CELL = 64;
     private static final int CELLS = 16;
+    private static final float STAMP_HALF_WIDTH = 0.11F;
+    private static final float EMBLEM_HALF_WIDTH = 0.08F;
+    private static final float[][] INK_ROWS = new float[CELLS * CELLS][];
     private static boolean registered;
 
     private FxTextures() {}
@@ -132,12 +135,85 @@ public final class FxTextures {
             image.fillRect((i % CELLS) * CELL, (i / CELLS) * CELL, CELL, CELL, 0xFF000000);
         }
         for (StampId stamp : StampId.values()) {
-            rasterize(image, stamp.atlasCell(), stampStrokes(stamp), 0.11F);
+            rasterize(image, stamp.atlasCell(), stampStrokes(stamp), STAMP_HALF_WIDTH);
         }
         for (EmblemId emblem : EmblemId.values()) {
-            rasterize(image, emblem.atlasCell(), emblemStrokes(emblem), 0.08F);
+            rasterize(image, emblem.atlasCell(), emblemStrokes(emblem), EMBLEM_HALF_WIDTH);
         }
         return image;
+    }
+
+    /**
+     * How far down a cell's drawn square its ink starts and stops, as fractions of the square from
+     * its first row (0) to its last (1) - the fraction the HUD shader counts a cooling glyph's grey
+     * over. It is read off the same distance field and the same 64 rows the atlas is rasterized
+     * from, so it is the ink that is drawn rather than an estimate of it. A ring runs from about a
+     * tenth to nine tenths; a bar across the middle covers a ninth, and counting its grey over the
+     * whole square left it reading ready for the last two fifths of its cooldown. A cell with no
+     * ink covers the whole square.
+     */
+    public static float[] inkRows(int cell) {
+        if (cell < 0 || cell >= INK_ROWS.length) {
+            return new float[] {0.0F, 1.0F};
+        }
+        if (INK_ROWS[cell] == null) {
+            INK_ROWS[cell] = measureInkRows(cell);
+        }
+        return INK_ROWS[cell].clone();
+    }
+
+    private static float[] measureInkRows(int cell) {
+        for (StampId stamp : StampId.values()) {
+            if (stamp.atlasCell() == cell) {
+                return measureInkRows(stampStrokes(stamp), STAMP_HALF_WIDTH);
+            }
+        }
+        for (EmblemId emblem : EmblemId.values()) {
+            if (emblem.atlasCell() == cell) {
+                return measureInkRows(emblemStrokes(emblem), EMBLEM_HALF_WIDTH);
+            }
+        }
+        return new float[] {0.0F, 1.0F};
+    }
+
+    /** The first and last rows with ink inside the square the shader samples, as fractions of it. */
+    private static float[] measureInkRows(String strokes, float halfWidth) {
+        List<float[]> prims = parse(strokes);
+        int first = -1;
+        int last = -1;
+        for (int y = 0; y < CELL; y++) {
+            float py = ((y + 0.5F) / CELL - 0.5F) / 0.42F;
+            if (Math.abs(py) > 1.0F) {
+                continue;
+            }
+            for (int x = 0; x < CELL; x++) {
+                float px = ((x + 0.5F) / CELL - 0.5F) / 0.42F;
+                if (Math.abs(px) <= 1.0F && inkDistance(prims, px, py, halfWidth) <= 0.0F) {
+                    first = first < 0 ? y : first;
+                    last = y;
+                    break;
+                }
+            }
+        }
+        if (first < 0) {
+            return new float[] {0.0F, 1.0F};
+        }
+        return new float[] {squareFraction(first), squareFraction(last + 1)};
+    }
+
+    /** A row edge of the cell, as a fraction of the square the shader samples (q from -1 to 1). */
+    private static float squareFraction(int rowEdge) {
+        float q = ((float) rowEdge / CELL - 0.5F) / 0.42F;
+        return Mth.clamp((q + 1.0F) * 0.5F, 0.0F, 1.0F);
+    }
+
+    /** The distance from a point to the nearest stroke's edge: negative inside the ink. */
+    private static float inkDistance(List<float[]> prims, float x, float y, float halfWidth) {
+        float d = 10.0F;
+        for (float[] p : prims) {
+            d = Math.min(d, distance(p, x, y, halfWidth));
+        }
+        return d;
     }
 
     /** Signed distance of a stroke list; 0.5 at the ink edge, brighter inside. */
@@ -152,10 +228,7 @@ public final class FxTextures {
                 // shader samples v = cy + 0.5 + q.y * 0.42, so larger image rows are q.y = +1 ("up")
                 float px = ((x + 0.5F) / CELL - 0.5F) / 0.42F;
                 float py = ((y + 0.5F) / CELL - 0.5F) / 0.42F;
-                float d = 10.0F;
-                for (float[] p : prims) {
-                    d = Math.min(d, distance(p, px, py, halfWidth));
-                }
+                float d = inkDistance(prims, px, py, halfWidth);
                 float sdf = Mth.clamp(0.5F - d / spread, 0.0F, 1.0F);
                 int v = Mth.clamp(Math.round(sdf * 255.0F), 0, 255);
                 image.setPixel(ox + x, oy + y, 0xFF000000 | (v << 16) | (v << 8) | v);

@@ -93,21 +93,19 @@ class HudShaderAssetsTest {
         }
         assertEquals(HudKind.values().length, glsl.size(), "the shader declares kinds Java does not know: " + glsl.keySet());
 
-        Matcher outer = Pattern.compile("const float RING_OUTER = ([0-9.]+);").matcher(fragment);
-        assertTrue(outer.find(), "RING_OUTER is not declared in the shader");
-        assertEquals(HudKind.RING_OUTER, Float.parseFloat(outer.group(1)), 0.0001F);
-
-        Matcher widths = Pattern.compile("float widthClass\\(int c\\) \\{(.*?)\\n\\}", Pattern.DOTALL).matcher(fragment);
-        assertTrue(widths.find(), "widthClass is not declared in the shader");
-        Matcher values = Pattern.compile("return ([0-9.]+);").matcher(widths.group(1));
-        List<Float> classes = new ArrayList<>();
-        while (values.find()) {
-            classes.add(Float.parseFloat(values.group(1)));
-        }
-        assertEquals(HudKind.WIDTH_CLASSES.length, classes.size());
-        for (int i = 0; i < classes.size(); i++) {
-            assertEquals(HudKind.WIDTH_CLASSES[i], classes.get(i), 0.0001F, "width class " + i);
-        }
+        // The corner block's two numbers: the CPU documents them, the shader draws with them.
+        Matcher ghost = Pattern.compile("const float SLOT_GHOST_GREY = ([0-9.]+);").matcher(fragment);
+        assertTrue(ghost.find(), "SLOT_GHOST_GREY is not declared in the shader");
+        assertEquals(HudKind.SLOT_GHOST_GREY, Float.parseFloat(ghost.group(1)), 0.0001F);
+        Matcher track = Pattern.compile("const float BAR_TRACK_ALPHA = ([0-9.]+);").matcher(fragment);
+        assertTrue(track.find(), "BAR_TRACK_ALPHA is not declared in the shader");
+        assertEquals(HudKind.BAR_TRACK_ALPHA, Float.parseFloat(track.group(1)), 0.0001F);
+        // Cooling and charging are measured over the glyph's ink box, not its quad: over the quad
+        // the grey left the last ink row while the seconds under it were still counting.
+        assertTrue(fragment.contains("step(vInk, 1.0 - phase)") && fragment.contains("step(1.0 - phase, vInk)"),
+                "the glyph's cooldown or charge is not measured over its ink box");
+        // A stamp is a glyph drawn whole; the dimmed and paled empty rows it once had are gone.
+        assertFalse(fragment.contains("STAMP_"), "the shader still declares a stamp constant nothing reads");
 
         // The rule flash's timeline: the CPU eases the plate and the text on these fractions, the
         // shader plays the mark on the same ones. Both sides declare them; they have to agree.
@@ -120,6 +118,27 @@ class HudShaderAssetsTest {
                 "the flash timeline differs between HudKind and the shader");
         assertTrue(HudKind.FLASH_POP_END < HudKind.FLASH_MARK_END && HudKind.FLASH_MARK_END < HudKind.FLASH_OUT_START && HudKind.FLASH_OUT_START < 1.0F,
                 "the flash phases are out of order");
+    }
+
+    /**
+     * The corner block holds still. Its two kinds are fenced between two named comments, and
+     * nothing between them may read the clock, blink or sample noise: a HUD you glance at from the
+     * corner of your eye should change only when the thing it reports changes.
+     */
+    @Test
+    void theCornerBlockKindsReadNoClock() throws IOException {
+        String fragment = read(SHADER + ".fsh");
+        String open = "// ---- SLOT and BAR: paint-over, no clock ----";
+        String close = "// ---- end SLOT and BAR ----";
+        int start = fragment.indexOf(open);
+        int end = fragment.indexOf(close);
+        assertTrue(start >= 0 && end > start, "the SLOT and BAR fence is missing or out of order");
+        String fenced = fragment.substring(start, end);
+        for (String forbidden : List.of("GameTime", "tSlow", "blink(", "nz(", "magicTime(")) {
+            assertFalse(fenced.contains(forbidden), "the corner block reads " + forbidden);
+        }
+        assertTrue(fenced.contains("kind == SLOT"), "SLOT is drawn outside its fence");
+        assertTrue(fenced.contains("kind == BAR"), "BAR is drawn outside its fence");
     }
 
     /**

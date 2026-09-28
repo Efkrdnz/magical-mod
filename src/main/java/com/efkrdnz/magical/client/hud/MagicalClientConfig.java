@@ -14,25 +14,25 @@ public final class MagicalClientConfig {
             .comment("Draw the magic HUD at all.")
             .define("hudEnabled", true);
     public static final ModConfigSpec.EnumValue<HudAnchor> ANCHOR = BUILDER
-            .comment("The screen corner the sigil hangs from. Top-left is the only corner nothing of vanilla's lives in.")
+            .comment("The screen corner the magic HUD hangs from. Top-left is the only corner nothing of vanilla's lives in.")
             .defineEnum("anchor", HudAnchor.TOP_LEFT);
     public static final ModConfigSpec.DoubleValue SCALE = BUILDER
-            .comment("Size of the HUD relative to the design. Above 1.25 the top-right corner runs out of height on small GUIs.")
+            .comment("Size of the HUD relative to the design. Text stays the size of vanilla's; the bars and skill glyphs scale.")
             .defineInRange("scale", 1.0D, 0.5D, 1.5D);
     public static final ModConfigSpec.DoubleValue OPACITY = BUILDER
             .comment("Opacity of the whole HUD.")
             .defineInRange("opacity", 1.0D, 0.2D, 1.0D);
     public static final ModConfigSpec.BooleanValue SHOW_SINS = BUILDER
-            .comment("Show the seven sins as satellites in a crown above the sigil, with their readouts beside the cards.")
+            .comment("Show each lit sin among the readouts under the skills (Wrath 90%, Pride 12%, ...), and Greed's hoard beside the vault.")
             .define("showSins", true);
     public static final ModConfigSpec.BooleanValue SHOW_STATUSES = BUILDER
             .comment("Show statuses on you (silenced, rooted, ...) as chips under the crosshair.")
             .define("showStatuses", true);
     public static final ModConfigSpec.BooleanValue COMPACT = BUILDER
-            .comment("A smaller HUD with less on it: no crown, no readouts, announcements as emblems only.")
+            .comment("A smaller HUD with less on it: the bars, the mana and the skills with their cooldowns, and no key letters or readouts.")
             .define("compact", false);
     public static final ModConfigSpec.BooleanValue REDUCED_MOTION = BUILDER
-            .comment("Shorter fades and no pulses, for players who would rather the HUD held still.")
+            .comment("The mana and barrier bars jump to their value instead of easing, and the fade-in on joining is shorter.")
             .define("reducedMotion", false);
     public static final ModConfigSpec.BooleanValue HUD_DEBUG = BUILDER
             .comment("Print the HUD's quad and string counts in the corner, for checking its cost.")

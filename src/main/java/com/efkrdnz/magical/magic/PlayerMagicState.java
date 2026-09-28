@@ -422,6 +422,11 @@ public final class PlayerMagicState {
         return manaVault;
     }
 
+    /** The vault set outright; only the HUD capture command needs this. */
+    public void setManaVault(int value) {
+        manaVault = Math.max(0, value);
+    }
+
     public int maxManaBonus() {
         return maxManaBonus;
     }

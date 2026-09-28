@@ -34,11 +34,9 @@ public final class ClientPayloadHandlers {
     }
 
     public static void handle(PlayerMagicStatePayload payload) {
-        PlayerMagicState previous = ClientMagicState.get();
         ClientMagicState.set(payload.data() == null
                 ? new PlayerMagicState()
                 : PlayerMagicState.load(payload.data()));
-        com.efkrdnz.magical.client.hud.HudAnnouncer.observe(previous, ClientMagicState.get(), ClientMagicState.receivedAtTick());
     }
 
     public static void handle(FirstPersonEffectPayload payload) {

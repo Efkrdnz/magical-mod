@@ -30,8 +30,17 @@ public interface HudText {
 
     int draws();
 
-    /** The real one: draws through the GUI's deferred text batch, after the sigil quads. */
+    /**
+     * The real one: draws through the GUI's deferred text batch, after the sigil quads.
+     *
+     * <p>A string whose alpha is under four is not drawn at all, because vanilla's font reads such
+     * an alpha as "no alpha given" and draws the string opaque: a key at half of a fading HUD would
+     * flash solid white for a frame at the start of every fade-in.
+     */
     final class OnGraphics implements HudText {
+        /** Font.adjustColor treats an alpha below this as missing and substitutes 255. */
+        static final int MIN_ALPHA = 4;
+
         private GuiGraphics graphics;
         private Font font;
         private int draws;
@@ -45,6 +54,9 @@ public interface HudText {
 
         @Override
         public void draw(FormattedCharSequence text, int x, int y, int argb) {
+            if (argb >>> 24 < MIN_ALPHA) {
+                return;
+            }
             // With the drop shadow, as vanilla's HUD draws: it is what keeps a numeral legible over sky.
             graphics.drawString(font, text, x, y, argb, true);
             draws++;
@@ -52,6 +64,9 @@ public interface HudText {
 
         @Override
         public void drawScaled(FormattedCharSequence text, float x, float y, float scaleX, float scaleY, int argb) {
+            if (argb >>> 24 < MIN_ALPHA) {
+                return;
+            }
             graphics.pose().pushPose();
             graphics.pose().translate(x, y, 0.0F);
             graphics.pose().scale(scaleX, scaleY, 1.0F);

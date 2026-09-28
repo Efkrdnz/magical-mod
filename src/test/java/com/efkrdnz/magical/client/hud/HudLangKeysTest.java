@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -45,25 +44,30 @@ class HudLangKeysTest {
             "message.magical.sword_no_edge", "message.magical.sword_out_of_reach",
             "bearing.magical.ahead", "bearing.magical.right", "bearing.magical.behind", "bearing.magical.left",
             "bearing.magical.bill", "bearing.magical.station", "bearing.magical.empty", "bearing.magical.write",
-            "bearing.magical.unmarked", "bearing.magical.marked", "bearing.magical.cooling");
+            "bearing.magical.unmarked", "bearing.magical.marked", "bearing.magical.cooling",
+            // The sigil's level tag, pool, captions and announcements, replaced by the corner
+            // block's readouts; chat already says everything an announcement said.
+            "hud.magical.level_chip", "hud.magical.pool", "hud.magical.vault_chip",
+            "hud.magical.arcane_line", "hud.magical.corruption_next", "hud.magical.corruption_line",
+            "hud.magical.vessel_line", "hud.magical.notice_line",
+            "hud.magical.announce.skill", "hud.magical.announce.passive", "hud.magical.announce.curse",
+            "hud.magical.announce.class", "hud.magical.announce.authority", "hud.magical.announce.race",
+            // A sin reads through hud.magical.sin.*, its name and then its number, so its gauge
+            // keys went; a Ledger reading is one argument, the number and its muted maximum.
+            "hud.magical.gauge.pride", "hud.magical.gauge.greed", "hud.magical.gauge.envy", "hud.magical.gauge.gluttony",
+            "hud.magical.gauge.wrath", "hud.magical.gauge.sloth", "hud.magical.gauge.sloth_rested",
+            "hud.magical.readout.corruption_next");
 
     private static final List<String> PRESENT = List.of(
-            "hud.magical.gauge.pride", "hud.magical.gauge.greed", "hud.magical.gauge.envy", "hud.magical.gauge.gluttony",
-            "hud.magical.gauge.wrath", "hud.magical.gauge.sloth", "hud.magical.gauge.sloth_rested", "hud.magical.gauge.charge", "hud.magical.gauge.vault",
-            "hud.magical.level_chip", "hud.magical.pool", "hud.magical.vault_chip",
-            "hud.magical.arcane_line", "hud.magical.corruption_next", "hud.magical.corruption_line", "hud.magical.vessel_line", "hud.magical.notice_line", "hud.magical.debug",
+            "hud.magical.token.percent", "hud.magical.token.seconds", "hud.magical.token.hoard",
+            "hud.magical.token.rested", "hud.magical.sin.pride", "hud.magical.sin.envy", "hud.magical.sin.gluttony",
+            "hud.magical.sin.wrath", "hud.magical.sin.sloth",
+            "hud.magical.gauge.charge", "hud.magical.gauge.vault",
+            "hud.magical.readout.swords", "hud.magical.readout.vessel", "hud.magical.readout.corruption",
+            "hud.magical.readout.notice", "hud.magical.readout.arcane", "hud.magical.readout.more", "hud.magical.debug",
             "hud.magical.rule.caption",
             // The codex builds a skill kind line from the MagicSkillType name.
             "skilltype.magical.projectile", "skilltype.magical.burst", "skilltype.magical.barrier");
-
-    @Test
-    void everyAnnouncementKindHasALine() throws IOException {
-        String lang = read();
-        for (HudAnnouncer.Kind kind : HudAnnouncer.Kind.values()) {
-            String key = "hud.magical.announce." + kind.name().toLowerCase(Locale.ROOT);
-            assertTrue(lang.contains('"' + key + '"'), "language file is missing " + key);
-        }
-    }
 
     @Test
     void theKeysTheHudBuildsByHandArePresent() throws IOException {

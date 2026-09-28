@@ -1,5 +1,7 @@
 package com.efkrdnz.magical.client.hud;
 
+import com.efkrdnz.magical.client.LoadoutSwitcherLayout;
+import com.efkrdnz.magical.client.screen.CodexLayout;
 import com.efkrdnz.magical.magic.MagicContent;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,20 +12,37 @@ import java.util.List;
  *
  * <p>It lives outside the renderer for the reason {@code CodexLayout} does: a HUD that places its
  * rows by bare numbers inside draw calls collides with itself unnoticed. {@code HudLayoutTest}
- * sweeps every shape here for overlap, at every anchor and scale, and checks it all fits a 480x270
- * GUI - the size vanilla's "auto" scale gives a 1080p window.
+ * sweeps every rectangle here for overlap, at every anchor and scale, and checks it all fits a
+ * 480x270 GUI - the size vanilla's "auto" scale gives a 1080p window.
  *
- * <p>The totem: a sigil of concentric rings round a core that carries the numerals, a crown of
- * sin satellites over it, a fan of cast cards hung off spokes to one side with their readouts
- * beyond the key tags, captions under the fan, and for a blood or dark mage a reflection of the
- * rings under a waterline. All values are GUI units. Radii and offsets scale; text boxes are nine
- * tall and never scale. On right-hand anchors the fan, the tags and the captions mirror across the
- * sigil so the tabs still point away from it.
+ * <p>The corner block is three bands and nothing else, with no panel, plate or frame behind any of
+ * it: the <b>pools</b> (a mana bar over a thinner barrier bar, the counts beside them), the
+ * <b>slots</b> (the four skill glyphs in key order, each with one text cell under it for its key
+ * or its seconds) and the <b>readouts</b> (up to three lines of tokens, each a small stamp and its
+ * reading, only while something needs saying). Every rectangle lands on whole GUI units at every
+ * scale, which is what keeps the bars crisp. Text boxes are nine tall and never scale, and nor do
+ * the stamps, which are characters of their line rather than parts of the HUD.
+ *
+ * <p>Nothing in the block enters vanilla's centre column - the boss bars at the top, the hotbar and
+ * its heart and food rows at the bottom - which is {@link #CENTRE_COLUMN_HALF} either side of the
+ * middle. That is what sizes the counts and the readout lines. The counts and the slots sit level
+ * with the first two boss bars, so they never go in: where the counts - and the key cells, which
+ * hang past a glyph smaller than they are - would not fit beside the bars at the chosen scale the
+ * block is drawn smaller, down to the option's floor, and from a 394-wide GUI up that is always
+ * enough. The readout lines sit level with a third stacked bar, so they give way instead: a line
+ * never runs narrower than {@link #READOUT_MIN_W}, so below a 480-wide GUI it reaches in by 240
+ * less half the width - 27 on 1280x720 at vanilla's auto scale, which is 427 wide, and 48 at 384 -
+ * rather than leave readings off at the commonest window there is.
+ *
+ * <p>At a right anchor the block hangs from the right edge, but the glyph row is never mirrored -
+ * it is a picture of the keyboard, so Z stays leftmost - and the bars still fill left to right.
+ * At a bottom anchor the bands stack the other way, so the pools stay nearest the edge and the
+ * readouts grow away from it.
  */
 public final class HudLayout {
 
     /** A rectangle with a name, so a failed overlap assertion says which two things collided. */
-    public record Rect(String name, int x, int y, int w, int h) implements Shape {
+    public record Rect(String name, int x, int y, int w, int h) {
         public int right() {
             return x + w;
         }
@@ -47,181 +66,78 @@ public final class HudLayout {
         public boolean contains(Rect inner) {
             return inner.x >= x && inner.y >= y && inner.right() <= right() && inner.bottom() <= bottom();
         }
-
-        @Override
-        public boolean overlaps(Shape other) {
-            return other instanceof Rect rect ? overlaps(rect) : ((Disc) other).overlaps(this);
-        }
-
-        @Override
-        public Rect bounds() {
-            return this;
-        }
     }
 
-    /** A circle with a name: cards and satellites sit on arcs and touch as discs, not as boxes. */
-    public record Disc(String name, float cx, float cy, float r) implements Shape {
-        public boolean overlaps(Disc other) {
-            float dx = cx - other.cx;
-            float dy = cy - other.cy;
-            float reach = r + other.r;
-            return dx * dx + dy * dy < reach * reach;
-        }
-
-        public boolean overlaps(Rect rect) {
-            float nx = Math.max(rect.x, Math.min(cx, rect.right()));
-            float ny = Math.max(rect.y, Math.min(cy, rect.bottom()));
-            float dx = cx - nx;
-            float dy = cy - ny;
-            return dx * dx + dy * dy < r * r;
-        }
-
-        /** Whether every corner of the rectangle is inside the circle. */
-        public boolean contains(Rect rect) {
-            return inside(rect.x, rect.y) && inside(rect.right(), rect.y) && inside(rect.x, rect.bottom()) && inside(rect.right(), rect.bottom());
-        }
-
-        private boolean inside(float px, float py) {
-            float dx = px - cx;
-            float dy = py - cy;
-            return dx * dx + dy * dy <= r * r;
-        }
-
-        @Override
-        public boolean overlaps(Shape other) {
-            return other instanceof Disc disc ? overlaps(disc) : overlaps((Rect) other);
-        }
-
-        @Override
-        public Rect bounds() {
-            int x0 = (int) Math.floor(cx - r);
-            int y0 = (int) Math.floor(cy - r);
-            return new Rect(name, x0, y0, (int) Math.ceil(cx + r) - x0, (int) Math.ceil(cy + r) - y0);
-        }
-    }
-
-    /** A line between two points, for the spokes and the waterline. */
-    public record Segment(String name, float x0, float y0, float x1, float y1) {
-        /** Distance from a point to this segment. */
-        public float distance(float px, float py) {
-            float dx = x1 - x0;
-            float dy = y1 - y0;
-            float len2 = dx * dx + dy * dy;
-            float t = len2 <= 0.0F ? 0.0F : Math.max(0.0F, Math.min(1.0F, ((px - x0) * dx + (py - y0) * dy) / len2));
-            float qx = x0 + dx * t - px;
-            float qy = y0 + dy * t - py;
-            return (float) Math.sqrt(qx * qx + qy * qy);
-        }
-    }
-
-    public sealed interface Shape permits Rect, Disc {
-        String name();
-
-        boolean overlaps(Shape other);
-
-        Rect bounds();
-    }
-
-    // ---- the totem: sigil, crown, fan, reflection ---------------------------------------------
+    // ---- the corner block ------------------------------------------------------------------------
 
     public static final int MARGIN = 6;
-    /** The sigil's collision radius: the XP hairline plus its glow. */
-    public static final float SIGIL_R = 37.0F;
-    /** The core holds the two pool numerals - the current mana over the current barrier; the rings say the rest. */
-    public static final float CORE_R = 15.0F;
-    public static final int CORE_LINES_MAX = 2;
-    public static final float HALO_R_IN = 15.75F;
-    public static final float HALO_R_OUT = 16.75F;
-    public static final float BARRIER_R_IN = 17.5F;
-    public static final float BARRIER_R_OUT = 21.5F;
-    public static final int BARRIER_NOTCHES = 8;
-    /**
-     * The Array's draw arc, in the hairline gap the barrier and mana rings leave between them.
-     *
-     * <p>Outside the barrier because it is not a pool of the wielder's: it is the ledger the
-     * Array keeps of how much of its conserved Edge the shape standing in the world is spending,
-     * and it belongs beside the pools rather than among them. It is also the only ring on the
-     * sigil that is absent most of the time - a wielder with no Array draws nothing here at all.
-     */
-    public static final float DRAW_R_IN = 21.9F;
-    public static final float DRAW_R_OUT = 23.1F;
-    public static final float MANA_R_IN = 23.5F;
-    public static final float MANA_R_OUT = 32.0F;
-    public static final float XP_R_IN = 34.5F;
-    public static final float XP_R_OUT = 35.5F;
-    /** The level, in a tag hung under the XP ring at six o'clock. */
-    public static final float LEVEL_TAG_GAP = 1.0F;
-    public static final int LEVEL_TAG_H = 9;
-    public static final int LEVEL_TAG_MAX_W = 26;
-    public static final int LEVEL_TAG_PAD = 4;
-
-    /** The hairline the reflection hangs under, and where it hangs. */
-    public static final float WATERLINE_DY = 49.0F;
-    public static final float WATERLINE_HALF = 34.0F;
-    public static final float REFLECTION_DY = 86.0F;
-    public static final float VESSEL_R_IN = 24.0F;
-    public static final float VESSEL_R_OUT = 31.0F;
-    public static final float CORRUPTION_R_IN = 13.0F;
-    public static final float CORRUPTION_R_OUT = 19.0F;
-    public static final int CORRUPTION_RUNGS = 4;
-
-    /** Seven fixed seats on an arc above the sigil, one per sin in registration order. */
-    public static final float CROWN_R = 46.0F;
-    public static final int CROWN_SEATS = 7;
-    public static final float CROWN_START_DEG = -150.0F;
-    public static final float CROWN_SPAN_DEG = 100.0F;
-    public static final float SATELLITE_R = 6.5F;
-
-    /** The cast cards, on an arc on the interior side, hung off spokes. */
-    public static final float CARD_R = 13.0F;
-    /** The least room between neighbouring cards on the arc. */
-    public static final float CARD_GAP = 2.0F;
-    /** The least spoke length: the sigil's rim to the card's plate. */
-    public static final float SPOKE_MIN = 8.0F;
-    /** The gap between a card's rim and its key tag. */
-    public static final float KEY_TAG_GAP = 1.0F;
-    public static final int KEY_TAG_H = 9;
-    public static final int KEY_TAG_MAX_W = 14;
-    public static final int KEY_TAG_PAD = 4;
-    /** The cooldown numeral's box, centred on the card. */
-    public static final int CARD_TEXT_W = 20;
-
-    /** The readouts, beyond the key tags: the vault, one line per lit satellite in crown order, the mana charge. */
-    public static final int GAUGE_GAP = 4;
-    public static final int GAUGE_W = 100;
-    public static final int GAUGE_STRIDE = 10;
-    /** The vault, six sins with a gauge (Lust has none) and the mana charge. */
-    public static final int GAUGE_LINES_MAX = 8;
-    /** The column starts level with the crown's shoulder and ends before the caption row: what fits is {@link #gaugeLinesMax}. */
-    public static final float GAUGE_TOP_DY = -38.0F;
-    public static final int GAUGE_CAPTION_GAP = 4;
-
-    /** The captions under the fan: the loadout's name, then the vessel, the corruption and the arcane preset as they apply. */
-    public static final float CAPTION_DX = 44.0F;
-    public static final float CAPTION_DY = 56.0F;
-    public static final int CAPTION_W = 108;
-    public static final int CAPTIONS_MAX = 3;
-    /** Each caption hangs this far under the one above; text boxes never scale, so the gap is what scales. */
-    public static final float CAPTION_GAP = 2.0F;
     public static final int TEXT_H = 9;
+    public static final int SLOTS = MagicContent.LOADOUT_SIZE;
 
-    /** What the player just gained: an emblem inking on beyond the caption, on its row, with a line beside it. */
-    public static final int ANNOUNCE_GAP = 4;
-    public static final int ANNOUNCE_EMBLEM = 24;
-    public static final int ANNOUNCE_TEXT_W = 160;
+    /** A skill glyph's side at the design scale. */
+    public static final int GLYPH = 16;
+    /** Glyph to glyph. It never shrinks below this, so the key cells under them never touch. */
+    public static final int PITCH = 20;
+
+    public static final int MANA_BAR_H = 4;
+    public static final int MANA_BAR_H_MIN = 3;
+    public static final int BAR_GAP = 1;
+    public static final int BARRIER_BAR_H = 3;
+    public static final int BARRIER_BAR_H_MIN = 2;
+    /**
+     * Between the pools band and the slots band; {@link #READOUT_GAP} is the same air between the
+     * slots and the readouts. It shrinks with a small scale and does not grow with a large one,
+     * and the two together can be no wider: on a 240-tall GUI - 1280x720, 1440p and 4K on vanilla's
+     * auto scale - the third readout line at the design scale ends on the very row the B loadout
+     * rail's first mark starts on, and a unit more hides the whole block every time the switcher
+     * is held.
+     */
+    public static final int ROW_GAP = 3;
+    public static final int ROW_GAP_MIN = 2;
+
+    /**
+     * The counts beside the bars: the mana as current over maximum, then the barrier. The box runs
+     * from the bars to vanilla's centre column, clamped between these two widths.
+     */
+    public static final int POOLS_GAP = 3;
+    public static final int POOLS_TEXT_MIN_W = 24;
+    public static final int POOLS_TEXT_MAX_W = 88;
+    /** Between the mana count and the barrier count on one line. */
+    public static final int POOLS_BARRIER_GAP = 4;
+    /** Half the width of vanilla's centre column: the boss bar and the hotbar are 182 wide. */
+    public static final int CENTRE_COLUMN_HALF = 91;
+
+    /** The key letter or the seconds, under each glyph: three characters wide. */
+    public static final int CELL_W = 18;
+    public static final int CELL_GAP = 1;
+
+    /**
+     * The readouts: tokens flowed onto at most three lines, only while they apply. A line runs from
+     * the margin to vanilla's centre column, never narrower than the first width - the vault and
+     * two sins cut short, beside a resource on each line above - nor wider than the second, past
+     * which a line reads as a sentence.
+     */
+    public static final int READOUT_GAP = 3;
+    public static final int READOUT_MIN_W = 143;
+    public static final int READOUT_MAX_W = 220;
+    public static final int READOUT_STRIDE = 10;
+    public static final int READOUT_LINES_MAX = 3;
+    public static final int READOUT_TOKEN_GAP = 5;
+    public static final int READOUT_TOKENS_MAX = 8;
+    /**
+     * A token's stamp: nine units square, one unit above its line, so its seven inked rows land on
+     * the seven rows a capital letter covers, with its text one unit after it.
+     */
+    public static final int STAMP = 9;
+    public static final int STAMP_GAP = 1;
+    public static final int STAMP_LEAD = STAMP + STAMP_GAP;
+    /** Room for the "+n" that says how many readings were left off: "+99". */
+    public static final int MORE_W = 18;
 
     /** Potion effect icons live in the top-right corner; that anchor gives them the room, always. */
     public static final int POTION_RESERVE = 50;
-    /** The boss bar hangs across the top; the readouts start under it at any scale. */
-    public static final int BOSS_BAR_RESERVE = 20;
     /** The hotbar with the health and food rows above it; bottom anchors sit above it. */
     public static final int HOTBAR_RESERVE = 50;
-    /** How far the totem reaches below the sigil centre at a bottom anchor: the reflection's bottom. */
-    public static final float TOTEM_BELOW = REFLECTION_DY + VESSEL_R_OUT;
-    /** How far the crown reaches above the sigil centre. */
-    public static final float TOTEM_ABOVE = CROWN_R + SATELLITE_R + 0.5F;
-    /** How far the crown's outermost seat reaches beside the sigil centre. */
-    public static final float TOTEM_BESIDE = 47.0F;
 
     // ---- the centre group -----------------------------------------------------------------------
 
@@ -234,46 +150,100 @@ public final class HudLayout {
 
     /**
      * The rule flash: a formula plate this far above the crosshair, two text rows tall for the
-     * formula at twice the text size, with a caption row under it. Like a totem pop it is the same
-     * size at every HUD scale and ignores the anchor.
+     * formula at twice the text size, with a caption row under it. It is the same size at every
+     * HUD scale and ignores the anchor.
      */
     public static final int RULE_FLASH_DY = 52;
     public static final int RULE_FLASH_PAD = 5;
     public static final int RULE_FLASH_MAX_W = 220;
     public static final int RULE_FLASH_CAPTION_GAP = 3;
 
+    /** The scale option's range; the block may be drawn smaller than asked, never below the floor. */
+    public static final float MIN_SCALE = 0.5F;
+    public static final float MAX_SCALE = 1.5F;
+    /** How far the scale gives way at a time while the counts do not fit beside the bars. */
+    private static final float SCALE_STEP = 0.05F;
+
     private final int guiWidth;
     private final int guiHeight;
     private final HudAnchor anchor;
     private final float scale;
-    private final int sign;
-    private final float cx;
-    private final float cy;
+
+    private final int glyph;
+    private final int pitch;
+    private final int blockW;
+    private final int manaH;
+    private final int barGap;
+    private final int barrierH;
+    private final int rowH;
+    private final int slotsH;
+    private final int x0;
+    private final int poolsY;
+    private final int slotsY;
+    private final boolean clearsLoadoutRail;
 
     private HudLayout(int guiWidth, int guiHeight, HudAnchor anchor, float scale) {
         this.guiWidth = guiWidth;
         this.guiHeight = guiHeight;
         this.anchor = anchor;
         this.scale = scale;
-        this.sign = anchor.right() ? -1 : 1;
-        float beside = MARGIN + s(TOTEM_BESIDE);
-        this.cx = anchor.right() ? guiWidth - beside : beside;
-        float y;
+        this.glyph = Math.round(scale * GLYPH);
+        this.pitch = Math.max(PITCH, Math.round(scale * PITCH));
+        this.blockW = blockWidth(scale);
+        this.manaH = Math.max(MANA_BAR_H_MIN, Math.round(scale * MANA_BAR_H));
+        this.barGap = Math.max(BAR_GAP, Math.round(scale * BAR_GAP));
+        this.barrierH = Math.max(BARRIER_BAR_H_MIN, Math.round(scale * BARRIER_BAR_H));
+        this.rowH = Math.max(TEXT_H, manaH + barGap + barrierH);
+        int rowGap = Math.max(ROW_GAP_MIN, Math.min(ROW_GAP, Math.round(scale * ROW_GAP)));
+        this.slotsH = glyph + CELL_GAP + TEXT_H;
+        this.x0 = anchor.right() ? guiWidth - MARGIN - blockW : MARGIN;
         if (anchor.bottom()) {
-            // Above the hotbar rows; on a short GUI at a large scale the crown wins and the
-            // reflection, which sits beside the hotbar and not over it, dips toward the rows.
-            y = Math.max(MARGIN + (float) Math.ceil(s(TOTEM_ABOVE)), guiHeight - HOTBAR_RESERVE - (float) Math.ceil(s(TOTEM_BELOW)));
+            this.poolsY = guiHeight - HOTBAR_RESERVE - rowH;
+            this.slotsY = poolsY - rowGap - slotsH;
         } else {
-            y = MARGIN + (float) Math.ceil(s(TOTEM_ABOVE));
-            if (anchor == HudAnchor.TOP_RIGHT) {
-                y += POTION_RESERVE;
-            }
+            this.poolsY = MARGIN + (anchor == HudAnchor.TOP_RIGHT ? POTION_RESERVE : 0);
+            this.slotsY = poolsY + rowH + rowGap;
         }
-        this.cy = y;
+        this.clearsLoadoutRail = measureLoadoutRail();
     }
 
+    /**
+     * The layout at the asked scale, or the largest scale under it at which the counts still fit
+     * between the block and vanilla's centre column: a HUD at 1.5 on a 427-wide GUI would otherwise
+     * print its mana over the first boss bar.
+     */
     public static HudLayout of(int guiWidth, int guiHeight, HudAnchor anchor, float scale) {
-        return new HudLayout(guiWidth, guiHeight, anchor, Math.max(0.5F, Math.min(1.5F, scale)));
+        float fitted = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
+        int room = cornerRoom(guiWidth, anchor) - POOLS_GAP - POOLS_TEXT_MIN_W;
+        while (fitted > MIN_SCALE && reach(fitted, anchor) > room) {
+            fitted = Math.max(MIN_SCALE, fitted - SCALE_STEP);
+        }
+        return new HudLayout(guiWidth, guiHeight, anchor, fitted);
+    }
+
+    /** The glyph row's width at a scale: four glyphs at their pitch, which never closes below the key cells'. */
+    private static int blockWidth(float scale) {
+        return (SLOTS - 1) * Math.max(PITCH, Math.round(scale * PITCH)) + Math.round(scale * GLYPH);
+    }
+
+    /**
+     * How far the block reaches toward the middle at a scale: the glyph row, and past it whatever
+     * of the key cell on that side hangs beyond a glyph smaller than the cell. The barrier count's
+     * second line starts after that cell, so a fit that measured the glyphs alone left it five
+     * units short of its four digits at the floor.
+     */
+    private static int reach(float scale, HudAnchor anchor) {
+        int glyph = Math.round(scale * GLYPH);
+        int lead = Math.floorDiv(glyph - CELL_W, 2);
+        int overhang = anchor.right() ? -lead : lead + CELL_W - glyph;
+        return blockWidth(scale) + Math.max(0, overhang);
+    }
+
+    /** From the margin to vanilla's centre column, on the anchor's side. */
+    private static int cornerRoom(int guiWidth, HudAnchor anchor) {
+        return anchor.right()
+                ? guiWidth - MARGIN - (guiWidth / 2 + CENTRE_COLUMN_HALF)
+                : guiWidth / 2 - CENTRE_COLUMN_HALF - MARGIN;
     }
 
     public int guiWidth() {
@@ -292,244 +262,311 @@ public final class HudLayout {
         return scale;
     }
 
-    /** +1 when the fan opens to the right of the sigil, -1 when it mirrors. */
-    public int sign() {
-        return sign;
+    /** True when the block hangs from the right edge and its text reads toward it. */
+    public boolean right() {
+        return anchor.right();
     }
 
-    public float cx() {
-        return cx;
+    /** A skill glyph's side at this scale, in GUI units. */
+    public int glyphSize() {
+        return glyph;
     }
 
-    public float cy() {
-        return cy;
+    public int pitch() {
+        return pitch;
     }
 
-    public float s(float v) {
-        return v * scale;
+    // ---- pools ----------------------------------------------------------------------------------
+
+    private int barsY() {
+        return poolsY + (rowH - (manaH + barGap + barrierH)) / 2;
     }
 
-    private int round(float v) {
-        return Math.round(v);
+    /** The mana bar: exactly as long as the glyph row under it. */
+    public Rect manaBar() {
+        return new Rect("mana bar", x0, barsY(), blockW, manaH);
     }
 
-    // ---- sigil ----------------------------------------------------------------------------------
-
-    public Disc sigil() {
-        return new Disc("sigil", cx, cy, s(SIGIL_R));
+    public Rect barrierBar() {
+        return new Rect("barrier bar", x0, barsY() + manaH + barGap, blockW, barrierH);
     }
 
-    public Disc core() {
-        return new Disc("core", cx, cy, s(CORE_R));
-    }
-
-    public float haloOuter() {
-        return s(HALO_R_OUT);
-    }
-
-    public float barrierOuter() {
-        return s(BARRIER_R_OUT);
-    }
-
-    public float barrierWidth() {
-        return s(BARRIER_R_OUT - BARRIER_R_IN);
-    }
-
-    public float drawOuter() {
-        return s(DRAW_R_OUT);
-    }
-
-    public float drawWidth() {
-        return s(DRAW_R_OUT - DRAW_R_IN);
-    }
-
-    public float manaOuter() {
-        return s(MANA_R_OUT);
-    }
-
-    public float manaWidth() {
-        return s(MANA_R_OUT - MANA_R_IN);
-    }
-
-    public float xpOuter() {
-        return s(XP_R_OUT);
-    }
-
-    public float xpWidth() {
-        return s(XP_R_OUT - XP_R_IN);
-    }
-
-    /** Line {@code i} of {@code n} in the core, stacked round its centre: the mana over the barrier. */
-    public Rect coreLine(int i, int n, int width) {
-        int top = (int) Math.floor(cy - n * TEXT_H / 2.0F);
-        return new Rect("core line " + i, round(cx) - width / 2, top + i * TEXT_H, width, TEXT_H);
-    }
-
-    /** The level's tag, hung under the sigil at six o'clock. */
-    public Rect levelTag(int textWidth) {
-        int w = Math.min(LEVEL_TAG_MAX_W, textWidth + LEVEL_TAG_PAD);
-        return new Rect("level tag", round(cx) - w / 2, round(cy + s(SIGIL_R + LEVEL_TAG_GAP)), w, LEVEL_TAG_H);
-    }
-
-    // ---- the reflection below the waterline ----------------------------------------------------
-
-    public Segment waterline() {
-        float y = cy + s(WATERLINE_DY);
-        return new Segment("waterline", cx - s(WATERLINE_HALF), y, cx + s(WATERLINE_HALF), y);
-    }
-
-    public float reflectionCy() {
-        return cy + s(REFLECTION_DY);
-    }
-
-    public float vesselOuter() {
-        return s(VESSEL_R_OUT);
-    }
-
-    public float vesselWidth() {
-        return s(VESSEL_R_OUT - VESSEL_R_IN);
-    }
-
-    public float corruptionOuter() {
-        return s(CORRUPTION_R_OUT);
-    }
-
-    public float corruptionWidth() {
-        return s(CORRUPTION_R_OUT - CORRUPTION_R_IN);
-    }
-
-    /** The upper half of the mirrored rings, from the waterline down to their centre line. */
-    public Rect reflection() {
-        int x0 = round(cx - s(VESSEL_R_OUT));
-        int y0 = round(cy + s(REFLECTION_DY - VESSEL_R_OUT));
-        return new Rect("reflection", x0, y0, round(2.0F * s(VESSEL_R_OUT)), round(s(VESSEL_R_OUT)));
-    }
-
-    // ---- crown ----------------------------------------------------------------------------------
-
-    /** Seat {@code i} (registration order: Pride, Greed, Lust, Envy, Gluttony, Wrath, Sloth). Stable whatever is enabled. */
-    public Disc crownSeat(int i) {
-        float deg = CROWN_START_DEG + i * (CROWN_SPAN_DEG / (CROWN_SEATS - 1));
-        if (sign < 0) {
-            deg = 180.0F - deg;
+    /**
+     * The counts, beside the bars on the side away from the edge, running to vanilla's centre
+     * column - so the room grows and shrinks with the scale, never with the values.
+     */
+    public Rect poolsText() {
+        int y = poolsY + (rowH - TEXT_H) / 2;
+        if (anchor.right()) {
+            int right = x0 - POOLS_GAP;
+            int w = clampPoolsWidth(right - (guiWidth / 2 + CENTRE_COLUMN_HALF));
+            return new Rect("pools text", right - w, y, w, TEXT_H);
         }
-        double rad = Math.toRadians(deg);
-        float r = s(CROWN_R);
-        return new Disc("crown seat " + i, cx + (float) (r * Math.cos(rad)), cy + (float) (r * Math.sin(rad)), s(SATELLITE_R));
+        int x = x0 + blockW + POOLS_GAP;
+        return new Rect("pools text", x, y, clampPoolsWidth(guiWidth / 2 - CENTRE_COLUMN_HALF - x), TEXT_H);
     }
 
-    // ---- fan ------------------------------------------------------------------------------------
-
-    public int cardCount() {
-        return MagicContent.LOADOUT_SIZE;
+    private static int clampPoolsWidth(int w) {
+        return Math.max(POOLS_TEXT_MIN_W, Math.min(POOLS_TEXT_MAX_W, w));
     }
 
-    public static float fanStepDegrees(int cards) {
-        return cards <= 4 ? 24.0F : 20.0F;
-    }
-
-    /** The orbit the cards sit on: far enough out that neighbours on the arc never touch and the spokes read. */
-    public static float fanRadius(int cards) {
-        double halfStep = Math.toRadians(fanStepDegrees(cards) / 2.0F);
-        float apart = (float) Math.ceil((2.0F * CARD_R + CARD_GAP) / (2.0 * Math.sin(halfStep)));
-        return Math.max(SIGIL_R + CARD_R + SPOKE_MIN, apart);
-    }
-
-    public float fanRadius() {
-        return s(fanRadius(cardCount()));
-    }
-
-    /** The angle of card {@code k}, in degrees from the fan's axis; Z at the top, V at the bottom. */
-    public float cardDegrees(int k) {
-        int n = cardCount();
-        float deg = (k - (n - 1) / 2.0F) * fanStepDegrees(n);
-        return sign < 0 ? 180.0F - deg : deg;
-    }
-
-    public Disc card(int k) {
-        double rad = Math.toRadians(cardDegrees(k));
-        float r = fanRadius();
-        return new Disc("card " + k, cx + (float) (r * Math.cos(rad)), cy + (float) (r * Math.sin(rad)), s(CARD_R));
-    }
-
-    /** The one-pixel line from the sigil's edge to the card's plate. */
-    public Segment spoke(int k) {
-        double rad = Math.toRadians(cardDegrees(k));
-        float from = s(SIGIL_R);
-        float to = fanRadius() - s(CARD_R);
-        return new Segment("spoke " + k,
-                cx + (float) (from * Math.cos(rad)), cy + (float) (from * Math.sin(rad)),
-                cx + (float) (to * Math.cos(rad)), cy + (float) (to * Math.sin(rad)));
-    }
-
-    /** The key letter's tab, hanging off the far side of the card so it points away from the sigil. */
-    public Rect keyTag(int k, int textWidth) {
-        Disc card = card(k);
-        int w = Math.min(KEY_TAG_MAX_W, textWidth + KEY_TAG_PAD);
-        int x = round(card.cx() + sign * (card.r() + s(KEY_TAG_GAP) + w / 2.0F)) - w / 2;
-        return new Rect("key tag " + k, x, round(card.cy()) - KEY_TAG_H / 2, w, KEY_TAG_H);
-    }
-
-    /** The seconds left, over a cooling card's plate. */
-    public Rect cardText(int k) {
-        Disc card = card(k);
-        return new Rect("card text " + k, round(card.cx()) - CARD_TEXT_W / 2, round(card.cy()) - TEXT_H / 2, CARD_TEXT_W, TEXT_H);
-    }
-
-    /** The tags' far edge: where the readouts begin. */
-    public float fanEdge() {
-        float far = 0.0F;
-        for (int k = 0; k < cardCount(); k++) {
-            Rect tag = keyTag(k, KEY_TAG_MAX_W);
-            far = Math.max(far, sign > 0 ? tag.right() - cx : cx - tag.x());
+    /**
+     * Where the barrier count goes when it will not fit beside the mana count: the line under it,
+     * or over it at a bottom anchor, so it grows away from the edge as the rest of the block does.
+     * It stands beside the slot band, clear of the glyphs.
+     */
+    public Rect poolsStackedLine() {
+        Rect text = poolsText();
+        int y = anchor.bottom() ? text.y() - TEXT_H - 1 : text.bottom() + 1;
+        // Beside the slots rather than the bars, and a key cell is wider than a small glyph, so
+        // at the small scales the last cell reaches past the bars' end.
+        if (anchor.right()) {
+            int right = Math.min(text.right(), Math.min(x0, cell(0).x()) - POOLS_GAP);
+            return new Rect("pools stacked line", text.x(), y, right - text.x(), TEXT_H);
         }
-        return far;
+        int x = Math.max(text.x(), Math.max(x0 + blockW, cell(SLOTS - 1).right()) + POOLS_GAP);
+        return new Rect("pools stacked line", x, y, text.right() - x, TEXT_H);
     }
 
-    // ---- readouts and captions ------------------------------------------------------------------
-
-    private int lineX(float dx, int width) {
-        return sign > 0 ? round(cx + s(dx)) : round(cx - s(dx)) - width;
+    /** How the counts share their room; chosen from the widest values alone, so it never flickers. */
+    public enum PoolsForm {
+        /** "82/100  49": the mana over its maximum, then the barrier. */
+        FULL,
+        /** "82  49": no room for the maximum. */
+        NO_MAX,
+        /** "82" over "49": no room for both on one line. */
+        STACKED
     }
 
-    /** Readout line {@code i}, beside the fan: the vault, a sin's name and value, or the mana charge. */
-    public Rect gaugeLine(int i) {
-        float reach = fanEdge() + GAUGE_GAP;
-        int x = sign > 0 ? round(cx + reach) : round(cx - reach) - GAUGE_W;
-        int top = round(cy + s(GAUGE_TOP_DY));
-        if (!anchor.bottom()) {
-            top = Math.max(top, BOSS_BAR_RESERVE);
+    /**
+     * Where the counts go: the form, the x the mana's slash stands at, and the right edge the
+     * barrier count is aligned against, with the line each is on.
+     *
+     * <p>Both counts are tabular. The mana's current value is right-aligned against
+     * {@code slashX} and "/max" starts there, so the slash never moves as the value changes; the
+     * barrier is right-aligned against {@code barrierRight} for the same reason.
+     */
+    public record PoolsPlan(PoolsForm form, int slashX, int manaY, int barrierRight, int barrierY) {
+        public boolean showsMax() {
+            return form == PoolsForm.FULL;
         }
-        return new Rect("gauge line " + i, x, top + i * GAUGE_STRIDE, GAUGE_W, TEXT_H);
     }
 
-    /** How many readout lines fit above the caption row at this scale; text does not shrink with the sigil. */
-    public int gaugeLinesMax() {
-        int room = caption().y() - GAUGE_CAPTION_GAP - gaugeLine(0).y();
-        return Math.max(0, Math.min(GAUGE_LINES_MAX, room / GAUGE_STRIDE));
+    /**
+     * Lays the counts out from the widths of the widest value each can show - {@code manaField}
+     * and {@code barrierField}, the widths of their maxima - and of "/max". Nothing here reads the
+     * current values, so the form holds still while they move.
+     */
+    public PoolsPlan planPools(int manaField, int maxWidth, int barrierField) {
+        Rect text = poolsText();
+        PoolsForm form;
+        if (manaField + maxWidth + POOLS_BARRIER_GAP + barrierField <= text.w()) {
+            form = PoolsForm.FULL;
+        } else if (manaField + POOLS_BARRIER_GAP + barrierField <= text.w()) {
+            form = PoolsForm.NO_MAX;
+        } else {
+            form = PoolsForm.STACKED;
+        }
+        if (form == PoolsForm.STACKED) {
+            // One right edge for both lines where it fits, so the two counts stand as a column.
+            Rect stacked = poolsStackedLine();
+            int right = anchor.right()
+                    ? Math.min(text.right(), stacked.right())
+                    : Math.min(text.right(), Math.max(text.x() + manaField, stacked.x() + barrierField));
+            return new PoolsPlan(form, right, text.y(), right, stacked.y());
+        }
+        int max = form == PoolsForm.FULL ? maxWidth : 0;
+        if (anchor.right()) {
+            int barrierRight = text.right();
+            return new PoolsPlan(form, barrierRight - barrierField - POOLS_BARRIER_GAP - max, text.y(), barrierRight, text.y());
+        }
+        int slashX = text.x() + manaField;
+        return new PoolsPlan(form, slashX, text.y(), slashX + max + POOLS_BARRIER_GAP + barrierField, text.y());
     }
 
-    /** Caption {@code i} under the fan; line 0 is the active loadout's name. */
-    public Rect captionLine(int i) {
-        return new Rect("caption " + i, lineX(CAPTION_DX, CAPTION_W), round(cy + s(CAPTION_DY)) + i * (TEXT_H + round(s(CAPTION_GAP))), CAPTION_W, TEXT_H);
+    // ---- slots ----------------------------------------------------------------------------------
+
+    /** Slot {@code k}'s glyph; Z is always the leftmost, at every anchor. */
+    public Rect glyph(int k) {
+        return new Rect("glyph " + k, x0 + k * pitch, slotsY, glyph, glyph);
     }
 
-    public Rect caption() {
-        return captionLine(0);
+    /** The key letter or the seconds under slot {@code k}, centred on its glyph. */
+    public Rect cell(int k) {
+        return new Rect("cell " + k, x0 + k * pitch + Math.floorDiv(glyph - CELL_W, 2), slotsY + glyph + CELL_GAP, CELL_W, TEXT_H);
     }
 
-    // ---- announcement ---------------------------------------------------------------------------
+    // ---- readouts -------------------------------------------------------------------------------
 
-    public Rect announceEmblem() {
-        Rect caption = caption();
-        int x = sign > 0 ? caption.right() + ANNOUNCE_GAP : caption.x() - ANNOUNCE_GAP - ANNOUNCE_EMBLEM;
-        return new Rect("announce emblem", x, caption.y(), ANNOUNCE_EMBLEM, ANNOUNCE_EMBLEM);
+    /** How wide a readout line runs: to vanilla's centre column, between the two bounds. */
+    public int readoutWidth() {
+        return Math.max(READOUT_MIN_W, Math.min(READOUT_MAX_W, cornerRoom(guiWidth, anchor)));
     }
 
-    public Rect announceText() {
-        Rect emblem = announceEmblem();
-        int x = sign > 0 ? emblem.right() + ANNOUNCE_GAP : emblem.x() - ANNOUNCE_GAP - ANNOUNCE_TEXT_W;
-        return new Rect("announce text", x, emblem.y() + (ANNOUNCE_EMBLEM - TEXT_H) / 2, ANNOUNCE_TEXT_W, TEXT_H);
+    /** Readout line {@code i}; line 0 is the one nearest the slots. */
+    public Rect readoutLine(int i) {
+        int w = readoutWidth();
+        int x = anchor.right() ? guiWidth - MARGIN - w : x0;
+        int y = anchor.bottom()
+                ? slotsY - READOUT_GAP - TEXT_H - i * READOUT_STRIDE
+                : slotsY + slotsH + READOUT_GAP + i * READOUT_STRIDE;
+        return new Rect("readout line " + i, x, y, w, TEXT_H);
+    }
+
+    /** Where a token's stamp goes: at its left end, one unit above its line. */
+    public static Rect stamp(Rect token) {
+        return new Rect(token.name() + " stamp", token.x(), token.y() - 1, STAMP, STAMP);
+    }
+
+    /**
+     * The placed readouts: a rectangle per token that made it, in order, the index in the input
+     * each one belongs to, how many were left off, and where the "+n" that says so goes (null when
+     * nothing was). A resource left off does not leave off the passives after it, so the placed
+     * tokens are not always a prefix of the input - read each one's reading through
+     * {@code sources}, never by its place in the list.
+     */
+    public record Flow(Rect[] tokens, int[] sources, int dropped, Rect more) {}
+
+    /**
+     * Places readout tokens of the given widths, greedily and in order: each goes on the current
+     * line if it fits, else on the next. Tokens before {@code passivesFrom} are the resources and
+     * the rest the passives, and the passives always start a line of their own - so while any
+     * passive is showing, the resources get every line but the last.
+     *
+     * <p>Within each group the first token that fits nowhere stops the group, and it and
+     * everything after it in the group are left off whole - so a token never moves one placed
+     * before it, and a reading is never cut in half. Nothing is left off in silence: a muted "+n"
+     * trails the last token, and if there is no room for it the last token gives up its place.
+     *
+     * <p>At a left anchor tokens run right from the margin; at a right anchor they run left from
+     * the edge, so the first reading is always the one nearest the corner.
+     */
+    public Flow flow(int[] widths, int passivesFrom) {
+        int split = Math.max(0, Math.min(passivesFrom, widths.length));
+        boolean passives = split < widths.length;
+        int width = readoutWidth();
+        List<Rect> placed = new ArrayList<>(Math.min(widths.length, READOUT_TOKENS_MAX));
+        List<Integer> sources = new ArrayList<>(Math.min(widths.length, READOUT_TOKENS_MAX));
+        List<int[]> ends = new ArrayList<>();
+        int[] cursor = {0, 0};
+        int dropped = flowGroup(widths, 0, split, passives ? READOUT_LINES_MAX - 1 : READOUT_LINES_MAX, width, cursor, placed, sources, ends);
+        if (!placed.isEmpty()) {
+            cursor[0]++;
+            cursor[1] = 0;
+        }
+        dropped += flowGroup(widths, split, widths.length, READOUT_LINES_MAX, width, cursor, placed, sources, ends);
+        while (dropped > 0) {
+            int line = ends.isEmpty() ? 0 : ends.get(ends.size() - 1)[0];
+            int used = ends.isEmpty() ? 0 : ends.get(ends.size() - 1)[1];
+            int start = used == 0 ? 0 : used + READOUT_TOKEN_GAP;
+            if (start + MORE_W > width) {
+                line++;
+                start = 0;
+            }
+            if (line < READOUT_LINES_MAX) {
+                return flowOf(placed, sources, dropped, place("more", line, start, MORE_W));
+            }
+            placed.remove(placed.size() - 1);
+            sources.remove(sources.size() - 1);
+            ends.remove(ends.size() - 1);
+            dropped++;
+        }
+        return flowOf(placed, sources, 0, null);
+    }
+
+    private static Flow flowOf(List<Rect> placed, List<Integer> sources, int dropped, Rect more) {
+        int[] from = new int[sources.size()];
+        for (int i = 0; i < from.length; i++) {
+            from[i] = sources.get(i);
+        }
+        return new Flow(placed.toArray(new Rect[0]), from, dropped, more);
+    }
+
+    /** One group of the flow; returns how many of its tokens were left off. */
+    private int flowGroup(int[] widths, int from, int to, int lines, int width, int[] cursor,
+            List<Rect> placed, List<Integer> sources, List<int[]> ends) {
+        for (int i = from; i < to; i++) {
+            int w = widths[i];
+            if (placed.size() >= READOUT_TOKENS_MAX || w > width) {
+                return to - i;
+            }
+            int line = cursor[0];
+            int used = cursor[1];
+            if (used > 0 && used + READOUT_TOKEN_GAP + w > width) {
+                line++;
+                used = 0;
+            }
+            if (line >= lines) {
+                return to - i;
+            }
+            int start = used == 0 ? 0 : used + READOUT_TOKEN_GAP;
+            placed.add(place("readout " + i, line, start, w));
+            sources.add(i);
+            cursor[0] = line;
+            cursor[1] = start + w;
+            ends.add(new int[] {line, start + w});
+        }
+        return 0;
+    }
+
+    private Rect place(String name, int line, int start, int w) {
+        Rect box = readoutLine(line);
+        int x = anchor.right() ? box.right() - start - w : box.x() + start;
+        return new Rect(name, x, box.y(), w, TEXT_H);
+    }
+
+    // ---- the whole block ------------------------------------------------------------------------
+
+    /**
+     * Every rectangle the block can occupy, for the overlap sweep: the pools with both places the
+     * barrier count can take, then the slots if any is equipped, then the readout lines, each
+     * with the row above it that its stamps stand in. The order is fixed, so a list with more
+     * lines begins with the list with fewer.
+     */
+    public List<Rect> blockShapes(boolean slots, int readoutLines) {
+        List<Rect> shapes = new ArrayList<>();
+        shapes.add(manaBar());
+        shapes.add(barrierBar());
+        shapes.add(poolsText());
+        shapes.add(poolsStackedLine());
+        if (slots) {
+            for (int k = 0; k < SLOTS; k++) {
+                shapes.add(glyph(k));
+            }
+            for (int k = 0; k < SLOTS; k++) {
+                shapes.add(cell(k));
+            }
+        }
+        for (int i = 0; i < Math.min(readoutLines, READOUT_LINES_MAX); i++) {
+            Rect line = readoutLine(i);
+            shapes.add(new Rect(line.name(), line.x(), line.y() - 1, line.w(), line.h() + 1));
+        }
+        return shapes;
+    }
+
+    /**
+     * Whether the block, at its fullest, stays off the B loadout rail on this screen.
+     *
+     * <p>The rail is centred on the left edge, so the default corner clears it and a bottom corner
+     * usually does not. Where it does not, the block stands down while the switcher is held rather
+     * than print its readouts through the rail's names. The rail is taken at its tallest, because
+     * it is centred and a longer list reaches higher.
+     */
+    public boolean clearsLoadoutRail() {
+        return clearsLoadoutRail;
+    }
+
+    /** Measured once, when the layout is made: the HUD asks every frame the switcher is up. */
+    private boolean measureLoadoutRail() {
+        List<CodexLayout.Rect> rail = LoadoutSwitcherLayout.rects(MagicContent.MAX_LOADOUTS, guiWidth, guiHeight);
+        for (Rect shape : blockShapes(true, READOUT_LINES_MAX)) {
+            for (CodexLayout.Rect r : rail) {
+                if (shape.overlaps(new Rect(r.name(), r.x(), r.y(), r.w(), r.h()))) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     // ---- centre group ---------------------------------------------------------------------------
@@ -565,41 +602,9 @@ public final class HudLayout {
         return new Rect("rule flash caption", centreX() - RULE_FLASH_MAX_W / 2, plate.bottom() + RULE_FLASH_CAPTION_GAP, RULE_FLASH_MAX_W, TEXT_H);
     }
 
-    // ---- for the overlap sweep ------------------------------------------------------------------
-
-    /** Every shape the totem draws in the given state, for {@code HudLayoutTest}. */
-    public List<Shape> totemShapes(boolean vessel, boolean corruption, int sinMask, int gaugeLines, boolean announcement, int keyTextWidth) {
-        List<Shape> shapes = new ArrayList<>();
-        shapes.add(sigil());
-        shapes.add(levelTag(LEVEL_TAG_MAX_W - LEVEL_TAG_PAD));
-        if (vessel || corruption) {
-            shapes.add(reflection());
-        }
-        for (int i = 0; i < CROWN_SEATS; i++) {
-            if ((sinMask & (1 << i)) != 0) {
-                shapes.add(crownSeat(i));
-            }
-        }
-        for (int k = 0; k < cardCount(); k++) {
-            shapes.add(card(k));
-            shapes.add(keyTag(k, keyTextWidth));
-        }
-        for (int i = 0; i < Math.min(gaugeLines, gaugeLinesMax()); i++) {
-            shapes.add(gaugeLine(i));
-        }
-        for (int i = 0; i < CAPTIONS_MAX; i++) {
-            shapes.add(captionLine(i));
-        }
-        if (announcement) {
-            shapes.add(announceEmblem());
-            shapes.add(announceText());
-        }
-        return shapes;
-    }
-
     /** Everything drawn around the crosshair while nothing modal is open. */
-    public List<Shape> centreShapes(int statusChips) {
-        List<Shape> shapes = new ArrayList<>();
+    public List<Rect> centreShapes(int statusChips) {
+        List<Rect> shapes = new ArrayList<>();
         for (int i = 0; i < Math.min(statusChips, STATUS_CHIPS_MAX); i++) {
             shapes.add(statusChip(i, statusChips));
         }

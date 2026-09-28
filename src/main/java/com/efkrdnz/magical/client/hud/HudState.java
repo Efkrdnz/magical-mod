@@ -7,17 +7,14 @@ import com.efkrdnz.magical.client.ClientArcaneState;
 import com.efkrdnz.magical.client.ClientMagicState;
 import com.efkrdnz.magical.client.ClientStatusState;
 import com.efkrdnz.magical.client.MagicalKeyMappings;
-import com.efkrdnz.magical.classes.MagicalClassDefinition;
-import com.efkrdnz.magical.classes.MagicalClasses;
-import com.efkrdnz.magical.client.hud.HudSnapshot.Announcement;
-import com.efkrdnz.magical.client.hud.HudSnapshot.Card;
+import com.efkrdnz.magical.client.hud.HudLayout.PoolsPlan;
+import com.efkrdnz.magical.client.hud.HudLayout.Rect;
 import com.efkrdnz.magical.client.hud.HudSnapshot.Chip;
-import com.efkrdnz.magical.client.hud.HudSnapshot.GaugeLine;
 import com.efkrdnz.magical.client.hud.HudSnapshot.Label;
-import com.efkrdnz.magical.client.hud.HudSnapshot.Line;
-import com.efkrdnz.magical.client.hud.HudSnapshot.Satellite;
-import com.efkrdnz.magical.magic.AuthorityContent;
-import com.efkrdnz.magical.magic.AuthorityDefinition;
+import com.efkrdnz.magical.client.hud.HudSnapshot.Readout;
+import com.efkrdnz.magical.client.hud.HudSnapshot.Slot;
+import com.efkrdnz.magical.client.hud.HudSnapshot.Stamp;
+import com.efkrdnz.magical.client.renderer.fx.FxTextures;
 import com.efkrdnz.magical.magic.BloodService;
 import com.efkrdnz.magical.magic.DarkService;
 import com.efkrdnz.magical.magic.EldritchService;
@@ -28,14 +25,11 @@ import com.efkrdnz.magical.magic.MagicSchool;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.status.MagicStatus;
-import com.efkrdnz.magical.magic.visual.GlyphKind;
-import com.efkrdnz.magical.magic.visual.Palette;
-import com.efkrdnz.magical.magic.visual.SchoolMaterial;
+import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfiles;
-import com.efkrdnz.magical.race.MagicalRace;
-import com.efkrdnz.magical.race.MagicalRaces;
 import com.mojang.blaze3d.platform.InputConstants;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -44,6 +38,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.profiling.Profiler;
@@ -51,33 +46,54 @@ import net.minecraft.util.profiling.ProfilerFiller;
 
 /**
  * The tick side of the HUD: owns the {@link HudSnapshot}, rebuilds it only when something it
- * depends on changed, and integrates every moving value one step per client tick.
+ * depends on changed, and integrates the two pool bars one step per client tick.
  *
  * <p>What can change is enumerated: the player state packet, the cooldown clock, the statuses,
- * the announcer, the key bindings, the window, the language, the options, and the level. Each has
- * a version or an identity compared here. Idle at full mana that is zero rebuilds a second;
- * regenerating, one. The only per-tick string work is the seconds numeral over a cooling card,
- * reshaped when the second changes. Nothing in the render path allocates, formats or measures.
+ * the key bindings, the window, the language, the options, the level, which sins are showing and
+ * the sword count. Each has a version or an identity compared here. The only per-tick string work
+ * is the seconds under a cooling slot, reshaped when the second changes. Nothing in the render
+ * path allocates, formats or measures.
  */
 public final class HudState {
-    /** Sins in registration order; each has a fixed seat on the crown and a readout line. */
+    /** Sins in registration order; each has a fixed place in the readouts. */
     private static final MagicPassiveDefinition[] SINS = {
             MagicPassiveContent.SIN_PRIDE, MagicPassiveContent.SIN_GREED, MagicPassiveContent.SIN_LUST,
             MagicPassiveContent.SIN_ENVY, MagicPassiveContent.SIN_GLUTTONY, MagicPassiveContent.SIN_WRATH,
             MagicPassiveContent.SIN_SLOTH};
-    private static final String[] SIN_KEYS = {"pride", "greed", "lust", "envy", "gluttony", "wrath", "sloth"};
-    /** The readout tween index of the mana charge, after the seven seats; the vault's is one beyond. */
-    public static final int CHARGE_TWEEN = SINS.length;
-    /** A satellite stays on its seat this long after its gauge empties, so it does not flicker. */
+    /** Lust has no gauge, so it never has a readout; Greed's is folded into the vault's. */
+    private static final int LUST = 2;
+    private static final int GREED = 1;
+    private static final int SLOTH = 6;
+    /** A rested Sloth reads a step lighter, as its satellite did. */
+    private static final float RESTED_LIFT = 0.35F;
+    /** Each sin's stamp, by seat; the vault wears Greed's. */
+    private static final int[] SIN_CELLS = new int[SINS.length];
+    /** Each sin's name, by seat, for a reading written out in full: "Pride 9%". */
+    private static final String[] SIN_NAMES = {
+            "hud.magical.sin.pride", null, null, "hud.magical.sin.envy", "hud.magical.sin.gluttony",
+            "hud.magical.sin.wrath", "hud.magical.sin.sloth"};
+    /**
+     * The resources' stamps. A sin wears its own ({@link HudGlyphs#sinCell}), and no reading may
+     * wear another's - which is why Notice is a spiral and not the eye Envy already is.
+     */
+    static final StampId SWORDS_MARK = StampId.EDGE;
+    static final StampId VESSEL_MARK = StampId.DROP;
+    static final StampId CORRUPTION_MARK = StampId.BONE;
+    static final StampId NOTICE_MARK = StampId.SPIRAL;
+    static final StampId ARCANE_MARK = StampId.HEX;
+    static final StampId CHARGE_MARK = StampId.CHEVRON;
+    /** A sin's readout stays this long after its gauge empties, so a gauge on the edge does not flicker. */
     private static final int SIN_LINGER_TICKS = 40;
-    /** Gluttony's devour cooldown, as MagicSinService sets it. */
-    private static final int GLUTTONY_DEVOUR_TICKS = 280;
-    /** Below this fraction the mana ring goes to the danger tint and pulses. */
+    /** Below this fraction the mana bar and its numeral go to the danger red. */
     public static final float LOW_MANA = 0.2F;
-    /** Arcane stability under which a spell can misfire; the arcane line goes to the danger tint. */
+    /** Arcane stability under which a spell can misfire; the arcane readout goes to the danger red. */
     private static final int ARCANE_UNSTABLE_BELOW = 65;
+    /** The arcane preset's name is cut to this, which leaves its reading well inside the narrowest line. */
+    private static final int ARCANE_NAME_MAX_W = 64;
     private static final int JOIN_FADE_TICKS = 24;
     private static final int KEY_LABEL_MAX_W = 10;
+    /** How long a slot's key stays lit after its cooldown runs out. */
+    public static final int READY_KEY_TICKS = 10;
 
     private static HudOptions options = HudOptions.DEFAULTS;
     private static HudSnapshot snapshot;
@@ -89,18 +105,12 @@ public final class HudState {
 
     private static final HudTween MANA = new HudTween();
     private static final HudTween BARRIER = new HudTween();
-    private static final HudTween VESSEL = new HudTween();
-    private static final HudTween CORRUPTION = new HudTween();
-    /** The Array's bill over its draw, clamped to one: a full ring is the threshold, not the top. */
-    private static final HudTween DRAW = new HudTween();
-    private static final HudTween XP = new HudTween();
-    private static final HudTween HALO = new HudTween();
     private static final HudTween FADE = new HudTween();
-    private static final HudTween[] SIN_GAUGES = new HudTween[SINS.length];
+    private static final boolean[] SIN_WAS_LIT = new boolean[SINS.length];
     private static final long[] SIN_HIDE_AT = new long[SINS.length];
     private static final long[] READY_AT = new long[MagicContent.LOADOUT_SIZE];
-    private static final Label[] CARD_SECONDS = new Label[MagicContent.LOADOUT_SIZE];
-    private static final int[] CARD_SECONDS_VALUE = new int[MagicContent.LOADOUT_SIZE];
+    private static final Label[] SLOT_SECONDS = new Label[MagicContent.LOADOUT_SIZE];
+    private static final int[] SLOT_SECONDS_VALUE = new int[MagicContent.LOADOUT_SIZE];
     private static final int[] STATUS_INITIAL = new int[MagicStatus.values().length];
     private static final long[] STATUS_SEEN_AT = new long[MagicStatus.values().length];
     private static final InputConstants.Key[] KEYS = new InputConstants.Key[MagicContent.LOADOUT_SIZE];
@@ -109,23 +119,20 @@ public final class HudState {
     private static int magicVersion = -1;
     private static int cooldownVersion = -1;
     private static int statusVersion = -1;
-    private static int announcerVersion = -1;
     private static int sinVisibleMask;
-    private static boolean chargeVisible;
-    /** The last built reading of the draw, so only a change of the printed numeral rebuilds. */
-    /** How many swords are with the wielder, and how many their rung fields. -1 while sheathed. */
+    /** How many swords are with the wielder, and how many their stance fields. -1 while sheathed. */
     private static int swordsPresent = -1;
     private static int swordsWhole;
-    private static boolean swordsSpent;
     private static int guiWidth;
     private static int guiHeight;
     private static Language language;
     private static boolean dirty = true;
 
     static {
-        for (int i = 0; i < SINS.length; i++) {
-            SIN_GAUGES[i] = new HudTween();
-            SIN_HIDE_AT[i] = -1L;
+        Arrays.fill(SIN_HIDE_AT, -1L);
+        Arrays.fill(READY_AT, Long.MIN_VALUE);
+        for (int seat = 0; seat < SINS.length; seat++) {
+            SIN_CELLS[seat] = HudGlyphs.sinCell(SINS[seat].id());
         }
     }
 
@@ -158,9 +165,9 @@ public final class HudState {
         return options.debug() ? debugLabel : null;
     }
 
-    /** The seconds left over a cooling card, or null while it is ready. Reshaped only when the second changes. */
-    public static Label cardSeconds(int slot) {
-        return CARD_SECONDS[slot];
+    /** The seconds under a cooling slot, or null while it is ready. Reshaped only when the second changes. */
+    public static Label slotSeconds(int slot) {
+        return SLOT_SECONDS[slot];
     }
 
     public static HudTween mana() {
@@ -171,33 +178,9 @@ public final class HudState {
         return BARRIER;
     }
 
-    public static HudTween draw() {
-        return DRAW;
-    }
-
-    public static HudTween vessel() {
-        return VESSEL;
-    }
-
-    public static HudTween corruption() {
-        return CORRUPTION;
-    }
-
-    public static HudTween xp() {
-        return XP;
-    }
-
-    public static HudTween halo() {
-        return HALO;
-    }
-
     /** The whole HUD's opacity envelope: the fade-in on joining a world. */
     public static HudTween fade() {
         return FADE;
-    }
-
-    public static HudTween sinGauge(int seat) {
-        return SIN_GAUGES[seat];
     }
 
     /** Game time plus the partial tick, the clock every extrapolation in the renderer reads. */
@@ -228,15 +211,17 @@ public final class HudState {
                 return;
             }
             long now = minecraft.level.getGameTime();
-            HudAnnouncer.tick(now);
             RuleFlash.tick(now);
             noteFinishedCooldowns(now);
-            tickDraw(now);
+            tickSwords();
+            tickSins(now);
             if (dirty || environmentChanged(minecraft) || stateChanged()) {
                 rebuild(minecraft, now);
             }
-            tickTweens();
-            tickCardSeconds(minecraft.font, now);
+            MANA.tick();
+            BARRIER.tick();
+            FADE.tick();
+            tickSlotSeconds(minecraft.font, now);
             tickDebug(minecraft, now);
         } finally {
             profiler.pop();
@@ -249,30 +234,19 @@ public final class HudState {
         magicVersion = -1;
         cooldownVersion = -1;
         statusVersion = -1;
-        announcerVersion = -1;
-        HudAnnouncer.reset();
         RuleFlash.reset();
         sinVisibleMask = 0;
-        chargeVisible = false;
-        for (int i = 0; i < SINS.length; i++) {
-            SIN_HIDE_AT[i] = -1L;
-            SIN_GAUGES[i].snap(0.0F);
-        }
-        java.util.Arrays.fill(READY_AT, Long.MIN_VALUE);
-        java.util.Arrays.fill(CARD_SECONDS, null);
-        java.util.Arrays.fill(CARD_SECONDS_VALUE, 0);
-        java.util.Arrays.fill(STATUS_INITIAL, 0);
-        java.util.Arrays.fill(STATUS_SEEN_AT, 0L);
+        Arrays.fill(SIN_WAS_LIT, false);
+        Arrays.fill(SIN_HIDE_AT, -1L);
+        Arrays.fill(READY_AT, Long.MIN_VALUE);
+        Arrays.fill(SLOT_SECONDS, null);
+        Arrays.fill(SLOT_SECONDS_VALUE, 0);
+        Arrays.fill(STATUS_INITIAL, 0);
+        Arrays.fill(STATUS_SEEN_AT, 0L);
         MANA.snap(0.0F);
         BARRIER.snap(0.0F);
-        DRAW.snap(0.0F);
         swordsPresent = -1;
         swordsWhole = 0;
-        swordsSpent = false;
-        VESSEL.snap(0.0F);
-        CORRUPTION.snap(0.0F);
-        XP.snap(0.0F);
-        HALO.snap(0.0F);
         ClientCooldowns.reset();
         com.efkrdnz.magical.client.ClientForgeCombo.clear();
     }
@@ -282,9 +256,9 @@ public final class HudState {
         if (current == null) {
             return;
         }
-        for (Card card : current.cards()) {
-            if (card.skill() != null && ClientCooldowns.justFinished(card.skill())) {
-                READY_AT[card.slot()] = now;
+        for (Slot slot : current.slots()) {
+            if (slot.skill() != null && ClientCooldowns.justFinished(slot.skill())) {
+                READY_AT[slot.slot()] = now;
                 dirty = true;
             }
         }
@@ -327,10 +301,6 @@ public final class HudState {
             statusVersion = ClientStatusState.version();
             changed = true;
         }
-        if (HudAnnouncer.version() != announcerVersion) {
-            announcerVersion = HudAnnouncer.version();
-            changed = true;
-        }
         return changed;
     }
 
@@ -352,106 +322,79 @@ public final class HudState {
     }
 
     /**
-     * The Array's draw, every tick, because the arc has to follow a scale nothing else reports.
+     * The sword count, every tick, because it follows a formation nothing else reports.
      *
-     * <p>Kept out of {@link #rebuild} on purpose. The bill moves with the frame's scale - a bound
-     * Array stretching after a fleeing body bills more every tick without a single packet arriving
-     * - so a reading built only when {@code ClientMagicState.version()} changes would sit still
-     * through exactly the stretch that is about to shed a blade. The tween is set here so the ring
-     * is smooth, and a rebuild is asked for only when the printed numeral or the colour changes,
-     * which is at most once a tick and usually never.
-     *
-     * <p>The present count comes from {@link com.efkrdnz.magical.client.SwordKeelClient}, which
-     * already has the wielder's own formation entity cached for the ride: the present mask rides
-     * that entity's {@code EXTRA} slot, so there is no second query and nothing new on the wire.
-     *
-     * <p>It reads present-out-of-complement and not a budget, because there is no budget any
-     * more. This ring used to show a conserved measure of Edge billed against a draw, which is
-     * the single clearest instance of the complaint the whole redesign answers - a wielder
-     * looking at "24/84" could not tell you what either number was. Four swords out of four is a
-     * number you can act on, and it is the cap on every skill in the kit.
+     * <p>Kept out of {@link #rebuild} on purpose: swords leave and come home with the formation's
+     * own entity and not with a state packet, so a reading built only when
+     * {@code ClientMagicState.version()} changes would sit still through a volley. A rebuild is
+     * asked for only when the printed count changes, which is at most once a tick and usually
+     * never. The present count comes from {@link com.efkrdnz.magical.client.SwordKeelClient},
+     * which already has the wielder's own formation entity cached for the ride.
      */
-    private static void tickDraw(long now) {
+    private static void tickSwords() {
         PlayerMagicState state = ClientMagicState.get();
         com.efkrdnz.magical.magic.sword.SwordArray array = state.swordArray();
         if (!array.drawn()) {
-            DRAW.set(0.0F, now);
             if (swordsPresent >= 0) {
                 swordsPresent = -1;
                 swordsWhole = 0;
-                swordsSpent = false;
                 dirty = true;
             }
             return;
         }
-        // rulesFor reads the class progress, which is where the rung actually lives - the Array's
-        // own rules are a copy of it that PlayerMagicState.load sets on the way in, and one source
-        // of truth for the denominator is worth the extra call. Through the stance and the rack,
-        // because both cap the rung: a Sword God in Guard fields six, a wielder with two swords
-        // racked fields two, and a ring that put either over twelve would sit part-empty with
-        // nothing spent and read as a formation permanently broken.
+        // Through the stance and the rack, because both cap the rung: a Sword God in Guard fields
+        // six, and a wielder with two swords racked fields two.
         int whole = Math.max(1, com.efkrdnz.magical.magic.sword.SwordArray.fielded(
                 com.efkrdnz.magical.magic.sword.SwordService.rulesFor(state), array.stance(), array.racked()));
         int present = Math.min(whole, com.efkrdnz.magical.client.SwordKeelClient.presentSwords(whole));
-        boolean spent = present < whole;
-        DRAW.set(present / (float) whole, now);
-        if (present != swordsPresent || whole != swordsWhole || spent != swordsSpent) {
+        if (present != swordsPresent || whole != swordsWhole) {
             swordsPresent = present;
             swordsWhole = whole;
-            swordsSpent = spent;
             dirty = true;
         }
     }
 
-    /** The numeral over a cooling card: whole seconds, rounded up, reshaped only when it changes. */
-    private static void tickCardSeconds(Font font, long now) {
+    /**
+     * Which sins have a readout: every enabled sin whose gauge is above zero, plus any that emptied
+     * less than {@link #SIN_LINGER_TICKS} ago. A change in that set is a rebuild, because the
+     * readouts are placed in the snapshot.
+     */
+    private static void tickSins(long now) {
+        PlayerMagicState state = ClientMagicState.get();
+        int mask = 0;
+        for (int seat = 0; seat < SINS.length; seat++) {
+            boolean enabled = seat != LUST && state.isSinEnabled(SINS[seat].id());
+            boolean lit = enabled && sinValue(state, seat) > 0;
+            if (lit || !enabled) {
+                SIN_HIDE_AT[seat] = -1L;
+            } else if (SIN_WAS_LIT[seat]) {
+                SIN_HIDE_AT[seat] = now + SIN_LINGER_TICKS;
+            }
+            SIN_WAS_LIT[seat] = lit;
+            if (lit || (SIN_HIDE_AT[seat] >= 0L && now < SIN_HIDE_AT[seat])) {
+                mask |= 1 << seat;
+            }
+        }
+        if (mask != sinVisibleMask) {
+            sinVisibleMask = mask;
+            dirty = true;
+        }
+    }
+
+    /** The seconds under a cooling slot: whole seconds rounded up, reshaped only when they change. */
+    private static void tickSlotSeconds(Font font, long now) {
         HudSnapshot current = snapshot;
-        for (int slot = 0; slot < CARD_SECONDS.length; slot++) {
+        for (int slot = 0; slot < SLOT_SECONDS.length; slot++) {
             int seconds = 0;
-            if (current != null && slot < current.cards().length && current.cards()[slot].onCooldown()) {
-                Card card = current.cards()[slot];
-                long left = card.cooldownRemaining() - (now - card.cooldownStart());
+            if (current != null && slot < current.slots().length && current.slots()[slot].onCooldown()) {
+                Slot entry = current.slots()[slot];
+                long left = entry.cooldownRemaining() - (now - entry.cooldownStart());
                 seconds = left > 0L ? (int) ((left + 19L) / 20L) : 0;
             }
-            if (seconds != CARD_SECONDS_VALUE[slot]) {
-                CARD_SECONDS_VALUE[slot] = seconds;
-                CARD_SECONDS[slot] = seconds > 0 ? label(font, Component.literal(seconds + "s"), HudPalette.TEXT_PRIMARY) : null;
+            if (seconds != SLOT_SECONDS_VALUE[slot]) {
+                SLOT_SECONDS_VALUE[slot] = seconds;
+                SLOT_SECONDS[slot] = seconds > 0 ? label(font, Component.literal(seconds(seconds)), HudPalette.TEXT_PRIMARY) : null;
             }
-        }
-    }
-
-    private static void tickTweens() {
-        MANA.tick();
-        BARRIER.tick();
-        VESSEL.tick();
-        CORRUPTION.tick();
-        DRAW.tick();
-        XP.tick();
-        HALO.tick();
-        FADE.tick();
-        for (HudTween gauge : SIN_GAUGES) {
-            gauge.tick();
-        }
-        // Sin satellites appear when a gauge rises and linger a while after it empties; a change
-        // in which seats are occupied is a rebuild, because the seats are in the snapshot.
-        int mask = 0;
-        long now = nowTicks();
-        for (int i = 0; i < SINS.length; i++) {
-            boolean lit = SIN_GAUGES[i].target() > 0.0F;
-            if (lit) {
-                SIN_HIDE_AT[i] = -1L;
-            } else if (SIN_HIDE_AT[i] < 0L && SIN_GAUGES[i].current() > 0.0F) {
-                SIN_HIDE_AT[i] = now + SIN_LINGER_TICKS;
-            }
-            if (lit || (SIN_HIDE_AT[i] >= 0L && now < SIN_HIDE_AT[i])) {
-                mask |= 1 << i;
-            }
-        }
-        boolean charge = HALO.target() > 0.0F || HALO.current() > 0.0F;
-        if (mask != sinVisibleMask || charge != chargeVisible) {
-            sinVisibleMask = mask;
-            chargeVisible = charge;
-            dirty = true;
         }
     }
 
@@ -465,117 +408,43 @@ public final class HudState {
         Font font = minecraft.font;
         HudLayout layout = HudLayout.of(guiWidth, guiHeight, options.anchor(), options.layoutScale());
 
+        float mana = fraction(state.mana(), state.maxMana());
+        float barrier = fraction(state.barrier(), state.maxBarrier());
+        if (options.reducedMotion()) {
+            MANA.snap(mana);
+            BARRIER.snap(barrier);
+        } else {
+            MANA.set(mana, now);
+            BARRIER.set(barrier, now);
+        }
+        boolean lowMana = mana < LOW_MANA;
         MagicSchool school = dominantSchool(state);
-        SchoolMaterial material = SchoolMaterial.of(school);
-        Palette manaPalette = HudPalette.mana(school);
+        int manaFill = lowMana ? HudPalette.DANGER : HudPalette.owner(school);
+        Readout[] pools = pools(state, font, layout, lowMana);
 
-        // pools
-        MANA.set(fraction(state.mana(), state.maxMana()), now);
-        BARRIER.set(fraction(state.barrier(), state.maxBarrier()), now);
-        boolean vessel = BloodService.isBloodMage(state);
-        boolean corruption = DarkService.isDarkMage(state);
-        boolean noticed = EldritchService.isEldritchMage(state);
-        VESSEL.set(vessel ? fraction(state.bloodVessel(), PlayerMagicState.MAX_BLOOD_VESSEL) : 0.0F, now);
-        CORRUPTION.set(corruption ? state.corruptionFraction() : 0.0F, now);
-        int xp = state.proficiencyXp();
-        int into = MagicContent.xpIntoLevel(xp);
-        int toNext = MagicContent.xpForNextLevel(xp);
-        boolean maxLevel = toNext <= 0;
-        XP.set(maxLevel ? 1.0F : into / (float) Math.max(1, into + toNext), now);
-        int chargeLevel = state.manaChargeLevel();
-        HALO.set(state.manaChargeTicks() > 0 && chargeLevel > 0
-                ? Math.min(1.0F, state.manaChargeTicks() / (20.0F * (18 + chargeLevel * 8)))
-                : 0.0F, now);
-        boolean lowMana = MANA.target() < LOW_MANA;
-        int manaColor = lowMana ? Palette.mix(manaPalette.base(), HudPalette.DANGER, 0.7F) : manaPalette.base();
-        boolean vault = state.hasPassive(MagicPassiveContent.SIN_GREED.id());
-
-        // the core: the current mana over the current barrier; the level in its tag under the sigil
-        Label manaLabel = label(font, Component.literal(Integer.toString(state.mana())), lowMana ? HudPalette.DANGER : HudPalette.textTint(manaPalette.bright()));
-        Label barrierLabel = label(font, Component.literal(Integer.toString(state.barrier())), HudPalette.textTint(HudPalette.BARRIER));
-        Line[] coreLines = {
-                new Line(manaLabel, layout.coreLine(0, 2, manaLabel.width())),
-                new Line(barrierLabel, layout.coreLine(1, 2, barrierLabel.width()))};
-        Label levelLabel = label(font, Component.translatable("hud.magical.level_chip", state.proficiencyLevel()), maxLevel ? HudPalette.TEXT_PRIMARY : HudPalette.XP);
-        Line level = new Line(levelLabel, layout.levelTag(levelLabel.width()));
-
-        // cards
-        Card[] cards = new Card[MagicContent.LOADOUT_SIZE];
-        for (int slot = 0; slot < cards.length; slot++) {
-            cards[slot] = card(state, slot, font, layout);
+        Slot[] slots = new Slot[MagicContent.LOADOUT_SIZE];
+        boolean slotBand = false;
+        for (int k = 0; k < slots.length; k++) {
+            slots[k] = slot(state, k, font, layout);
+            slotBand |= !slots[k].empty();
         }
 
-        // crown and readouts
-        boolean showSins = options.showSins() && !options.compact();
-        Satellite[] satellites = showSins ? satellites(state, layout, now) : HudSnapshot.NO_SATELLITES;
-        GaugeLine[] gauges = options.compact() ? HudSnapshot.NO_GAUGES : gauges(state, school, vault, satellites, font, layout);
-
-        // chips
+        Readout[] readouts = options.compact() ? HudSnapshot.NO_READOUTS : readouts(state, school, font, layout);
         Chip[] chips = options.showStatuses() ? chips(layout, now) : HudSnapshot.NO_CHIPS;
-
-        // the announcement on screen, if any
-        Announcement[] announcements = announcement(font, layout);
-
-        // captions: the loadout's name, then the vessel and corruption numerals and the arcane preset, as room allows
-        List<Label> captions = new ArrayList<>(HudLayout.CAPTIONS_MAX);
-        if (!options.compact()) {
-            String name = state.activeLoadout() == null ? "" : state.activeLoadout().name();
-            captions.add(label(font, Component.literal(font.plainSubstrByWidth(name, HudLayout.CAPTION_W - 4)), HudPalette.TEXT_PRIMARY));
-            // Second, ahead of every other school's numeral, because it is the only one that can
-            // be over its limit: a vessel or a corruption reading is a level, and this is a bill.
-            // "41/64", literal rather than translated - there is no word in it to translate.
-            if (swordsPresent >= 0 && captions.size() < HudLayout.CAPTIONS_MAX) {
-                captions.add(label(font, Component.literal(swordsPresent + "/" + swordsWhole),
-                        HudPalette.textTint(HudPalette.draw(swordsSpent))));
-            }
-            if (vessel) {
-                captions.add(label(font, Component.translatable("hud.magical.vessel_line", state.bloodVessel(), PlayerMagicState.MAX_BLOOD_VESSEL),
-                        HudPalette.textTint(HudPalette.vessel().bright())));
-            }
-            if (corruption) {
-                boolean ledger = state.isPassiveEnabled(MagicPassiveContent.LEDGER.id()) && state.corruption() < PlayerMagicState.MAX_CORRUPTION;
-                int next = Math.min(PlayerMagicState.MAX_CORRUPTION, (DarkService.threshold(state) + 1) * DarkService.THRESHOLD_STEP);
-                Component text = ledger
-                        ? Component.translatable("hud.magical.corruption_next", state.corruption(), PlayerMagicState.MAX_CORRUPTION, next)
-                        : Component.translatable("hud.magical.corruption_line", state.corruption(), PlayerMagicState.MAX_CORRUPTION);
-                captions.add(label(font, text, HudPalette.textTint(HudPalette.corruption().bright())));
-            }
-            if (noticed && captions.size() < HudLayout.CAPTIONS_MAX) {
-                captions.add(label(font, Component.translatable("hud.magical.notice_line", state.notice(), PlayerMagicState.MAX_NOTICE),
-                        HudPalette.textTint(HudPalette.corruption().bright())));
-            }
-            ArcanePlayerData arcane = ClientArcaneState.get();
-            SpellPreset preset = arcane == null ? null : arcane.activePreset();
-            if (preset != null && captions.size() < HudLayout.CAPTIONS_MAX) {
-                boolean unstable = ArcaneSpellResolver.resolve(preset.recipe()).stability() < ARCANE_UNSTABLE_BELOW;
-                Component line = Component.translatable("hud.magical.arcane_line", preset.name(), arcane.mana());
-                captions.add(label(font, Component.literal(font.plainSubstrByWidth(line.getString(), HudLayout.CAPTION_W - 4)),
-                        unstable ? HudPalette.DANGER : HudPalette.textTint(MagicSchool.ARCANE.color())));
-            }
-        }
-        Line[] captionLines = new Line[Math.min(captions.size(), HudLayout.CAPTIONS_MAX)];
-        for (int i = 0; i < captionLines.length; i++) {
-            captionLines[i] = new Line(captions.get(i), layout.captionLine(i));
-        }
 
         snapshot = new HudSnapshot(
                 magicVersion ^ (cooldownVersion << 8) ^ (statusVersion << 16), now, options, layout,
-                school, manaColor, manaPalette.hot(), notchesFor(material.defaultBand()),
-                material.defaultCore().id(), manaPalette.bright(),
-                maxLevel, vessel, corruption, swordsPresent >= 0, HudPalette.draw(swordsSpent),
-                coreLines, level, cards, satellites, gauges, chips, announcements, captionLines,
-                ClientMagicState.receivedAtTick() + state.loadoutSwapLockTicks());
+                manaFill, pools, slotBand, slots, readouts, chips);
     }
 
-    private static Card card(PlayerMagicState state, int slot, Font font, HudLayout layout) {
-        ResourceLocation skill = state.equippedSkill(slot);
+    private static Slot slot(PlayerMagicState state, int k, Font font, HudLayout layout) {
+        ResourceLocation skill = state.equippedSkill(k);
         MagicSkillDefinition definition = skill == null ? null : MagicContent.get(skill);
         boolean empty = definition == null;
-        int cell = empty ? -1 : HudGlyphs.skillCell(skill);
-        int color = empty ? HudPalette.TEXT_MUTED : HudPalette.cardTint(VisualProfiles.of(skill));
-        boolean forbidden = !empty && definition.school().isForbidden();
-        String keyName = MagicalKeyMappings.CAST_SLOTS[slot].getTranslatedKeyMessage().getString().toUpperCase(Locale.ROOT);
-        Label key = label(font, Component.literal(font.plainSubstrByWidth(keyName, KEY_LABEL_MAX_W)), empty ? HudPalette.TEXT_MUTED : HudPalette.XP);
+        int cell = empty ? 0 : Math.max(0, HudGlyphs.skillCell(skill));
+        int ink = empty ? HudPalette.TEXT_MUTED : HudPalette.textTint(HudPalette.cardTint(VisualProfiles.of(skill)));
+        String keyName = MagicalKeyMappings.CAST_SLOTS[k].getTranslatedKeyMessage().getString().toUpperCase(Locale.ROOT);
+        Label key = label(font, Component.literal(font.plainSubstrByWidth(keyName, KEY_LABEL_MAX_W)), HudPalette.TEXT_MUTED);
         long cooldownStart = 0L;
         int cooldownRemaining = 0;
         int cooldownTotal = 0;
@@ -587,76 +456,234 @@ public final class HudState {
                 cooldownTotal = entry.total();
             }
         }
-        return new Card(slot, skill, cell, color, forbidden, empty, cooldownStart, cooldownRemaining, cooldownTotal,
-                READY_AT[slot], key, layout.card(slot), layout.keyTag(slot, key.width()), layout.cardText(slot));
+        float[] rows = FxTextures.inkRows(cell);
+        return new Slot(k, empty ? null : skill, cell, ink, rows[0], rows[1], empty, cooldownStart, cooldownRemaining,
+                cooldownTotal, READY_AT[k], key, layout.glyph(k), layout.cell(k));
     }
 
-    private static Satellite[] satellites(PlayerMagicState state, HudLayout layout, long now) {
-        List<Satellite> list = new ArrayList<>(SINS.length);
-        for (int seat = 0; seat < SINS.length; seat++) {
-            MagicPassiveDefinition sin = SINS[seat];
-            boolean enabled = state.isSinEnabled(sin.id());
-            float gauge = enabled ? sinGauge(state, seat) : 0.0F;
-            SIN_GAUGES[seat].set(gauge, now);
-            boolean lingering = SIN_HIDE_AT[seat] >= 0L && now < SIN_HIDE_AT[seat];
-            if (!enabled || (gauge <= 0.0F && !lingering && SIN_GAUGES[seat].current() <= 0.0F)) {
-                continue;
-            }
-            boolean rested = sin == MagicPassiveContent.SIN_SLOTH && state.restedStillnessTicks() > 0;
-            list.add(new Satellite(seat, sin.id(), HudGlyphs.sinCell(sin.id()), sin.color(), rested, layout.crownSeat(seat)));
+    /**
+     * The counts beside the bars: the mana as current over maximum, the current white (the
+     * trouble red under a fifth) and "/max" muted, then the barrier in its bar's cyan while it
+     * holds any. The form and every x come from the maxima, so nothing shifts as the values move.
+     */
+    private static Readout[] pools(PlayerMagicState state, Font font, HudLayout layout, boolean lowMana) {
+        String max = "/" + numeral(state.maxMana());
+        PoolsPlan plan = layout.planPools(font.width(numeral(state.maxMana())), font.width(max), font.width(numeral(state.maxBarrier())));
+        String now = numeral(state.mana());
+        MutableComponent mana = Component.literal(now).withColor(lowMana ? HudPalette.TROUBLE : HudPalette.TEXT_PRIMARY);
+        if (plan.showsMax()) {
+            mana.append(Component.literal(max).withColor(HudPalette.TEXT_MUTED));
         }
-        return list.isEmpty() ? HudSnapshot.NO_SATELLITES : list.toArray(new Satellite[0]);
+        Label manaLabel = label(font, mana, HudPalette.TEXT_PRIMARY);
+        Readout manaCount = new Readout(manaLabel, new Rect("mana count", plan.slashX() - font.width(now), plan.manaY(), manaLabel.width(), HudLayout.TEXT_H), null);
+        if (state.barrier() <= 0) {
+            return new Readout[] {manaCount};
+        }
+        Label barrier = label(font, Component.literal(numeral(state.barrier())), HudPalette.BARRIER);
+        return new Readout[] {manaCount,
+                new Readout(barrier, new Rect("barrier count", plan.barrierRight() - barrier.width(), plan.barrierY(), barrier.width(), HudLayout.TEXT_H), null)};
     }
 
-    /** The vault, one readout per lit satellite in crown order, then the mana charge while it runs - as many as fit. */
-    private static GaugeLine[] gauges(PlayerMagicState state, MagicSchool school, boolean vault, Satellite[] satellites, Font font, HudLayout layout) {
-        int max = layout.gaugeLinesMax();
-        List<GaugeLine> list = new ArrayList<>(satellites.length + 2);
-        if (vault && max > 0) {
-            list.add(new GaugeLine(CHARGE_TWEEN + 1, label(font, Component.translatable("hud.magical.gauge.vault", compact(state.manaVault())),
-                    HudPalette.textTint(MagicPassiveContent.SIN_GREED.color())), layout.gaugeLine(0)));
+    /**
+     * A reading before it is placed: its string written out, its string cut short, and its stamp.
+     * A resource has one string; a passive's short one drops its name, "9%" for "Pride 9%".
+     */
+    private record Token(Label label, Label brief, Stamp stamp) {}
+
+    /**
+     * The readings, each a stamp in its owner's hue and its words: the resources first - swords,
+     * vessel, corruption, notice, arcane, charge - then the passives - the vault with Greed's
+     * hoard, then the lit sins in registration order - each only while it applies, flowed onto the
+     * readout lines. Every reading names itself in its hue and gives its number in white, so red
+     * only ever means trouble. The passives are written out in full where the whole group fits
+     * and all cut to their stamp and number where it does not - never a mix on one line. Anything
+     * left off is counted in a muted "+n".
+     */
+    private static Readout[] readouts(PlayerMagicState state, MagicSchool school, Font font, HudLayout layout) {
+        List<Token> tokens = new ArrayList<>();
+        if (swordsPresent >= 0) {
+            tokens.add(resource(font, Component.translatable("hud.magical.readout.swords", outOf(swordsPresent, swordsWhole)),
+                    MagicSchool.SWORD, SWORDS_MARK));
         }
-        for (Satellite satellite : satellites) {
-            if (list.size() >= max) {
-                break;
+        if (BloodService.isBloodMage(state)) {
+            // An empty Vessel means the next price is paid in hearts.
+            tokens.add(resource(font, Component.translatable("hud.magical.readout.vessel", value(state.bloodVessel(), state.bloodVessel() <= 0)),
+                    MagicSchool.BLOOD, VESSEL_MARK));
+        }
+        if (DarkService.isDarkMage(state) && state.corruption() > 0) {
+            boolean full = state.corruption() >= PlayerMagicState.MAX_CORRUPTION;
+            boolean ledger = state.isPassiveEnabled(MagicPassiveContent.LEDGER.id()) && !full;
+            int next = Math.min(PlayerMagicState.MAX_CORRUPTION, (DarkService.threshold(state) + 1) * DarkService.THRESHOLD_STEP);
+            Component reading = ledger ? outOf(state.corruption(), next) : value(state.corruption(), full);
+            tokens.add(resource(font, Component.translatable("hud.magical.readout.corruption", reading),
+                    MagicSchool.DARK, CORRUPTION_MARK));
+        }
+        if (EldritchService.isEldritchMage(state) && state.notice() > 0) {
+            tokens.add(resource(font, Component.translatable("hud.magical.readout.notice", value(state.notice(), state.notice() >= EldritchService.NOTICED_AT)),
+                    MagicSchool.ELDRITCH, NOTICE_MARK));
+        }
+        ArcanePlayerData arcane = ClientArcaneState.get();
+        SpellPreset preset = arcane == null ? null : arcane.activePreset();
+        if (preset != null) {
+            boolean unstable = ArcaneSpellResolver.resolve(preset.recipe()).stability() < ARCANE_UNSTABLE_BELOW;
+            MutableComponent mana = value(arcane.mana(), false);
+            Component name = Component.literal(font.plainSubstrByWidth(preset.name(), ARCANE_NAME_MAX_W))
+                    .withColor(unstable ? HudPalette.TROUBLE : HudPalette.owner(MagicSchool.ARCANE));
+            tokens.add(resource(font, Component.translatable("hud.magical.readout.arcane", name, mana), MagicSchool.ARCANE, ARCANE_MARK));
+        }
+        if (state.manaChargeTicks() > 0 && state.manaChargeLevel() > 0) {
+            tokens.add(resource(font, Component.translatable("hud.magical.gauge.charge", value(state.manaChargeLevel(), false)),
+                    school, CHARGE_MARK));
+        }
+        int passivesFrom = tokens.size();
+        boolean greed = state.hasPassive(MagicPassiveContent.SIN_GREED.id());
+        if (greed || equipped(state, MagicContent.VAULT_OF_AVARICE.id())) {
+            tokens.add(vault(state, font));
+        }
+        if (options.showSins()) {
+            for (int seat = 0; seat < SINS.length; seat++) {
+                if (seat != GREED && (sinVisibleMask & (1 << seat)) != 0) {
+                    tokens.add(sin(state, font, seat));
+                }
             }
-            Component text = gaugeText(state, satellite.seat());
-            if (text == null) {
-                continue;
-            }
-            int color = satellite.rested() ? HudPalette.lift(satellite.color(), 0.35F) & 0xFFFFFF : satellite.color();
-            list.add(new GaugeLine(satellite.seat(), label(font, text, HudPalette.textTint(color)), layout.gaugeLine(list.size())));
         }
-        if (chargeVisible && list.size() < max && state.manaChargeLevel() > 0) {
-            list.add(new GaugeLine(CHARGE_TWEEN, label(font, Component.translatable("hud.magical.gauge.charge", state.manaChargeLevel()),
-                    HudPalette.textTint(HudPalette.mana(school).bright())), layout.gaugeLine(list.size())));
+        if (tokens.isEmpty()) {
+            return HudSnapshot.NO_READOUTS;
         }
-        return list.isEmpty() ? HudSnapshot.NO_GAUGES : list.toArray(new GaugeLine[0]);
+        HudLayout.Flow flow = layout.flow(widths(tokens, false), passivesFrom);
+        boolean brief = !placesEvery(flow, passivesFrom, tokens.size());
+        if (brief) {
+            flow = layout.flow(widths(tokens, true), passivesFrom);
+        }
+        Rect[] at = flow.tokens();
+        int[] from = flow.sources();
+        Readout[] readouts = new Readout[at.length + (flow.more() == null ? 0 : 1)];
+        for (int i = 0; i < at.length; i++) {
+            Token token = tokens.get(from[i]);
+            readouts[i] = new Readout(brief ? token.brief() : token.label(), at[i], token.stamp());
+        }
+        if (flow.more() != null) {
+            Label more = label(font, Component.translatable("hud.magical.readout.more", flow.dropped()), HudPalette.TEXT_MUTED);
+            Rect box = flow.more();
+            int x = layout.right() ? box.right() - more.width() : box.x();
+            readouts[at.length] = new Readout(more, new Rect("more", x, box.y(), more.width(), HudLayout.TEXT_H), null);
+        }
+        return readouts;
     }
 
-    private static Component gaugeText(PlayerMagicState state, int seat) {
-        String key = "hud.magical.gauge." + SIN_KEYS[seat];
-        return switch (seat) {
-            case 0 -> Component.translatable(key, percent(state.prideGauge(), PlayerMagicState.MAX_SIN_GAUGE));
-            case 1 -> Component.translatable(key, state.greedHoard());
-            case 3 -> Component.translatable(key, Math.round(envyGauge(state) * 100.0F));
-            case 4 -> Component.translatable(key, (state.gluttonyCooldownTicks() + 19) / 20);
-            case 5 -> Component.translatable(key, percent(state.wrathGauge(), PlayerMagicState.MAX_SIN_GAUGE));
-            case 6 -> Component.translatable(state.restedStillnessTicks() > 0 ? "hud.magical.gauge.sloth_rested" : key,
-                    percent(state.slothStillness(), PlayerMagicState.MAX_SIN_GAUGE));
-            default -> null;   // Lust has no gauge
+    private static int[] widths(List<Token> tokens, boolean brief) {
+        int[] widths = new int[tokens.size()];
+        for (int i = 0; i < widths.length; i++) {
+            Token token = tokens.get(i);
+            widths[i] = HudLayout.STAMP_LEAD + (brief ? token.brief() : token.label()).width();
+        }
+        return widths;
+    }
+
+    /** Whether every token from {@code from} on - every passive - found a place. */
+    static boolean placesEvery(HudLayout.Flow flow, int from, int count) {
+        int placed = 0;
+        for (int source : flow.sources()) {
+            if (source >= from) {
+                placed++;
+            }
+        }
+        return placed == count - from;
+    }
+
+    /** A resource: its word in its school's hue, its numbers as the arguments made them. */
+    private static Token resource(Font font, MutableComponent text, MagicSchool owner, StampId mark) {
+        int hue = HudPalette.owner(owner);
+        Label label = label(font, text.withColor(hue), hue);
+        return new Token(label, label, new Stamp(mark.atlasCell(), hue));
+    }
+
+    /**
+     * Greed's vault, which is a resource the sin owns, so it leads the passives: "Vault 1.2k", and
+     * while the sin is lit its hoard after it, "hoard 40" - never "+40", because a "+" is the mark
+     * for readings left off. Cut short it is the vault alone: the hoard is the one number here that
+     * is worth less than a sin's place on the line. It shows whenever Greed is owned or the Vault of
+     * Avarice is on the bar, as the dashboard did.
+     */
+    private static Token vault(PlayerMagicState state, Font font) {
+        int hue = HudPalette.ink(MagicPassiveContent.SIN_GREED.color());
+        MutableComponent amount = Component.literal(compact(state.manaVault())).withColor(HudPalette.TEXT_PRIMARY);
+        Label brief = label(font, Component.translatable("hud.magical.gauge.vault", amount).withColor(hue), hue);
+        if (!options.showSins() || (sinVisibleMask & (1 << GREED)) == 0) {
+            return new Token(brief, brief, new Stamp(SIN_CELLS[GREED], hue));
+        }
+        MutableComponent full = Component.translatable("hud.magical.gauge.vault", amount).withColor(hue)
+                .append(" ").append(Component.translatable("hud.magical.token.hoard", value(state.greedHoard(), false)));
+        return new Token(label(font, full, hue), brief, new Stamp(SIN_CELLS[GREED], hue));
+    }
+
+    /**
+     * A lit sin: "Pride 9%", its name in its own hue and its number in white, as a resource is
+     * written; cut short it is the number alone after its stamp, and a rested Sloth keeps only its
+     * lighter hue.
+     */
+    private static Token sin(PlayerMagicState state, Font font, int seat) {
+        MagicPassiveDefinition sin = SINS[seat];
+        boolean rested = seat == SLOTH && state.restedStillnessTicks() > 0;
+        int hue = HudPalette.ink(rested ? HudPalette.lift(sin.color(), RESTED_LIFT) & 0xFFFFFF : sin.color());
+        MutableComponent number = switch (seat) {
+            case 0 -> Component.translatable("hud.magical.token.percent", percent(state.prideGauge(), PlayerMagicState.MAX_SIN_GAUGE));
+            case 3 -> Component.translatable("hud.magical.token.percent", Math.round(envyGauge(state) * 100.0F));
+            case 4 -> Component.translatable("hud.magical.token.seconds", (state.gluttonyCooldownTicks() + 19) / 20);
+            case 5 -> Component.translatable("hud.magical.token.percent", percent(state.wrathGauge(), PlayerMagicState.MAX_SIN_GAUGE));
+            default -> Component.translatable("hud.magical.token.percent", percent(state.slothStillness(), PlayerMagicState.MAX_SIN_GAUGE));
         };
+        number.withColor(HudPalette.TEXT_PRIMARY);
+        MutableComponent reading = rested ? Component.translatable("hud.magical.token.rested", number).withColor(hue) : number;
+        MutableComponent full = Component.translatable(SIN_NAMES[seat], reading).withColor(hue);
+        return new Token(label(font, full, hue), label(font, number, hue), new Stamp(SIN_CELLS[seat], hue));
     }
 
-    private static float sinGauge(PlayerMagicState state, int seat) {
+    /** A number in white, or in the trouble red when it is the thing in trouble. */
+    private static MutableComponent value(int number, boolean trouble) {
+        return Component.literal(Integer.toString(number)).withColor(trouble ? HudPalette.TROUBLE : HudPalette.TEXT_PRIMARY);
+    }
+
+    /** "7/12": the number white, "/12" muted. */
+    private static MutableComponent outOf(int number, int max) {
+        return value(number, false).append(Component.literal("/" + max).withColor(HudPalette.TEXT_MUTED));
+    }
+
+    /** Every stamp a reading can wear: the resources', then each sin with a gauge, the vault's being Greed's. */
+    static int[] readoutCells() {
+        StampId[] marks = {SWORDS_MARK, VESSEL_MARK, CORRUPTION_MARK, NOTICE_MARK, ARCANE_MARK, CHARGE_MARK};
+        int[] cells = new int[marks.length + SINS.length - 1];
+        int n = 0;
+        for (StampId mark : marks) {
+            cells[n++] = mark.atlasCell();
+        }
+        for (int seat = 0; seat < SINS.length; seat++) {
+            if (seat != LUST) {
+                cells[n++] = SIN_CELLS[seat];
+            }
+        }
+        return cells;
+    }
+
+    private static boolean equipped(PlayerMagicState state, ResourceLocation skill) {
+        for (int k = 0; k < MagicContent.LOADOUT_SIZE; k++) {
+            if (skill.equals(state.equippedSkill(k))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Above zero while the sin has something to say; Lust never does. */
+    private static int sinValue(PlayerMagicState state, int seat) {
         return switch (seat) {
-            case 0 -> fraction(state.prideGauge(), PlayerMagicState.MAX_SIN_GAUGE);
-            case 1 -> fraction(state.greedHoard(), PlayerMagicState.MAX_GREED_HOARD);
-            case 3 -> envyGauge(state);
-            case 4 -> fraction(state.gluttonyCooldownTicks(), GLUTTONY_DEVOUR_TICKS);
-            case 5 -> fraction(state.wrathGauge(), PlayerMagicState.MAX_SIN_GAUGE);
-            case 6 -> fraction(state.slothStillness(), PlayerMagicState.MAX_SIN_GAUGE);
-            default -> 0.0F;   // Lust has no gauge; its seat stays empty
+            case 0 -> state.prideGauge();
+            case 1 -> state.greedHoard();
+            case 3 -> Math.round(envyGauge(state) * 100.0F);
+            case 4 -> state.gluttonyCooldownTicks();
+            case 5 -> state.wrathGauge();
+            case 6 -> state.slothStillness();
+            default -> 0;
         };
     }
 
@@ -700,63 +727,6 @@ public final class HudState {
         return list.toArray(new Chip[0]);
     }
 
-    private static Announcement[] announcement(Font font, HudLayout layout) {
-        HudAnnouncer.Announcement head = HudAnnouncer.head();
-        if (head == null) {
-            return HudSnapshot.NO_ANNOUNCEMENTS;
-        }
-        ResourceLocation id = head.id();
-        int cell;
-        int color;
-        Component name;
-        boolean ink = false;
-        switch (head.kind()) {
-            case SKILL -> {
-                MagicSkillDefinition skill = MagicContent.get(id);
-                cell = HudGlyphs.skillCell(id);
-                color = skill == null ? HudPalette.TEXT_MUTED : HudPalette.cardTint(VisualProfiles.of(id));
-                name = skill == null ? Component.literal(id.getPath()) : Component.translatable(skill.nameKey());
-            }
-            case PASSIVE -> {
-                MagicPassiveDefinition passive = MagicPassiveContent.get(id);
-                cell = HudGlyphs.sinCell(id);
-                color = passive == null ? HudPalette.TEXT_MUTED : HudPalette.textTint(passive.color());
-                name = passive == null ? Component.literal(id.getPath()) : Component.translatable(passive.nameKey());
-            }
-            case CURSE -> {
-                MagicPassiveDefinition curse = MagicPassiveContent.get(id);
-                cell = HudGlyphs.curseCell();
-                color = HudPalette.corruption().bright();
-                name = curse == null ? Component.literal(id.getPath()) : Component.translatable(curse.nameKey());
-                ink = true;
-            }
-            case CLASS -> {
-                MagicalClassDefinition definition = MagicalClasses.get(id);
-                cell = HudGlyphs.classCell();
-                color = HudPalette.XP;
-                name = definition == null ? Component.literal(id.getPath()) : Component.translatable(definition.nameKey());
-            }
-            case AUTHORITY -> {
-                AuthorityDefinition authority = AuthorityContent.get(id);
-                cell = HudGlyphs.authorityCell();
-                color = authority == null ? HudPalette.XP : HudPalette.textTint(authority.color());
-                name = authority == null ? Component.literal(id.getPath()) : Component.translatable(authority.nameKey());
-                ink = true;
-            }
-            default -> {
-                MagicalRace race = MagicalRaces.get(id);
-                cell = HudGlyphs.raceCell(id);
-                color = race == null ? HudPalette.TEXT_PRIMARY : HudPalette.textTint(race.color());
-                name = race == null ? Component.literal(id.getPath()) : Component.translatable(race.nameKey());
-            }
-        }
-        Component line = Component.translatable("hud.magical.announce." + head.kind().name().toLowerCase(Locale.ROOT), name);
-        // The plate and emblem carry the colour; the words stay white so they read on any tint.
-        Label title = label(font, Component.literal(font.plainSubstrByWidth(line.getString(), HudLayout.ANNOUNCE_TEXT_W)), HudPalette.TEXT_PRIMARY);
-        return new Announcement[] {new Announcement(cell, color, ink, title, head.startTick(), HudAnnouncer.LIFETIME_TICKS,
-                layout.announceEmblem(), layout.announceText())};
-    }
-
     /** The school with the most equipped skills; a tie goes to the lowest slot; none is Arcane. */
     static MagicSchool dominantSchool(PlayerMagicState state) {
         MagicSchool[] schools = MagicSchool.values();
@@ -778,25 +748,45 @@ public final class HudState {
         return best == null ? MagicSchool.ARCANE : best;
     }
 
-    /** How many notches the mana ring's track carries: the school's band pattern, in tick marks. */
-    static int notchesFor(GlyphKind band) {
-        return switch (band) {
-            case TICK_BAND -> 24;
-            case DASHED_RING, TOOTH_BAND -> 16;
-            case WAVE_BAND, PETAL_BAND, RUNE_BAND -> 12;
-            case CHAIN_BAND -> 10;
-            case FACET_BAND -> 9;
-            case BRAID_BAND, STAMP_BAND -> 8;
-            default -> 0;
-        };
-    }
-
-    /** Vault numerals: 999, 12k, 99k. */
-    static String compact(int value) {
-        if (value < 1000) {
+    /** The mana numeral: four digits, then thousands - 9999, 12k, 999k. */
+    static String numeral(int value) {
+        if (value < 10000) {
             return Integer.toString(value);
         }
-        return Math.min(99, value / 1000) + "k";
+        return Math.min(999, value / 1000) + "k";
+    }
+
+    /** The seconds under a cooling slot: at most three characters - 999, then 17m, capped at 99m. */
+    static String seconds(int seconds) {
+        if (seconds < 1000) {
+            return Integer.toString(seconds);
+        }
+        return Math.min(99, (seconds + 59) / 60) + "m";
+    }
+
+    /**
+     * Vault numerals, never more than four characters and never rounded up: 999, 1k, 1.2k, 9.9k,
+     * 12k, 999k, 1.2m, capped at 99m.
+     */
+    static String compact(int value) {
+        if (value < 1000) {
+            return Integer.toString(Math.max(0, value));
+        }
+        if (value < 10_000) {
+            return tenths(value / 100) + "k";
+        }
+        if (value < 1_000_000) {
+            return value / 1000 + "k";
+        }
+        if (value < 10_000_000) {
+            return tenths(value / 100_000) + "m";
+        }
+        return Math.min(99, value / 1_000_000) + "m";
+    }
+
+    /** A count of tenths as "1.2", or "1" when it is whole. */
+    private static String tenths(int tenths) {
+        return tenths % 10 == 0 ? Integer.toString(tenths / 10) : tenths / 10 + "." + tenths % 10;
     }
 
     private static int percent(int value, int max) {

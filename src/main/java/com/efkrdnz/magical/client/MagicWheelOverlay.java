@@ -89,6 +89,11 @@ public final class MagicWheelOverlay {
         return active;
     }
 
+    /** Whether the rail is on screen at all: held open, or still fading out after B was let go. */
+    public static boolean isVisible() {
+        return fade > 0.01F;
+    }
+
     /**
      * Scroll moves the highlight while the switcher is open.
      *
