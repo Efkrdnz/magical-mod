@@ -96,6 +96,10 @@ public final class MagicCastContentKept {
                 com.efkrdnz.magical.magic.causality.CausalityService.recompense(ctx.player(), ctx.state())));
         SkillCastRegistry.register(MagicContent.SUSPEND, SkillCastRegistry.selfManaged(ctx ->
                 com.efkrdnz.magical.magic.causality.CausalityService.suspend(ctx.player(), ctx.state())));
+        // The Authority of Mind. Daydream is a client toggle (DaydreamInput owns the key), so the
+        // server only ever sees it if that input is bypassed; the hint says what the skill is.
+        SkillCastRegistry.register(MagicContent.DAYDREAM,
+                SkillCastRegistry.holdHint("message.magical.daydream_hold"));
         // Circle Arsenal is hold/release like Gabriel and Black Flames: the press only hints.
         SkillCastRegistry.register(MagicContent.CIRCLE_ARSENAL, new SkillCastHandler() {
             @Override
