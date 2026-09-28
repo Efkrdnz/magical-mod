@@ -110,9 +110,11 @@ public final class MagicalClientEvents {
         com.efkrdnz.magical.client.renderer.fx.MagicalFxRenderTypes.registerShaders(event);
     }
 
-    /** The mod's four tinted sprites, one class moving them four ways. See {@code MagicalParticles}. */
+    /** The mod's four tinted sprites, one class moving them four ways, and the sigil. See {@code MagicalParticles}. */
     @SubscribeEvent
     public static void registerParticleProviders(net.neoforged.neoforge.client.event.RegisterParticleProvidersEvent event) {
+        event.registerSpriteSet(com.efkrdnz.magical.registry.MagicalParticles.SIGIL.get(),
+                com.efkrdnz.magical.client.particle.SigilParticle.Provider::new);
         event.registerSpriteSet(com.efkrdnz.magical.registry.MagicalParticles.RUNE.get(),
                 sprites -> new com.efkrdnz.magical.client.particle.TintedSpriteParticle.Provider(sprites, com.efkrdnz.magical.client.particle.TintedSpriteParticle.Motion.RUNE));
         event.registerSpriteSet(com.efkrdnz.magical.registry.MagicalParticles.SHARD.get(),

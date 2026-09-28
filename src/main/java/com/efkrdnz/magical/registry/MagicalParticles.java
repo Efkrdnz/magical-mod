@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.registry;
 
 import com.efkrdnz.magical.MagicalMod;
+import com.efkrdnz.magical.particle.SigilParticleOptions;
 import com.efkrdnz.magical.particle.TintedParticleOptions;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.particles.ParticleType;
@@ -12,14 +13,15 @@ import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
 /**
- * The mod's own particles, all four textured sprites tinted by the colour they are spawned in.
+ * The mod's own particles: four textured sprites tinted by the colour they are spawned in, and the
+ * sigil, which carries a symbol and two colours of its own.
  *
  * <p>They exist for the half of a spell that is matter rather than light. The FX library draws
  * light - additive quads that glow and clip toward white - and was being asked to draw the debris
  * too: a glass splinter, an ember, a rune lifting off a circle, a puff of coloured smoke. A
  * textured particle on vanilla's own sheet is lit by the world, occludes and fades by alpha, which
  * is what matter does. Vanilla's own particles cover the elements that have them (flame, splash,
- * snowflake, smoke); these four cover what it has no sprite for in a colour it does not come in.
+ * snowflake, smoke); these cover what it has no sprite for in a colour it does not come in.
  */
 public final class MagicalParticles {
     private static final DeferredRegister<ParticleType<?>> PARTICLES =
@@ -36,6 +38,28 @@ public final class MagicalParticles {
 
     /** A soft puff of coloured smoke that rises, spreads and thins: mist, miasma, a void's breath. */
     public static final DeferredHolder<ParticleType<?>, ParticleType<TintedParticleOptions>> WISP = tinted("wisp");
+
+    /**
+     * A symbol from the sigil library in a two-tone ink, full bright: one of 43 drawings, a core
+     * colour for its strokes and a glow colour for the halo round them. Spawned through
+     * {@code magic/visual/sigil/Sigils} rather than by hand.
+     */
+    public static final DeferredHolder<ParticleType<?>, ParticleType<SigilParticleOptions>> SIGIL =
+            PARTICLES.register("sigil", () -> new ParticleType<SigilParticleOptions>(false) {
+                private final MapCodec<SigilParticleOptions> codec = SigilParticleOptions.codec(this);
+                private final StreamCodec<RegistryFriendlyByteBuf, SigilParticleOptions> streamCodec =
+                        SigilParticleOptions.streamCodec(this);
+
+                @Override
+                public MapCodec<SigilParticleOptions> codec() {
+                    return codec;
+                }
+
+                @Override
+                public StreamCodec<? super RegistryFriendlyByteBuf, SigilParticleOptions> streamCodec() {
+                    return streamCodec;
+                }
+            });
 
     private MagicalParticles() {
     }

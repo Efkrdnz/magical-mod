@@ -132,8 +132,8 @@ public final class TintedSpriteParticle extends TextureSheetParticle {
         return motion.fullBright ? 0xF000F0 : super.getLightColor(partialTick);
     }
 
-    /** Whether a point is within AccentPlan.SPRITE_NEAR_CAMERA of a first-person camera. */
-    private static boolean onTheLens(double x, double y, double z) {
+    /** Whether a point is within AccentPlan.SPRITE_NEAR_CAMERA of a first-person camera; the sigil asks it too. */
+    static boolean onTheLens(double x, double y, double z) {
         Minecraft minecraft = Minecraft.getInstance();
         return minecraft.options.getCameraType().isFirstPerson()
                 && minecraft.gameRenderer.getMainCamera().getPosition().distanceToSqr(x, y, z) < AccentPlan.SPRITE_NEAR_CAMERA * AccentPlan.SPRITE_NEAR_CAMERA;
