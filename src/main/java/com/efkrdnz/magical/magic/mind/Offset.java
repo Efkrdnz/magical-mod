@@ -17,7 +17,8 @@ public record Offset(int dx, int dy, int dz) {
     }
 
     public boolean within(int reach) {
-        return Math.abs(dx) <= reach && Math.abs(dy) <= reach && Math.abs(dz) <= reach;
+        // not Math.abs: abs(Integer.MIN_VALUE) is still negative and would pass
+        return dx >= -reach && dx <= reach && dy >= -reach && dy <= reach && dz >= -reach && dz <= reach;
     }
 
     public List<Offset> neighbours() {

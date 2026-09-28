@@ -54,6 +54,7 @@ public final class ReverieNbt {
             reverie.put(new Figment(offset(entry), entry.getString("id"), script,
                     Sense.fromMask(entry.getInt("senses"))));
         }
+        reverie.normaliseSenses();
         return reverie;
     }
 

@@ -4,6 +4,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -45,15 +46,8 @@ public final class Reverie {
         if (refusal != Refusal.NONE) {
             return refusal;
         }
-        Set<Sense> inherited = Set.of();
-        for (Offset neighbour : at.neighbours()) {
-            ImaginedBlock next = blocks.get(neighbour);
-            if (next != null) {
-                inherited = next.senses();
-                break;
-            }
-        }
-        blocks.put(at, new ImaginedBlock(at, blockId, inherited));
+        blocks.put(at, new ImaginedBlock(at, blockId, Set.of()));
+        normaliseSenses();
         return Refusal.NONE;
     }
 
@@ -169,6 +163,21 @@ public final class Reverie {
         return layers;
     }
 
+    /** Every cluster carries one sense set: the union of what its members had. */
+    void normaliseSenses() {
+        for (List<ImaginedBlock> cluster : clusters()) {
+            Set<Sense> union = EnumSet.noneOf(Sense.class);
+            for (ImaginedBlock block : cluster) {
+                union.addAll(block.senses());
+            }
+            for (ImaginedBlock block : cluster) {
+                if (!block.senses().equals(union)) {
+                    blocks.put(block.at(), block.withSenses(union));
+                }
+            }
+        }
+    }
+
     void put(ImaginedBlock block) {
         if (block.at().within(REACH) && !occupied(block.at())) {
             blocks.put(block.at(), block);
@@ -188,6 +197,9 @@ public final class Reverie {
     }
 
     public void copyFrom(Reverie other) {
+        if (other == this) {
+            return;
+        }
         name = other.name;
         facing = other.facing;
         blocks.clear();
