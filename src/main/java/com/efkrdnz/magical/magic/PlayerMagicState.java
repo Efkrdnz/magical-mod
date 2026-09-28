@@ -57,6 +57,7 @@ public final class PlayerMagicState {
     // would otherwise cancel for free. The gate clocks ONCE_PER reads are not here and are not
     // saved, because they are per-session bookkeeping rather than anything the wielder authored.
     private final com.efkrdnz.magical.magic.causality.Weave weave = new com.efkrdnz.magical.magic.causality.Weave();
+    private final com.efkrdnz.magical.magic.mind.MindState mind = new com.efkrdnz.magical.magic.mind.MindState();
     private final com.efkrdnz.magical.magic.causality.Ledger ledger = new com.efkrdnz.magical.magic.causality.Ledger();
     private final com.efkrdnz.magical.magic.causality.Paradox paradox = new com.efkrdnz.magical.magic.causality.Paradox();
     private final com.efkrdnz.magical.magic.causality.Anchor anchor = new com.efkrdnz.magical.magic.causality.Anchor();
@@ -515,6 +516,10 @@ public final class PlayerMagicState {
 
     public com.efkrdnz.magical.magic.causality.Weave weave() {
         return weave;
+    }
+
+    public com.efkrdnz.magical.magic.mind.MindState mind() {
+        return mind;
     }
 
     public com.efkrdnz.magical.magic.causality.Ledger ledger() {
@@ -1182,6 +1187,7 @@ public final class PlayerMagicState {
         fracture.reset();
         grimoire.clear();
         weave.clear();
+        mind.clear();
         ledger.clear();
         paradox.clear();
         anchor.clear();
@@ -2109,6 +2115,7 @@ public final class PlayerMagicState {
         copy.fracture.copyFrom(fracture);
         copy.grimoire.copyFrom(grimoire);
         copy.weave.copyFrom(weave);
+        copy.mind.copyFrom(mind);
         copy.ledger.copyFrom(ledger);
         copy.paradox.copyFrom(paradox);
         copy.anchor.copyFrom(anchor);
@@ -2227,6 +2234,7 @@ public final class PlayerMagicState {
         tag.put("fracture", fracture.save());
         tag.put("grimoire", grimoire.save());
         tag.put("weave", weave.save());
+        tag.put("mind", mind.save());
         tag.putFloat("ledger", ledger.held());
         tag.putFloat("paradox", paradox.value());
         tag.putLong("paradoxFired", paradox.lastFired());
@@ -2400,6 +2408,7 @@ public final class PlayerMagicState {
         state.fracture.load(tag.getList("fracture", com.efkrdnz.magical.magic.chaos.Fracture.tagType()));
         state.grimoire.load(tag.getCompound("grimoire"));
         state.weave.load(tag.getCompound("weave"));
+        state.mind.load(tag.getCompound("mind"));
         state.ledger.set(tag.getFloat("ledger"));
         state.paradox.restore(tag.getFloat("paradox"),
                 tag.contains("paradoxFired") ? tag.getLong("paradoxFired") : Long.MIN_VALUE,
