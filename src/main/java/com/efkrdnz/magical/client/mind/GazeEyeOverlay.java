@@ -8,11 +8,6 @@ import com.efkrdnz.magical.magic.mind.MindGazeService;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.EntityHitResult;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -47,11 +42,7 @@ public final class GazeEyeOverlay {
         Vec3 now = minecraft.player.position();
         boolean still = last != null && last.distanceToSqr(now) < MindGazeService.STILL_SQR;
         last = now;
-        HitResult hit = minecraft.hitResult;
-        Entity entity = hit instanceof EntityHitResult entityHit ? entityHit.getEntity() : null;
-        BlockState block = hit instanceof BlockHitResult blockHit && hit.getType() == HitResult.Type.BLOCK
-                ? minecraft.level.getBlockState(blockHit.getBlockPos()) : null;
-        TRACKER.tick(MindGazeService.keyOf(entity, block), still);
+        TRACKER.tick(MindGazeService.lookedAt(minecraft.level, minecraft.player), still);
     }
 
     public static void render(GuiGraphics graphics, Minecraft minecraft) {
