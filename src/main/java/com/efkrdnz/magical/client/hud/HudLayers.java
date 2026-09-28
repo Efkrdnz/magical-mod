@@ -146,6 +146,7 @@ public final class HudLayers {
     /** The space dials, the loadout switcher, the sub-skill wheels, the blood strip; each draws itself only while held. */
     private static void renderSelector(GuiGraphics graphics, DeltaTracker delta) {
         Minecraft minecraft = Minecraft.getInstance();
+        com.efkrdnz.magical.client.mind.GazeEyeOverlay.render(graphics, minecraft);
         SpaceManipulationOverlay.render(graphics, minecraft);
         com.efkrdnz.magical.client.FractureOverlay.render(graphics, minecraft);
         com.efkrdnz.magical.client.CausalAnchorOverlay.render(graphics, minecraft);
