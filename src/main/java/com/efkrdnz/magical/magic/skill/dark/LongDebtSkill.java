@@ -29,9 +29,11 @@ import com.efkrdnz.magical.magic.visual.Silhouette;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
-import com.efkrdnz.magical.particle.TintedParticleOptions;
+import com.efkrdnz.magical.magic.visual.sigil.Sigil;
+import com.efkrdnz.magical.magic.visual.sigil.SigilInk;
+import com.efkrdnz.magical.magic.visual.sigil.SigilMark;
+import com.efkrdnz.magical.magic.visual.sigil.Sigils;
 import com.efkrdnz.magical.registry.MagicalAttachments;
-import com.efkrdnz.magical.registry.MagicalParticles;
 import java.util.List;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleTypes;
@@ -77,6 +79,9 @@ public final class LongDebtSkill implements SkillModule {
      * thins to nothing as the debt comes due. Drawn only.
      */
     private static final int CROWN_GLYPHS = 8;
+
+    /** The crown in the sigil library: the eight runes, one to a slot, at a size and a half. */
+    private static final SigilMark CROWN = SigilMark.of(Sigil.runes()).scale(1.5F);
 
     /** Sculk souls let off the named body as the catalyst blooms. Drawn only. */
     private static final int BLOOM_SOULS = 5;
@@ -196,22 +201,16 @@ public final class LongDebtSkill implements SkillModule {
 
     /**
      * The debt's crown: glyphs written in a level ring just over the named thing's head, each in a
-     * fixed slot so a reprint lands on the last one and the ring holds its shape while it lifts and
-     * fades. A slot the term has used up is simply not written again, so the ring empties one
-     * glyph at a time. Full bright in the skill's own violet, which reads against sky and ground.
+     * fixed slot that always wears the same rune, so a reprint lands the same glyph where the last
+     * one was and the ring holds its shape while it lifts and fades. A slot the term has used up is
+     * simply not written again, so the ring empties one glyph at a time. Inked from the skill's own
+     * colour - a pale core in its violet - which reads against sky and ground.
      */
     private static void crown(ServerLevel level, LivingEntity named, int rgb, int glyphs) {
         if (glyphs <= 0) {
             return;
         }
-        TintedParticleOptions glyph = new TintedParticleOptions(MagicalParticles.RUNE.get(), rgb, 1.5F);
-        double ring = Math.max(0.45D, named.getBbWidth() * 0.5D) + 0.1D;
-        double above = named.getY() + named.getBbHeight() + 0.25D;
-        for (int i = 0; i < Math.min(glyphs, CROWN_GLYPHS); i++) {
-            double angle = Math.PI * 2.0D * i / CROWN_GLYPHS;
-            level.sendParticles(glyph, named.getX() + Math.cos(angle) * ring, above, named.getZ() + Math.sin(angle) * ring,
-                    0, 0.0D, 0.0D, 0.0D, 0.0D);
-        }
+        Sigils.crown(level, named, CROWN.ink(SigilInk.from(rgb)), CROWN_GLYPHS, glyphs);
     }
 
     /** Closes the bargain either way, and is the only place the balloon payment is charged. */

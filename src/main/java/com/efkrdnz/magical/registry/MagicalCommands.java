@@ -889,6 +889,26 @@ public final class MagicalCommands {
                                                         player.displayClientMessage(Component.literal("FX stress spawned."), false);
                                                         return 1;
                                                     }))))))
+                    // The sigil library hung in front of the player: every ink a row, or one ink as a block.
+                    .then(Commands.literal("sigils")
+                            .executes(context -> withPlayer(context.getSource(), player -> {
+                                int sent = com.efkrdnz.magical.magic.visual.sigil.SigilPreview.show(player, java.util.Optional.empty());
+                                player.displayClientMessage(Component.literal("Sigils: " + sent + " hung, every ink."), false);
+                                return sent;
+                            }))
+                            .then(Commands.argument("ink", StringArgumentType.word())
+                                    .suggests((context, builder) -> SharedSuggestionProvider.suggest(com.efkrdnz.magical.magic.visual.sigil.SigilInk.named().keySet(), builder))
+                                    .executes(context -> withPlayer(context.getSource(), player -> {
+                                        String name = StringArgumentType.getString(context, "ink");
+                                        var ink = com.efkrdnz.magical.magic.visual.sigil.SigilInk.byName(name);
+                                        if (ink.isEmpty()) {
+                                            player.displayClientMessage(Component.literal("No ink called " + name + "."), false);
+                                            return 0;
+                                        }
+                                        int sent = com.efkrdnz.magical.magic.visual.sigil.SigilPreview.show(player, ink);
+                                        player.displayClientMessage(Component.literal("Sigils: " + sent + " hung in " + name + "."), false);
+                                        return sent;
+                                    }))))
                     .then(Commands.literal("forge")
                             .then(Commands.literal("bench")
                                     .then(Commands.argument("element", net.minecraft.commands.arguments.ResourceLocationArgument.id())
