@@ -37,6 +37,49 @@ SHARDS = [
     ["........", "..+.....", "..##....", "..+#-...", "...##-..", "...+#-..", "....#-..", ".....-.."],
 ]
 
+# Sigils: a 7x7 grid of strokes drawn at 2x into a 16x16 texture, in Sigil declaration order
+# (src/main/java/.../magic/visual/sigil/Sigil.java). The first eight are the runes above, one
+# column of padding each side, so the rune particle and the rune sigils are one drawing.
+SIGILS = [(f"rune_{i}", ["." + row + "." for row in rows]) for i, rows in enumerate(RUNES)] + [
+    ("flame", ["...#...", "..##...", "..###..", ".##.##.", ".#...#.", ".#...#.", "..###.."]),
+    ("drop", ["...#...", "...#...", "..#.#..", ".#...#.", ".#...#.", ".#...#.", "..###.."]),
+    ("snowflake", ["#..#..#", ".#.#.#.", "..###..", "#######", "..###..", ".#.#.#.", "#..#..#"]),
+    ("leaf", ["...#...", "..#.#..", ".#.#.#.", ".#.#.#.", ".#.#.#.", "..#.#..", "...#..."]),
+    ("wave", [".##....", "#..#..#", "....##.", ".......", ".##....", "#..#..#", "....##."]),
+    ("sun", ["...#...", ".#...#.", "..###..", "#.###.#", "..###..", ".#...#.", "...#..."]),
+    ("moon", ["..###..", ".##....", "##.....", "##.....", "##.....", ".##....", "..###.."]),
+    ("star", ["...#...", "...#...", "..###..", "#######", "..###..", "...#...", "...#..."]),
+    ("sprout", [".##....", "####.##", ".####.#", "...###.", "...#...", "...#...", ".#####."]),
+    ("eye", [".......", "..###..", ".#...#.", "#..#..#", ".#...#.", "..###..", "......."]),
+    ("skull", [".#####.", "#######", "#..#..#", "#######", ".#####.", ".#.#.#.", "......."]),
+    ("bone", [".......", ".......", "##...##", ".#####.", "##...##", ".......", "......."]),
+    ("fang", ["#######", "#.#.#.#", ".......", "#.....#", "##...##", ".#...#.", "......."]),
+    ("heart", [".##.##.", "#..#..#", "#.....#", ".#...#.", "..#.#..", "...#...", "......."]),
+    ("paw", [".#.#.#.", ".......", "#.....#", "..###..", ".#####.", ".#####.", "..###.."]),
+    ("feather", [".....##", "....###", "...###.", "..###..", ".###...", ".#.....", "#......"]),
+    ("key", [".......", ".##....", "#..#...", "#..####", ".##.#.#", ".......", "......."]),
+    ("hourglass", ["#######", ".#...#.", "..#.#..", "...#...", "..###..", ".#####.", "#######"]),
+    ("crown", [".......", "#..#..#", "##.#.##", "#######", "#.#.#.#", "#######", "......."]),
+    ("shield", ["#######", "#..#..#", "#..#..#", "#..#..#", ".#.#.#.", "..#.#..", "...#..."]),
+    ("coin", ["..###..", ".#...#.", "#.###.#", "#.#.#.#", "#.###.#", ".#...#.", "..###.."]),
+    ("sword", ["......#", ".....#.", "....#..", ".#.#...", "..#....", ".#.#...", "#......"]),
+    ("hammer", [".###...", "#####..", ".####..", "...#...", "....#..", ".....#.", "......#"]),
+    ("flask", ["..###..", "..#.#..", "..#.#..", ".#...#.", "#.....#", "#.###.#", ".#####."]),
+    ("anchor", ["...#...", "..###..", "...#...", "...#...", "#..#..#", ".#.#.#.", "..###.."]),
+    ("gear", ["...#...", ".#####.", ".#...#.", "###.###", ".#...#.", ".#####.", "...#..."]),
+    ("link", [".###...", "#...#..", "#..###.", ".###..#", "...#..#", "...####", "......."]),
+    ("plus", ["...#...", "...#...", "...#...", "#######", "...#...", "...#...", "...#..."]),
+    ("arrow", ["...#...", "..###..", ".#.#.#.", "#..#..#", "...#...", "...#...", "...#..."]),
+    ("chevron", ["...#...", "..#.#..", ".#...#.", "...#...", "..#.#..", ".#...#.", "......."]),
+    ("diamond", ["...#...", "..#.#..", ".#...#.", "#.....#", ".#...#.", "..#.#..", "...#..."]),
+    ("triangle", ["...#...", "...#...", "..#.#..", "..#.#..", ".#...#.", ".#...#.", "#######"]),
+    ("ring", ["..###..", ".#...#.", "#.....#", "#.....#", "#.....#", ".#...#.", "..###.."]),
+    ("spiral", ["#######", "......#", ".####.#", ".#..#.#", ".#.##.#", ".#....#", ".######"]),
+    ("thorn", ["#.....#", ".#...#.", "..#.#..", "...#...", "..#.#..", ".#...#.", "#.....#"]),
+]
+
+SIGIL_SIDE = 16
+
 WHITE = (255, 255, 255)
 
 
@@ -116,6 +159,34 @@ def wisp(frame):
     return image
 
 
+def sigil_layers(rows):
+    """The core (strokes at 2x, one texel in from the edge) and the glow (the texels touching a
+    stroke: opaque edge-on, softer where only a corner touches). Pale grey, the ink is the hue."""
+    core = Image.new("RGBA", (SIGIL_SIDE, SIGIL_SIDE), (0, 0, 0, 0))
+    for y, row in enumerate(rows):
+        for x, cell in enumerate(row):
+            if cell == "#":
+                for dy in (0, 1):
+                    for dx in (0, 1):
+                        core.putpixel((1 + 2 * x + dx, 1 + 2 * y + dy), WHITE + (255,))
+    glow = Image.new("RGBA", (SIGIL_SIDE, SIGIL_SIDE), (0, 0, 0, 0))
+
+    def lit(x, y):
+        return 0 <= x < SIGIL_SIDE and 0 <= y < SIGIL_SIDE and core.getpixel((x, y))[3] > 0
+
+    for y in range(SIGIL_SIDE):
+        for x in range(SIGIL_SIDE):
+            if lit(x, y):
+                continue
+            edge = any(lit(x + dx, y + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+            corner = any(lit(x + dx, y + dy) for dx, dy in ((1, 1), (1, -1), (-1, 1), (-1, -1)))
+            if edge:
+                glow.putpixel((x, y), (255, 255, 255, 255))
+            elif corner:
+                glow.putpixel((x, y), (235, 235, 235, 170))
+    return core, glow
+
+
 def main():
     os.makedirs(TEXTURES, exist_ok=True)
     os.makedirs(DEFINITIONS, exist_ok=True)
@@ -134,6 +205,19 @@ def main():
             json.dump({"textures": names}, handle, indent=2)
             handle.write("\n")
     print("sprites:", {name: len(frames) for name, frames in sets.items()})
+    # the sigil particle reads core i at i and its glow at len(SIGILS) + i
+    cores = []
+    glows = []
+    for name, rows in SIGILS:
+        core, glow = sigil_layers(rows)
+        save(core, f"sigil_{name}")
+        save(glow, f"sigil_{name}_glow")
+        cores.append(f"magical:sigil_{name}")
+        glows.append(f"magical:sigil_{name}_glow")
+    with open(os.path.join(DEFINITIONS, "sigil.json"), "w", encoding="utf-8", newline="\n") as handle:
+        json.dump({"textures": cores + glows}, handle, indent=2)
+        handle.write("\n")
+    print("sigils:", len(SIGILS))
 
 
 if __name__ == "__main__":
