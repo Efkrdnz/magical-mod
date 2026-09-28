@@ -37,6 +37,8 @@ public final class MagicCircleEffectEntity extends Entity {
     /** Index into MagicContent.orderedSkillIds() for scripted (VisualProfile) circles; -1 = legacy style. */
     private static final EntityDataAccessor<Integer> SKILL_INDEX = SynchedEntityData.defineId(MagicCircleEffectEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Byte> CIRCLE_ROLE = SynchedEntityData.defineId(MagicCircleEffectEntity.class, EntityDataSerializers.BYTE);
+    /** The entity id of the caster whose eyes a forward casting circle hangs in front of; -1 for any other circle. */
+    private static final EntityDataAccessor<Integer> HELD_BY = SynchedEntityData.defineId(MagicCircleEffectEntity.class, EntityDataSerializers.INT);
     public static final int FULL_DETAIL = 3;
     public static final byte ROLE_CAST = 0;
     public static final byte ROLE_HOLD = 1;
@@ -66,6 +68,20 @@ public final class MagicCircleEffectEntity extends Entity {
 
     public byte circleRole() {
         return entityData.get(CIRCLE_ROLE);
+    }
+
+    /** See {@link #HELD_BY}. */
+    public int heldBy() {
+        return entityData.get(HELD_BY);
+    }
+
+    /**
+     * Marks the circle as the one hung in front of this caster's eyes, which their own
+     * first-person view draws as a sigil at the hand rather than a wall across the frame.
+     */
+    public MagicCircleEffectEntity heldBy(Entity caster) {
+        entityData.set(HELD_BY, caster.getId());
+        return this;
     }
 
     public boolean isScripted() {
@@ -125,6 +141,7 @@ public final class MagicCircleEffectEntity extends Entity {
         builder.define(DETAIL, FULL_DETAIL);
         builder.define(SKILL_INDEX, -1);
         builder.define(CIRCLE_ROLE, ROLE_CAST);
+        builder.define(HELD_BY, -1);
     }
 
     @Override

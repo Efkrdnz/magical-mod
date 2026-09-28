@@ -730,7 +730,13 @@ public final class MagicCastingService {
             Vec3 position = player.getEyePosition().add(look.scale(1.35D));
             float yaw = (float) (Mth.atan2(look.x, look.z) * Mth.RAD_TO_DEG);
             float pitch = (float) (-Math.asin(look.y) * Mth.RAD_TO_DEG);
-            level.addFreshEntity(MagicCircleEffectEntity.createStatic(level, position, radius, color, life, style, yaw, pitch, 0.0F, detail));
+            MagicCircleEffectEntity circle = MagicCircleEffectEntity.createStatic(level, position, radius, color, life, style, yaw, pitch, 0.0F, detail);
+            // 1.35 blocks from the eyes a circle this size is the caster's whole view; below the
+            // Authority layer their own camera draws it as a sigil at the hand (MagicCircleRenderer)
+            if (stats.definition().tier() > com.efkrdnz.magical.magic.menu.MagicPyramidMenu.AUTHORITY_TIER) {
+                circle.heldBy(player);
+            }
+            level.addFreshEntity(circle);
             return;
         }
         level.addFreshEntity(MagicCircleEffectEntity.createStatic(level, player.position().add(0.0D, 0.06D, 0.0D), radius, color, life, style, 0.0F, 90.0F, 0.0F, detail));

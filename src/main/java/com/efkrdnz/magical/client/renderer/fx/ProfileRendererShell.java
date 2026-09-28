@@ -114,7 +114,10 @@ public class ProfileRendererShell<E extends Entity & ProfiledEffect> extends Ent
     /** Forms whose local +Z must point along the synced direction (travel, or facing for panes/walls). */
     private static boolean isTravelForm(Silhouette s) {
         return switch (s.form()) {
-            case TUBE, HELIX, CROSSED_BLADES, PANE, VERTICAL_PANE, WALL, SLAB, CHAIN, FAN, LANE -> true;
+            case TUBE, HELIX, CROSSED_BLADES, PANE, VERTICAL_PANE, WALL, SLAB, CHAIN, LANE -> true;
+            // a filament fan is a blade on an absolute bearing (FilamentPainter), not a thing thrown
+            // along the look: turned to the look as well, it swept the mirror of its own sweep
+            case FAN -> s.family() != Silhouette.Family.FILAMENT;
             default -> false;
         };
     }

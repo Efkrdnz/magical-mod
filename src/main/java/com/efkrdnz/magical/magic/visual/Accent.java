@@ -13,7 +13,8 @@ package com.efkrdnz.magical.magic.visual;
  *
  * <p>A profile takes its school's accent unless it names one ({@code VisualProfile.Builder#accent}).
  * {@link #NONE} is the old look, untouched: the Authorities, whose visuals are their own design,
- * the Sword school, which already throws its steel's impacts as vanilla particles, and the skills
+ * the Blood school, whose blood is its own voxel system, the Sword school, which already throws
+ * its steel's impacts as vanilla particles, and the skills
  * that are mostly shader by nature - a beam has no matter to hand over.
  */
 public enum Accent {
@@ -37,14 +38,20 @@ public enum Accent {
     RUNE,
     /** Dark smoke and ink. */
     GLOOM,
-    /** Blood: red dust and a dark red breath. */
+    /** Red dust and a dark red breath: a cut that bleeds, for a skill outside the Blood school. */
     GORE,
     /** Grit, dust plumes and crumbs of the ground: a spell that is the ground moving. */
     EARTH,
     /** Glowing and dark ink and sculk pops: the Eldritch school. */
     DEEP,
     /** Pink motes and witch sparks. */
-    CHAOS;
+    CHAOS,
+    /** Hammer sparks, a spit of slag and forge smoke: struck and heated metal. */
+    FORGE,
+    /** Potion swirls in the spell's colour, bubbles and the glass of a broken vial. */
+    BREW,
+    /** Falling petals, green growth sparks and a pollen mote. */
+    BLOOM;
 
     /** The accent a school's profiles start from. */
     public static Accent of(SchoolMaterial material) {
@@ -56,7 +63,9 @@ public enum Accent {
             case VOID -> UMBRA;
             case SPATIAL -> RIFT;
             case SOUL -> SOUL;
-            case BLOOD -> GORE;
+            // the Blood school draws its blood as voxels (BloodVoxels, the pools, the streams) and its
+            // own cues are part of that design, so it keeps the look it was built with
+            case BLOOD -> NONE;
             case DARK -> GLOOM;
             case CHAOS -> CHAOS;
             case PRIMORDIAL -> EARTH;

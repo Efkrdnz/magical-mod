@@ -78,6 +78,13 @@ public final class FieldPainter {
                 pose.popPose();
                 FxBudget.countQuads(24);
             }
+            case POOL -> {
+                // a pool on the floor: the dome pressed down to the depth it was written with. POOL
+                // used to fall through to the default dome and stand round its entity as a shell
+                float[] mesh = FxMesh.dome(24, 4);
+                FxMesh.emitShaded(consumer, pose.last().pose(), mesh, radius, Math.max(0.02F, s.sizeB()), radius, rgb, opacity, packed, fresnel(ctx, radius));
+                FxBudget.countQuads(mesh.length / 20);
+            }
             case CONE_SPOT -> {
                 // a searchlight cone: cylinder wall scaled to a frustum is approximated by a tapered column
                 pose.pushPose();

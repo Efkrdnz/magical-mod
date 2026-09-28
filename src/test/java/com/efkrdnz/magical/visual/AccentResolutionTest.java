@@ -63,6 +63,17 @@ class AccentResolutionTest {
     }
 
     @Test
+    void theBloodSchoolKeepsItsVoxels() {
+        assertEquals(Accent.NONE, Accent.of(SchoolMaterial.BLOOD));
+        for (ResourceLocation id : MagicContent.orderedSkillIds()) {
+            VisualProfile profile = VisualProfiles.of(id);
+            if (profile.material() == SchoolMaterial.BLOOD) {
+                assertEquals(Accent.NONE, profile.accent(), id.toString());
+            }
+        }
+    }
+
+    @Test
     void aSkillStillOnADefaultProfileKeepsTheOldLook() {
         for (ResourceLocation id : MagicContent.orderedSkillIds()) {
             if (!VisualProfiles.hasExplicit(id)) {
@@ -74,7 +85,7 @@ class AccentResolutionTest {
     @Test
     void everySchoolThatThrowsMatterHasAnAccentOfItsOwn() {
         for (SchoolMaterial material : SchoolMaterial.values()) {
-            if (material != SchoolMaterial.SWORD) {
+            if (material != SchoolMaterial.SWORD && material != SchoolMaterial.BLOOD) {
                 assertTrue(Accent.of(material).active(), material.name());
             }
         }
@@ -85,8 +96,9 @@ class AccentResolutionTest {
         int accented = 0;
         int eligible = 0;
         for (ResourceLocation id : MagicContent.orderedSkillIds()) {
+            SchoolMaterial material = VisualProfiles.of(id).material();
             if (MagicContent.isAuthoritySkill(id) || !VisualProfiles.hasExplicit(id)
-                    || VisualProfiles.of(id).material() == SchoolMaterial.SWORD) {
+                    || material == SchoolMaterial.SWORD || material == SchoolMaterial.BLOOD) {
                 continue;
             }
             eligible++;

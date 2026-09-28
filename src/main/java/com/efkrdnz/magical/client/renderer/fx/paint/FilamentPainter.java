@@ -67,9 +67,10 @@ public final class FilamentPainter {
             }
             case LINK -> link(ctx, consumer, Vec3.ZERO, ctx.endPoint, halfWidth, rgb, opacity, packed);
             case FAN -> {
-                // a hinged flat blade sweeping around local Y: a thin vertical ribbon along +Z
+                // a hinged flat blade sweeping around local Y: a thin vertical ribbon along +Z, turned to
+                // the Minecraft yaw in ctx.extra - yaw y faces (-sin y, cos y), which is YP(-y) of +Z
                 pose.pushPose();
-                pose.mulPose(Axis.YP.rotationDegrees(ctx.extra));
+                pose.mulPose(Axis.YP.rotationDegrees(-ctx.extra));
                 pose.mulPose(Axis.ZP.rotationDegrees(90.0F));
                 FxMesh.emit(consumer, pose.last().pose(), FxMesh.tube(), halfWidth, halfWidth, length, rgb, opacity, packed);
                 pose.popPose();

@@ -37,7 +37,38 @@ public final class MagicCircleRenderer extends EntityRenderer<MagicCircleEffectE
         state.skillIndex = entity.skillIndex();
         state.role = entity.circleRole();
         state.distanceSqr = entity.distanceToSqr(entityRenderDispatcher.camera.getPosition());
+        state.viewFade = 1.0F;
+        net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
+        state.handX = 0.0F;
+        state.handY = 0.0F;
+        state.handZ = 0.0F;
+        if (entity.heldBy() >= 0 && minecraft.options.getCameraType().isFirstPerson()
+                && minecraft.getCameraEntity() != null && minecraft.getCameraEntity().getId() == entity.heldBy()) {
+            state.radius = Math.min(state.radius, HELD_SIGIL_RADIUS);
+            state.viewFade = HELD_SIGIL_OPACITY;
+            // off the line of sight to the hand's corner, the same share of its distance the
+            // accented profiles move their own sigil (AccentPlan.OWN_SIGIL_RIGHT, OWN_SIGIL_DOWN)
+            org.joml.Vector3f left = entityRenderDispatcher.camera.getLeftVector();
+            org.joml.Vector3f up = entityRenderDispatcher.camera.getUpVector();
+            float distance = (float) Math.sqrt(state.distanceSqr);
+            float right = com.efkrdnz.magical.magic.visual.AccentPlan.OWN_SIGIL_RIGHT * distance;
+            float down = com.efkrdnz.magical.magic.visual.AccentPlan.OWN_SIGIL_DOWN * distance;
+            state.handX = -left.x() * right - up.x() * down;
+            state.handY = -left.y() * right - up.y() * down;
+            state.handZ = -left.z() * right - up.z() * down;
+        }
     }
+
+    /**
+     * A forward casting circle seen by the caster it hangs in front of. It sits 1.35 blocks from
+     * their eyes, where the view is under two blocks tall, and at the two to three blocks it is
+     * written at it was a wall of rings over the whole frame; everybody else still sees it whole.
+     * The same share of the view the accented profiles give their own sigil at the hand.
+     */
+    private static final float HELD_SIGIL_RADIUS = 0.2F;
+
+    /** The opacity of that sigil in its caster's own view: additive, so 0.6 was pure white by day. */
+    private static final float HELD_SIGIL_OPACITY = 0.35F;
 
     @Override
     public boolean shouldRender(MagicCircleEffectEntity entity, Frustum frustum, double cameraX, double cameraY, double cameraZ) {
@@ -48,6 +79,13 @@ public final class MagicCircleRenderer extends EntityRenderer<MagicCircleEffectE
 
     @Override
     public void render(State state, PoseStack poseStack, MultiBufferSource buffer, int packedLight) {
+        poseStack.pushPose();
+        poseStack.translate(state.handX, state.handY, state.handZ);
+        renderAt(state, poseStack, buffer, packedLight);
+        poseStack.popPose();
+    }
+
+    private void renderAt(State state, PoseStack poseStack, MultiBufferSource buffer, int packedLight) {
         if (state.skillIndex >= 0) {
             renderScripted(state, poseStack, buffer);
             super.render(state, poseStack, buffer, packedLight);
@@ -57,7 +95,7 @@ public final class MagicCircleRenderer extends EntityRenderer<MagicCircleEffectE
         float progress = Mth.clamp(state.ageInTicks / Math.max(1.0F, state.life), 0.0F, 1.0F);
         float in = Mth.clamp(progress / 0.18F, 0.0F, 1.0F);
         float out = 1.0F - Mth.clamp((progress - 0.72F) / 0.28F, 0.0F, 1.0F);
-        float fade = in * out;
+        float fade = in * out * state.viewFade;
         float pulse = 1.02F + Mth.sin(state.ageInTicks * 0.22F) * 0.045F;
         int red = red(state.color);
         int green = green(state.color);
@@ -1004,5 +1042,10 @@ public final class MagicCircleRenderer extends EntityRenderer<MagicCircleEffectE
         private int skillIndex = -1;
         private byte role;
         private double distanceSqr;
+        private float viewFade = 1.0F;
+        /** How far the circle is moved for its caster's own view: see {@link #extractRenderState}. */
+        private float handX;
+        private float handY;
+        private float handZ;
     }
 }

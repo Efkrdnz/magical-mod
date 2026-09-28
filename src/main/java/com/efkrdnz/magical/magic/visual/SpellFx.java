@@ -95,7 +95,7 @@ public final class SpellFx {
         if (!(player.level() instanceof ServerLevel level)) {
             return;
         }
-        Vec3 hand = player.getEyePosition().add(aimDir.normalize().scale(0.8D)).add(0.0D, -0.2D, 0.0D);
+        Vec3 hand = player.getEyePosition().add(aimDir.normalize().scale(AccentPlan.HAND_REACH)).add(0.0D, -AccentPlan.HAND_DROP, 0.0D);
         // A release is the cast circle collapsing, so a skill that hangs no circle has nothing to
         // collapse and no muzzle flash to throw. The accent and the caster preset still play.
         if (profile.anchor() != CircleAnchor.NONE) {
@@ -141,6 +141,17 @@ public final class SpellFx {
 
     public static void zoneTick(ServerLevel level, MagicSkillDefinition definition, Vec3 pos, float scale) {
         cue(level, VisualProfiles.of(definition), VisualCuePayload.CUE_ZONE_TICK, pos, new Vec3(0.0D, 1.0D, 0.0D), -1, scale, false);
+    }
+
+    /**
+     * A zone tick whose ripple and matter reach exactly this many blocks. The cue's scale is a
+     * multiple of the tier's radius, not a radius, and a zone that handed it its own radius drew
+     * its ring two to three times wider than the zone (a Gullet of the Deep three blocks across
+     * rippled out to eight).
+     */
+    public static void zoneTickWithin(ServerLevel level, MagicSkillDefinition definition, Vec3 pos, double blocks) {
+        VisualProfile profile = VisualProfiles.of(definition);
+        cue(level, profile, VisualCuePayload.CUE_ZONE_TICK, pos, new Vec3(0.0D, 1.0D, 0.0D), -1, (float) blocks / profile.tier().radius(), false);
     }
 
     public static void burst(ServerLevel level, MagicSkillDefinition definition, Vec3 pos, Vec3 dir, float scale) {

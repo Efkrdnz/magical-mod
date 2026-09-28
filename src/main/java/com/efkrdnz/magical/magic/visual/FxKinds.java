@@ -80,6 +80,14 @@ public final class FxKinds {
 
         public boolean dark() { return this == SMOKE_PUFF || this == ASH_FLAKE || this == INK_BLOOM; }
 
+        /**
+         * A kind that is light rather than stuff: a spark, a glint, a glowing ember. With an accent
+         * these are the only matter the shader still draws; the rest - fragments, glyph squares,
+         * mist, droplets, petals - came out as white dice over daylight and the accent throws it
+         * as real particles instead.
+         */
+        public boolean glint() { return this == SPARK_STREAK || this == LENS_SPARKLE || this == EMBER_CLUSTER; }
+
         /** Quads for these kinds are stretched along their velocity by the emitter. */
         public boolean stretched() { return this == SPARK_STREAK || this == DROPLET; }
     }
