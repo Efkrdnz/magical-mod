@@ -72,6 +72,22 @@ public final class MindService {
         return all;
     }
 
+    public static boolean anyLive() {
+        return !SCENES.isEmpty();
+    }
+
+    public static List<LiveScene> scenesIn(net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension) {
+        List<LiveScene> here = new ArrayList<>();
+        for (List<LiveScene> scenes : SCENES.values()) {
+            for (LiveScene scene : scenes) {
+                if (scene.dimension().equals(dimension)) {
+                    here.add(scene);
+                }
+            }
+        }
+        return here;
+    }
+
     public static void end(LiveScene scene) {
         List<LiveScene> live = SCENES.get(scene.owner());
         if (live == null || !live.remove(scene)) {

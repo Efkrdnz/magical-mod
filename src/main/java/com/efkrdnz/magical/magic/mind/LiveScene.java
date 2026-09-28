@@ -120,6 +120,10 @@ public final class LiveScene {
         return cellIndex.getOrDefault(pos.asLong(), -1);
     }
 
+    public int elementAt(long packedPos) {
+        return cellIndex.getOrDefault(packedPos, -1);
+    }
+
     public boolean expired(long now) {
         return now - bornAt >= LIFE_TICKS;
     }
