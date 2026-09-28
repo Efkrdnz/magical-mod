@@ -41,6 +41,23 @@ public record Palette(int base, int bright, int hot, int dim, int ink, int accen
         return (0.2126F * ((color >> 16) & 0xFF) + 0.7152F * ((color >> 8) & 0xFF) + 0.0722F * (color & 0xFF)) / 255.0F;
     }
 
+    /** WCAG relative luminance, 0 to 1: linear light, where {@link #luminance} is gamma-space luma. */
+    public static double relativeLuminance(int rgb) {
+        return 0.2126 * linear((rgb >> 16) & 0xFF) + 0.7152 * linear((rgb >> 8) & 0xFF) + 0.0722 * linear(rgb & 0xFF);
+    }
+
+    /** The WCAG contrast ratio between two colours, 1 (the same) to 21 (black on white). */
+    public static double contrast(int a, int b) {
+        double la = relativeLuminance(a);
+        double lb = relativeLuminance(b);
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+    }
+
+    private static double linear(int channel) {
+        double c = channel / 255.0;
+        return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+
     private static int clamp(int v) {
         return Math.max(0, Math.min(255, v));
     }

@@ -149,29 +149,13 @@ public final class HudPalette {
         return (r << 16) | (g << 8) | b;
     }
 
-    /** WCAG relative luminance: linear light, not the gamma-space luma {@link Palette#luminance} gives. */
-    static double relativeLuminance(int rgb) {
-        return 0.2126 * linear((rgb >> 16) & 0xFF) + 0.7152 * linear((rgb >> 8) & 0xFF) + 0.0722 * linear(rgb & 0xFF);
-    }
-
-    private static double linear(int channel) {
-        double c = channel / 255.0;
-        return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-    }
-
-    private static double contrast(int a, int b) {
-        double la = relativeLuminance(a);
-        double lb = relativeLuminance(b);
-        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
-    }
-
     /**
      * How well a mark over its shadow reads over the worst background there is: where the world is
      * bright the shadow carries it, where it is dark the mark does, and the worst is where the two
      * carry equally - the square root of the mark's contrast with its shadow.
      */
     private static double worstOverAnyBackground(int mark, int shadow) {
-        return Math.sqrt(contrast(mark, shadow));
+        return Math.sqrt(Palette.contrast(mark, shadow));
     }
 
     public static int argb(int rgb, int alpha) {
