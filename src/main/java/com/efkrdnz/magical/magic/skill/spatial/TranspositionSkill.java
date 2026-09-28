@@ -39,6 +39,10 @@ import net.minecraft.world.phys.Vec3;
  * a stake at the aim point. Sneak = mirror the aim point through yourself.
  */
 public final class TranspositionSkill implements SkillModule {
+    /** The exchange path: a mote every this many blocks between the two spots, at most this many. */
+    private static final double EXCHANGE_SPACING = 0.7D;
+    private static final int EXCHANGE_MOTES_MAX = 12;
+
     @Override
     public MagicSkillDefinition definition() {
         return MagicContent.TRANSPOSITION;
@@ -87,6 +91,20 @@ public final class TranspositionSkill implements SkillModule {
                     yawB = yawA;
                     pitchB = pitchA;
                 }
+                // each body leaves its outline behind as it goes, so the exchange reads at both ends
+                // rather than only as the stitch between them
+                SpatialMatter.vacated(level, ctx.definition(), posA, a.getBbWidth(), a.getBbHeight());
+                if (b != null) {
+                    SpatialMatter.vacated(level, ctx.definition(), posB, b.getBbWidth(), b.getBbHeight());
+                }
+                // and the exchange itself as a dotted thread between the two spots, at chest height,
+                // so a swap across a room reads as one path and not two unrelated puffs; the stitch
+                // the painter draws over it is gone in fourteen ticks, the thread a little after
+                Vec3 chest = new Vec3(0.0D, a.getBbHeight() * 0.5D, 0.0D);
+                // (a sneak-mirrored stake lies behind the caster, so the path can run past their
+                // eyes: the motes that would sit on their lens are left out)
+                SpatialMatter.thread(level, ctx.definition(), posA.add(chest), posB.add(chest), EXCHANGE_SPACING, EXCHANGE_MOTES_MAX, 0.0D,
+                        ctx.caster().getEyePosition());
                 Vec3 destA = SafeSpotSearch.liftClear(level, posB, a.getBbWidth(), a.getBbHeight(), 2.0D);
                 SafeSpotSearch.place(a, destA != null ? destA : posB, yawB, pitchB, true);
                 if (b != null) {

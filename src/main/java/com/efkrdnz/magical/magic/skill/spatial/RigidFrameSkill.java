@@ -33,6 +33,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -49,6 +50,8 @@ public final class RigidFrameSkill implements SkillModule {
     private static final int TELEGRAPH = 10;
     private static final double RADIUS = 6.0D;
     private static final int MAX_SLOTS = 6;
+    /** Motes in the ring an empty lock closes at the frame's reach. */
+    private static final int EMPTY_RING_MOTES = 18;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -95,6 +98,37 @@ public final class RigidFrameSkill implements SkillModule {
 
     private static Vec3 hub(SpellEffectEntity entity, LivingEntity owner) {
         return entity.sneakMode() ? entity.position() : owner.position().add(0.0D, 1.2D, 0.0D);
+    }
+
+    /**
+     * The frame locking, as seen: a strike where each clamp closes, or where nothing was caught, its
+     * reach closing on nothing as a ring. It used to land on the hub itself, and the hub is the
+     * caster's own chest - so the caster took a flash across the whole view, a flat mark hung under
+     * their eyes for two seconds and a spray of glass thrown straight past the camera, every lock.
+     */
+    private static void lockBeat(ServerLevel level, SpellEffectEntity entity, LivingEntity owner, Vec3 hub, List<LivingEntity> locked) {
+        if (locked.isEmpty()) {
+            // Nothing caught: the frame's reach closing on nothing, a ring of pale motes at the
+            // radius it would have locked drawn in toward the hub, and the lock heard. It used to be
+            // a strike on the floor under the hub - the caster's own feet - so an empty cast laid a
+            // cracked mark across the bottom of the caster's view for two seconds and hit-confirmed
+            // them for catching nothing.
+            SpatialMatter.converge(level, entity.definition(), hub, RADIUS, RADIUS * 0.55D, EMPTY_RING_MOTES, true);
+            SpatialMatter.sound(level, entity.definition(), hub, 0.6F);
+            return;
+        }
+        boolean confirmed = false;
+        for (LivingEntity victim : locked) {
+            Vec3 clamp = victim.getBoundingBox().getCenter();
+            Vec3 toHub = hub.subtract(clamp);
+            Vec3 normal = toHub.lengthSqr() > 1.0E-4D ? toHub.normalize() : new Vec3(0.0D, 1.0D, 0.0D);
+            // the caster's hit confirm once per lock, not once per clamp: the client stacks every
+            // overlay it is sent, so six clamps were six vignettes on the caster's screen at once;
+            // a locked player still gets the attacker, which is what aims their own hit overlay
+            Entity attacker = !confirmed || victim instanceof ServerPlayer ? owner : null;
+            SpellFx.impact(level, entity.definition(), clamp, normal, victim, attacker, 0.8F);
+            confirmed = true;
+        }
     }
 
     @Override
@@ -144,7 +178,7 @@ public final class RigidFrameSkill implements SkillModule {
                 if (locked.isEmpty()) {
                     entity.finish();
                 }
-                SpellFx.impact(level, entity.definition(), hub, new Vec3(0.0D, 1.0D, 0.0D), null, owner, 1.0F);
+                lockBeat(level, entity, owner, hub, locked);
                 return;
             }
             ListTag slots = data.getList("Slots", Tag.TAG_COMPOUND);

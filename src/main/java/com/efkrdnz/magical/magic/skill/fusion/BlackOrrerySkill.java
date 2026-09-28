@@ -23,16 +23,20 @@ import com.efkrdnz.magical.magic.visual.ProfileCues;
 import com.efkrdnz.magical.magic.visual.ReleaseMode;
 import com.efkrdnz.magical.magic.visual.SchoolMaterial;
 import com.efkrdnz.magical.magic.visual.Silhouette;
-import com.efkrdnz.magical.magic.visual.SpellFx;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import com.efkrdnz.magical.magic.visual.VisualProfiles;
+import com.efkrdnz.magical.particle.TintedParticleOptions;
+import com.efkrdnz.magical.registry.MagicalParticles;
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -50,6 +54,19 @@ public final class BlackOrrerySkill implements SkillModule {
     private static final double ORBIT = 4.0D;
     private static final int REVOLUTION = 60;
     private static final int LOS_FREE = 20;
+    /** Grains of dark traced round the orbit as it closes: one every fifteen degrees. */
+    private static final int TRACK_GRAINS = 24;
+    /** How fast a traced grain runs along the orbit; a reverse-portal mote speeds up as it lives. */
+    private static final double TRACK_SPEED = 0.03D;
+    /**
+     * The knot of dark each captive is seized in. Mostly the mod's motes, which flare and are gone in
+     * a second: a reverse-portal mote hardly moves for three, and twelve of them were a still magenta
+     * clump left hanging where the captive stood once the orbit had carried it off.
+     */
+    private static final int SEIZE_PORTAL = 4;
+    private static final int SEIZE_MOTES = 8;
+    private static final float SEIZE_MOTE_SCALE = 1.4F;
+    private static final int SEIZE_INK = 3;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -93,6 +110,39 @@ public final class BlackOrrerySkill implements SkillModule {
         entity.setSyncedData(tag);
     }
 
+    /**
+     * The orrery closing, drawn where it closes: the orbit traced in grains of dark round the
+     * caster's feet, turning the way the captives will, and each captive knotted in dark where it
+     * stands. The generic impact used to go off at the hub - the caster's own chest, a hand's
+     * breadth under the camera - so its flash, its blast and its cloud of portal motes were the
+     * whole of the caster's view for a second after every cast. Only its sound is kept there.
+     */
+    private static void close(ServerLevel level, SpellEffectEntity entity, LivingEntity owner, Vec3 hub, List<LivingEntity> caught) {
+        ProfileCues.SoundCue cue = VisualProfiles.of(entity.definition()).sounds().impact();
+        if (cue != null) {
+            level.playSound(null, hub.x, hub.y, hub.z, cue.sound(), SoundSource.PLAYERS, cue.volume(), cue.pitch());
+        }
+        double radius = entity.radius();
+        double turn = entity.sneakMode() ? -1.0D : 1.0D;
+        double y = owner.getY() + 0.15D;
+        for (int i = 0; i < TRACK_GRAINS; i++) {
+            double a = Math.PI * 2.0D * i / TRACK_GRAINS;
+            double cos = Math.cos(a);
+            double sin = Math.sin(a);
+            // tangent to the orbit, in the direction the captives will be carried
+            level.sendParticles(ParticleTypes.REVERSE_PORTAL, owner.getX() + cos * radius, y, owner.getZ() + sin * radius,
+                    0, -sin * turn, 0.0D, cos * turn, TRACK_SPEED);
+        }
+        TintedParticleOptions mote = new TintedParticleOptions(MagicalParticles.MOTE.get(), VisualProfiles.of(entity.definition()).color(ColorRole.BRIGHT), SEIZE_MOTE_SCALE);
+        for (LivingEntity captive : caught) {
+            Vec3 at = captive.getBoundingBox().getCenter();
+            double half = captive.getBbWidth() * 0.5D;
+            level.sendParticles(mote, at.x, at.y, at.z, SEIZE_MOTES, half, captive.getBbHeight() * 0.3D, half, 0.04D);
+            level.sendParticles(ParticleTypes.REVERSE_PORTAL, at.x, at.y, at.z, SEIZE_PORTAL, half, captive.getBbHeight() * 0.3D, half, 0.02D);
+            level.sendParticles(ParticleTypes.SQUID_INK, at.x, at.y, at.z, SEIZE_INK, half * 0.6D, 0.2D, half * 0.6D, 0.04D);
+        }
+    }
+
     @Override
     public SpellBehavior behavior() {
         return entity -> {
@@ -131,7 +181,7 @@ public final class BlackOrrerySkill implements SkillModule {
                 if (caught.isEmpty()) {
                     entity.finish();
                 }
-                SpellFx.impact(level, entity.definition(), hub, new Vec3(0.0D, 1.0D, 0.0D), null, owner, 1.2F);
+                close(level, entity, owner, hub, caught);
                 return;
             }
             double step = Math.PI * 2.0D / REVOLUTION * (entity.sneakMode() ? -1.0D : 1.0D);

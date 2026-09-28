@@ -10,6 +10,7 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -22,6 +23,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -128,6 +130,7 @@ public final class FlareTriangleEntity extends Entity {
 
         completedTicks++;
         if (completedTicks > life()) {
+            burnOut();
             discard();
             return;
         }
@@ -177,12 +180,20 @@ public final class FlareTriangleEntity extends Entity {
         if (level() instanceof ServerLevel serverLevel) {
             // The old PyroclasmExplosionEntity went away with the rework; the eruption is a
             // profile-driven impact cue now, so it picks up Flare Ring's own visual identity.
+            // Held near a unit scale: at twice that the cue's flash, shock ring and stamp spread
+            // a white sunburst across half the screen from eight blocks away, over a geyser whose
+            // fire below is already real.
             com.efkrdnz.magical.magic.visual.SpellFx.impact(serverLevel, MagicContent.FLARE_RING,
                     point.add(0.0D, 0.14D, 0.0D), new Vec3(0.0D, 1.0D, 0.0D), null, owner(),
-                    1.7F + pointIndex * 0.18F + wallThickness() * 0.35F);
+                    0.9F + pointIndex * 0.1F + wallThickness() * 0.2F);
             serverLevel.sendParticles(ParticleTypes.FLAME, point.x, point.y + 0.55D, point.z, 70, 0.55D, 0.75D, 0.55D, 0.055D);
             serverLevel.sendParticles(ParticleTypes.LAVA, point.x, point.y + 0.15D, point.z, 18, 0.42D, 0.18D, 0.42D, 0.12D);
             serverLevel.sendParticles(ParticleTypes.LARGE_SMOKE, point.x, point.y + 0.65D, point.z, 16, 0.52D, 0.48D, 0.52D, 0.025D);
+            // the ground the geyser tears out of
+            BlockState ground = serverLevel.getBlockState(BlockPos.containing(point.x, point.y - 0.2D, point.z));
+            if (!ground.isAir()) {
+                serverLevel.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, ground), point.x, point.y + 0.1D, point.z, 12, 0.35D, 0.05D, 0.35D, 0.18D);
+            }
         }
         ServerPlayer owner = owner();
         AABB area = new AABB(point, point).inflate(1.55D + wallThickness() * 0.45D, 2.3D, 1.55D + wallThickness() * 0.45D);
@@ -236,6 +247,26 @@ public final class FlareTriangleEntity extends Entity {
             serverLevel.sendParticles(ParticleTypes.FLAME, sample.x, base + 0.18D, sample.z, 1 + serverLevel.random.nextInt(2), 0.18D, 0.34D, 0.18D, 0.018D);
             if (serverLevel.random.nextFloat() < 0.20F) {
                 serverLevel.sendParticles(ParticleTypes.LARGE_SMOKE, sample.x, base + 0.45D, sample.z, 1, 0.2D, 0.18D, 0.2D, 0.008D);
+            }
+        }
+    }
+
+    /** The walls go out the way a fire does: a last breath of smoke along every edge. */
+    private void burnOut() {
+        if (!(level() instanceof ServerLevel serverLevel) || pointCount() < 3) {
+            return;
+        }
+        for (int edge = 0; edge < 3; edge++) {
+            Vec3 start = point(edge);
+            Vec3 end = point((edge + 1) % 3);
+            int samples = Mth.clamp(Mth.ceil(start.distanceTo(end) * 0.4D), 2, 6);
+            for (int i = 0; i < samples; i++) {
+                double t = (i + 0.5D) / samples;
+                double x = Mth.lerp(t, start.x, end.x);
+                double z = Mth.lerp(t, start.z, end.z);
+                double y = surfaceYAt(x, z);
+                serverLevel.sendParticles(ParticleTypes.LARGE_SMOKE, x, y + 0.35D, z, 1, 0.2D, 0.15D, 0.2D, 0.015D);
+                serverLevel.sendParticles(ParticleTypes.SMOKE, x, y + 0.15D, z, 1, 0.25D, 0.05D, 0.25D, 0.01D);
             }
         }
     }

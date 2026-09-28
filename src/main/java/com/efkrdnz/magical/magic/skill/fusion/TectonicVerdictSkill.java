@@ -14,6 +14,7 @@ import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
 import com.efkrdnz.magical.magic.status.MagicStatus;
 import com.efkrdnz.magical.magic.status.MagicStatusService;
+import com.efkrdnz.magical.magic.visual.Accent;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
 import com.efkrdnz.magical.magic.visual.CircleScript;
 import com.efkrdnz.magical.magic.visual.ColorRole;
@@ -30,6 +31,9 @@ import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
 import java.util.List;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
@@ -38,6 +42,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -55,6 +60,21 @@ public final class TectonicVerdictSkill implements SkillModule {
     private static final double PLATE = 7.0D;
     private static final int STEPS = 3;
     private static final byte MODE_PLATE = 2;
+    /** Ground shaken off each plate's lifting edge while it rises: one clump every other tick. */
+    private static final int SHED_INTERVAL = 2;
+    private static final int SHED_CRUMBS = 3;
+    /** Dust thrown up along the seam as the jaws meet: a pillar every so many blocks of it. */
+    private static final double PILLAR_SPACING = 1.75D;
+    private static final int PILLAR_GRAINS = 2;
+    /**
+     * The generic impact's scale as the plates start up, as they meet and as they drop. Every count
+     * the matter layer throws follows it, and at 2.0 and 2.5 the earth accent put forty dust plumes
+     * and eighty crumbs on the seam in one tick, a grey cloud over the middle of the frame. The
+     * plates themselves, the ground they shed and the dust pillars along the seam are the event.
+     */
+    private static final float OPEN_IMPACT_SCALE = 1.0F;
+    private static final float CRUSH_IMPACT_SCALE = 1.5F;
+    private static final float DROP_IMPACT_SCALE = 1.0F;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -146,7 +166,7 @@ public final class TectonicVerdictSkill implements SkillModule {
                     }
                     data.put("Plates", plates);
                     entity.setPhase(SpellEffectEntity.PHASE_ACTIVE);
-                    SpellFx.impact(level, entity.definition(), seam, new Vec3(0.0D, 1.0D, 0.0D), null, owner, 2.0F);
+                    SpellFx.impact(level, entity.definition(), seam, new Vec3(0.0D, 1.0D, 0.0D), null, owner, OPEN_IMPACT_SCALE);
                 }
                 int since = t - WINDUP;
                 float angle = (float) Math.toRadians(Math.min(1.0D, since / (double) RISE) * 80.0D);
@@ -166,6 +186,9 @@ public final class TectonicVerdictSkill implements SkillModule {
                     box.setPos(pos.x, pos.y, pos.z);
                     box.setValue(angle * side);
                     box.setSolid(since > 2);
+                }
+                if (since > 0 && since <= RISE && since % SHED_INTERVAL == 0) {
+                    shed(level, seam, f, axis, angle);
                 }
                 if (since <= RISE) {
                     // slide everything on either plate toward the seam
@@ -188,11 +211,15 @@ public final class TectonicVerdictSkill implements SkillModule {
                             if (Math.abs(rel.dot(f)) > 1.4D || Math.abs(rel.dot(axis)) > HALF_LENGTH) {
                                 continue;
                             }
-                            SkillTargets.hurt(level, owner, victim, entity.damage(), entity.definition(), true);
+                            // the seam's own impact below throws the dust over every body in the jaws; a heavy
+                            // impact on each of them too was a second cloud of plumes on the same spot
+                            SkillTargets.hurt(level, owner, victim, entity.damage(), entity.definition(), false);
+                            FusionHits.land(level, entity.definition(), victim, owner);
                             victim.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 160, 1));
                             MagicStatusService.apply(victim, MagicStatus.ROOTED, HOLD, entity.definition().id(), owner);
                         }
-                        SpellFx.impact(level, entity.definition(), seam.add(0.0D, 1.0D, 0.0D), new Vec3(0.0D, 1.0D, 0.0D), null, owner, 2.5F);
+                        SpellFx.impact(level, entity.definition(), seam.add(0.0D, 1.0D, 0.0D), new Vec3(0.0D, 1.0D, 0.0D), null, owner, CRUSH_IMPACT_SCALE);
+                        slam(level, seam, axis);
                     }
                     return;
                 }
@@ -216,10 +243,55 @@ public final class TectonicVerdictSkill implements SkillModule {
                         box.finish();
                     }
                 }
-                SpellFx.impact(level, entity.definition(), entity.position(), new Vec3(0.0D, 1.0D, 0.0D), null, entity.owner(), 1.6F);
+                SpellFx.impact(level, entity.definition(), entity.position(), new Vec3(0.0D, 1.0D, 0.0D), null, entity.owner(), DROP_IMPACT_SCALE);
                 SpellFx.decal(level, entity.definition(), entity.position(), new Vec3(0.0D, 1.0D, 0.0D), 3.0F);
             }
         };
+    }
+
+    /** The block the seam is scored in, or null where it hangs over nothing. */
+    private static BlockState groundUnder(ServerLevel level, Vec3 seam) {
+        BlockState ground = level.getBlockState(BlockPos.containing(seam.x, seam.y - 0.5D, seam.z));
+        return ground.isAir() ? null : ground;
+    }
+
+    /**
+     * The ground coming up with the plates: a clump of crumbs of it shaken off each plate's lifting
+     * edge, somewhere along its length, which rises from the floor to seven blocks up as the hinge
+     * turns. The plates are the ground, so they shed the ground's own texture.
+     */
+    private static void shed(ServerLevel level, Vec3 seam, Vec3 f, Vec3 axis, float angle) {
+        BlockState ground = groundUnder(level, seam);
+        if (ground == null) {
+            return;
+        }
+        BlockParticleOption crumbs = new BlockParticleOption(ParticleTypes.BLOCK, ground);
+        double reach = Math.cos(angle) * PLATE;
+        double lift = Math.sin(angle) * PLATE;
+        for (int side = -1; side <= 1; side += 2) {
+            double along = (level.random.nextDouble() * 2.0D - 1.0D) * HALF_LENGTH;
+            Vec3 edge = seam.add(f.scale(reach * side)).add(axis.scale(along)).add(0.0D, lift, 0.0D);
+            level.sendParticles(crumbs, edge.x, edge.y, edge.z, SHED_CRUMBS, 0.3D, 0.1D, 0.3D, 0.05D);
+        }
+    }
+
+    /**
+     * The jaws meeting: dust thrown straight up out of the seam along its whole length, the way a
+     * mace throws it out of the floor it lands on.
+     */
+    private static void slam(ServerLevel level, Vec3 seam, Vec3 axis) {
+        BlockState ground = groundUnder(level, seam);
+        if (ground == null) {
+            return;
+        }
+        BlockParticleOption dust = new BlockParticleOption(ParticleTypes.DUST_PILLAR, ground);
+        for (double along = -HALF_LENGTH; along <= HALF_LENGTH; along += PILLAR_SPACING) {
+            Vec3 p = seam.add(axis.scale(along));
+            for (int i = 0; i < PILLAR_GRAINS; i++) {
+                // a dust pillar adds a gaussian of half a block a tick to the upward speed it is handed
+                level.sendParticles(dust, p.x, p.y + 0.1D, p.z, 0, 0.0D, 1.0D, 0.0D, 0.25D);
+            }
+        }
     }
 
     @Override
@@ -227,6 +299,8 @@ public final class TectonicVerdictSkill implements SkillModule {
         return VisualProfile.builder(definition())
                 .material(SchoolMaterial.SPATIAL)
                 .palette(2)
+                // the plates are the ground coming up: grit, dust and crumbs of it, not spatial glass
+                .accent(Accent.EARTH)
                 .circle(CircleScript.of(SchoolMaterial.SPATIAL).emblem(EmblemId.JAWS).frame(9).band(GlyphKind.TOOTH_BAND, 28, ColorRole.HOT).band(GlyphKind.CHAIN_BAND, 14).band(GlyphKind.TICK_BAND, 56, ColorRole.DIM).stamps(StampId.DIAMOND, 9).mirror(1).orbit(7, 0.86F, 4).core(CoreKind.CROSS).stack(3, 0.6F).spin(SpinSignature.STATIC))
                 .anchor(CircleAnchor.AIM_SURFACE)
                 .throughTerrain(true)

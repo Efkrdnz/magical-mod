@@ -28,10 +28,13 @@ import com.efkrdnz.magical.magic.visual.VisualProfile;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 
@@ -44,6 +47,23 @@ import net.minecraft.world.phys.Vec3;
 public final class WildfireSkill implements SkillModule {
     private static final int SPREAD_INTERVAL = 5;
     private static final int BURN_TICKS = 60;
+    /**
+     * The flame beat runs once per spread interval, two ticks after it, so it never lands on the
+     * tick a new cell catches and throws its own burst.
+     */
+    private static final int FLAME_PHASE = 2;
+    /**
+     * A cell is the fire's front for this long after it catches and burns hardest (two tongues a
+     * beat), then burns steadily (one) until {@link #EMBER_AGE}, when it is down to embers (a small
+     * flame) and smokes. About four particles a tick at the peak, over a front thirteen cells long.
+     */
+    private static final int FRONT_AGE = 20;
+    private static final int EMBER_AGE = 45;
+    /** How fast a tongue licks up: a flame keeps 0.96 of its speed a tick, so it climbs about 25x this. */
+    private static final double TONGUE_LIFT = 0.025D;
+    private static final double TONGUE_LIFT_SPREAD = 0.015D;
+    /** How far across its block a tongue may start: a burning cell is a patch of fire, not a candle. */
+    private static final double CELL_SPREAD = 0.35D;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -192,7 +212,52 @@ public final class WildfireSkill implements SkillModule {
                     }
                 }
             }
+            if (entity.tickCount % SPREAD_INTERVAL == FLAME_PHASE) {
+                flicker(level, cells, entity.tickCount);
+            }
         };
+    }
+
+    /**
+     * The fire itself: real flames licking up off every burning cell - hardest at the front, down to
+     * embers behind it - a thread of smoke off the cells burning down, and a breath of large smoke off
+     * each one as it goes out, so the front reads as a grass fire and the painter's tongues as its
+     * glow. One flame a cell sitting still on the ground read as a few candles, and by the time the
+     * front had walked three cells there was next to nothing to see. The beat's cadence is the spread
+     * interval, so a cell's burn-out window is met exactly once.
+     */
+    private static void flicker(ServerLevel level, ListTag cells, int now) {
+        RandomSource random = level.random;
+        for (int i = 0; i < cells.size(); i++) {
+            CompoundTag c = cells.getCompound(i);
+            int age = now - c.getInt("Tick");
+            BlockPos p = BlockPos.of(c.getLong("Pos"));
+            double x = p.getX() + 0.5D;
+            double y = p.getY();
+            double z = p.getZ() + 0.5D;
+            if (age <= BURN_TICKS) {
+                if (age < EMBER_AGE) {
+                    int tongues = age < FRONT_AGE ? 2 : 1;
+                    for (int t = 0; t < tongues; t++) {
+                        tongue(level, random, ParticleTypes.FLAME, x, y + 0.1D, z);
+                    }
+                } else {
+                    // burning down: embers, and the smoke rising off the ground the front has left
+                    tongue(level, random, ParticleTypes.SMALL_FLAME, x, y + 0.05D, z);
+                    level.sendParticles(ParticleTypes.SMOKE, x, y + 0.3D, z, 1, 0.2D, 0.1D, 0.2D, 0.01D);
+                }
+            } else if (age <= BURN_TICKS + SPREAD_INTERVAL) {
+                level.sendParticles(ParticleTypes.LARGE_SMOKE, x, y + 0.15D, z, 2, 0.2D, 0.05D, 0.2D, 0.01D);
+            }
+        }
+    }
+
+    /** One flame from somewhere across the cell, climbing: count 0 sends it at exactly this velocity. */
+    private static void tongue(ServerLevel level, RandomSource random, SimpleParticleType flame, double x, double y, double z) {
+        double ox = (random.nextDouble() - 0.5D) * 2.0D * CELL_SPREAD;
+        double oz = (random.nextDouble() - 0.5D) * 2.0D * CELL_SPREAD;
+        double lift = TONGUE_LIFT + random.nextDouble() * TONGUE_LIFT_SPREAD;
+        level.sendParticles(flame, x + ox, y, z + oz, 0, (random.nextDouble() - 0.5D) * 0.01D, lift, (random.nextDouble() - 0.5D) * 0.01D, 1.0D);
     }
 
     @Override

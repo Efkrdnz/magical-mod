@@ -114,7 +114,10 @@ public final class ArcanumHareSkill implements SkillModule {
             int life = Math.round(base * Mth.clamp(120.0F / Math.max(1.0F, victim.getMaxHealth()), 0.3F, 1.0F));
             PolymorphShellEntity shell = PolymorphShellEntity.create(level, entity.definition(), owner, victim, life, entity.seed());
             level.addFreshEntity(shell);
-            SpellFx.impact(level, entity.definition(), victim.getBoundingBox().getCenter(), new Vec3(0.0D, 1.0D, 0.0D), victim == owner ? null : victim, owner, 1.2F);
+            // on yourself the hit lands at your feet, its mark on the floor, rather than inside
+            // your own chest where its flash and its heavy puff went off round the camera
+            Vec3 struck = victim == owner ? owner.position().add(0.0D, 0.05D, 0.0D) : victim.getBoundingBox().getCenter();
+            SpellFx.impact(level, entity.definition(), struck, new Vec3(0.0D, 1.0D, 0.0D), victim == owner ? null : victim, owner, 1.2F);
             entity.setPhase(SpellEffectEntity.PHASE_ACTIVE);
         };
     }
@@ -127,7 +130,9 @@ public final class ArcanumHareSkill implements SkillModule {
                 .circle(CircleScript.of(SchoolMaterial.ARCANE).emblem(EmblemId.HARE).frame(13, CircleScript.FrameStyle.NESTED).band(GlyphKind.BRAID_BAND, 14, ColorRole.HOT).band(GlyphKind.TICK_BAND, 28).band(GlyphKind.RUNE_BAND, 7).stamps(StampId.CRESCENT, 7).orbit(5, 0.84F, 4).core(CoreKind.HEX_LENS).spin(SpinSignature.COUNTER_SLOW))
                 .anchor(CircleAnchor.EYE_FORWARD)
                 .silhouette(Silhouette.custom("arcanum_hare", 0.6F).forModes(1))
-                .silhouette(Silhouette.orb(Silhouette.Form.BILLBOARD, FxKinds.Orb.HEX_LENS, 0.35F, 6, 4).forModes(0))
+                // the hex gathering at the hand, sized to the sigil it sits in: at 0.35 a block short
+                // of the eye it was a white starburst across the middle of the caster's view
+                .silhouette(Silhouette.orb(Silhouette.Form.BILLBOARD, FxKinds.Orb.HEX_LENS, 0.18F, 6, 4).withOpacity(0.75F).forModes(0))
                 .release(ReleaseMode.FUNNEL, ProfileCues.FirstPersonPreset.CASTER_BLOOM)
                 .impact(FxKinds.Mark.HEX_CELLS, FxKinds.Smoke.GLASS_SPLINTER, FxKinds.Overlay.HEX_PULSE)
                 .bounds(2.0F, 2.0F, 1.0F);

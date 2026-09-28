@@ -1,8 +1,12 @@
 package com.efkrdnz.magical.entity;
 
 import com.efkrdnz.magical.magic.MagicDamageService;
+import com.efkrdnz.magical.particle.TintedParticleOptions;
 import com.efkrdnz.magical.registry.MagicalEntities;
+import com.efkrdnz.magical.registry.MagicalParticles;
 import java.util.UUID;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -15,6 +19,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -28,6 +33,10 @@ public final class MagicBarrageShotEntity extends Entity {
     private static final EntityDataAccessor<Float> DIR_Y = SynchedEntityData.defineId(MagicBarrageShotEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Float> DIR_Z = SynchedEntityData.defineId(MagicBarrageShotEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Integer> LIFE = SynchedEntityData.defineId(MagicBarrageShotEntity.class, EntityDataSerializers.INT);
+    /** A volley can land several shots a tick, so a hit is a spark, not a burst. */
+    private static final int HIT_MOTES = 3;
+    private static final int HIT_SHARDS = 2;
+    private static final int BLOCK_CRUMBS = 3;
     private UUID ownerUuid;
     private ResourceLocation sourceSkillId;
 
@@ -76,6 +85,7 @@ public final class MagicBarrageShotEntity extends Entity {
         if (!level().isClientSide()) {
             BlockHitResult blockHit = level().clip(new ClipContext(previous, next, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
             if (blockHit.getType() != HitResult.Type.MISS) {
+                chipBlock(blockHit);
                 discard();
                 return;
             }
@@ -100,9 +110,40 @@ public final class MagicBarrageShotEntity extends Entity {
             target.invulnerableTime = 0;
             Vec3 push = direction().scale(0.09D + size() * 0.035D);
             target.push(push.x, 0.035D + Math.max(0.0D, push.y) * 0.35D, push.z);
+            hitSpark(target);
             discard();
             return;
         }
+    }
+
+    /**
+     * A shot used to vanish into what it hit, so the dome's fire landed on nothing: a few motes of
+     * the shot's own colour and a couple of shards of it where it struck the body.
+     */
+    private void hitSpark(LivingEntity target) {
+        if (!(level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        Vec3 at = target.getBoundingBox().getCenter().add(position()).scale(0.5D);
+        serverLevel.sendParticles(new TintedParticleOptions(MagicalParticles.MOTE.get(), color(), 1.3F), at.x, at.y, at.z, HIT_MOTES, 0.12D, 0.12D, 0.12D, 0.06D);
+        serverLevel.sendParticles(new TintedParticleOptions(MagicalParticles.SHARD.get(), color(), 1.0F), at.x, at.y, at.z, HIT_SHARDS, 0.08D, 0.08D, 0.08D, 0.12D);
+    }
+
+    /**
+     * A shot that meets a block chips it. Not one born inside the ground: the dome fires from the
+     * whole sphere, so half its shots start on the buried lower half and the clip reports them
+     * inside the block they start in, where crumbs would only be thrown into solid stone.
+     */
+    private void chipBlock(BlockHitResult blockHit) {
+        if (blockHit.isInside() || !(level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        Vec3 at = blockHit.getLocation();
+        BlockState struck = serverLevel.getBlockState(blockHit.getBlockPos());
+        if (!struck.isAir()) {
+            serverLevel.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, struck), at.x, at.y, at.z, BLOCK_CRUMBS, 0.1D, 0.1D, 0.1D, 0.1D);
+        }
+        serverLevel.sendParticles(new TintedParticleOptions(MagicalParticles.MOTE.get(), color(), 1.1F), at.x, at.y, at.z, 2, 0.08D, 0.08D, 0.08D, 0.05D);
     }
 
     private Entity ownerEntity() {

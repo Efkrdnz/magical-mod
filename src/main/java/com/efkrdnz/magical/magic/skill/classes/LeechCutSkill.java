@@ -11,6 +11,7 @@ import com.efkrdnz.magical.magic.cast.SkillCastHandler;
 import com.efkrdnz.magical.magic.cast.TuningView;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
+import com.efkrdnz.magical.magic.visual.Accent;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
 import com.efkrdnz.magical.magic.visual.CircleScript;
 import com.efkrdnz.magical.magic.visual.ColorRole;
@@ -25,7 +26,11 @@ import com.efkrdnz.magical.magic.visual.Silhouette;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import com.efkrdnz.magical.magic.visual.VisualProfiles;
 import java.util.List;
+import net.minecraft.core.particles.TrailParticleOption;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -42,6 +47,12 @@ public final class LeechCutSkill implements SkillModule {
     private static final float LEECH = 0.6F;
     private static final float HEAL_CAP = 20.0F;
     private static final int BARRIER_CAP = 12;
+    /** Motes in the thread each wounded body sends back. */
+    private static final int DRAIN_MOTES = 6;
+    /** How fast the thread runs home: two ticks a block, held to a snap rather than a drift. */
+    private static final double DRAIN_TICKS_PER_BLOCK = 2.0D;
+    private static final int DRAIN_MIN_TICKS = 4;
+    private static final int DRAIN_MAX_TICKS = 10;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -68,7 +79,11 @@ public final class LeechCutSkill implements SkillModule {
                     }
                     float before = victim.getHealth();
                     SkillTargets.hurt(ctx.level(), ctx.caster(), victim, ctx.damage(), ctx.definition(), true);
-                    dealt += Math.max(0.0F, before - victim.getHealth());
+                    float taken = Math.max(0.0F, before - victim.getHealth());
+                    dealt += taken;
+                    if (taken > 0.0F) {
+                        drain(ctx.level(), victim, ctx.caster(), VisualProfiles.of(ctx.definition()).color(ColorRole.BASE));
+                    }
                     if (++struck >= MAX_TARGETS) {
                         break;
                     }
@@ -103,6 +118,21 @@ public final class LeechCutSkill implements SkillModule {
         };
     }
 
+    /**
+     * The leech made visible: a thread of the victim's life pulled out of the wound and into the
+     * caster. Vanilla's trail particle flies to the point it is handed, so every mote lands on the
+     * caster wherever on the body it starts; it is aimed at the waist rather than the eyes, so in
+     * first person the stream runs in under the view instead of into it. Only a body that actually
+     * lost health bleeds, because only that one fed the heal.
+     */
+    private static void drain(ServerLevel level, LivingEntity victim, LivingEntity caster, int rgb) {
+        Vec3 into = caster.position().add(0.0D, caster.getBbHeight() * 0.5D, 0.0D);
+        Vec3 from = victim.getBoundingBox().getCenter();
+        int ticks = Mth.clamp((int) Math.round(from.distanceTo(into) * DRAIN_TICKS_PER_BLOCK), DRAIN_MIN_TICKS, DRAIN_MAX_TICKS);
+        level.sendParticles(new TrailParticleOption(into, rgb, ticks), from.x, from.y, from.z, DRAIN_MOTES,
+                victim.getBbWidth() * 0.3D, victim.getBbHeight() * 0.25D, victim.getBbWidth() * 0.3D, 0.0D);
+    }
+
     @Override
     public SpellBehavior behavior() {
         return entity -> {
@@ -124,9 +154,14 @@ public final class LeechCutSkill implements SkillModule {
         return VisualProfile.builder(definition())
                 .material(SchoolMaterial.VOID)
                 .palette(1)
+                // a cut that feeds on what it opens: its matter is the victim's blood, not the Void's violet
+                .accent(Accent.GORE)
                 .circle(CircleScript.of(SchoolMaterial.VOID).emblem(EmblemId.LEECH).frame(10).band(GlyphKind.WAVE_BAND, 10, ColorRole.INK).band(GlyphKind.TICK_BAND, 20).stamps(StampId.TEARDROP, 5).core(CoreKind.VOID_PIT).spin(SpinSignature.ONE_WAY_FAST))
                 .anchor(CircleAnchor.EYE_FORWARD)
-                .silhouette(Silhouette.filament(Silhouette.Form.HELIX, FxKinds.Filament.VEIN, 2, 0.16F, 4.5F, 1).withRole(ColorRole.INK))
+                // The drill runs out from under the eyes, so the caster sees the helix end-on: drawn in ink
+                // its coils were a string of black blots across the middle of the view. In the cut's own
+                // crimson it is a pair of veins, and a little fainter.
+                .silhouette(Silhouette.filament(Silhouette.Form.HELIX, FxKinds.Filament.VEIN, 2, 0.16F, 4.5F, 1).withOpacity(0.7F))
                 .release(ReleaseMode.FUNNEL, ProfileCues.FirstPersonPreset.CASTER_RECOIL)
                 .impact(FxKinds.Mark.INK_STAIN, FxKinds.Smoke.INK_BLOOM, FxKinds.Overlay.HEARTBEAT)
                 .bounds(5.0F, 1.5F, 1.5F);

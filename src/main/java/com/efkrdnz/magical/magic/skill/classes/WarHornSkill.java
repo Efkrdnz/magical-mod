@@ -14,6 +14,7 @@ import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
 import com.efkrdnz.magical.magic.visual.CircleScript;
+import com.efkrdnz.magical.magic.visual.ColorRole;
 import com.efkrdnz.magical.magic.visual.CoreKind;
 import com.efkrdnz.magical.magic.visual.EmblemId;
 import com.efkrdnz.magical.magic.visual.FxKinds;
@@ -26,7 +27,11 @@ import com.efkrdnz.magical.magic.visual.SpellFx;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import com.efkrdnz.magical.magic.visual.VisualProfiles;
+import com.efkrdnz.magical.particle.TintedParticleOptions;
 import com.efkrdnz.magical.registry.MagicalAttachments;
+import com.efkrdnz.magical.registry.MagicalParticles;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -48,6 +53,31 @@ public final class WarHornSkill implements SkillModule {
     private static final double NARROW_COS = Math.cos(Math.toRadians(24.0D));
     private static final double ALLY_RADIUS = 12.0D;
     private static final int ALLY_TICKS = 120;
+    /** The blast's half-angles in degrees, the same cones CONE_COS and NARROW_COS test against. */
+    private static final double CONE_DEGREES = 45.0D;
+    private static final double NARROW_DEGREES = 24.0D;
+    /**
+     * Where on the ground ahead the blast's light lands, and at what cue scale: under a heavy hit.
+     * Three blocks out, the ground it throws up landed as dark crumbs at the bottom of the frame.
+     */
+    private static final double MARK_AHEAD = 4.0D;
+    private static final float BLAST_FX_SCALE = 1.2F;
+    /**
+     * The cloud front: how many puffs, where they start, how high they ride and how fast they roll
+     * out. Thirteen at up to a block off the floor met as a heap of grey squares on the target four
+     * ticks in; nine riding low stay a wall of air sweeping the ground under the crosshair.
+     */
+    private static final int WAVE_PUFFS = 9;
+    private static final double WAVE_START = 2.5D;
+    private static final double WAVE_LOW = 0.3D;
+    private static final double WAVE_HIGH = 0.75D;
+    private static final double WAVE_SPEED = 0.65D;
+    private static final double WAVE_SPEED_LONG = 0.9D;
+    /** Wind-charge gusts where the wave leaves the horn. */
+    private static final int WAVE_GUSTS = 3;
+    /** Gold motes lifting off each ally the horn rallies. */
+    private static final int RALLY_MOTES = 6;
+    private static final float RALLY_MOTE_SCALE = 1.4F;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -61,7 +91,8 @@ public final class WarHornSkill implements SkillModule {
             public CastResult cast(CastContext ctx) {
                 SpellEffectEntity blast = SpellEffectEntity.spawn(ctx, ctx.eye().add(ctx.look().scale(0.8D)),
                         WINDUP + 10, ctx.size(), ctx.look());
-                SpellFx.release(ctx.caster(), ctx.definition(), ctx.look());
+                // no release here: the casting service plays it on SUCCESS, and a second one doubled the
+                // muzzle flash, the burst and the sound, and stacked two bloom washes on the caster's screen
                 return CastResult.SUCCESS;
             }
 
@@ -115,6 +146,8 @@ public final class WarHornSkill implements SkillModule {
             }
 
             // The other half of the horn: everyone on your side stands a little straighter.
+            TintedParticleOptions rally = new TintedParticleOptions(MagicalParticles.MOTE.get(),
+                    VisualProfiles.of(entity.definition()).color(ColorRole.BRIGHT), RALLY_MOTE_SCALE);
             for (LivingEntity ally : SkillTargets.alliesWithin(level, caller, caller.position(), ALLY_RADIUS)) {
                 ally.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, ALLY_TICKS, 0, true, false));
                 if (ally instanceof ServerPlayer rallied) {
@@ -122,11 +155,40 @@ public final class WarHornSkill implements SkillModule {
                     state.addBarrier(entity.definition().barrierRestore());
                     state.sync(rallied);
                 }
+                // the caller is on their own side too, but motes round their own head would fill the view
+                if (ally != caller) {
+                    level.sendParticles(rally, ally.getX(), ally.getY() + ally.getBbHeight() * 0.5D, ally.getZ(), RALLY_MOTES,
+                            ally.getBbWidth() * 0.4D, ally.getBbHeight() * 0.3D, ally.getBbWidth() * 0.4D, 0.02D);
+                }
             }
 
             entity.setPhase(SpellEffectEntity.PHASE_ACTIVE);
-            SpellFx.impact(level, entity.definition(), caller.getEyePosition().add(look.scale(2.0D)), look, null, caller, 1.7F);
+            // The blast's light lands on the ground ahead, face up, rather than two blocks in front
+            // of the caller's eyes: there its ray burst hung square across the middle of the view and
+            // its scale made it heavy, which put an explosion sprite and a ring of puffs in their face.
+            Vec3 ahead = caller.position().add(flatLook.scale(MARK_AHEAD)).add(0.0D, 1.0D, 0.0D);
+            SpellFx.impact(level, entity.definition(), SpellFx.groundBelow(level, ahead, 4), new Vec3(0.0D, 1.0D, 0.0D), null, caller, BLAST_FX_SCALE);
+            blow(level, caller, flatLook, narrow);
         };
+    }
+
+    /**
+     * The wave itself, as real air: a front of cloud rolling out across the cone the blast covers,
+     * low enough to read as a shove rather than a fog, faster and tighter for the narrow blast, and
+     * a few wind-charge gusts where it leaves the horn. Every puff starts two and a half blocks out,
+     * clear of the cloud particle's habit of sinking toward any player within two blocks of it.
+     */
+    private static void blow(ServerLevel level, LivingEntity caller, Vec3 flatLook, boolean narrow) {
+        double half = Math.toRadians(narrow ? NARROW_DEGREES : CONE_DEGREES);
+        double speed = narrow ? WAVE_SPEED_LONG : WAVE_SPEED;
+        Vec3 origin = caller.position().add(flatLook.scale(WAVE_START));
+        for (int i = 0; i < WAVE_PUFFS; i++) {
+            Vec3 d = flatLook.yRot((float) (-half + 2.0D * half * i / (WAVE_PUFFS - 1)));
+            double lift = (i & 1) == 0 ? WAVE_LOW : WAVE_HIGH;
+            level.sendParticles(ParticleTypes.CLOUD, origin.x + d.x * 0.3D, origin.y + lift, origin.z + d.z * 0.3D, 0, d.x, 0.02D, d.z, speed);
+        }
+        Vec3 mouth = caller.position().add(flatLook.scale(WAVE_START + 0.6D));
+        level.sendParticles(ParticleTypes.SMALL_GUST, mouth.x, mouth.y + 1.1D, mouth.z, WAVE_GUSTS, 0.7D, 0.35D, 0.7D, 0.0D);
     }
 
     @Override
@@ -136,8 +198,12 @@ public final class WarHornSkill implements SkillModule {
                 .palette(2)
                 .circle(CircleScript.of(SchoolMaterial.LIGHT).emblem(EmblemId.CROWN).frame(11).band(GlyphKind.ARC_SWEEP, 21).band(GlyphKind.CHAIN_BAND, 7).stamps(StampId.TRIANGLE, 7).core(CoreKind.SUNBURST).spin(SpinSignature.SWEEP))
                 .anchor(CircleAnchor.EYE_FORWARD)
-                .silhouette(Silhouette.field(Silhouette.Form.CONE_SPOT, FxKinds.Field.HOLY_GLASS, 3.0F, 1.6F))
-                .silhouette(Silhouette.swarm(Silhouette.Form.FAN, FxKinds.Smoke.LENS_SPARKLE, 12, 1.4F))
+                // the cone is a wall three blocks round the caller's eyes, so in first person it washed the
+                // whole lower half of the view; at 0.2 its rim still stood in the sky as white shafts
+                // over the caller's windup, so it is a faint shimmer and the cloud front carries the blast
+                .silhouette(Silhouette.field(Silhouette.Form.CONE_SPOT, FxKinds.Field.HOLY_GLASS, 3.0F, 1.6F).withOpacity(0.12F))
+                // a swarm takes the blast's radius, so twelve additive glints stood round the caller's head
+                .silhouette(Silhouette.swarm(Silhouette.Form.FAN, FxKinds.Smoke.LENS_SPARKLE, 4, 1.4F).withOpacity(0.6F))
                 .release(ReleaseMode.FUNNEL, ProfileCues.FirstPersonPreset.CASTER_BLOOM)
                 .impact(FxKinds.Mark.RAY_BURST, FxKinds.Smoke.DUST, FxKinds.Overlay.BLOOM_RAYS)
                 .bounds(4.0F, 3.0F, 1.2F);

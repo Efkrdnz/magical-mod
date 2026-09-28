@@ -25,7 +25,12 @@ import com.efkrdnz.magical.magic.visual.SpellFx;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import com.efkrdnz.magical.magic.visual.VisualProfiles;
+import com.efkrdnz.magical.particle.TintedParticleOptions;
+import com.efkrdnz.magical.registry.MagicalParticles;
 import java.util.List;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -35,6 +40,16 @@ import net.minecraft.world.phys.Vec3;
  * it to guard the aimed spot instead.
  */
 public final class SpiritWolfSkill implements SkillModule {
+    /**
+     * Mist drawn in to where the wolf condenses: wisps of its colour run in off a ring round the
+     * spot, a wisp keeping 0.93 of its speed a tick so it covers about fourteen times what it is
+     * sent at, over a ripple on the ground it condensed out of.
+     */
+    private static final int CONDENSE_WISPS = 8;
+    private static final double CONDENSE_RING = 1.1D;
+    private static final float CONDENSE_WISP_SCALE = 2.2F;
+    private static final float CONDENSE_RIPPLE = 0.6F;
+
     @Override
     public MagicSkillDefinition definition() {
         return MagicContent.SPIRIT_WOLF;
@@ -55,7 +70,8 @@ public final class SpiritWolfSkill implements SkillModule {
                     SpiritWolfEntity wolf = existing.get(0);
                     wolf.refresh(life, guard);
                     wolf.setHealth(wolf.getMaxHealth());
-                    SpellFx.impact(ctx.level(), ctx.definition(), wolf.position().add(0.0D, 0.5D, 0.0D), new Vec3(0.0D, 1.0D, 0.0D), null, ctx.caster(), 0.8F);
+                    // a recast gathers it again out of the same mist it first condensed from
+                    condense(ctx.level(), ctx.definition(), wolf.position());
                     return CastResult.SUCCESS;
                 }
                 Vec3 look = ctx.look();
@@ -65,7 +81,7 @@ public final class SpiritWolfSkill implements SkillModule {
                 Vec3 safe = SafeSpotSearch.standableNear(ctx.level(), spawn, 1, 2, 0.8F, 0.9F);
                 SpiritWolfEntity wolf = SpiritWolfEntity.create(ctx.level(), ctx.definition(), ctx.caster(), safe != null ? safe : ctx.feet(), life, ctx.damage(), (int) (ctx.seed() & 63), guard);
                 ctx.level().addFreshEntity(wolf);
-                SpellFx.impact(ctx.level(), ctx.definition(), wolf.position().add(0.0D, 0.5D, 0.0D), new Vec3(0.0D, 1.0D, 0.0D), null, ctx.caster(), 1.0F);
+                condense(ctx.level(), ctx.definition(), wolf.position());
                 return CastResult.SUCCESS;
             }
 
@@ -94,6 +110,30 @@ public final class SpiritWolfSkill implements SkillModule {
                 return TuningView.DEFAULT;
             }
         };
+    }
+
+    /**
+     * The wolf condensing at the caster's side. It was a full hit cue, a block and a bit from the
+     * caster's own camera: its splash, bubbles and shader mist puffs went off at the edge of their
+     * view as though something had struck them, and it laid no mark, because the hit sat half a
+     * block over the floor with nothing under it. Only its sound is kept.
+     */
+    private static void condense(ServerLevel level, MagicSkillDefinition definition, Vec3 feet) {
+        VisualProfile profile = VisualProfiles.of(definition);
+        TintedParticleOptions mist = new TintedParticleOptions(MagicalParticles.WISP.get(), profile.color(ColorRole.BRIGHT), CONDENSE_WISP_SCALE);
+        double offset = level.random.nextDouble() * Math.PI * 2.0D;
+        for (int i = 0; i < CONDENSE_WISPS; i++) {
+            double a = offset + Math.PI * 2.0D * i / CONDENSE_WISPS;
+            double cos = Math.cos(a);
+            double sin = Math.sin(a);
+            double y = feet.y + 0.3D + 0.3D * (i % 2);
+            level.sendParticles(mist, feet.x + cos * CONDENSE_RING, y, feet.z + sin * CONDENSE_RING, 0, -cos, 0.15D, -sin, CONDENSE_RING / 14.0D);
+        }
+        SpellFx.zoneTick(level, definition, feet.add(0.0D, 0.04D, 0.0D), CONDENSE_RIPPLE);
+        ProfileCues.SoundCue cue = profile.sounds().impact();
+        if (cue != null) {
+            level.playSound(null, feet.x, feet.y, feet.z, cue.sound(), SoundSource.PLAYERS, cue.volume(), cue.pitch());
+        }
     }
 
     @Override

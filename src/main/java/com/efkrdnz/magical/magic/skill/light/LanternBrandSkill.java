@@ -25,6 +25,8 @@ import com.efkrdnz.magical.magic.visual.SpellFx;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
@@ -103,10 +105,23 @@ public final class LanternBrandSkill implements SkillModule {
                 }
                 SkillTargets.hurt(entity.serverLevel(), entity.owner(), near, entity.damage(), entity.definition().id());
                 SkillTargets.shove(near, centre, (inward ? -0.35D : 0.35D) * Math.max(0.5D, entity.knockback() * 2.0D), 0.08D);
+                sear(entity.serverLevel(), near);
             }
             entity.setValue((entity.tickCount / (float) PULSE) % 2.0F);
-            SpellFx.zoneTick(entity.serverLevel(), entity.definition(), centre, entity.radius() * 0.5F);
+            SpellFx.zoneTickWithin(entity.serverLevel(), entity.definition(), centre, entity.radius());
         };
+    }
+
+    /**
+     * What a pulse leaves on a body it sears: a lick of the lantern's flame and a breath of singe
+     * smoke off the top of it. The pulse itself is the ripple and the motes the zone cue throws; this
+     * is what says which of the pack was standing too close, which a pulse used to hurt unmarked.
+     */
+    private static void sear(ServerLevel level, LivingEntity body) {
+        double spread = body.getBbWidth() * 0.35D;
+        double height = body.getBbHeight();
+        level.sendParticles(ParticleTypes.SMALL_FLAME, body.getX(), body.getY() + height * 0.5D, body.getZ(), 4, spread, height * 0.3D, spread, 0.01D);
+        level.sendParticles(ParticleTypes.WHITE_SMOKE, body.getX(), body.getY() + height * 0.85D, body.getZ(), 2, spread, 0.1D, spread, 0.01D);
     }
 
     @Override
@@ -115,7 +130,9 @@ public final class LanternBrandSkill implements SkillModule {
                 .material(SchoolMaterial.LIGHT)
                 .circle(CircleScript.of(SchoolMaterial.LIGHT).emblem(EmblemId.LANTERN).frame(16).band(GlyphKind.DASHED_RING, 12).spokes(24, 0.55F, true).stamps(StampId.TEARDROP, 6).core(CoreKind.SUNBURST).spin(SpinSignature.SWEEP))
                 .anchor(CircleAnchor.EYE_FORWARD)
-                .silhouette(Silhouette.mark(FxKinds.Mark.RAY_BURST, 3.0F, 16))
+                // the pool of light under the lantern: at full strength it clipped to a white smudge
+                // at the host's feet over daylight stone, held under that it keeps the lantern's gold
+                .silhouette(Silhouette.mark(FxKinds.Mark.RAY_BURST, 3.0F, 16).withOpacity(0.55F))
                 .silhouette(Silhouette.body(Silhouette.Form.CAGE, FxKinds.Body.AMBER, 1, 0.22F, 0.36F).withOffset(2.3F))
                 .silhouette(Silhouette.filament(Silhouette.Form.COLUMN, FxKinds.Filament.CHAIN, 3, 0.05F, 0.5F, 0).withOffset(2.66F))
                 .release(ReleaseMode.FUNNEL, ProfileCues.FirstPersonPreset.CASTER_LIGHT)

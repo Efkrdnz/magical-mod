@@ -54,6 +54,10 @@ public final class TendrilLashSkill implements SkillModule {
     private static final int WITHDRAW_TICKS = 8;
     private static final String KEY_WHIP = "whip";
     private static final String KEY_POTENCY = "potency";
+    /** The sting landing: ink and sculk flung off the body the way the lash throws it. */
+    private static final int STING_INK = 2;
+    private static final int STING_POPS = 5;
+    private static final double STING_LIFT = 0.35D;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -122,6 +126,8 @@ public final class TendrilLashSkill implements SkillModule {
                     double sign = towardFlat.dot(side) >= 0.0D ? 1.0D : -1.0D;
                     hit.setDeltaMovement(hit.getDeltaMovement().add(side.scale(sign * tendril.knockback()).add(0.0D, 0.15D, 0.0D)));
                     hit.hurtMarked = true;
+                    EldritchMatter.spurt(level, hit.getBoundingBox().getCenter(), side.scale(sign).add(0.0D, STING_LIFT, 0.0D), STING_INK, STING_POPS,
+                            EldritchMatter.asPlayer(hit));
                     MagicStatusService.apply(hit, MagicStatus.HARRIED, Math.max(20, tendril.duration()), tendril.skillId(), owner);
                 }
             }

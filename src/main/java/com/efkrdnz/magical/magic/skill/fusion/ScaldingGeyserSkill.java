@@ -25,6 +25,7 @@ import com.efkrdnz.magical.magic.visual.SpellFx;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -42,6 +43,24 @@ public final class ScaldingGeyserSkill implements SkillModule {
     private static final int ERUPTION = 10;
     private static final double JET_HEIGHT = 8.0D;
     private static final double BORE = 1.2D;
+    /**
+     * Steam puffs thrown up the jet each tick of an eruption. The jet is the skill: at two a tick it
+     * was a dotted line of specks up the sky, where the shader column it replaced was a white pillar.
+     * Four a tick, born anywhere up the bottom of the column, fill it from the first tick; the jet
+     * only runs a third of the time, so the average stays under two a tick.
+     */
+    private static final int JET_PUFFS = 4;
+    /** How far up the column a puff may be born, so the jet stands at once instead of climbing. */
+    private static final double JET_BIRTH = 1.8D;
+    /** The bore bursting open at the start of each eruption: puffs rolled out round its lip. */
+    private static final int BURST_PUFFS = 8;
+    /** Spray kicked round the bore every other tick of an eruption. */
+    private static final int BORE_SPRAY = 3;
+    /** The water the jet threw up, falling back out of its top once an eruption, and when. */
+    private static final int FALLBACK_DROPS = 10;
+    private static final int FALLBACK_TICK = 4;
+    /** Between eruptions the steam ring breathes one wisp every so many ticks. */
+    private static final int HISS_INTERVAL = 4;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -105,6 +124,7 @@ public final class ScaldingGeyserSkill implements SkillModule {
                         e.igniteForSeconds(3.0F);
                     }
                 }
+                spout(level, entity, t);
                 return;
             }
             if (t % 5 == 0) {
@@ -112,7 +132,57 @@ public final class ScaldingGeyserSkill implements SkillModule {
                     hostile.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 12, 0, false, false));
                 }
             }
+            if (t % HISS_INTERVAL == 0) {
+                hiss(level, entity.position());
+            }
         };
+    }
+
+    /**
+     * The eruption's matter: steam thrown up the jet as real cloud, spray kicked round the bore, and
+     * the water it lifted raining back out of the top. The painter keeps the column's light and only
+     * a faint glow at its crown, where an additive orb used to stand in for the mist.
+     */
+    private static void spout(ServerLevel level, SpellEffectEntity entity, int t) {
+        Vec3 bore = entity.position();
+        float strength = 1.0F - t / (float) ERUPTION;
+        LivingEntity owner = entity.livingOwner();
+        // a bore under the caster's own feet would bury their view in its steam: they keep the spray and the rain
+        boolean underOwner = owner != null && Math.pow(owner.getX() - bore.x, 2.0D) + Math.pow(owner.getZ() - bore.z, 2.0D) <= BORE * BORE;
+        if (!underOwner) {
+            for (int i = 0; i < JET_PUFFS; i++) {
+                // a cloud keeps 0.96 of its speed a tick: 0.25 to 0.45 carries it five to ten blocks, the jet's height
+                double vy = (0.25D + 0.2D * level.random.nextDouble()) * (0.6D + 0.4D * strength);
+                level.sendParticles(ParticleTypes.CLOUD, bore.x + jitter(level, 0.3D), bore.y + 0.3D + JET_BIRTH * level.random.nextDouble(), bore.z + jitter(level, 0.3D),
+                        0, jitter(level, 0.03D), vy, jitter(level, 0.03D), 1.0D);
+            }
+            if (t == 0) {
+                double offset = level.random.nextDouble() * Math.PI * 2.0D;
+                for (int i = 0; i < BURST_PUFFS; i++) {
+                    double a = offset + Math.PI * 2.0D * i / BURST_PUFFS;
+                    // rolled out low round the lip and lifting: 0.12 across carries a puff about two blocks
+                    level.sendParticles(ParticleTypes.CLOUD, bore.x + Math.cos(a) * 0.5D, bore.y + 0.2D, bore.z + Math.sin(a) * 0.5D,
+                            0, Math.cos(a), 0.6D, Math.sin(a), 0.12D);
+                }
+            }
+        }
+        if ((t & 1) == 0) {
+            level.sendParticles(ParticleTypes.SPLASH, bore.x, bore.y + 0.1D, bore.z, BORE_SPRAY, BORE * 0.4D, 0.0D, BORE * 0.4D, 0.0D);
+        }
+        if (t == FALLBACK_TICK) {
+            level.sendParticles(ParticleTypes.FALLING_WATER, bore.x, bore.y + JET_HEIGHT * 0.75D, bore.z, FALLBACK_DROPS, 0.9D, 0.6D, 0.9D, 0.0D);
+        }
+    }
+
+    /** One wisp of steam off the hissing ring between eruptions, drifting up. */
+    private static void hiss(ServerLevel level, Vec3 bore) {
+        double a = level.random.nextDouble() * Math.PI * 2.0D;
+        double r = 0.6D + 1.2D * level.random.nextDouble();
+        level.sendParticles(ParticleTypes.CLOUD, bore.x + Math.cos(a) * r, bore.y + 0.15D, bore.z + Math.sin(a) * r, 0, 0.0D, 1.0D, 0.0D, 0.05D);
+    }
+
+    private static double jitter(ServerLevel level, double amount) {
+        return (level.random.nextDouble() - 0.5D) * 2.0D * amount;
     }
 
     @Override

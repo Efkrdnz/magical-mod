@@ -10,6 +10,7 @@ import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
 import com.efkrdnz.magical.registry.MagicalEntities;
 import java.util.Optional;
 import java.util.UUID;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -39,6 +40,13 @@ public final class BlackFlameProjectileEntity extends Entity implements Countera
     private static final EntityDataAccessor<Float> SPEED = SynchedEntityData.defineId(BlackFlameProjectileEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Integer> LIFE = SynchedEntityData.defineId(BlackFlameProjectileEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> FIELD_LIFE = SynchedEntityData.defineId(BlackFlameProjectileEntity.class, EntityDataSerializers.INT);
+    /** Four ticks at the slowest speed is 4.6 blocks out before the first puff of the wake. */
+    private static final int WAKE_DELAY_TICKS = 4;
+    /**
+     * A large smoke puff lives up to five seconds and is an opaque black square: one a tick strung
+     * a row of them down the crosshair, stacked into a black clump in the middle of the frame.
+     */
+    private static final int WAKE_LARGE_SMOKE_INTERVAL = 3;
     private UUID ownerUuid;
 
     public BlackFlameProjectileEntity(EntityType<? extends BlackFlameProjectileEntity> entityType, Level level) {
@@ -121,8 +129,32 @@ public final class BlackFlameProjectileEntity extends Entity implements Countera
             if (tickCount % 4 == 0) {
                 scorchWake();
             }
+            smokeWake(from, movement);
         }
         setPos(getX() + getDeltaMovement().x, getY() + getDeltaMovement().y, getZ() + getDeltaMovement().z);
+    }
+
+    /**
+     * Black fire leaves black smoke. The renderer draws the flame; what it trails is real smoke,
+     * with a lick of the same soul fire the field it detonates into burns with. Held off for the
+     * first {@link #WAKE_DELAY_TICKS} ticks: the caster sees this wake end-on down the crosshair,
+     * and at the slowest speed two ticks still put the first puff 2.3 blocks from the eye.
+     */
+    private void smokeWake(Vec3 from, Vec3 movement) {
+        if (tickCount <= WAKE_DELAY_TICKS || !(level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        double t = serverLevel.random.nextDouble();
+        double x = from.x + movement.x * t;
+        double y = from.y + movement.y * t;
+        double z = from.z + movement.z * t;
+        if (tickCount % WAKE_LARGE_SMOKE_INTERVAL == 0) {
+            serverLevel.sendParticles(ParticleTypes.LARGE_SMOKE, x, y, z, 1, 0.12D, 0.12D, 0.12D, 0.01D);
+        }
+        serverLevel.sendParticles(ParticleTypes.SMOKE, from.x, from.y, from.z, 1, 0.1D, 0.1D, 0.1D, 0.01D);
+        if (tickCount % 2 == 0) {
+            serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, x, y, z, 1, 0.08D, 0.08D, 0.08D, 0.01D);
+        }
     }
 
     private Entity firstEntityHit(Vec3 from, Vec3 to) {

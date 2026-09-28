@@ -7,7 +7,9 @@ import com.efkrdnz.magical.magic.MagicCounterService;
 import com.efkrdnz.magical.magic.MagicDamageService;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
+import com.efkrdnz.magical.particle.TintedParticleOptions;
 import com.efkrdnz.magical.registry.MagicalEntities;
+import com.efkrdnz.magical.registry.MagicalParticles;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -41,6 +43,9 @@ public final class DivineDividerWaveEntity extends Entity implements Counterable
     private static final EntityDataAccessor<Float> DIRECTION_Z = SynchedEntityData.defineId(DivineDividerWaveEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Integer> COLOR = SynchedEntityData.defineId(DivineDividerWaveEntity.class, EntityDataSerializers.INT);
     private static final int MAX_BLOCKS_SEVERED_PER_TICK = 384;
+    /** Points of light down the seam the cut leaves in a body it passes through. */
+    private static final int SEAM_MOTES = 6;
+    private static final int SEAM_SHARDS = 2;
     private final Set<UUID> hitTargets = new HashSet<>();
     private final Set<BlockPos> severedBlocks = new HashSet<>();
     private UUID ownerUuid;
@@ -250,6 +255,28 @@ public final class DivineDividerWaveEntity extends Entity implements Counterable
     private void applyHit(Entity entity, Entity owner, Vec3 pushDirection) {
         MagicDamageService.hurt(entity, damageSources().indirectMagic(this, owner == null ? this : owner), damage(), MagicContent.DIVINE_DIVIDER.id());
         entity.push(pushDirection.x * 1.25D, 0.08D, pushDirection.z * 1.25D);
+        cutSeam(entity, pushDirection);
+    }
+
+    /**
+     * The wave is the renderer's plane of light and a body it passed through used to show nothing
+     * but the red flash. The cut is vertical, so it leaves a vertical seam: a line of motes of the
+     * blade's light from the feet to the crown, carried on along the cut, and two shards of it.
+     */
+    private void cutSeam(Entity entity, Vec3 along) {
+        if (!(level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        Vec3 centre = entity.getBoundingBox().getCenter();
+        double height = entity.getBbHeight();
+        TintedParticleOptions seam = new TintedParticleOptions(MagicalParticles.MOTE.get(), color(), 1.4F);
+        for (int i = 0; i < SEAM_MOTES; i++) {
+            double y = centre.y - height * 0.5D + height * (i + 0.5D) / SEAM_MOTES;
+            // count 0: one mote with exactly this velocity, drifting on the way the cut went
+            serverLevel.sendParticles(seam, centre.x, y, centre.z, 0, along.x, 0.0D, along.z, 0.08D);
+        }
+        serverLevel.sendParticles(new TintedParticleOptions(MagicalParticles.SHARD.get(), color(), 1.1F),
+                centre.x, centre.y, centre.z, SEAM_SHARDS, 0.1D, height * 0.25D, 0.1D, 0.1D);
     }
 
     private static float waveSpeed(float resolvedSpeed) {

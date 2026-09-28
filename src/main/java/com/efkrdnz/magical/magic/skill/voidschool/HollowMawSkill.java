@@ -129,7 +129,9 @@ public final class HollowMawSkill implements SkillModule {
                     hostile.push(dir.x * 0.25D * Math.max(0.5D, entity.knockback() * 2.0D), 0.05D, dir.z * 0.25D * Math.max(0.5D, entity.knockback() * 2.0D));
                     hostile.hurtMarked = true;
                 }
-                SpellFx.impact(level, entity.definition(), entity.position().add(dir.scale(0.6D)), dir, null, owner, 1.0F);
+                // the snap is drawn in the middle of the cone it bites, not a hand's width from the
+                // caster's eyes, where its flash and the motes it throws filled the whole view
+                SpellFx.impact(level, entity.definition(), entity.position().add(dir.scale(1.5D)), dir, null, owner, 1.0F);
             }
         };
     }
@@ -141,7 +143,9 @@ public final class HollowMawSkill implements SkillModule {
                 .circle(CircleScript.of(SchoolMaterial.VOID).emblem(EmblemId.TOOTH).frame(7).band(GlyphKind.TOOTH_BAND, 16).band(GlyphKind.RUNE_BAND, 7, ColorRole.INK).stamps(StampId.BONE, 7).core(CoreKind.IRIS).inkOutwardIn(true).spin(SpinSignature.COUNTER_SLOW))
                 .anchor(CircleAnchor.EYE_FORWARD)
                 .silhouette(Silhouette.rift(Silhouette.Form.PANE, FxKinds.Rift.IRIS_MOUTH, 0.75F, 0.75F, FxKinds.RiftInterior.VOID_BLACK))
-                .silhouette(Silhouette.body(Silhouette.Form.SPIKE_CLUSTER, FxKinds.Body.OBSIDIAN, 7, 0.45F))
+                // the teeth: under a block ahead of the eyes, so kept small enough that the iris, and
+                // what it is about to bite, still read through them
+                .silhouette(Silhouette.body(Silhouette.Form.SPIKE_CLUSTER, FxKinds.Body.OBSIDIAN, 7, 0.3F))
                 .release(ReleaseMode.FUNNEL, ProfileCues.FirstPersonPreset.CASTER_RECOIL)
                 .impact(FxKinds.Mark.MAW, FxKinds.Smoke.INK_BLOOM, FxKinds.Overlay.IRIS_CLOSE)
                 .bounds(3.0F, 2.0F, 2.0F);

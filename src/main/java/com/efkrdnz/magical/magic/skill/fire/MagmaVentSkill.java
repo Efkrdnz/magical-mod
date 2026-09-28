@@ -26,9 +26,14 @@ import com.efkrdnz.magical.magic.visual.SpellFx;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -40,6 +45,13 @@ public final class MagmaVentSkill implements SkillModule {
     private static final int TELEGRAPH = 10;
     private static final int RISE = 4;
     private static final byte MODE_COLUMN = 2;
+    /** Lava thrown out of the column's mouth the tick it stands at full height. */
+    private static final int ERUPTION_LAVA = 8;
+    /** While it stands, the mouth breathes a puff of smoke this often and spits lava this often. */
+    private static final int SMOULDER_SMOKE_INTERVAL = 5;
+    private static final int SMOULDER_LAVA_INTERVAL = 15;
+    /** Magma crumbs the column comes down in. */
+    private static final int CRUMBLE_CRUMBS = 20;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -90,11 +102,15 @@ public final class MagmaVentSkill implements SkillModule {
         return new SpellBehavior() {
             @Override
             public void tick(SpellEffectEntity entity) {
-                if (entity instanceof SolidConstructEntity) {
+                if (entity instanceof SolidConstructEntity standing) {
+                    smoulder(standing);
                     return; // the column itself is inert terrain
                 }
                 ServerLevel level = entity.serverLevel();
                 float radius = entity.radius();
+                if (entity.tickCount < TELEGRAPH) {
+                    tremble(entity);
+                }
                 if (entity.tickCount == TELEGRAPH) {
                     Vec3 centre = entity.position();
                     for (LivingEntity hit : SkillTargets.hostilesInCylinder(level, entity.owner(), centre, radius + 0.6D, 2.5D)) {
@@ -123,8 +139,66 @@ public final class MagmaVentSkill implements SkillModule {
                 }
             }
 
+            /**
+             * The telegraph is the star crack on the ground; this is the ground under it working
+             * loose - grit of whatever it is made of hopping out of the crack, and a wisp of smoke.
+             */
+            private void tremble(SpellEffectEntity entity) {
+                if (entity.tickCount % 2 != 0) {
+                    return;
+                }
+                ServerLevel level = entity.serverLevel();
+                Vec3 centre = entity.position();
+                double spread = entity.radius() * 0.5D;
+                BlockState ground = level.getBlockState(BlockPos.containing(centre.x, centre.y - 0.2D, centre.z));
+                if (!ground.isAir()) {
+                    level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, ground), centre.x, centre.y + 0.1D, centre.z, 3, spread, 0.0D, spread, 0.08D);
+                }
+                if (entity.tickCount % 4 == 0) {
+                    level.sendParticles(ParticleTypes.SMOKE, centre.x, centre.y + 0.1D, centre.z, 1, spread, 0.0D, spread, 0.01D);
+                }
+            }
+
+            /**
+             * The column's mouth, from the column's own tick so it lasts exactly as long as the
+             * column does: a spout of real lava the moment it stands full height, then smoke and the
+             * odd spit of lava. This replaces the ember orb that sat on top and drew as white dots.
+             */
+            private void smoulder(SolidConstructEntity column) {
+                int stood = column.tickCount - RISE;
+                if (stood < 0) {
+                    return;
+                }
+                ServerLevel level = column.serverLevel();
+                double spread = column.width() * 0.25D;
+                double top = column.getY() + column.height();
+                if (stood == 0) {
+                    level.sendParticles(ParticleTypes.LAVA, column.getX(), top, column.getZ(), ERUPTION_LAVA, spread, 0.1D, spread, 0.0D);
+                    return;
+                }
+                if (stood % SMOULDER_SMOKE_INTERVAL == 0) {
+                    level.sendParticles(ParticleTypes.LARGE_SMOKE, column.getX(), top, column.getZ(), 1, spread, 0.1D, spread, 0.01D);
+                }
+                if (stood % SMOULDER_LAVA_INTERVAL == 0) {
+                    level.sendParticles(ParticleTypes.LAVA, column.getX(), top, column.getZ(), 1, spread, 0.0D, spread, 0.0D);
+                }
+            }
+
+            /** The column coming down, crumbled at its time or broken: magma falling out of its whole height. */
+            private void crumble(SolidConstructEntity column) {
+                ServerLevel level = column.serverLevel();
+                double height = column.height();
+                double spread = column.width() * 0.3D;
+                level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.MAGMA_BLOCK.defaultBlockState()),
+                        column.getX(), column.getY() + height * 0.5D, column.getZ(), CRUMBLE_CRUMBS, spread, height * 0.3D, spread, 0.05D);
+                level.sendParticles(ParticleTypes.LARGE_SMOKE, column.getX(), column.getY() + 0.3D, column.getZ(), 4, spread * 2.0D, 0.1D, spread * 2.0D, 0.01D);
+            }
+
             @Override
             public void onExpire(SpellEffectEntity entity) {
+                if (entity instanceof SolidConstructEntity fallen) {
+                    crumble(fallen);
+                }
                 if (entity.serverData().hasUUID("Column")) {
                     Entity column = entity.serverLevel().getEntity(entity.serverData().getUUID("Column"));
                     if (column != null) {
@@ -143,7 +217,6 @@ public final class MagmaVentSkill implements SkillModule {
                 .anchor(CircleAnchor.AIM_SURFACE)
                 .silhouette(Silhouette.body(Silhouette.Form.PRISM, FxKinds.Body.MAGMA_ROCK, 6, 0.8F, 4.0F).forModes(1))
                 .silhouette(Silhouette.mark(FxKinds.Mark.CRACK_WEB, 2.4F, 8).forModes(0))
-                .silhouette(Silhouette.orb(Silhouette.Form.BILLBOARD, FxKinds.Orb.EMBER_CLUSTER, 1.1F, 8, 20).withOffset(4.1F).forModes(1))
                 .release(ReleaseMode.SLAM, ProfileCues.FirstPersonPreset.CASTER_BLOOM)
                 .impact(FxKinds.Mark.CRACK_WEB, FxKinds.Smoke.EMBER_CLUSTER, FxKinds.Overlay.SHOCK_RING)
                 .bounds(3.0F, 5.0F, 1.0F);

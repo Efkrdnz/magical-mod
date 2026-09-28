@@ -31,6 +31,9 @@ import com.efkrdnz.magical.magic.visual.Silhouette;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import com.efkrdnz.magical.magic.visual.VisualProfiles;
+import com.efkrdnz.magical.particle.TintedParticleOptions;
+import com.efkrdnz.magical.registry.MagicalParticles;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -55,6 +58,17 @@ public final class SkinOfTheDeepSkill implements SkillModule {
     public static final double BITE_REACH = 4.0D;
     private static final int IMMOVABLE_TOP_UP = 15;
     private static final String KEY_POTENCY = "potency";
+    /**
+     * A ward giving way: sculk flung back and up off the body and a breath of the deep's own colour
+     * dissolving where it was. No ink - it would start half a block from the wearer's eyes.
+     */
+    private static final int WARD_POPS = 6;
+    private static final int WARD_WISPS = 2;
+    private static final float WARD_WISP_SCALE = 2.2F;
+    /** Where on the back the wards grow: this far behind the body's axis, this high up it. */
+    private static final double WARD_BACK = 0.35D;
+    private static final double WARD_HEIGHT = 1.15D;
+    private static final double WARD_LIFT = 0.5D;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -118,10 +132,29 @@ public final class SkinOfTheDeepSkill implements SkillModule {
             SkillTargets.hurt(player.serverLevel(), player, attacker, skin.damage() * potency, skin.skillId());
         }
         player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.SCULK_CLICKING, SoundSource.PLAYERS, 0.8F, 0.6F);
+        tear(player);
         if (skin.extra() <= 0) {
             skin.finish();
         }
         return 0.0F;
+    }
+
+    /**
+     * The ward that took the hit, torn off the back: the skill's one beat for everybody watching.
+     * The wearer is not sent it, as the renderer does not draw them the wards: it starts half a
+     * block under and behind their camera, and a wearer looking down at what struck them has that
+     * point in front of the lens, where a growing wisp would cover the view.
+     */
+    private static void tear(ServerPlayer player) {
+        Vec3 look = player.getLookAngle();
+        Vec3 back = new Vec3(-look.x, 0.0D, -look.z);
+        back = back.lengthSqr() > 1.0E-6D ? back.normalize() : new Vec3(0.0D, 0.0D, -1.0D);
+        Vec3 from = player.position().add(back.scale(WARD_BACK)).add(0.0D, WARD_HEIGHT, 0.0D);
+        ServerLevel level = player.serverLevel();
+        EldritchMatter.spurt(level, from, back.add(0.0D, WARD_LIFT, 0.0D), 0, WARD_POPS, player);
+        int dim = VisualProfiles.of(MagicContent.SKIN_OF_THE_DEEP).color(ColorRole.DIM);
+        EldritchMatter.send(level, player, new TintedParticleOptions(MagicalParticles.WISP.get(), dim, WARD_WISP_SCALE),
+                from.x, from.y, from.z, WARD_WISPS, 0.15D, 0.2D, 0.15D, 0.01D);
     }
 
     @Override

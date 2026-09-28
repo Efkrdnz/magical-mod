@@ -30,7 +30,11 @@ public final class FusionPainters {
         return ctx.direction.lengthSqr() > 1.0E-6D ? ctx.direction.normalize() : new Vec3(0.0D, 0.0D, 1.0D);
     }
 
-    /** White-cored steam column capped by mist during an eruption (ctx.extra = eruption 1..0), hissing ring between. */
+    /**
+     * White-cored steam column during an eruption (ctx.extra = eruption 1..0), hissing ring between.
+     * The mist over the column is real cloud the skill throws; the crown keeps only a faint glow,
+     * where a plasma orb a block and more across used to stand in for the mist and clip to white.
+     */
     public static void scaldingGeyser(FxContext ctx, VisualProfile profile, Silhouette s) {
         float erupt = Mth.clamp(ctx.extra, 0.0F, 1.0F);
         float height = s.sizeA();
@@ -47,7 +51,7 @@ public final class FusionPainters {
             ctx.pose.popPose();
             ctx.pose.pushPose();
             ctx.pose.translate(0.0F, height * (0.4F + 0.6F * erupt), 0.0F);
-            OrbPainter.billboard(ctx, FxKinds.Orb.PLASMA, 1.4F * erupt + 0.4F, bright, 0.5F, ctx.phase, 4, 6);
+            OrbPainter.billboard(ctx, FxKinds.Orb.PLASMA, 0.6F * erupt + 0.25F, bright, 0.3F, ctx.phase, 4, 6);
             ctx.pose.popPose();
             quads += 5;
         } else {
@@ -144,7 +148,11 @@ public final class FusionPainters {
         FxBudget.countQuads(24 + spokes.length / 20 + 12 + 2);
     }
 
-    /** The focal beam from the sun's core to the aimed point. */
+    /**
+     * The focal beam from the sun's core to the aimed point. The glare where it lands is held under
+     * a block and a half across: the skill throws real flame, smoke and lava off the melting face
+     * there, and a larger additive bloom washed them out to white.
+     */
     public static void fallenSun(FxContext ctx, VisualProfile profile, Silhouette s) {
         CompoundTag d = ctx.data;
         if (d == null || !d.contains("BX")) {
@@ -158,7 +166,7 @@ public final class FusionPainters {
         FilamentPainter.link(ctx, beam, core, end, 0.15F, 0xFFFFFF, 0.9F, tongue);
         ctx.pose.pushPose();
         ctx.pose.translate(end.x, end.y, end.z);
-        OrbPainter.billboard(ctx, FxKinds.Orb.BLOOM_FLASH, 1.1F, profile.color(ColorRole.BRIGHT), 0.9F, 0.5F, 4, 2);
+        OrbPainter.billboard(ctx, FxKinds.Orb.BLOOM_FLASH, 0.7F, profile.color(ColorRole.BRIGHT), 0.75F, 0.5F, 4, 2);
         ctx.pose.popPose();
         FxBudget.countQuads(5);
     }

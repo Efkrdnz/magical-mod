@@ -29,7 +29,12 @@ import com.efkrdnz.magical.magic.visual.SpellFx;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import com.efkrdnz.magical.magic.visual.VisualProfiles;
+import com.efkrdnz.magical.particle.TintedParticleOptions;
+import com.efkrdnz.magical.registry.MagicalParticles;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.server.level.ServerLevel;
@@ -50,10 +55,56 @@ public final class ArcaneGraspSkill implements SkillModule {
     private static final int RISE = 6;
     private static final double LIFT = 3.5D;
     private static final int MAX_HOLD = 100;
+    /** Crumbs of a block as the grip tears it out, and as it lands. */
+    private static final int ROCK_CRUMBS = 14;
+    private static final int LANDING_CRUMBS = 20;
+    /** Crumbs of the floor a hoisted creature is torn off. */
+    private static final int GROUND_CRUMBS = 10;
+    /**
+     * The grip held, seen from the ground: a rune rising off the torn spot into what hangs over it
+     * every other tick, and a crumb of the ground shaken off it falling back every fourth. What the
+     * grip lifts goes three and a half blocks up and out of the top of a level view within six
+     * ticks, and nothing left at eye level said it was still being held.
+     */
+    private static final int TETHER_INTERVAL = 2;
+    private static final int SHED_INTERVAL = 4;
+    private static final float TETHER_RUNE_SCALE = 1.4F;
+    /** Server-only: the block a hoisted creature stood on, which it sheds while it hangs. */
+    private static final String GROUND_KEY = "Ground";
 
     @Override
     public MagicSkillDefinition definition() {
         return MagicContent.ARCANE_GRASP;
+    }
+
+    /** The ground lets go of what the grip hoists: a scatter of whatever it was standing on, or null over air or water. */
+    private static BlockState tearLoose(ServerLevel level, LivingEntity target) {
+        BlockState ground = level.getBlockState(target.blockPosition().below());
+        if (ground.isAir() || !ground.getFluidState().isEmpty()) {
+            return null;
+        }
+        double spread = target.getBbWidth() * 0.35D;
+        level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, ground), target.getX(), target.getY() + 0.1D, target.getZ(), GROUND_CRUMBS, spread, 0.05D, spread, 0.12D);
+        return ground;
+    }
+
+    /**
+     * The grip while it holds: runes climbing from the ground under the held thing up into it, and
+     * now and then a crumb of {@code shed} falling off its underside back to that ground. A rune
+     * keeps nine tenths of its speed a tick, so it climbs about nine times what it is sent at
+     * before it fades; it is sent at a ninth of the height it has to cover.
+     */
+    private static void tether(ServerLevel level, SpellEffectEntity entity, double x, double groundY, double z, double hang, double width, BlockState shed) {
+        double across = width * 0.3D;
+        if (entity.tickCount % TETHER_INTERVAL == 0) {
+            int bright = VisualProfiles.of(entity.definition()).color(ColorRole.BRIGHT);
+            double rx = x + (level.random.nextDouble() - 0.5D) * 2.0D * across;
+            double rz = z + (level.random.nextDouble() - 0.5D) * 2.0D * across;
+            level.sendParticles(new TintedParticleOptions(MagicalParticles.RUNE.get(), bright, TETHER_RUNE_SCALE), rx, groundY + 0.1D, rz, 0, 0.0D, 1.0D, 0.0D, hang / 9.0D);
+        }
+        if (shed != null && !shed.isAir() && entity.tickCount % SHED_INTERVAL == 0) {
+            level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, shed), x, groundY + hang, z, 1, across, 0.0D, across, 0.0D);
+        }
     }
 
     @Override
@@ -76,6 +127,10 @@ public final class ArcaneGraspSkill implements SkillModule {
                     grip.setExtra(ctx.slot());
                     grip.serverData().putDouble("BaseY", target.getY());
                     HeldEntityService.hold(target, target.position(), RISE + hang + 2, true, ctx.caster(), "grasp");
+                    BlockState ground = tearLoose(ctx.level(), target);
+                    if (ground != null) {
+                        grip.serverData().putInt(GROUND_KEY, Block.getId(ground));
+                    }
                     return CastResult.SUCCESS;
                 }
                 if (aim.hitBlock()) {
@@ -87,6 +142,8 @@ public final class ArcaneGraspSkill implements SkillModule {
                     }
                     ctx.level().removeBlock(pos, false);
                     Vec3 centre = Vec3.atCenterOf(pos);
+                    // the block comes away from the world in its own crumbs
+                    ctx.level().sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, state), centre.x, centre.y, centre.z, ROCK_CRUMBS, 0.3D, 0.3D, 0.3D, 0.08D);
                     SpellEffectEntity rock = SpellEffectEntity.spawn(ctx, centre, RISE + hang, 0.9F, new Vec3(0.0D, 1.0D, 0.0D));
                     rock.setMode((byte) ((ctx.sneak() ? 1 : 0) | 2));
                     rock.setExtra(ctx.slot());
@@ -94,6 +151,8 @@ public final class ArcaneGraspSkill implements SkillModule {
                     rock.serverData().put("Block", NbtUtils.writeBlockState(state));
                     CompoundTag synced = new CompoundTag();
                     synced.putBoolean("Rock", true);
+                    // which block it is, so the painter can hang the block itself in the bubble
+                    synced.putInt("State", Block.getId(state));
                     rock.setSyncedData(synced);
                     return CastResult.SUCCESS;
                 }
@@ -144,6 +203,9 @@ public final class ArcaneGraspSkill implements SkillModule {
                 }
                 if (rock) {
                     entity.setPos(entity.getX(), baseY + rise, entity.getZ());
+                    // the block hangs from its own hole: runes up out of it, its own crumbs back down
+                    BlockState held = Block.stateById(entity.syncedData().getInt("State"));
+                    tether(level, entity, entity.getX(), baseY - 0.5D, entity.getZ(), rise, 0.9D, held);
                     return;
                 }
                 Entity target = entity.target();
@@ -159,6 +221,8 @@ public final class ArcaneGraspSkill implements SkillModule {
                 hold.remaining = Math.max(hold.remaining, entity.life() - entity.tickCount + 2);
                 entity.setPos(living.getX(), baseY + rise + living.getBbHeight() * 0.5D, living.getZ());
                 entity.setRadius(Math.max(0.8F, living.getBbWidth() * 0.9F));
+                BlockState ground = entity.serverData().contains(GROUND_KEY) ? Block.stateById(entity.serverData().getInt(GROUND_KEY)) : null;
+                tether(level, entity, living.getX(), baseY, living.getZ(), rise, living.getBbWidth(), ground);
             }
 
             @Override
@@ -176,6 +240,8 @@ public final class ArcaneGraspSkill implements SkillModule {
                         level.setBlock(place, state, Block.UPDATE_ALL);
                     }
                     SpellFx.impact(level, entity.definition(), at, new Vec3(0.0D, 1.0D, 0.0D), null, entity.owner(), 1.3F);
+                    // and it lands as itself: its own debris over the impact's crumbs of the floor
+                    level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, state), at.x, at.y + 0.3D, at.z, LANDING_CRUMBS, 0.35D, 0.2D, 0.35D, 0.15D);
                     return;
                 }
                 if (entity.target() instanceof LivingEntity living) {

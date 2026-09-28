@@ -26,13 +26,19 @@ import com.efkrdnz.magical.magic.visual.Silhouette;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import com.efkrdnz.magical.particle.TintedParticleOptions;
+import com.efkrdnz.magical.registry.MagicalParticles;
 import java.util.List;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ColorParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * DARK T-2 - a doll that remembers, and hands it all back at the end.
@@ -67,6 +73,36 @@ public final class EffigySkill implements SkillModule {
     /** Slot in the entity's server scratch where last tick's health is kept. */
     private static final String LAST_HEALTH = "effigyLastHealth";
 
+    /** The doll's drawn size in blocks: a figure a little shorter than a player, not a drum at their shins. */
+    private static final float DOLL_RADIUS = 0.3F;
+    private static final float DOLL_HEIGHT = 1.1F;
+
+    /**
+     * Where the doll's splinters come off it, as a share of its height. Low when it is knocked
+     * together, because it stands at the caster's feet and a splinter thrown from its middle hops
+     * into the bottom of a first-person view drawn as big as a block face; a little higher when it
+     * falls apart, which is the half somebody else is usually watching. Drawn only.
+     */
+    private static final float SHED_LOW = 0.1F;
+    private static final float SHED_HIGH = 0.3F;
+
+    /**
+     * The binding thread: how far from the doll it starts (so none of it hangs under the caster's
+     * eyes), the gap between its beads, and the most beads one binding lays. Drawn only.
+     */
+    private static final double THREAD_START = 2.5D;
+    private static final double THREAD_SPACING = 0.55D;
+    private static final int THREAD_BEADS_MAX = 14;
+
+    /** Wisps of shadow that close on the bound body when the binding takes. Drawn only. */
+    private static final int BINDING_WISPS = 8;
+
+    /** Ticks between the swirls that say which body the doll answers for. Drawn only. */
+    private static final int BOUND_MARK_INTERVAL = 10;
+
+    /** Souls lifted off the body when the ledger is paid. Drawn only. */
+    private static final int PAYOUT_SOULS = 12;
+
     @Override
     public MagicSkillDefinition definition() {
         return MagicContent.EFFIGY;
@@ -95,6 +131,10 @@ public final class EffigySkill implements SkillModule {
                 DarkService.corrupt(player, ctx.state(), CORRUPTION);
                 ctx.level().playSound(null, player.blockPosition(), SoundEvents.SOUL_ESCAPE.value(),
                         SoundSource.PLAYERS, 0.7F, 0.7F);
+                // Two places, one binding: the doll knocks together at your feet, and the thing it
+                // now answers for is tied to it - the half a first-person caster can actually see.
+                shed(ctx.level(), effigy, 5, SHED_LOW);
+                bind(ctx.level(), effigy, bound, ctx.profile());
                 return CastResult.SUCCESS;
             }
 
@@ -117,36 +157,132 @@ public final class EffigySkill implements SkillModule {
 
     @Override
     public SpellBehavior behavior() {
-        return entity -> {
-            ServerLevel level = entity.serverLevel();
-            if (!(entity.target() instanceof LivingEntity bound) || !bound.isAlive()) {
-                // The target died, or left the dimension and took the reference with it. Either way
-                // the doll has nothing left to collect: the debt dies with the debtor.
-                entity.finish();
-                return;
+        return new SpellBehavior() {
+            @Override
+            public void tick(SpellEffectEntity entity) {
+                ServerLevel level = entity.serverLevel();
+                if (!(entity.target() instanceof LivingEntity bound) || !bound.isAlive()) {
+                    // The target died, or left the dimension and took the reference with it. Either
+                    // way the doll has nothing left to collect: the debt dies with the debtor.
+                    entity.finish();
+                    return;
+                }
+                float last = entity.serverData().getFloat(LAST_HEALTH);
+                float now = bound.getHealth();
+                if (now < last) {
+                    entity.setValue(entity.value() + (last - now) * ECHO_SHARE);
+                    level.sendParticles(ParticleTypes.SCULK_SOUL, entity.getX(), entity.getY() + 0.6D, entity.getZ(),
+                            3, 0.18D, 0.25D, 0.18D, 0.01D);
+                    // The doll is at its caster's feet, out of a first-person view, so the wound
+                    // is also seen being written down where it was taken.
+                    curse(level, bound, entity.profile(), 3);
+                } else if (entity.tickCount % BOUND_MARK_INTERVAL == 0) {
+                    // Nothing else in the world says which body the doll answers for, and the
+                    // binding has no range: a swirl of it on the bound thing, like any other curse.
+                    curse(level, bound, entity.profile(), 2);
+                }
+                // Healing is written down too, or a target that regenerates between hits would let
+                // the ledger charge for the same wound twice.
+                entity.serverData().putFloat(LAST_HEALTH, now);
+                if (entity.tickCount < entity.life() - 1) {
+                    return;
+                }
+                float owed = entity.value();
+                if (owed >= MIN_PAYOUT) {
+                    SkillTargets.hurt(level, entity.owner(), bound, owed, entity.definition().id());
+                    level.playSound(null, bound.blockPosition(), SoundEvents.SCULK_SHRIEKER_SHRIEK,
+                            SoundSource.HOSTILE, 0.8F, 1.4F);
+                    payout(level, bound);
+                }
             }
-            float last = entity.serverData().getFloat(LAST_HEALTH);
-            float now = bound.getHealth();
-            if (now < last) {
-                entity.setValue(entity.value() + (last - now) * ECHO_SHARE);
-                level.sendParticles(ParticleTypes.SCULK_SOUL, entity.getX(), entity.getY() + 0.6D, entity.getZ(),
-                        3, 0.18D, 0.25D, 0.18D, 0.01D);
-            }
-            // Healing is written down too, or a target that regenerates between hits would let the
-            // ledger charge for the same wound twice.
-            entity.serverData().putFloat(LAST_HEALTH, now);
-            if (entity.tickCount < entity.life() - 1) {
-                return;
-            }
-            float owed = entity.value();
-            if (owed >= MIN_PAYOUT) {
-                SkillTargets.hurt(level, entity.owner(), bound, owed, entity.definition().id());
-                level.playSound(null, bound.blockPosition(), SoundEvents.SCULK_SHRIEKER_SHRIEK,
-                        SoundSource.HOSTILE, 0.8F, 1.4F);
-                level.sendParticles(ParticleTypes.SOUL, bound.getX(), bound.getY() + 1.0D, bound.getZ(),
-                        18, 0.4D, 0.6D, 0.4D, 0.02D);
+
+            @Override
+            public void onExpire(SpellEffectEntity entity) {
+                // However the doll ends - paid out, crumbled for want of a ledger, or orphaned by a
+                // debtor that died - it comes apart where it stood rather than blinking out. The
+                // smoke stays low: the doll is often still at its caster's feet, under their eyes.
+                ServerLevel level = entity.serverLevel();
+                shed(level, entity, 12, SHED_HIGH);
+                level.sendParticles(ParticleTypes.SMOKE, entity.getX(), entity.getY() + 0.15D, entity.getZ(),
+                        6, DOLL_RADIUS, 0.05D, DOLL_RADIUS, 0.01D);
             }
         };
+    }
+
+    /**
+     * The doll's own matter, splinters of dark wood off it: used both when it is knocked together
+     * and when it falls apart, so the two ends of its life rhyme. A block crumb always hops about a
+     * block whatever speed it is handed, so where it starts is the only thing that keeps it down.
+     */
+    private static void shed(ServerLevel level, SpellEffectEntity doll, int splinters, float height) {
+        level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.DARK_OAK_WOOD.defaultBlockState()),
+                doll.getX(), doll.getY() + DOLL_HEIGHT * height, doll.getZ(),
+                splinters, DOLL_RADIUS * 0.7D, 0.05D, DOLL_RADIUS * 0.7D, 0.05D);
+    }
+
+    /**
+     * The binding, seen from both ends of it: a bead-thread paid out from the doll to the bound
+     * body - it starts a few blocks off, so a caster looking along it sees it run out ahead of them
+     * rather than under their eyes - and a ring of shadow that closes on the body and stays there
+     * as a curse's swirl. Every bead is placed, not scattered, so the line reads as a line.
+     */
+    private static void bind(ServerLevel level, SpellEffectEntity doll, LivingEntity bound, VisualProfile profile) {
+        Vec3 from = doll.position().add(0.0D, DOLL_HEIGHT * 0.6D, 0.0D);
+        Vec3 to = bound.position().add(0.0D, bound.getBbHeight() * 0.55D, 0.0D);
+        Vec3 line = to.subtract(from);
+        double length = line.length();
+        double span = length - bound.getBbWidth() * 0.5D - THREAD_START;
+        if (span > THREAD_SPACING) {
+            Vec3 along = line.scale(1.0D / length);
+            TintedParticleOptions bead = new TintedParticleOptions(MagicalParticles.MOTE.get(),
+                    profile.color(ColorRole.HOT), 1.2F);
+            int beads = Math.min(THREAD_BEADS_MAX, (int) (span / THREAD_SPACING));
+            for (int i = 0; i < beads; i++) {
+                Vec3 at = from.add(along.scale(THREAD_START + span * (i + 0.5D) / beads));
+                level.sendParticles(bead, at.x, at.y, at.z, 0, 0.0D, 0.0D, 0.0D, 0.0D);
+            }
+        }
+        // Shadow drawn in round the body at its waist, in the skill's own violet: lit by the world,
+        // so it darkens daylight rather than glowing in it.
+        TintedParticleOptions shadow = new TintedParticleOptions(MagicalParticles.WISP.get(),
+                profile.color(ColorRole.BASE), 2.0F);
+        double ring = bound.getBbWidth() * 0.5D + 0.5D;
+        double waist = bound.getY() + bound.getBbHeight() * 0.45D;
+        for (int i = 0; i < BINDING_WISPS; i++) {
+            double angle = Math.PI * 2.0D * i / BINDING_WISPS;
+            double cx = Math.cos(angle);
+            double cz = Math.sin(angle);
+            level.sendParticles(shadow, bound.getX() + cx * ring, waist, bound.getZ() + cz * ring,
+                    0, -cx, 0.0D, -cz, 0.05D);
+        }
+        curse(level, bound, profile, 6);
+    }
+
+    /**
+     * A curse's swirl on the bound body in the skill's colour: vanilla's own language for a mob
+     * that is carrying something. Speed zero keeps them rising gently instead of spraying.
+     */
+    private static void curse(ServerLevel level, LivingEntity bound, VisualProfile profile, int count) {
+        level.sendParticles(ColorParticleOption.create(ParticleTypes.ENTITY_EFFECT, 0xFF000000 | profile.color(ColorRole.BASE)),
+                bound.getX(), bound.getY() + bound.getBbHeight() * 0.5D, bound.getZ(),
+                count, bound.getBbWidth() * 0.35D, bound.getBbHeight() * 0.3D, bound.getBbWidth() * 0.35D, 0.0D);
+    }
+
+    /**
+     * The ledger landing: souls lifted off the body all the way round it, each thrown straight up
+     * and a little out, so the payment reads as something leaving the target rather than a cloud of
+     * them drifting on it.
+     */
+    private static void payout(ServerLevel level, LivingEntity bound) {
+        double ring = bound.getBbWidth() * 0.5D + 0.15D;
+        for (int i = 0; i < PAYOUT_SOULS; i++) {
+            double angle = Math.PI * 2.0D * i / PAYOUT_SOULS;
+            double cx = Math.cos(angle);
+            double cz = Math.sin(angle);
+            double height = bound.getBbHeight() * (0.25D + 0.5D * ((i * 5) % PAYOUT_SOULS) / PAYOUT_SOULS);
+            level.sendParticles(ParticleTypes.SOUL, bound.getX() + cx * ring, bound.getY() + height, bound.getZ() + cz * ring,
+                    0, cx * 0.25D, 1.0D, cz * 0.25D, 0.06D);
+        }
     }
 
     @Override
@@ -160,8 +296,15 @@ public final class EffigySkill implements SkillModule {
                         // is asked for - the HOT layer every profile needs has to be a band here.
                         .stamps(StampId.BONE, 10).core(CoreKind.VOID_PIT).spin(SpinSignature.STATIC))
                 .anchor(CircleAnchor.GROUND)
-                .silhouette(Silhouette.body(Silhouette.Form.FIGURE, FxKinds.Body.WOOD_VINE, 5, 0.85F).withRole(ColorRole.INK))
-                .release(ReleaseMode.SLAM, ProfileCues.FirstPersonPreset.CASTER_LIGHT)
+                // Wood in the school's darkest violet rather than INK: the palette's ink is pure
+                // black, which takes the grain the WOOD_VINE body is painted with down to nothing and
+                // leaves a hole in the ground where a figure should stand.
+                .silhouette(Silhouette.body(Silhouette.Form.FIGURE, FxKinds.Body.WOOD_VINE, 5, DOLL_RADIUS, DOLL_HEIGHT)
+                        .withRole(ColorRole.DIM))
+                // FUNNEL, not SLAM: a slam flashes a sigil nearly four blocks in radius flat at the
+                // hand, which in first person is a wash across the lower half of the view. The
+                // circle folds down into the doll instead.
+                .release(ReleaseMode.FUNNEL, ProfileCues.FirstPersonPreset.CASTER_LIGHT)
                 .impact(FxKinds.Mark.INK_STAIN, FxKinds.Smoke.ASH_FLAKE, FxKinds.Overlay.VIGNETTE)
                 .budget(2)
                 .bounds(2.0F, 2.5F, 1.5F);

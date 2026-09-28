@@ -25,6 +25,7 @@ import com.efkrdnz.magical.magic.visual.Silhouette;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -38,6 +39,14 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class RipCurrentSkill implements SkillModule {
     private static final double LENGTH = 10.0D;
+    /** Wakes set sliding downstream over the strip each tick: the water, moving. */
+    private static final int WAKES_PER_TICK = 2;
+    /** The first stretch of the strip carries no wakes, so none slide about under the caster's own view. */
+    private static final double WAKE_CLEARANCE = 1.5D;
+    /** About how far a wake slides before it fades: none is set closer than this to the downstream end, or the strip would seem to run on past it. */
+    private static final double WAKE_RUN = 4.0D;
+    /** Ticks between the spray kicked up round the feet of whatever the current is carrying. */
+    private static final int CARRY_SPLASH_INTERVAL = 5;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -86,6 +95,7 @@ public final class RipCurrentSkill implements SkillModule {
             boolean reverse = entity.sneakMode();
             Vec3 flow = reverse ? axis.scale(-1.0D) : axis;
             AABB box = new AABB(start, start.add(axis.scale(LENGTH))).inflate(halfWidth + 0.5D, 2.5D, halfWidth + 0.5D);
+            current(level, start, axis, reverse, halfWidth, flowSpeed);
             for (Entity e : level.getEntities(entity, box, en -> en instanceof LivingEntity l && l.isAlive())) {
                 LivingEntity living = (LivingEntity) e;
                 Vec3 rel = living.position().subtract(start);
@@ -111,11 +121,31 @@ public final class RipCurrentSkill implements SkillModule {
                 }
                 living.setDeltaMovement(pushed);
                 living.hurtMarked = true;
+                if (entity.tickCount % CARRY_SPLASH_INTERVAL == 0 && living != entity.owner()) {
+                    double spread = living.getBbWidth() * 0.3D;
+                    level.sendParticles(ParticleTypes.SPLASH, living.getX(), living.getY() + 0.1D, living.getZ(), 4, spread, 0.0D, spread, 0.0D);
+                }
                 if (hostile && entity.tickCount % 10 == 0) {
                     SkillTargets.hurt(level, entity.owner(), living, entity.damage(), entity.definition().id());
                 }
             }
         };
+    }
+
+    /** The water itself: wakes set on the strip at random, sliding off downstream at the current's speed. */
+    private static void current(ServerLevel level, Vec3 start, Vec3 axis, boolean reverse, double halfWidth, double flowSpeed) {
+        Vec3 across = new Vec3(-axis.z, 0.0D, axis.x);
+        Vec3 flow = reverse ? axis.scale(-1.0D) : axis;
+        // set upstream of where they fade, so the wakes run the strip rather than the ground beyond its end
+        double near = reverse ? WAKE_CLEARANCE + WAKE_RUN : WAKE_CLEARANCE;
+        double far = reverse ? LENGTH : LENGTH - WAKE_RUN;
+        for (int i = 0; i < WAKES_PER_TICK; i++) {
+            double along = near + level.random.nextDouble() * (far - near);
+            double side = (level.random.nextDouble() * 2.0D - 1.0D) * halfWidth;
+            Vec3 p = start.add(axis.scale(along)).add(across.scale(side));
+            // a wake keeps exactly the speed it is handed and feels no gravity, so it slides along the floor
+            level.sendParticles(ParticleTypes.FISHING, p.x, p.y + 0.08D, p.z, 0, flow.x, 0.0D, flow.z, flowSpeed * 1.4D);
+        }
     }
 
     @Override

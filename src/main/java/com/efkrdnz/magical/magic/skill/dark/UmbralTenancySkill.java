@@ -25,10 +25,13 @@ import com.efkrdnz.magical.magic.visual.ProfileCues;
 import com.efkrdnz.magical.magic.visual.ReleaseMode;
 import com.efkrdnz.magical.magic.visual.SchoolMaterial;
 import com.efkrdnz.magical.magic.visual.Silhouette;
+import com.efkrdnz.magical.magic.visual.SpellFx;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import com.efkrdnz.magical.particle.TintedParticleOptions;
 import com.efkrdnz.magical.registry.MagicalAttachments;
+import com.efkrdnz.magical.registry.MagicalParticles;
 import java.util.List;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
@@ -67,8 +70,18 @@ public final class UmbralTenancySkill implements SkillModule {
     /** And what a spell cast inside it is multiplied by. */
     public static final float EMERGENCE_BONUS = 1.9F;
 
-    /** How far behind the host you are carried, in blocks. */
-    private static final double TRAIL_DISTANCE = 0.9D;
+    /**
+     * How far behind the host's back you are carried, in blocks, measured from its side rather than
+     * its middle. A flat 0.9 from the middle left the rider's eye a fifth of a block off a golem's
+     * back, and the whole first-person view was the inside of its model.
+     */
+    private static final double TRAIL_CLEARANCE = 0.8D;
+
+    /**
+     * How dark the host's shadow gets at the edges of the rider's view as the tenancy starts. It
+     * only ever fades from there, and the middle of the view is left clear. Drawn only.
+     */
+    private static final float RIDE_SHADOW_ALPHA = 0.35F;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -99,6 +112,24 @@ public final class UmbralTenancySkill implements SkillModule {
                 DarkService.corrupt(player, ctx.state(), CORRUPTION);
                 ctx.level().playSound(null, player.blockPosition(), SoundEvents.SCULK_BLOCK_CHARGE,
                         SoundSource.PLAYERS, 0.8F, 0.8F);
+                // The caster goes down into their own shadow where they stand - a breath of it left
+                // hanging over a splash of ink - and comes up in the host's, which takes them with a
+                // splash of its own. Sent here, before the first tick carries them off, so the puff
+                // is left behind for everyone else and never sits in the caster's own view.
+                ServerLevel level = ctx.level();
+                level.sendParticles(new TintedParticleOptions(MagicalParticles.WISP.get(),
+                                ctx.profile().color(ColorRole.BASE), 2.6F),
+                        player.getX(), player.getY() + 0.5D, player.getZ(), 7, 0.3D, 0.4D, 0.3D, 0.01D);
+                level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 0.15D, player.getZ(),
+                        6, 0.3D, 0.05D, 0.3D, 0.03D);
+                level.sendParticles(ParticleTypes.SQUID_INK, host.getX(), host.getY() + 0.15D, host.getZ(),
+                        6, 0.35D, 0.05D, 0.35D, 0.03D);
+                // The one thing the rider sees of the ride. They are carried a step behind the host,
+                // inside its hitbox, with its shadow under a first-person camera and the circle kept
+                // out of their own view - so without this the whole tenancy is an empty screen. The
+                // host's shadow closes in at the edges of the view and lets go as the ride runs out.
+                SpellFx.overlay(player, ctx.definition(), FxKinds.Overlay.VIGNETTE, tenancy.life(),
+                        RIDE_SHADOW_ALPHA, ColorRole.DIM);
                 return CastResult.SUCCESS;
             }
 
@@ -134,7 +165,8 @@ public final class UmbralTenancySkill implements SkillModule {
                 return;
             }
             Vec3 facing = host.getLookAngle().multiply(1.0D, 0.0D, 1.0D);
-            Vec3 behind = facing.lengthSqr() > 1.0E-4D ? facing.normalize().scale(-TRAIL_DISTANCE) : Vec3.ZERO;
+            double trail = host.getBbWidth() * 0.5D + TRAIL_CLEARANCE;
+            Vec3 behind = facing.lengthSqr() > 1.0E-4D ? facing.normalize().scale(-trail) : Vec3.ZERO;
             Vec3 seat = host.position().add(behind);
             player.teleportTo(seat.x, seat.y, seat.z);
             player.resetFallDistance();
@@ -167,8 +199,14 @@ public final class UmbralTenancySkill implements SkillModule {
                 MagicContent.UMBRAL_TENANCY.id(), player);
         level.playSound(null, player.blockPosition(), SoundEvents.SCULK_SHRIEKER_BREAK,
                 SoundSource.PLAYERS, 0.9F, 1.2F);
-        level.sendParticles(ParticleTypes.SCULK_SOUL, player.getX(), player.getY() + 1.0D, player.getZ(),
-                16, 0.3D, 0.5D, 0.3D, 0.01D);
+        // Stepping up out of the host's shadow: the shadow lets go in a splash of ink round the
+        // caster's feet, and the souls come off the ground there. They used to be born round the
+        // chest, which is round a first-person camera, at the one moment the caster most needs to
+        // see what is in front of them. No smoke here for the same reason: it would rise through it.
+        level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 0.15D, player.getZ(),
+                8, 0.35D, 0.05D, 0.35D, 0.04D);
+        level.sendParticles(ParticleTypes.SCULK_SOUL, player.getX(), player.getY() + 0.2D, player.getZ(),
+                16, 0.35D, 0.1D, 0.35D, 0.01D);
     }
 
     @Override

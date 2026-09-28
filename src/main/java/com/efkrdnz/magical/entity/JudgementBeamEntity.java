@@ -10,6 +10,9 @@ import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
 import com.efkrdnz.magical.network.MagicalNetwork;
 import com.efkrdnz.magical.registry.MagicalEntities;
 import java.util.UUID;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -23,6 +26,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -159,6 +163,32 @@ public final class JudgementBeamEntity extends Entity implements CounterableSkil
             serverLevel.playSound(null, blockPosition(), SoundEvents.WARDEN_SONIC_BOOM, SoundSource.PLAYERS, 10.0F, 0.52F);
             serverLevel.playSound(null, blockPosition(), SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 8.0F, 0.62F);
             serverLevel.playSound(null, blockPosition(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 7.0F, 0.42F);
+            landingDebris(serverLevel);
+        }
+    }
+
+    /**
+     * The pillar is light and stays the renderer's; where it meets the ground is matter. A blast at
+     * the feet, the struck ground thrown up, and a ring of dust run out across the area it hurts.
+     */
+    private void landingDebris(ServerLevel serverLevel) {
+        double x = getX();
+        double y = getY();
+        double z = getZ();
+        serverLevel.sendParticles(ParticleTypes.EXPLOSION, x, y + 0.5D, z, 2, 0.45D, 0.25D, 0.45D, 0.0D);
+        BlockState ground = serverLevel.getBlockState(BlockPos.containing(x, y - 0.2D, z));
+        if (ground.isAir()) {
+            return;
+        }
+        serverLevel.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, ground), x, y + 0.15D, z, 20, 0.6D, 0.1D, 0.6D, 0.3D);
+        // count 0 sends one particle with exactly this velocity, so the ring runs out evenly
+        int spokes = 14;
+        double reach = 0.08D * aoeRadius();
+        for (int i = 0; i < spokes; i++) {
+            double angle = Mth.TWO_PI * i / spokes;
+            double dx = Math.cos(angle);
+            double dz = Math.sin(angle);
+            serverLevel.sendParticles(ParticleTypes.POOF, x + dx * 0.6D, y + 0.2D, z + dz * 0.6D, 0, dx, 0.02D, dz, reach);
         }
     }
 

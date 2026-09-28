@@ -13,6 +13,7 @@ import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
 import com.efkrdnz.magical.magic.visual.CircleScript;
+import com.efkrdnz.magical.magic.visual.ColorRole;
 import com.efkrdnz.magical.magic.visual.CoreKind;
 import com.efkrdnz.magical.magic.visual.EmblemId;
 import com.efkrdnz.magical.magic.visual.FxKinds;
@@ -25,7 +26,10 @@ import com.efkrdnz.magical.magic.visual.SpellFx;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import com.efkrdnz.magical.magic.visual.VisualProfiles;
+import com.efkrdnz.magical.particle.TintedParticleOptions;
 import com.efkrdnz.magical.registry.MagicalAttachments;
+import com.efkrdnz.magical.registry.MagicalParticles;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -48,6 +52,27 @@ public final class EchoesOfPassageSkill implements SkillModule {
     private static final int STAMP_INTERVAL = 15;
     private static final int MAX_ECHOES = 10;
     private static final byte MODE_CHILD = 2;
+
+    /** The recorder's draw mode: the mode byte above the sneak bit, which the recorder never sets. */
+    private static final int DRAW_RECORDER = 0;
+
+    /** An echo's draw mode, from {@link #MODE_CHILD} the same way. */
+    private static final int DRAW_ECHO = MODE_CHILD >> 1;
+
+    /**
+     * How tall an echo's glass hourglass stands: under the eyes of a caster standing (1.62) or
+     * crouched (1.27). A caster who records without walking stands in their own first echo, and a
+     * prism reaching the eyes is seen from inside it - its walls across the whole lower half of a
+     * first-person view. At this height its rim is 60 degrees under a standing eye line and 37
+     * under a crouched one, both outside a level view's 35.
+     */
+    private static final float ECHO_HEIGHT = 1.0F;
+
+    /** Runes that lift off the footprint as an echo is stamped. */
+    private static final int STAMP_RUNES = 4;
+
+    /** Glass thrown off an echo as it detonates. */
+    private static final int SHATTER_SHARDS = 8;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -111,6 +136,7 @@ public final class EchoesOfPassageSkill implements SkillModule {
                         echo.setMode(MODE_CHILD);
                         echo.setExtra(echoes.size());
                         level.addFreshEntity(echo);
+                        stampRunes(level, entity.definition(), pos);
                         CompoundTag rec = new CompoundTag();
                         rec.putUUID("Id", echo.getUUID());
                         echoes.add(rec);
@@ -166,6 +192,7 @@ public final class EchoesOfPassageSkill implements SkillModule {
                 }
                 controller.serverData().put("Struck", struckList);
                 SpellFx.impact(level, controller.definition(), centre, new Vec3(0.0D, 1.0D, 0.0D), null, owner, 1.4F);
+                shatter(level, controller.definition(), echo.position());
                 echo.discard();
             }
 
@@ -185,14 +212,49 @@ public final class EchoesOfPassageSkill implements SkillModule {
         };
     }
 
+    /**
+     * Runes lifting off the footprint an echo was just stamped on, so a walked path reads as it is
+     * laid. A rune keeps nine tenths of its speed a tick, so it rises ten times what it starts with:
+     * from the ankles to the waist, under the caster's own eyes.
+     */
+    private static void stampRunes(ServerLevel level, MagicSkillDefinition definition, Vec3 at) {
+        TintedParticleOptions rune = new TintedParticleOptions(MagicalParticles.RUNE.get(), VisualProfiles.of(definition).color(ColorRole.BRIGHT), 1.0F);
+        double offset = level.random.nextDouble() * Math.PI * 2.0D;
+        for (int i = 0; i < STAMP_RUNES; i++) {
+            double a = offset + i * Math.PI * 2.0D / STAMP_RUNES;
+            level.sendParticles(rune, at.x + Math.cos(a) * 0.35D, at.y + 0.1D, at.z + Math.sin(a) * 0.35D, 0, 0.0D, 0.07D, 0.0D, 1.0D);
+        }
+    }
+
+    /**
+     * The glass of a detonated echo: fragments off the whole height of the hourglass that fall and
+     * settle where it stood. The impact cue carries the blast; this is the body it broke. Each is
+     * thrown out and a little down and never up: a shard keeps nearly all its speed and hardly
+     * falls, so one handed a random upward speed climbs two blocks - through the eyes of a caster
+     * who recorded without walking and stands on their own stacked echoes.
+     */
+    private static void shatter(ServerLevel level, MagicSkillDefinition definition, Vec3 base) {
+        TintedParticleOptions shard = new TintedParticleOptions(MagicalParticles.SHARD.get(), VisualProfiles.of(definition).color(ColorRole.BRIGHT), 1.2F);
+        double offset = level.random.nextDouble() * Math.PI * 2.0D;
+        for (int i = 0; i < SHATTER_SHARDS; i++) {
+            double a = offset + i * Math.PI * 2.0D / SHATTER_SHARDS;
+            double y = base.y + ECHO_HEIGHT * (0.15D + 0.75D * level.random.nextDouble());
+            double speed = 0.04D + 0.03D * level.random.nextDouble();
+            level.sendParticles(shard, base.x + Math.cos(a) * 0.3D, y, base.z + Math.sin(a) * 0.3D, 0, Math.cos(a), -0.3D, Math.sin(a), speed);
+        }
+    }
+
     @Override
     public VisualProfile.Builder profile() {
+        // The halo rides the recorder and only an echo is glass. Both used to be drawn on every
+        // entity of the skill, so the recorder - which stands on its caster's feet for the whole
+        // recording - wrapped them in a glass prism, and a first-person view looked out through it.
         return VisualProfile.builder(definition())
                 .material(SchoolMaterial.ARCANE)
                 .circle(CircleScript.of(SchoolMaterial.ARCANE).emblem(EmblemId.HOURGLASS).frame(5).band(GlyphKind.RUNE_BAND, 16).band(GlyphKind.WAVE_BAND, 10).stamps(StampId.FOOTPRINT, 10).orbit(7, 0.88F, 5).core(CoreKind.RIPPLE).stack(3, 0.35F).spin(SpinSignature.COUNTER_SLOW))
                 .anchor(CircleAnchor.GROUND)
-                .silhouette(Silhouette.filament(Silhouette.Form.RING, FxKinds.Filament.DASH_TRAIN, 12, 0.05F, 0.9F, 0))
-                .silhouette(Silhouette.body(Silhouette.Form.PRISM, FxKinds.Body.GLASS, 4, 0.35F, 1.6F))
+                .silhouette(Silhouette.filament(Silhouette.Form.RING, FxKinds.Filament.DASH_TRAIN, 12, 0.05F, 0.9F, 0).forModes(DRAW_RECORDER))
+                .silhouette(Silhouette.body(Silhouette.Form.PRISM, FxKinds.Body.GLASS, 4, 0.35F, ECHO_HEIGHT).forModes(DRAW_ECHO))
                 .release(ReleaseMode.SLAM, ProfileCues.FirstPersonPreset.CASTER_SURGE)
                 .impact(FxKinds.Mark.SHOCK_RING, FxKinds.Smoke.GLASS_SPLINTER, FxKinds.Overlay.CRACKED_GLASS)
                 .bounds(5.0F, 3.0F, 1.0F);

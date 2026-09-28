@@ -27,6 +27,7 @@ import com.efkrdnz.magical.magic.visual.SpellFx;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -41,6 +42,12 @@ import net.minecraft.world.phys.Vec3;
  * dazzled; cover blocks it. A throw-over-the-wall flashbang. Sneak = lob backward.
  */
 public final class GlintSkill implements SkillModule {
+    /** Firework sparks in the airburst's shell: the flashbang's crackle. */
+    private static final int BURST_SPARKS = 18;
+
+    /** How far below level the shell's lowest sparks aim, as the sine of the angle: a bead bursts near the floor. */
+    private static final double SHELL_FLOOR = -0.35D;
+
     @Override
     public MagicSkillDefinition definition() {
         return MagicContent.GLINT;
@@ -91,8 +98,30 @@ public final class GlintSkill implements SkillModule {
                 hit.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40, 1));
             }
             SpellFx.impact(level, bead.definition(), burst, new Vec3(0.0D, 1.0D, 0.0D), null, bead.owner(), 2.2F);
+            flash(level, burst.add(0.0D, 0.2D, 0.0D));
             bead.discard();
         };
+    }
+
+    /**
+     * The airburst itself. Once the matter layer took the shader's white bloom away, the flash of a
+     * flashbang was a spark and a handful of motes, and by the time anyone looked it read as nothing
+     * had gone off. This is a firework's crackle instead: a dome of sparks thrown out round the bead
+     * that hangs and settles for a couple of seconds, and a few glints left burning at the heart.
+     * The dome leans up, because the bead bursts at the floor and a spark thrown down lands at once.
+     */
+    private static void flash(ServerLevel level, Vec3 at) {
+        double spin = level.random.nextDouble() * Math.PI * 2.0D;
+        double golden = Math.PI * (3.0D - Math.sqrt(5.0D));
+        for (int i = 0; i < BURST_SPARKS; i++) {
+            double y = 1.0D - (i + 0.5D) / BURST_SPARKS * (1.0D - SHELL_FLOOR);
+            double r = Math.sqrt(Math.max(0.0D, 1.0D - y * y));
+            double a = spin + i * golden;
+            // a count of 0 sends one particle with the offsets as its velocity, times the speed; a
+            // firework spark keeps 0.91 of its speed a tick, so 0.22 carries it about two and a half blocks
+            level.sendParticles(ParticleTypes.FIREWORK, at.x, at.y, at.z, 0, Math.cos(a) * r, y, Math.sin(a) * r, 0.22D);
+        }
+        level.sendParticles(ParticleTypes.END_ROD, at.x, at.y, at.z, 6, 0.4D, 0.3D, 0.4D, 0.02D);
     }
 
     @Override

@@ -88,8 +88,14 @@ public final class AshEffigySkill implements SkillModule {
                 .anchor(CircleAnchor.EYE_FORWARD)
                 .silhouette(Silhouette.swarm(Silhouette.Form.FIGURE, FxKinds.Smoke.ASH_FLAKE, 90, 0.6F, 2.0F).forModes(1))
                 .silhouette(Silhouette.orb(Silhouette.Form.BILLBOARD, FxKinds.Orb.EYE_SLIT, 0.22F, 4, 8).withOffset(1.75F).forModes(1))
-                .silhouette(Silhouette.swarm(Silhouette.Form.SPHERE, FxKinds.Smoke.ASH_FLAKE, 18, 0.28F).forModes(0))
-                .trail(new ProfileCues.TrailSpec(FxKinds.Smoke.ASH_FLAKE, 2, 0.1F, 14, 0.2F, 0, 0.0F))
+                // The fist in flight is a smouldering coal; the accent trails its flame and smoke. It was
+                // a swarm, and a swarm is sized by the entity's radius - the skill's 2.2-block size, which
+                // the effigy's burst doubles - so the fist flew as a cloud of palm-sized black flakes. An
+                // orb keeps its own size (paramB 8 and up keeps the cluster lit rather than a dark disc);
+                // it kindles over the bundle's 200-tick life, so a short lob is mostly the accent's fire.
+                .silhouette(Silhouette.orb(Silhouette.Form.BILLBOARD, FxKinds.Orb.EMBER_CLUSTER, 0.3F, 6, 10).forModes(0))
+                // the trail kind is what the release throws off the hand: embers, not black flakes
+                .trail(new ProfileCues.TrailSpec(FxKinds.Smoke.EMBER_CLUSTER, 2, 0.1F, 14, 0.2F, 0, 0.0F))
                 .release(ReleaseMode.FUNNEL, ProfileCues.FirstPersonPreset.CASTER_LIGHT)
                 .impact(FxKinds.Mark.INK_STAIN, FxKinds.Smoke.ASH_FLAKE, FxKinds.Overlay.IRIS_CLOSE)
                 .bounds(3.0F, 3.0F, 1.0F);

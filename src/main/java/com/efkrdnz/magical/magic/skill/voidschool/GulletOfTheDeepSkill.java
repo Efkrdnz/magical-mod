@@ -30,9 +30,12 @@ import com.efkrdnz.magical.magic.visual.VisualProfile;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
@@ -46,6 +49,15 @@ public final class GulletOfTheDeepSkill implements SkillModule {
     private static final int TELEGRAPH = 20;
     private static final int DEPTH = 6;
     private static final int CLOSE = 12;
+    /** Rim motes a telegraph tick: nineteen ticks of two is a ring of thirty-eight. */
+    private static final int BREATH_PER_TICK = 2;
+    /**
+     * A reverse-portal mote lives 60 or 61 ticks and each tick moves by its step times its age over
+     * its life, so the steps it takes add up to about 31 of the step it was handed.
+     */
+    private static final double BREATH_STEPS = 31.0D;
+    /** How far under the floor the rim motes are drawn: into the throat once it is open. */
+    private static final double BREATH_SINK = 1.2D;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -105,7 +117,17 @@ public final class GulletOfTheDeepSkill implements SkillModule {
                 double radius = entity.radius();
                 int chew = Math.max(20, entity.extra());
                 int t = entity.tickCount;
+                if (t > 0 && t < TELEGRAPH) {
+                    // the telegraph: the throat draws breath round the rim it will open to, and
+                    // the ground over it trembles, crumbs hopping on it
+                    drawBreath(level, centre, radius);
+                    if (t % 4 == 0) {
+                        crumbs(level, centre, radius * 0.4D, 6, 0.12D);
+                    }
+                }
                 if (t == TELEGRAPH) {
+                    // the floor gives way: crumbs of it tumbling into the throat, sampled before it goes
+                    BlockParticleOption floor = groundCrumb(level, centre);
                     ConjuredTerrainService.Edit edit = ConjuredTerrainService.begin(level);
                     entity.serverData().putUUID("Edit", edit.id());
                     int baseY = (int) Math.floor(centre.y) - 1;
@@ -128,6 +150,10 @@ public final class GulletOfTheDeepSkill implements SkillModule {
                     }
                     entity.setPhase(SpellEffectEntity.PHASE_ACTIVE);
                     SpellFx.impact(level, entity.definition(), centre, new Vec3(0.0D, 1.0D, 0.0D), null, entity.owner(), 2.0F);
+                    if (floor != null) {
+                        // 20, not more: the heavy impact above already throws its own crumbs, blast and puffs
+                        level.sendParticles(floor, centre.x, centre.y - 0.1D, centre.z, 20, radius * 0.45D, 0.15D, radius * 0.45D, 0.05D);
+                    }
                     return;
                 }
                 if (t > TELEGRAPH && t <= TELEGRAPH + chew) {
@@ -140,7 +166,7 @@ public final class GulletOfTheDeepSkill implements SkillModule {
                         }
                     }
                     if ((t - TELEGRAPH) % 10 == 0) {
-                        SpellFx.zoneTick(level, entity.definition(), centre, (float) radius);
+                        SpellFx.zoneTickWithin(level, entity.definition(), centre, radius);
                     }
                     return;
                 }
@@ -172,8 +198,43 @@ public final class GulletOfTheDeepSkill implements SkillModule {
                         }
                         entity.setPhase(SpellEffectEntity.PHASE_CLOSING);
                         restore(entity);
+                        // the throat slams shut and spits: the restored ground thrown up off its lid
+                        crumbs(level, centre, radius * 0.45D, 24, 0.3D);
                     }
                 }
+            }
+
+            /**
+             * Two reverse-portal motes a tick on the rim the pit will open to, each handed its
+             * whole journey into the throat - to the middle and down past the floor - as one step
+             * spread over its life. A reverse-portal mote's step grows with its age, so it hardly
+             * moves for the first half of it: through the telegraph the motes hang on the rim as a
+             * ring that says how wide the pit will be, and once it has opened they rush into it.
+             */
+            private void drawBreath(ServerLevel level, Vec3 centre, double radius) {
+                for (int i = 0; i < BREATH_PER_TICK; i++) {
+                    double a = level.random.nextDouble() * Math.PI * 2.0D;
+                    double r = radius * (0.9D + level.random.nextDouble() * 0.15D);
+                    double lift = 0.3D + level.random.nextDouble() * 0.3D;
+                    double ox = Math.cos(a) * r;
+                    double oz = Math.sin(a) * r;
+                    level.sendParticles(ParticleTypes.REVERSE_PORTAL, centre.x + ox, centre.y + lift, centre.z + oz,
+                            0, -ox, -(lift + BREATH_SINK), -oz, 1.0D / BREATH_STEPS);
+                }
+            }
+
+            /** Crumbs of whatever the throat is cut into, thrown up off its surface. */
+            private void crumbs(ServerLevel level, Vec3 centre, double spread, int count, double speed) {
+                BlockParticleOption crumb = groundCrumb(level, centre);
+                if (crumb != null) {
+                    level.sendParticles(crumb, centre.x, centre.y + 0.1D, centre.z, count, spread, 0.05D, spread, speed);
+                }
+            }
+
+            /** The block the throat opens in, as crumbs; null over air or anything with no surface to crumble. */
+            private BlockParticleOption groundCrumb(ServerLevel level, Vec3 centre) {
+                BlockState state = level.getBlockState(BlockPos.containing(centre.x, centre.y - 0.5D, centre.z));
+                return state.isAir() || state.getRenderShape() == RenderShape.INVISIBLE ? null : new BlockParticleOption(ParticleTypes.BLOCK, state);
             }
 
             private void restore(SpellEffectEntity entity) {

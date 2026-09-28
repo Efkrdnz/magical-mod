@@ -26,7 +26,9 @@ import com.efkrdnz.magical.magic.visual.Silhouette;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import com.efkrdnz.magical.particle.TintedParticleOptions;
 import com.efkrdnz.magical.registry.MagicalAttachments;
+import com.efkrdnz.magical.registry.MagicalParticles;
 import java.util.List;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
@@ -64,6 +66,9 @@ public final class SeverTheThreadSkill implements SkillModule {
 
     private static final double SPEED = 1.35D;
     private static final double HIT_RADIUS = 0.9D;
+
+    /** Lengths of cut thread thrown off a severed body, alternating sides. Drawn only. */
+    private static final int THREAD_ENDS = 8;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -116,9 +121,21 @@ public final class SeverTheThreadSkill implements SkillModule {
             } else {
                 // Everything else gets the blade's own weight, which is deliberately almost nothing.
                 SkillTargets.hurt(level, entity.owner(), victim, entity.damage(), entity.definition().id());
+                snag(level, entity, victim);
             }
             entity.finish();
         };
+    }
+
+    /**
+     * A cut that meets a thread with too much left in it: a scatter of magic-hit stars and a wisp of
+     * smoke off the side it came in on. Small on purpose - the hit is small, and the look should not
+     * promise an execution the numbers are not delivering.
+     */
+    private static void snag(ServerLevel level, SpellEffectEntity entity, LivingEntity victim) {
+        Vec3 at = victim.getBoundingBox().getCenter().subtract(entity.direction().scale(victim.getBbWidth() * 0.5D));
+        level.sendParticles(ParticleTypes.ENCHANTED_HIT, at.x, at.y, at.z, 6, 0.12D, 0.25D, 0.12D, 0.25D);
+        level.sendParticles(ParticleTypes.SMOKE, at.x, at.y, at.z, 4, 0.1D, 0.2D, 0.1D, 0.02D);
     }
 
     /** The gate, in one place so the test and the cast agree on it. */
@@ -140,6 +157,20 @@ public final class SeverTheThreadSkill implements SkillModule {
                 SoundSource.HOSTILE, 0.9F, 1.6F);
         level.sendParticles(ParticleTypes.SCULK_SOUL, victim.getX(), victim.getY() + 0.9D, victim.getZ(),
                 12, 0.25D, 0.4D, 0.25D, 0.01D);
+        // The thread itself, in the blade's own pale colour: short lengths of it flung out either
+        // side of the cut, which fall and settle where the body was. SHARD is lit by the world, so
+        // it reads as something that was there rather than one more flash.
+        Vec3 across = entity.direction().cross(new Vec3(0.0D, 1.0D, 0.0D));
+        across = across.lengthSqr() < 1.0E-4D ? new Vec3(1.0D, 0.0D, 0.0D) : across.normalize();
+        TintedParticleOptions thread = new TintedParticleOptions(MagicalParticles.SHARD.get(),
+                entity.profile().color(ColorRole.HOT), 1.1F);
+        Vec3 at = victim.getBoundingBox().getCenter();
+        for (int i = 0; i < THREAD_ENDS; i++) {
+            double side = (i & 1) == 0 ? 1.0D : -1.0D;
+            double lift = 0.05D + 0.1D * (i / (double) THREAD_ENDS);
+            Vec3 fling = across.scale(side * (0.12D + 0.04D * (i >> 1))).add(0.0D, lift, 0.0D);
+            level.sendParticles(thread, at.x, at.y, at.z, 0, fling.x, fling.y, fling.z, 1.0D);
+        }
     }
 
     @Override

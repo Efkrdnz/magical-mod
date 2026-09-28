@@ -28,8 +28,11 @@ import com.efkrdnz.magical.magic.visual.SpellFx;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import com.efkrdnz.magical.magic.visual.VisualProfiles;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 
@@ -43,6 +46,19 @@ public final class BloodshoutSkill implements SkillModule {
     private static final double RADIUS = 12.0D;
     private static final double CONE_RANGE = 20.0D;
     private static final double CONE_COS = Math.cos(Math.toRadians(50.0D));
+    /** Flames in the roar's ring, and how fast they run: a flame keeps 0.96 of its speed a tick. */
+    private static final int RING_FLAMES = 24;
+    private static final double RING_FLAME_SPEED = 0.45D;
+    /** The aimed shout's fan: fewer flames, sent further down the cone's longer range. */
+    private static final int CONE_FLAMES = 12;
+    private static final double CONE_FLAME_SPEED = 0.6D;
+    /** Angry marks over each provoked head. */
+    private static final int ANGER_MARKS = 2;
+    /**
+     * The roar's shock ripple round the caster's feet, in blocks: its near edge lies on the floor
+     * at the bottom of a level first-person view rather than under the camera.
+     */
+    private static final double ROAR_SHOCK_RADIUS = 3.0D;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -102,6 +118,8 @@ public final class BloodshoutSkill implements SkillModule {
                         continue;
                     }
                 }
+                // vanilla's own sign of a creature provoked, over every head the roar reached
+                level.sendParticles(ParticleTypes.ANGRY_VILLAGER, hostile.getX(), hostile.getY() + hostile.getBbHeight(), hostile.getZ(), ANGER_MARKS, hostile.getBbWidth() * 0.3D, 0.1D, hostile.getBbWidth() * 0.3D, 0.0D);
                 if (hostile instanceof ServerPlayer target) {
                     SpellFx.overlay(target, entity.definition(), FxKinds.Overlay.HEARTBEAT, 40, 0.5F, ColorRole.HOT);
                     continue;
@@ -109,8 +127,35 @@ public final class BloodshoutSkill implements SkillModule {
                 MagicStatusService.apply(hostile, MagicStatus.TAUNTED, taunt, 0, 0.0F, entity.definition().id(), owner);
             }
             entity.setPhase(SpellEffectEntity.PHASE_ACTIVE);
-            SpellFx.impact(level, entity.definition(), owner.getEyePosition(), look, null, owner, 1.8F);
+            // The roar is a shock across the floor, not a blow on anything: a ripple laid round the
+            // caster's feet and the ring of fire below racing out along the ground. It was a hit
+            // cue two blocks ahead, first at the eyes and then on the floor, and a hit cue that
+            // close throws its flame, its black smoke and its ember cards up off a point the camera
+            // stands over, so they climbed through the caster's own view for a second after the
+            // roar. Only its sound is kept.
+            Vec3 feet = SpellFx.groundBelow(level, owner.position().add(0.0D, 0.5D, 0.0D), 4);
+            SpellFx.zoneTickWithin(level, entity.definition(), feet, ROAR_SHOCK_RADIUS);
+            ProfileCues.SoundCue cue = VisualProfiles.of(entity.definition()).sounds().impact();
+            if (cue != null) {
+                level.playSound(null, feet.x, feet.y, feet.z, cue.sound(), SoundSource.PLAYERS, cue.volume(), cue.pitch());
+            }
+            roarWave(level, owner, look, entity.sneakMode());
         };
+    }
+
+    /**
+     * How far the roar carries, drawn on the ground: a ring of flame racing out from the caster's
+     * feet, all the way round - or only down the cone, and faster, when the shout is aimed.
+     */
+    private static void roarWave(ServerLevel level, LivingEntity owner, Vec3 look, boolean cone) {
+        double facing = Math.atan2(look.z, look.x);
+        double half = cone ? Math.acos(CONE_COS) : Math.PI;
+        int flames = cone ? CONE_FLAMES : RING_FLAMES;
+        double speed = cone ? CONE_FLAME_SPEED : RING_FLAME_SPEED;
+        for (int i = 0; i < flames; i++) {
+            double a = facing - half + (i + 0.5D) * (2.0D * half / flames);
+            level.sendParticles(ParticleTypes.FLAME, owner.getX(), owner.getY() + 0.15D, owner.getZ(), 0, Math.cos(a), 0.0D, Math.sin(a), speed);
+        }
     }
 
     @Override

@@ -28,9 +28,12 @@ import com.efkrdnz.magical.magic.visual.SpellFx;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -44,6 +47,13 @@ public final class FallenFirmamentSkill implements SkillModule {
     private static final int DISSOLVE = 20;
     private static final double START_HEIGHT = 18.0D;
     private static final double GAP = 1.5D;
+    /** How near the gap counts as come to rest, for the visuals only: a ground height need not be exact in binary. */
+    private static final double SETTLED = 1.0E-3D;
+    /** Windup soot a tick: nineteen ticks of three is a light fall over the whole zone. */
+    private static final int SOOT_PER_TICK = 3;
+    /** The soot is let go between these heights over the ground, not from the far-off ceiling. */
+    private static final double SOOT_LOW = 3.0D;
+    private static final double SOOT_SPAN = 5.0D;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -99,6 +109,7 @@ public final class FallenFirmamentSkill implements SkillModule {
             Entity owner = entity.owner();
             double groundY = entity.serverData().getDouble("GroundY");
             if (entity.tickCount < WINDUP) {
+                sift(level, entity, groundY);
                 return;
             }
             if (entity.tickCount == WINDUP) {
@@ -106,9 +117,13 @@ public final class FallenFirmamentSkill implements SkillModule {
             }
             double height = entity.getY() - groundY;
             if (height > GAP) {
+                boolean falling = height > GAP + SETTLED;
                 double step = Math.max(0.1D, entity.speed());
                 entity.setPos(entity.getX(), Math.max(groundY + GAP, entity.getY() - step), entity.getZ());
                 height = entity.getY() - groundY;
+                if (falling && height <= GAP + SETTLED) {
+                    settle(level, entity, groundY);
+                }
             }
             entity.setValue((float) height);
             int hold = Math.max(60, entity.extra());
@@ -140,9 +155,46 @@ public final class FallenFirmamentSkill implements SkillModule {
                 }
             }
             if (entity.tickCount % 20 == 0) {
-                SpellFx.zoneTick(level, entity.definition(), base, (float) radius * 0.5F);
+                SpellFx.zoneTickWithin(level, entity.definition(), base, radius);
+            }
+            // once it hangs low, the ceiling weeps: ink drips off its underside onto what it presses
+            if (height <= GAP + SETTLED && entity.tickCount % 3 == 0) {
+                level.sendParticles(ParticleTypes.FALLING_OBSIDIAN_TEAR, centre.x, centre.y - 0.1D, centre.z, 2, radius * 0.45D, 0.0D, radius * 0.45D, 0.0D);
             }
         };
+    }
+
+    /**
+     * The windup, before the ceiling has formed: all there is of it in the sky is the circle, which
+     * from the ground is an arc at the very top of the view, so the sky says it is coming another
+     * way - soot sifting down over the ground it will cover, let go low enough to be in view and
+     * left to fall at its own pace, so it is still drifting down as the ceiling forms above it.
+     */
+    private static void sift(ServerLevel level, SpellEffectEntity entity, double groundY) {
+        double radius = entity.radius() * 0.9D;
+        BlockParticleOption soot = new BlockParticleOption(ParticleTypes.FALLING_DUST, Blocks.BLACK_CONCRETE_POWDER.defaultBlockState());
+        for (int i = 0; i < SOOT_PER_TICK; i++) {
+            double r = radius * Math.sqrt(level.random.nextDouble());
+            double a = level.random.nextDouble() * Math.PI * 2.0D;
+            double y = groundY + SOOT_LOW + level.random.nextDouble() * SOOT_SPAN;
+            level.sendParticles(soot, entity.getX() + Math.cos(a) * r, y, entity.getZ() + Math.sin(a) * r, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+        }
+    }
+
+    /**
+     * The tick the firmament comes to rest: the air under it is pushed out along the ground, a ring
+     * of dust running out from the edge of what it pins (the zone's radius, which is narrower than
+     * the drawn ceiling, so the dust says where the crush actually reaches).
+     */
+    private static void settle(ServerLevel level, SpellEffectEntity entity, double groundY) {
+        int puffs = 20;
+        double radius = entity.radius() * 0.9D;
+        for (int i = 0; i < puffs; i++) {
+            double a = i * Math.PI * 2.0D / puffs;
+            double cx = Math.cos(a);
+            double cz = Math.sin(a);
+            level.sendParticles(ParticleTypes.POOF, entity.getX() + cx * radius, groundY + 0.15D, entity.getZ() + cz * radius, 0, cx, 0.02D, cz, 0.28D);
+        }
     }
 
     @Override

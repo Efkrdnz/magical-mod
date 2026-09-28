@@ -13,6 +13,7 @@ import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
 import com.efkrdnz.magical.magic.visual.CircleScript;
+import com.efkrdnz.magical.magic.visual.ColorRole;
 import com.efkrdnz.magical.magic.visual.CoreKind;
 import com.efkrdnz.magical.magic.visual.EmblemId;
 import com.efkrdnz.magical.magic.visual.FxKinds;
@@ -25,6 +26,9 @@ import com.efkrdnz.magical.magic.visual.SpellFx;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import com.efkrdnz.magical.magic.visual.VisualProfiles;
+import com.efkrdnz.magical.particle.TintedParticleOptions;
+import com.efkrdnz.magical.registry.MagicalParticles;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -42,6 +46,15 @@ public final class RetrogradeSkill implements SkillModule {
     private static final int WINDUP = 5;
     private static final int WINDOW = 60;
     private static final int LINGER = 14;
+
+    /** A rewind shorter than this is a body that stood still: no path to draw. */
+    private static final double PATH_MIN_LENGTH = 0.75D;
+
+    /** Blocks between the motes of a rewound path. */
+    private static final double PATH_SPACING = 0.6D;
+
+    /** The most motes one rewound path is drawn with, however far the body had gone. */
+    private static final int PATH_MAX_MOTES = 12;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -106,7 +119,7 @@ public final class RetrogradeSkill implements SkillModule {
                 }
                 entity.serverData().put("Records", records);
                 entity.setPhase(SpellEffectEntity.PHASE_ACTIVE);
-                SpellFx.zoneTick(level, entity.definition(), entity.position(), entity.radius() / 3.0F);
+                SpellFx.zoneTickWithin(level, entity.definition(), entity.position(), entity.radius());
             } else if (entity.tickCount == WINDUP + window) {
                 ListTag records = entity.serverData().getList("Records", Tag.TAG_COMPOUND);
                 for (int i = 0; i < records.size(); i++) {
@@ -120,6 +133,7 @@ public final class RetrogradeSkill implements SkillModule {
                         continue;
                     }
                     double travelled = living.position().distanceTo(origin);
+                    Vec3 left = living.position();
                     living.stopRiding();
                     living.teleportTo(origin.x, origin.y, origin.z);
                     living.setYRot(rec.getFloat("Yaw"));
@@ -128,10 +142,38 @@ public final class RetrogradeSkill implements SkillModule {
                     living.hurtMarked = true;
                     float damage = Math.min(14.0F, entity.damage() + (float) travelled * 0.35F);
                     SkillTargets.hurt(level, entity.owner(), living, damage, entity.definition(), true);
+                    rewindPath(level, entity.definition(), left, origin, living.getBbHeight());
                 }
                 entity.setPhase(SpellEffectEntity.PHASE_CLOSING);
             }
         };
+    }
+
+    /**
+     * The path a rewound body was pulled back along, which the teleport itself never shows: a line
+     * of motes from where it stood to where it was recorded, each drifting the way the body went,
+     * and a few runes left where it vanished. The hit at the far end is the impact cue's. A body
+     * that never moved has no path to draw.
+     */
+    private static void rewindPath(ServerLevel level, MagicSkillDefinition definition, Vec3 left, Vec3 origin, float height) {
+        Vec3 lift = new Vec3(0.0D, height * 0.5D, 0.0D);
+        Vec3 from = left.add(lift);
+        Vec3 path = origin.add(lift).subtract(from);
+        double length = path.length();
+        if (length < PATH_MIN_LENGTH) {
+            return;
+        }
+        int bright = VisualProfiles.of(definition).color(ColorRole.BRIGHT);
+        TintedParticleOptions mote = new TintedParticleOptions(MagicalParticles.MOTE.get(), bright, 1.2F);
+        Vec3 along = path.scale(1.0D / length);
+        // both ends carry a mote, so a path of n steps is n + 1 of them
+        int steps = Math.min(PATH_MAX_MOTES - 1, (int) Math.ceil(length / PATH_SPACING));
+        for (int i = 0; i <= steps; i++) {
+            Vec3 p = from.add(path.scale(i / (double) steps));
+            level.sendParticles(mote, p.x, p.y, p.z, 0, along.x, along.y, along.z, 0.05D);
+        }
+        TintedParticleOptions rune = new TintedParticleOptions(MagicalParticles.RUNE.get(), bright, 1.1F);
+        level.sendParticles(rune, from.x, from.y, from.z, 5, 0.25D, height * 0.25D, 0.25D, 0.03D);
     }
 
     @Override

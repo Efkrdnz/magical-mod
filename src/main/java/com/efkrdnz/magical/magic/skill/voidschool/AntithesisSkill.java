@@ -27,6 +27,9 @@ import com.efkrdnz.magical.magic.visual.SpellFx;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import com.efkrdnz.magical.magic.visual.VisualProfiles;
+import com.efkrdnz.magical.particle.TintedParticleOptions;
+import com.efkrdnz.magical.registry.MagicalParticles;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.Holder;
@@ -48,6 +51,8 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class AntithesisSkill implements SkillModule {
     private static final double THICKNESS = 0.35D;
+    /** How far over the floor the pane's bottom rim glints: a mote on the floor itself is half buried. */
+    private static final double RIM_FLOOR = 0.12D;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -116,6 +121,7 @@ public final class AntithesisSkill implements SkillModule {
             Vec3 n = entity.direction();
             double halfW = entity.radius();
             double halfH = entity.value() > 0.0F ? entity.value() : 2.0D;
+            glint(level, entity, c, n, halfW, halfH);
             AABB box = new AABB(c, c).inflate(halfW + 1.0D, halfH + 1.0D, halfW + 1.0D);
             CompoundTag data = entity.serverData();
             for (Entity e : level.getEntities(entity, box, en -> en.isAlive() && en != owner)) {
@@ -156,14 +162,58 @@ public final class AntithesisSkill implements SkillModule {
         };
     }
 
+    /**
+     * The glass is kept to a faint smoke so it does not darken what the caster aims through (see
+     * profile), which leaves it hard to place; its edges say where it stands instead. Every tick a
+     * mote catches the light somewhere on the rim of the rectangle that acts - the floor line, the
+     * two sides, the top - and every fourth one a smaller glint on the face. Motes hang where they
+     * are put and twinkle out, so the rim reads as a dotted frame and never as a spray.
+     */
+    private static void glint(ServerLevel level, SpellEffectEntity entity, Vec3 c, Vec3 n, double halfW, double halfH) {
+        Vec3 across = new Vec3(-n.z, 0.0D, n.x);
+        int rgb = VisualProfiles.of(entity.definition()).color(ColorRole.BRIGHT);
+        double w = halfW * 2.0D;
+        double h = halfH * 2.0D;
+        double s = level.random.nextDouble() * (w + h) * 2.0D;
+        double along;
+        double up;
+        if (s < w) {
+            along = s - halfW;
+            up = RIM_FLOOR - halfH;
+        } else if (s < 2.0D * w) {
+            along = s - w - halfW;
+            up = halfH;
+        } else if (s < 2.0D * w + h) {
+            along = -halfW;
+            up = s - 2.0D * w - halfH;
+        } else {
+            along = halfW;
+            up = s - 2.0D * w - h - halfH;
+        }
+        Vec3 rim = c.add(across.scale(along)).add(0.0D, Math.max(RIM_FLOOR - halfH, up), 0.0D);
+        level.sendParticles(new TintedParticleOptions(MagicalParticles.MOTE.get(), rgb, 1.2F), rim.x, rim.y, rim.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+        if (entity.tickCount % 4 == 0) {
+            Vec3 face = c.add(across.scale((level.random.nextDouble() * 2.0D - 1.0D) * halfW * 0.85D))
+                    .add(0.0D, (level.random.nextDouble() * 2.0D - 1.0D) * halfH * 0.85D, 0.0D);
+            level.sendParticles(new TintedParticleOptions(MagicalParticles.MOTE.get(), rgb, 0.8F), face.x, face.y, face.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+        }
+    }
+
     @Override
     public VisualProfile.Builder profile() {
         return VisualProfile.builder(definition())
                 .material(SchoolMaterial.VOID)
                 .circle(CircleScript.of(SchoolMaterial.VOID).emblem(EmblemId.MIRROR).frame(4).band(GlyphKind.BRAID_BAND, 4, ColorRole.BASE).band(GlyphKind.TICK_BAND, 24, ColorRole.DIM).stamps(StampId.ARROW, 8).mirror(2).core(CoreKind.HEX_LENS).spin(SpinSignature.STATIC))
                 .anchor(CircleAnchor.GROUND)
-                .silhouette(Silhouette.field(Silhouette.Form.WALL, FxKinds.Field.MIRROR_SHEEN, 2.5F, 2.0F, 2, 6).withOpacity(0.85F))
-                .silhouette(Silhouette.mark(FxKinds.Mark.HEX_CELLS, 2.6F, 6).withOffset(-2.0F).withOpacity(0.5F))
+                // The pane is drawn where it acts. A WALL is built from its origin upward, and the origin
+                // sits in the middle of a pane reaching two blocks above and below it, so the glass hung
+                // over the caster's head and its lower half - the half bodies cross - was never drawn.
+                // It is dark glass across the caster's whole view now, and seen through both of its
+                // faces, so it is kept to smoked glass (about 38% darker behind it, where 0.5 took near
+                // 60% off everything the caster aims at) and lifted a hair so its bottom face does not
+                // fight the floor; the hex cells stay a faint trace inside it.
+                .silhouette(Silhouette.field(Silhouette.Form.WALL, FxKinds.Field.MIRROR_SHEEN, 2.5F, 4.0F, 2, 6).withOffset(-1.95F).withOpacity(0.3F))
+                .silhouette(Silhouette.mark(FxKinds.Mark.HEX_CELLS, 2.6F, 6).withOffset(-2.0F).withOpacity(0.3F))
                 .release(ReleaseMode.LIFT, ProfileCues.FirstPersonPreset.CASTER_LIGHT)
                 .impact(FxKinds.Mark.SHOCK_RING, FxKinds.Smoke.HEX_FRAGMENT, FxKinds.Overlay.PRISM_RING)
                 .bounds(4.0F, 3.0F, 3.0F);

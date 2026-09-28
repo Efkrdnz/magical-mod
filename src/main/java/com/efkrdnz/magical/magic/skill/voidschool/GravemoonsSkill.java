@@ -27,10 +27,13 @@ import com.efkrdnz.magical.magic.visual.SpellFx;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -125,6 +128,9 @@ public final class GravemoonsSkill implements SkillModule {
                         data.putInt("strikes_" + i, strikes);
                         if (strikes >= 3) {
                             shattered = true;
+                        } else {
+                            // a chip off the moon per strike, so the third one is seen coming
+                            level.sendParticles(obsidian(), shard.x, shard.y, shard.z, 5, 0.08D, 0.08D, 0.08D, 0.12D);
                         }
                         break;
                     }
@@ -134,9 +140,16 @@ public final class GravemoonsSkill implements SkillModule {
                     entity.setExtra(alive);
                     syncShards(entity, alive);
                     SpellFx.impact(level, entity.definition(), shard, shard.subtract(entity.position()).normalize(), null, owner, 1.0F);
+                    // the moon breaks as the stone it is drawn as: real obsidian, falling
+                    level.sendParticles(obsidian(), shard.x, shard.y, shard.z, 18, 0.15D, 0.15D, 0.15D, 0.2D);
                 }
             }
         };
+    }
+
+    /** Crumbs of the stone the moons are drawn as (FxKinds.Body.OBSIDIAN in VoidPainters). */
+    private static BlockParticleOption obsidian() {
+        return new BlockParticleOption(ParticleTypes.BLOCK, Blocks.OBSIDIAN.defaultBlockState());
     }
 
     /** The painter reads the alive mask and the orbit direction from the synced tag. */

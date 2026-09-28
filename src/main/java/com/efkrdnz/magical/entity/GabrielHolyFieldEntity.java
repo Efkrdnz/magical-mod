@@ -8,6 +8,9 @@ import com.efkrdnz.magical.registry.MagicalEntities;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -22,6 +25,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -139,10 +143,29 @@ public final class GabrielHolyFieldEntity extends Entity {
             if (target instanceof ServerPlayer player) {
                 MagicalNetwork.playFirstPersonImpact(player, color(), 10, 0.22F, 5, 0.2F, 0, -0.8F);
             }
+            strikeDebris(target);
         }
         if (level() instanceof ServerLevel level) {
             level.playSound(null, blockPosition(), SoundEvents.TRIDENT_THUNDER.value(), SoundSource.PLAYERS, 2.1F, 1.85F);
             level.playSound(null, blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.6F, 1.35F);
+        }
+    }
+
+    /**
+     * The strike itself is the renderer's bolt of light, and it used to land on nothing. Gabriel's
+     * own matter burst (sparks and gold) at the struck body, and the ground under it kicked up.
+     */
+    private void strikeDebris(LivingEntity target) {
+        if (!(level() instanceof ServerLevel level)) {
+            return;
+        }
+        Vec3 feet = target.position();
+        com.efkrdnz.magical.magic.visual.SpellFx.burst(level, MagicContent.GABRIEL, feet.add(0.0D, target.getBbHeight() * 0.4D, 0.0D), new Vec3(0.0D, 1.0D, 0.0D), 1.0F);
+        if (target.onGround()) {
+            BlockState ground = level.getBlockState(BlockPos.containing(feet.x, feet.y - 0.2D, feet.z));
+            if (!ground.isAir()) {
+                level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, ground), feet.x, feet.y + 0.1D, feet.z, 10, 0.35D, 0.05D, 0.35D, 0.2D);
+            }
         }
     }
 

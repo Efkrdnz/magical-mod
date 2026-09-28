@@ -45,6 +45,41 @@ public final class CompressionSkill implements SkillModule {
     private static final float[] GROW = {1.15F, 1.35F, 1.60F};
     private static final int CLICKS = 3;
     private static final int CLICK_SPACING = 2;
+    /** Motes in the shell each click closes (or, reversed, throws open) round the body. */
+    private static final int CLICK_SHELL = 8;
+    /** How far outside the body the click's shell starts, in blocks. */
+    private static final double CLICK_SHELL_REACH = 1.3D;
+    /** While the body is held small: a couple of motes drawn in toward it every this many ticks. */
+    private static final int HELD_INTERVAL = 4;
+    private static final int HELD_MOTES = 2;
+
+    /**
+     * A click of the gimbal, told by the space round the body: a shell of pale motes snapping in onto
+     * it, or thrown out from it when the polarity is reversed. The gauge rings say the scale; this
+     * says which way the space went.
+     */
+    private static void clickMatter(SpellEffectEntity entity, LivingEntity living, int click) {
+        Vec3 centre = living.getBoundingBox().getCenter();
+        double body = Math.max(0.3D, living.getBbWidth() * 0.5D);
+        double outer = body + CLICK_SHELL_REACH * (1.0D - 0.15D * (click - 1));
+        if (entity.sneakMode()) {
+            SpatialMatter.converge(entity.serverLevel(), entity.definition(), centre, body * 0.6D, outer, CLICK_SHELL, false);
+        } else {
+            SpatialMatter.converge(entity.serverLevel(), entity.definition(), centre, outer, body * 0.4D, CLICK_SHELL, false);
+        }
+    }
+
+    /** The hold: a thin trickle of motes still being drawn in toward the body (out of it, reversed). */
+    private static void heldMatter(SpellEffectEntity entity, LivingEntity living) {
+        Vec3 centre = living.getBoundingBox().getCenter();
+        double body = Math.max(0.3D, living.getBbWidth() * 0.5D);
+        double outer = body + 0.9D;
+        if (entity.sneakMode()) {
+            SpatialMatter.converge(entity.serverLevel(), entity.definition(), centre, body * 0.8D, outer, HELD_MOTES, false);
+        } else {
+            SpatialMatter.converge(entity.serverLevel(), entity.definition(), centre, outer, body * 0.5D, HELD_MOTES, false);
+        }
+    }
 
     @Override
     public MagicSkillDefinition definition() {
@@ -115,10 +150,13 @@ public final class CompressionSkill implements SkillModule {
                     entity.setValue(scale);
                     entity.setExtra(click);
                     SpellFx.barrierHit(entity.serverLevel(), entity.definition(), living.getBoundingBox().getCenter(), new Vec3(0.0D, 1.0D, 0.0D));
+                    clickMatter(entity, living, click);
                     if (click == CLICKS) {
                         entity.setPhase(SpellEffectEntity.PHASE_ACTIVE);
                         SkillTargets.hurt(entity.serverLevel(), entity.owner(), living, entity.damage(), entity.definition(), true);
                     }
+                } else if (t > CLICKS * CLICK_SPACING && t % HELD_INTERVAL == 0) {
+                    heldMatter(entity, living);
                 }
             }
 

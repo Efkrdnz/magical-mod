@@ -23,6 +23,9 @@ public final class MagicVisualContentKept {
                 .material(SchoolMaterial.VOID)
                 .circle(CircleScript.of(SchoolMaterial.VOID).emblem(EmblemId.THORN_CROWN).frame(5).band(GlyphKind.TOOTH_BAND, 20).band(GlyphKind.PETAL_BAND, 10, ColorRole.INK).stamps(StampId.THORN, 5).pentagram().core(CoreKind.VOID_PIT).spin(SpinSignature.COUNTER_FAST))
                 .anchor(CircleAnchor.GROUND)
+                // a Dark-school fire drawn in Void's circle: its blast is black smoke and ink, the
+                // matter its fields and wake already burn with, not Void's magenta portal motes
+                .accent(Accent.GLOOM)
                 .silhouette(Silhouette.custom("black_flames", 2.0F))
                 .release(ReleaseMode.SLAM, ProfileCues.FirstPersonPreset.CASTER_RECOIL)
                 .impact(FxKinds.Mark.SCORCH_DECAL, FxKinds.Smoke.INK_BLOOM, FxKinds.Overlay.INK_BLEED));

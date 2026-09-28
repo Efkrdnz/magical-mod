@@ -9,6 +9,7 @@ import com.efkrdnz.magical.client.renderer.fx.paint.CustomPainters;
 import com.efkrdnz.magical.client.renderer.fx.paint.FilamentPainter;
 import com.efkrdnz.magical.client.renderer.fx.paint.MarkPainter;
 import com.efkrdnz.magical.client.renderer.fx.paint.OrbPainter;
+import com.efkrdnz.magical.magic.skill.classes.DawnhammerSkill;
 import com.efkrdnz.magical.magic.skill.classes.HailVolleySkill;
 import com.efkrdnz.magical.magic.visual.ColorRole;
 import com.efkrdnz.magical.magic.visual.FxKinds;
@@ -17,11 +18,17 @@ import com.efkrdnz.magical.magic.visual.VisualProfile;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.client.model.data.ModelData;
 
 /** Bespoke painters for the class rewards. */
 public final class ClassPainters {
@@ -31,40 +38,80 @@ public final class ClassPainters {
         return ctx.direction.lengthSqr() > 1.0E-6D ? ctx.direction.normalize() : new Vec3(0.0D, 0.0D, 1.0D);
     }
 
-    /** A gold hammer head on a haft, raised over the shoulder and swung through a bright arc (ctx.extra = swing 0..1). */
+    /** The dawnhammer's haft, pivot to head, in blocks. */
+    private static final float HAMMER_HAFT = 2.4F;
+    /** The haft's angle past upright with the hammer raised behind the shoulder. */
+    private static final float HAMMER_RAISED = -70.0F;
+    /**
+     * The haft's angle past upright with the head on the floor: from a pivot 1.4 above the feet a
+     * 2.4 haft at 113 degrees puts the bottom of the head on the ground a little over two blocks
+     * ahead, where the skill's impact goes off. It used to stop at 80, level with the eyes and
+     * nearly two blocks up, so the floor burst under a hammer that never came down.
+     */
+    private static final float HAMMER_LANDED = 113.0F;
+    /** Held in the right hand: local -X, since +X is the wielder's left once local +Z is the swing. */
+    private static final float HAMMER_SHOULDER = -0.45F;
+    /** Turned in toward the centre line so a blow from the right shoulder still lands in front. */
+    private static final float HAMMER_INWARD = 11.5F;
+    /** The head: its radius and its length across the haft. */
+    private static final float HAMMER_HEAD_RADIUS = 0.45F;
+    private static final float HAMMER_HEAD_LENGTH = 0.9F;
+
+    /**
+     * A gold hammer head on a haft, raised over the right shoulder and brought down through a bright
+     * arc onto the floor in front, landing on the skill's hit frame and resting there until it fades.
+     *
+     * <p>The swing is walked on the effect's own clock rather than on {@code ctx.extra}, which the
+     * server steps once a tick, so the head jumped from one tick's angle to the next. The pivot sits off
+     * the eye on the right shoulder: from the middle of the body the haft passed straight through the
+     * caster's own camera as it came over the top.
+     */
     public static void dawnhammer(FxContext ctx, VisualProfile profile, Silhouette s) {
         Vec3 f = dir(ctx);
-        float swing = Mth.clamp(ctx.extra, 0.0F, 1.0F);
-        // raised (-70 deg behind) to slammed (+80 deg ahead), fast through the middle
-        float angle = Mth.lerp(swing * swing * (3.0F - 2.0F * swing), -70.0F, 80.0F);
+        float swing = ctx.life > 0.0F ? Mth.clamp(ctx.age / ctx.life, 0.0F, 1.0F) : Mth.clamp(ctx.extra, 0.0F, 1.0F);
+        // lands on the hit frame, accelerating into the floor, then rests
+        float hitShare = DawnhammerSkill.HIT_FRAME / (float) DawnhammerSkill.SWING;
+        float blow = Mth.clamp(swing / hitShare, 0.0F, 1.0F);
+        float angle = Mth.lerp(blow * blow, HAMMER_RAISED, HAMMER_LANDED);
         int gold = profile.color(ColorRole.BASE);
         int hot = profile.color(ColorRole.HOT);
         VertexConsumer solid = ctx.buffers.getBuffer(MagicalFxRenderTypes.shardBody());
         int packed = MagicVertex.pack(FxKinds.Body.GOLD.id(), 8, 6, 0.0F, ctx.seed, 0);
         ctx.pose.pushPose();
-        FilamentPainter.orientAlong(ctx.pose, f);
-        // pivot at the shoulder; the haft goes out along +Y then rotates about local X (across the swing)
+        swingFrame(ctx, f);
+        // the haft goes out along +Y then rotates about local X (across the swing)
         ctx.pose.mulPose(Axis.XP.rotationDegrees(angle));
-        FxMesh.emit(solid, ctx.pose.last().pose(), FxMesh.column(), 0.07F, 3.0F, 0.07F, gold, 1.0F, packed);
-        ctx.pose.translate(0.0F, 3.0F, 0.0F);
+        FxMesh.emit(solid, ctx.pose.last().pose(), FxMesh.column(), 0.07F, HAMMER_HAFT, 0.07F, gold, 1.0F, packed);
+        ctx.pose.translate(0.0F, HAMMER_HAFT, 0.0F);
         ctx.pose.mulPose(Axis.XP.rotationDegrees(90.0F));
-        float[] head = FxMesh.prism(8);
-        FxMesh.emit(solid, ctx.pose.last().pose(), head, 0.45F, 0.9F, 0.45F, gold, 1.0F, packed);
+        // the head sits across the end of the haft, centred on it
+        ctx.pose.translate(0.0F, -HAMMER_HEAD_LENGTH * 0.5F, 0.0F);
+        FxMesh.emit(solid, ctx.pose.last().pose(), FxMesh.prism(8), HAMMER_HEAD_RADIUS, HAMMER_HEAD_LENGTH, HAMMER_HEAD_RADIUS, gold, 1.0F, packed);
         ctx.pose.popPose();
-        // the swept arc
-        if (swing > 0.25F) {
+        // the swept arc, laid along the path the head has travelled
+        float sweep = angle - HAMMER_RAISED;
+        float fadeOut = Math.max(0.0F, 1.0F - Math.max(0.0F, swing - hitShare) * 3.0F);
+        if (sweep > 20.0F && fadeOut > 0.0F) {
             VertexConsumer beam = ctx.buffers.getBuffer(MagicalFxRenderTypes.filamentBeam());
             int arcPacked = MagicVertex.pack(FxKinds.Filament.RIBBON.id(), 6, 0, swing, ctx.seed, 0);
-            float sweep = Mth.clamp((angle + 70.0F), 0.0F, 150.0F);
-            float[] arc = FxMesh.arc(12, 0.86F, -70.0F, sweep);
+            // arc angle a sits at haft angle 90 - a once local X is turned onto the swing's +Z,
+            // so the band runs back from the head to where the hammer was raised
+            float[] arc = FxMesh.arc(12, 0.86F, 90.0F - HAMMER_RAISED, -sweep);
             ctx.pose.pushPose();
-            FilamentPainter.orientAlong(ctx.pose, f);
-            ctx.pose.mulPose(Axis.YP.rotationDegrees(90.0F));
-            float fadeOut = Math.max(0.0F, 1.0F - Math.max(0.0F, swing - 0.7F) * 3.0F);
-            FxMesh.emit(beam, ctx.pose.last().pose(), arc, 3.3F, 3.3F, 1.0F, hot, 0.8F * fadeOut, arcPacked);
+            swingFrame(ctx, f);
+            ctx.pose.mulPose(Axis.YP.rotationDegrees(-90.0F));
+            float band = HAMMER_HAFT * 1.1F;
+            FxMesh.emit(beam, ctx.pose.last().pose(), arc, band, band, 1.0F, hot, 0.8F * fadeOut, arcPacked);
             ctx.pose.popPose();
         }
         FxBudget.countQuads(30);
+    }
+
+    /** The swing's frame: local +Z along the swing, the pivot on the right shoulder, turned in. */
+    private static void swingFrame(FxContext ctx, Vec3 f) {
+        FilamentPainter.orientAlong(ctx.pose, f);
+        ctx.pose.translate(HAMMER_SHOULDER, 0.0F, 0.0F);
+        ctx.pose.mulPose(Axis.YP.rotationDegrees(HAMMER_INWARD));
     }
 
     /** Thick gold chain links between the two ends (and the stake), white-hot when taut. */
@@ -139,8 +186,23 @@ public final class ClassPainters {
         FxBudget.countQuads(3);
     }
 
-    /** The caster re-rendered as fitted ashlar masonry under a crenellated stone mantle. */
+    /** How far off the figure's axis, and how high over its feet, a camera counts as inside it. */
+    private static final double BULWARK_INSIDE_HALF_WIDTH = 0.9D;
+    private static final double BULWARK_INSIDE_TOP = 2.4D;
+
+    /**
+     * The caster re-rendered as fitted ashlar masonry under a crenellated stone mantle.
+     *
+     * <p>Not for the caster's own camera, which stands inside the keystone head: drawn from in there
+     * the slabs are a wall of grey across the whole first-person view for the stance's whole length.
+     * Everybody else sees the figure, and so does the caster from third person.
+     */
     public static void livingBulwark(FxContext ctx, VisualProfile profile, Silhouette s) {
+        Vec3 eye = ctx.cameraPos;
+        if (eye != null && Math.abs(eye.x) < BULWARK_INSIDE_HALF_WIDTH && Math.abs(eye.z) < BULWARK_INSIDE_HALF_WIDTH
+                && eye.y > -0.5D && eye.y < BULWARK_INSIDE_TOP) {
+            return;
+        }
         Vec3 f = dir(ctx);
         int stone = profile.color(ColorRole.DIM);
         int seam = profile.color(ColorRole.BASE);
@@ -278,18 +340,34 @@ public final class ClassPainters {
         FxBudget.countQuads(6 * 2 + 4 * 2 + 3);
     }
 
-    /** The lifted block: a stone prism inside the refraction bubble. */
+    /** The torn-out block inside the bubble, as a share of a full block: its corners clear the lens. */
+    private static final float GRASP_BLOCK_SCALE = 0.85F;
+
+    /**
+     * The lifted block inside the refraction bubble - the block itself, turning slowly, lit where it
+     * hangs. It was a slab of the skill's tint, so a grass block and a log came up out of the ground
+     * as the same blue-grey brick; the grip's light is the bubble and the block is only matter.
+     */
     public static void arcaneGrasp(FxContext ctx, VisualProfile profile, Silhouette s) {
         if (ctx.data == null || !ctx.data.getBoolean("Rock")) {
             return;
         }
-        VertexConsumer solid = ctx.buffers.getBuffer(MagicalFxRenderTypes.shardBody());
-        int packed = MagicVertex.pack(FxKinds.Body.STONE.id(), 4, 6, 0.0F, ctx.seed, 0);
         ctx.pose.pushPose();
         ctx.pose.mulPose(Axis.YP.rotationDegrees(ctx.age * 2.0F));
         ctx.pose.mulPose(Axis.XP.rotationDegrees(15.0F));
-        ctx.pose.translate(0.0F, -0.45F, 0.0F);
-        FxMesh.emit(solid, ctx.pose.last().pose(), FxMesh.slab(), 0.45F, 0.9F, 0.45F, profile.color(ColorRole.DIM), 1.0F, packed);
+        BlockState block = ctx.data.contains("State") ? Block.stateById(ctx.data.getInt("State")) : null;
+        Level level = Minecraft.getInstance().level;
+        if (block != null && !block.isAir() && level != null) {
+            ctx.pose.scale(GRASP_BLOCK_SCALE, GRASP_BLOCK_SCALE, GRASP_BLOCK_SCALE);
+            ctx.pose.translate(-0.5F, -0.5F, -0.5F);
+            int light = LevelRenderer.getLightColor(level, BlockPos.containing(ctx.origin));
+            Minecraft.getInstance().getBlockRenderer().renderSingleBlock(block, ctx.pose, ctx.buffers, light, OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
+        } else {
+            VertexConsumer solid = ctx.buffers.getBuffer(MagicalFxRenderTypes.shardBody());
+            int packed = MagicVertex.pack(FxKinds.Body.STONE.id(), 4, 6, 0.0F, ctx.seed, 0);
+            ctx.pose.translate(0.0F, -0.45F, 0.0F);
+            FxMesh.emit(solid, ctx.pose.last().pose(), FxMesh.slab(), 0.45F, 0.9F, 0.45F, profile.color(ColorRole.DIM), 1.0F, packed);
+        }
         ctx.pose.popPose();
         FxBudget.countQuads(6);
     }

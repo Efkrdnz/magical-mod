@@ -44,6 +44,16 @@ public final class CreaseFoldSkill implements SkillModule {
     private static final int LINGER = 30;
     private static final double RADIUS = 6.0D;
     private static final double VERTICAL = 4.0D;
+    /** One pillar of the floor's dust every this many blocks along the seam as it shuts... */
+    private static final double SEAM_PILLAR_SPACING = 1.5D;
+    /** ...and never more than this many, however wide a seam is scored. */
+    private static final int SEAM_PILLARS_MAX = 11;
+    /** Motes glittering up off the seam each tick of the windup. */
+    private static final int SCORE_MOTES = 1;
+    /** After the fold: a mote or two off the scar every few ticks, for this long. */
+    private static final int SCAR_TICKS = 20;
+    private static final int SCAR_INTERVAL = 2;
+    private static final int SCAR_MOTES = 1;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -97,10 +107,46 @@ public final class CreaseFoldSkill implements SkillModule {
         };
     }
 
+    /** The seam's two ends, {@code reach} of the way out from its middle, square to the look. */
+    private static Vec3[] seamEnds(SpellEffectEntity entity, double reach) {
+        Vec3 f = entity.direction();
+        Vec3 across = new Vec3(f.z, 0.0D, -f.x).scale(entity.radius() * reach);
+        Vec3 centre = entity.position();
+        return new Vec3[] {centre.subtract(across), centre.add(across)};
+    }
+
+    /**
+     * The seam being scored through the windup: motes glittering up off it, over the width the
+     * zipper has opened to, so the line a fold will shut along is on the ground before it shuts.
+     */
+    private static void scoreSeam(SpellEffectEntity entity, int t) {
+        Vec3[] ends = seamEnds(entity, Math.max(0.15D, t / (double) WINDUP));
+        SpatialMatter.seam(entity.serverLevel(), entity.definition(), ends[0], ends[1], SCORE_MOTES, 0.02D, true);
+    }
+
+    /** What is left of the seam once it has shut: a thin scar still lifting off it while the rift fades. */
+    private static void scar(SpellEffectEntity entity, int t) {
+        int since = t - WINDUP;
+        if (since > SCAR_TICKS || since % SCAR_INTERVAL != 0) {
+            return;
+        }
+        Vec3[] ends = seamEnds(entity, 1.0D);
+        SpatialMatter.seam(entity.serverLevel(), entity.definition(), ends[0], ends[1], SCAR_MOTES, 0.03D, true);
+        if (since % (SCAR_INTERVAL * 3) == 0) {
+            Vec3 at = ends[0].lerp(ends[1], entity.serverLevel().random.nextDouble()).add(0.0D, 0.2D, 0.0D);
+            SpatialMatter.crackle(entity.serverLevel(), at, 2, 0.2D);
+        }
+    }
+
     @Override
     public SpellBehavior behavior() {
         return entity -> {
-            if (entity.tickCount != WINDUP) {
+            if (entity.tickCount < WINDUP) {
+                scoreSeam(entity, entity.tickCount);
+                return;
+            }
+            if (entity.tickCount > WINDUP) {
+                scar(entity, entity.tickCount);
                 return;
             }
             ServerLevel level = entity.serverLevel();
@@ -108,6 +154,7 @@ public final class CreaseFoldSkill implements SkillModule {
             Vec3 f = entity.direction();
             double radius = entity.radius();
             boolean foldNear = entity.sneakMode();
+            boolean folded = false;
             for (LivingEntity victim : SkillTargets.hostilesWithin(level, entity.owner(), centre, radius + 1.0D)) {
                 Vec3 rel = victim.position().subtract(centre);
                 double d = rel.dot(f);
@@ -116,14 +163,31 @@ public final class CreaseFoldSkill implements SkillModule {
                 }
                 Vec3 mirrored = victim.position().subtract(f.scale(2.0D * d));
                 Vec3 clear = SafeSpotSearch.liftClear(level, mirrored, victim.getBbWidth(), victim.getBbHeight(), 3.0D);
+                SpatialMatter.vacated(level, entity.definition(), victim.position(), victim.getBbWidth(), victim.getBbHeight());
                 SafeSpotSearch.place(victim, clear != null ? clear : mirrored, victim.getYRot(), victim.getXRot(), false);
                 victim.setDeltaMovement(0.0D, -0.3D, 0.0D);
                 victim.hurtMarked = true;
                 MagicStatusService.apply(victim, MagicStatus.ROOTED, 10, entity.definition().id(), entity.owner());
                 SkillTargets.hurt(level, entity.owner(), victim, entity.damage(), entity.definition(), true);
+                folded = true;
             }
             entity.setPhase(SpellEffectEntity.PHASE_ACTIVE);
-            SpellFx.impact(level, entity.definition(), centre, new Vec3(0.0D, 1.0D, 0.0D), null, entity.owner(), 1.6F);
+            // The seam shutting is the floor along it kicked up as its own dust, the whole width of
+            // the fold, and a curtain of pale motes snapping up off the line with a crackle at its
+            // middle: the line is the beat, and it reads on any floor, where stone dust on a stone
+            // floor did not.
+            Vec3[] ends = seamEnds(entity, 1.0D);
+            int pillars = Math.min(SEAM_PILLARS_MAX, 2 * (int) Math.round(radius / SEAM_PILLAR_SPACING) + 1);
+            SpatialMatter.groundLine(level, ends[0], ends[1], pillars, 2);
+            SpatialMatter.seam(level, entity.definition(), ends[0], ends[1], pillars + 2, 0.16D, false);
+            SpatialMatter.crackle(level, centre.add(0.0D, 0.3D, 0.0D), 4, 0.6D);
+            // Every folded body lands with its own strike (it is a T3 hit, so a flash, a blast and a
+            // ring of puffs), and a body folds from close to the seam onto close to the seam - so a
+            // second strike on the seam's middle stacked two blasts on one spot. It only strikes
+            // when the fold closed on nothing, so an empty fold still lands a beat.
+            if (!folded) {
+                SpellFx.impact(level, entity.definition(), centre, new Vec3(0.0D, 1.0D, 0.0D), null, entity.owner(), 1.0F);
+            }
         };
     }
 

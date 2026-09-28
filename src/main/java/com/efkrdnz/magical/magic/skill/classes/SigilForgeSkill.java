@@ -13,8 +13,10 @@ import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
 import com.efkrdnz.magical.magic.status.MagicStatus;
 import com.efkrdnz.magical.magic.status.MagicStatusService;
+import com.efkrdnz.magical.magic.visual.Accent;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
 import com.efkrdnz.magical.magic.visual.CircleScript;
+import com.efkrdnz.magical.magic.visual.ColorRole;
 import com.efkrdnz.magical.magic.visual.CoreKind;
 import com.efkrdnz.magical.magic.visual.EmblemId;
 import com.efkrdnz.magical.magic.visual.FxKinds;
@@ -27,8 +29,12 @@ import com.efkrdnz.magical.magic.visual.SpellFx;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import com.efkrdnz.magical.magic.visual.VisualProfiles;
+import com.efkrdnz.magical.particle.TintedParticleOptions;
+import com.efkrdnz.magical.registry.MagicalParticles;
 import java.util.List;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 
@@ -44,6 +50,10 @@ public final class SigilForgeSkill implements SkillModule {
     private static final double TRIGGER = 2.4D;
     private static final double WIDE_TRIGGER = 4.0D;
     private static final int ROOT_TICKS = 40;
+    /** Glyphs in the ring that lifts off the trigger's edge the moment the rune arms. */
+    private static final int SET_GLYPHS = 10;
+    /** Ticks between the single glyphs an armed rune gives off while it waits. */
+    private static final int IDLE_GLYPH_TICKS = 20;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -59,7 +69,8 @@ public final class SigilForgeSkill implements SkillModule {
                 int life = ctx.sneak() ? Math.max(80, ctx.duration() / 2) : Math.max(120, ctx.duration());
                 SpellEffectEntity sigil = SpellEffectEntity.spawn(ctx, ctx.aim().point(), life, ctx.size(), new Vec3(0.0D, 1.0D, 0.0D));
                 sigil.setPhase(SpellEffectEntity.PHASE_ACTIVE);
-                SpellFx.release(ctx.caster(), ctx.definition(), ctx.look());
+                // the casting service releases every successful cast; a second release here stacked
+                // two bloom flashes on the caster's hand on the same tick
                 return CastResult.SUCCESS;
             }
 
@@ -92,6 +103,12 @@ public final class SigilForgeSkill implements SkillModule {
                 entity.setValue(1.0F);
                 ServerLevel level = entity.serverLevel();
                 double trigger = entity.sneakMode() ? WIDE_TRIGGER : TRIGGER;
+                int armed = entity.tickCount - ARM;
+                if (armed == 0) {
+                    setRing(level, entity, trigger);
+                } else if (armed % IDLE_GLYPH_TICKS == 0) {
+                    idleGlyph(level, entity);
+                }
                 List<LivingEntity> crossing = SkillTargets.hostilesWithin(level, entity.owner(), entity.position(), trigger);
                 if (!crossing.isEmpty()) {
                     entity.finish();
@@ -112,11 +129,44 @@ public final class SigilForgeSkill implements SkillModule {
         };
     }
 
+    /**
+     * The moment the rune sets: a ring of glyphs lifts off the ground where it will go off, at the
+     * distance it goes off at. The cut sigil is small and faint by design, so this is the one time
+     * the trap says out loud how far it reaches.
+     */
+    private static void setRing(ServerLevel level, SpellEffectEntity sigil, double trigger) {
+        TintedParticleOptions rune = rune(sigil);
+        Vec3 at = sigil.position();
+        for (int i = 0; i < SET_GLYPHS; i++) {
+            double a = i * Math.PI * 2.0D / SET_GLYPHS;
+            // a rune keeps nine tenths of its speed a tick: it lifts about half a block and fades
+            level.sendParticles(rune, at.x + Math.cos(a) * trigger, at.y + 0.05D, at.z + Math.sin(a) * trigger, 0, 0.0D, 0.05D, 0.0D, 1.0D);
+        }
+    }
+
+    /**
+     * A single glyph lifting off an armed rune now and then, so one left lying for twenty seconds
+     * still reads as live rather than as a scuff on the floor: one glyph a second, never a cloud.
+     */
+    private static void idleGlyph(ServerLevel level, SpellEffectEntity sigil) {
+        RandomSource random = level.random;
+        double a = random.nextDouble() * Math.PI * 2.0D;
+        double r = sigil.radius() * 0.6D * Math.sqrt(random.nextDouble());
+        Vec3 at = sigil.position();
+        level.sendParticles(rune(sigil), at.x + Math.cos(a) * r, at.y + 0.05D, at.z + Math.sin(a) * r, 0, 0.0D, 0.04D, 0.0D, 1.0D);
+    }
+
+    private static TintedParticleOptions rune(SpellEffectEntity sigil) {
+        return new TintedParticleOptions(MagicalParticles.RUNE.get(), VisualProfiles.of(sigil.definition()).color(ColorRole.BRIGHT), 1.1F);
+    }
+
     @Override
     public VisualProfile.Builder profile() {
         return VisualProfile.builder(definition())
                 .material(SchoolMaterial.SPATIAL)
                 .palette(2)
+                // a Runewright's cut rune: its matter is lifting glyphs, not a fold's crackle and glass
+                .accent(Accent.RUNE)
                 .circle(CircleScript.of(SchoolMaterial.SPATIAL).emblem(EmblemId.KNOT).frame(5).band(GlyphKind.RUNE_BAND, 18).band(GlyphKind.FACET_BAND, 6).stamps(StampId.KEY, 6).core(CoreKind.HEX_LENS).spin(SpinSignature.STATIC))
                 .anchor(CircleAnchor.AIM_SURFACE)
                 .silhouette(Silhouette.field(Silhouette.Form.GROUND_SEAM, FxKinds.Field.RUNE_PAPER, 1.5F, 0.1F))

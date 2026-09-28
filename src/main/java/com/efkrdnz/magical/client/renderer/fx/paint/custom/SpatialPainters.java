@@ -61,16 +61,39 @@ public final class SpatialPainters {
         FxBudget.countQuads(8);
     }
 
-    /** Armillary gauge: three orthogonal hairline rings whose radius follows the synced scale, precessing. */
+    /** Ticks the gauge's rings take to ink in: the three clicks that snap it shut. */
+    private static final float GAUGE_INK_TICKS = 6.0F;
+
+    /** Ticks the gauge's rings take to un-draw at the end of the hold. */
+    private static final float GAUGE_FADE_TICKS = 8.0F;
+
+    /**
+     * Where the gauge's rings are in their reveal window (the filament shader reads 0.5 as a whole
+     * ring). It used to be the effect's life fraction, so a hold of a hundred ticks spent fifty of
+     * them inking its rings in and the gauge was a few arcs for most of the time it held a body
+     * small; now it snaps shut with the clicks, holds whole, and un-draws only at the end.
+     */
+    private static float gaugeReveal(FxContext ctx) {
+        float in = Mth.clamp(ctx.age / GAUGE_INK_TICKS, 0.0F, 1.0F) * 0.5F;
+        if (ctx.life <= 0.0F) {
+            return in;
+        }
+        float left = ctx.life - ctx.age;
+        return left >= GAUGE_FADE_TICKS ? in : 0.5F + 0.5F * Mth.clamp(1.0F - left / GAUGE_FADE_TICKS, 0.0F, 1.0F);
+    }
+
+    /** Armillary gauge: three orthogonal rune rings whose radius follows the synced scale, precessing. */
     public static void compression(FxContext ctx, VisualProfile profile, Silhouette s) {
         float scale = ctx.extra > 0.0F ? ctx.extra : 1.0F;
         float r = Mth.clamp(0.5F + 1.6F * scale, 0.5F, 3.4F);
         int base = profile.color(ColorRole.BASE);
         int hot = profile.color(ColorRole.HOT);
         VertexConsumer beam = ctx.buffers.getBuffer(MagicalFxRenderTypes.filamentBeam());
-        int packed = MagicVertex.pack(FxKinds.Filament.RUNE_THREAD.id(), 24, 0, ctx.phase, ctx.seed, 0);
+        int packed = MagicVertex.pack(FxKinds.Filament.RUNE_THREAD.id(), 24, 0, gaugeReveal(ctx), ctx.seed, 0);
         float spin = ctx.age * 2.5F;
-        float[] mesh = FxMesh.ring(48, 0.03F);
+        // a touch heavier than a hairline: at the few metres a gauge is cast across, 0.03 of a
+        // one-block ring was a line a pixel or two wide and the gimbal read as nothing
+        float[] mesh = FxMesh.ring(48, 0.045F);
         for (int i = 0; i < 3; i++) {
             ctx.pose.pushPose();
             switch (i) {
@@ -91,6 +114,21 @@ public final class SpatialPainters {
         FxBudget.countQuads(48 * 3 + 1);
     }
 
+    /**
+     * How near the hub a camera has to be to be the caster's own, looking out from inside it. The
+     * hub rides 0.42 of a block under the caster's eyes, so from there its rings are not a gimbal
+     * but a thick brass bar across the bottom of the view, and the first half-block of every strut
+     * a wedge rising out of it; the caster sees the struts from {@link #OWN_STRUT_START} out, which
+     * is still enough to say where the frame is.
+     */
+    private static final double OWN_HUB_REACH_SQR = 1.5D * 1.5D;
+
+    /** Where a strut starts, along its own length, when the viewer is inside the hub. */
+    private static final float OWN_STRUT_START = 0.8F;
+
+    /** Ticks a telegraph hairline takes to run from the hub to its body (the telegraph is ten). */
+    private static final float HAIR_RUN_TICKS = 6.0F;
+
     /** Rigid brass armature: a three-ring hub, struts to every locked victim, gimbal clamps; hairlines while telegraphing. */
     public static void rigidFrame(FxContext ctx, VisualProfile profile, Silhouette s) {
         CompoundTag d = ctx.data;
@@ -101,24 +139,32 @@ public final class SpatialPainters {
         int hot = profile.color(ColorRole.HOT);
         VertexConsumer solid = ctx.buffers.getBuffer(MagicalFxRenderTypes.shardBody());
         int band = MagicVertex.pack(FxKinds.Body.METAL_BANDS.id(), 6, 8, 0.5F, ctx.seed, 0);
-        float[] hubRing = FxMesh.ring(32, 0.06F);
-        for (int i = 0; i < 3; i++) {
-            ctx.pose.pushPose();
-            switch (i) {
-                case 0 -> ctx.pose.mulPose(Axis.XP.rotationDegrees(90.0F));
-                case 1 -> ctx.pose.mulPose(Axis.YP.rotationDegrees(ctx.age * 1.5F));
-                default -> ctx.pose.mulPose(Axis.YP.rotationDegrees(90.0F + ctx.age * 1.5F));
+        boolean ownView = ctx.cameraPos.lengthSqr() <= OWN_HUB_REACH_SQR;
+        int quads = 0;
+        if (!ownView) {
+            float[] hubRing = FxMesh.ring(32, 0.06F);
+            for (int i = 0; i < 3; i++) {
+                ctx.pose.pushPose();
+                switch (i) {
+                    case 0 -> ctx.pose.mulPose(Axis.XP.rotationDegrees(90.0F));
+                    case 1 -> ctx.pose.mulPose(Axis.YP.rotationDegrees(ctx.age * 1.5F));
+                    default -> ctx.pose.mulPose(Axis.YP.rotationDegrees(90.0F + ctx.age * 1.5F));
+                }
+                FxMesh.emit(solid, ctx.pose.last().pose(), hubRing, 0.55F, 0.55F, 1.0F, base, 1.0F, band);
+                ctx.pose.popPose();
             }
-            FxMesh.emit(solid, ctx.pose.last().pose(), hubRing, 0.55F, 0.55F, 1.0F, base, 1.0F, band);
-            ctx.pose.popPose();
+            quads += 96;
         }
-        int quads = 96;
         if (level == null) {
             FxBudget.countQuads(quads);
             return;
         }
         VertexConsumer thread = ctx.buffers.getBuffer(MagicalFxRenderTypes.filamentBeam());
-        int hair = MagicVertex.pack(FxKinds.Filament.RUNE_THREAD.id(), 8, 0, ctx.phase, ctx.seed, 0);
+        // the telegraph's hairlines run out from the hub over its first ticks and then hold whole
+        // (0.5 is a whole thread to the filament shader). They took the effect's life fraction,
+        // which by the lock at tick ten is a tenth to a third of a long hold, so a hairline got a
+        // fifth to two thirds of the way to its body and never reached what it was pointing at.
+        int hair = MagicVertex.pack(FxKinds.Filament.RUNE_THREAD.id(), 8, 0, Mth.clamp(ctx.age / HAIR_RUN_TICKS, 0.0F, 1.0F) * 0.5F, ctx.seed, 0);
         float[] clamp = FxMesh.ring(24, 0.08F);
         for (int id : ids) {
             Entity e = level.getEntity(id);
@@ -131,10 +177,12 @@ public final class SpatialPainters {
                 quads += 2;
                 continue;
             }
-            double len = to.length();
+            float len = (float) to.length();
+            float start = ownView ? Math.min(len * 0.5F, OWN_STRUT_START) : 0.0F;
             ctx.pose.pushPose();
             FilamentPainter.orientAlong(ctx.pose, to);
-            FxMesh.emit(solid, ctx.pose.last().pose(), FxMesh.tube(), 0.07F, 0.07F, (float) len, base, 1.0F, band);
+            ctx.pose.translate(0.0F, 0.0F, start);
+            FxMesh.emit(solid, ctx.pose.last().pose(), FxMesh.tube(), 0.07F, 0.07F, len - start, base, 1.0F, band);
             ctx.pose.popPose();
             ctx.pose.pushPose();
             ctx.pose.translate(to.x, to.y, to.z);

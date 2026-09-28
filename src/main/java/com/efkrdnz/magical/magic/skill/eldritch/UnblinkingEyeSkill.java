@@ -60,6 +60,17 @@ public final class UnblinkingEyeSkill implements SkillModule {
     /** How far back from a wall the eye hangs. */
     public static final double WALL_GAP = 0.7D;
     private static final String KEY_POTENCY = "potency";
+    /**
+     * The sting as matter: it was a red flash and nothing else, so a body losing health every two
+     * seconds had no visible cause. Sculk streaks off the pupil into it and a couple of the deep's
+     * souls lift off it.
+     */
+    private static final int STARE_POPS = 6;
+    private static final int STARE_SOULS = 2;
+    /** Where on the eye model the stare leaves: the body's middle, half a block up per unit of scale... */
+    private static final double EYE_BODY_HEIGHT = 0.5D;
+    /** ...and out through its face, the body's half-width in front of that middle. */
+    private static final double PUPIL_REACH = 0.4D;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -144,9 +155,17 @@ public final class UnblinkingEyeSkill implements SkillModule {
                 if (eye.tickCount % STING_INTERVAL == 0) {
                     float potency = eye.serverData().contains(KEY_POTENCY) ? eye.serverData().getFloat(KEY_POTENCY) : 1.0F;
                     SkillTargets.hurt(level, eye.owner(), seen, eye.damage() * potency, eye.skillId());
+                    EldritchMatter.stare(level, pupil(eye, seen), seen, STARE_POPS, STARE_SOULS);
                 }
             }
         };
+    }
+
+    /** The front of the eye's body, turned toward what it stings. */
+    private static Vec3 pupil(EldritchConstructEntity eye, LivingEntity seen) {
+        Vec3 body = eye.position().add(0.0D, EYE_BODY_HEIGHT * eye.scale(), 0.0D);
+        Vec3 toward = seen.getBoundingBox().getCenter().subtract(body);
+        return toward.lengthSqr() > 1.0E-6D ? body.add(toward.normalize().scale(PUPIL_REACH * eye.scale())) : body;
     }
 
     @Override

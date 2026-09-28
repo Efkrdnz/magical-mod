@@ -25,8 +25,13 @@ import com.efkrdnz.magical.magic.visual.SpellFx;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -36,6 +41,16 @@ import net.minecraft.world.phys.Vec3;
  * conjure it behind your heels and roll it backward.
  */
 public final class SlagRollerSkill implements SkillModule {
+    /** Slag crumbs the boulder sheds where it touches the ground, every few ticks while it rolls. */
+    private static final int SHED_INTERVAL = 3;
+    private static final int SHED_CRUMBS = 2;
+    /** Below this ground speed it is not rolling enough to shed. */
+    private static final double SHED_MIN_SPEED = 0.08D;
+    /** The ember ring it shatters into: flames running out along the ground, and the chunks it was. */
+    private static final int RING_FLAMES = 10;
+    private static final double RING_SPEED = 0.12D;
+    private static final int SHATTER_CHUNKS = 12;
+
     @Override
     public MagicSkillDefinition definition() {
         return MagicContent.SLAG_ROLLER;
@@ -101,6 +116,9 @@ public final class SlagRollerSkill implements SkillModule {
                     hit.hurtMarked = true;
                     hit.igniteForSeconds(3.0F);
                 }
+                if (boulder.onGround() && speed > SHED_MIN_SPEED && boulder.tickCount % SHED_INTERVAL == 0) {
+                    shed(boulder);
+                }
                 if (boulder.tickCount > 10 && speed < 0.04D && boulder.onGround()) {
                     data.putInt("Still", data.getInt("Still") + 1);
                     if (data.getInt("Still") >= 5) {
@@ -120,8 +138,36 @@ public final class SlagRollerSkill implements SkillModule {
                 }
                 SpellFx.impact(entity.serverLevel(), entity.definition(), centre, new Vec3(0.0D, 1.0D, 0.0D), null, entity.owner(), 1.2F);
                 SpellFx.decal(entity.serverLevel(), entity.definition(), centre, new Vec3(0.0D, 1.0D, 0.0D), 1.2F);
+                shatter(entity);
+            }
+
+            /** A molten boulder leaves its track in slag: a couple of crumbs at the ground under it. */
+            private void shed(RollingBodyEntity boulder) {
+                double spread = boulder.bodySize() * 0.2D;
+                boulder.serverLevel().sendParticles(slag(), boulder.getX(), boulder.getY() + 0.1D, boulder.getZ(), SHED_CRUMBS, spread, 0.0D, spread, 0.05D);
+            }
+
+            /**
+             * The ember ring the doc promises, made of real fire: flames run out flat along the
+             * ground from where the boulder stopped, over the chunks of slag it broke into.
+             */
+            private void shatter(SpellEffectEntity entity) {
+                ServerLevel level = entity.serverLevel();
+                Vec3 centre = entity.position();
+                double offset = level.random.nextDouble() * Math.PI * 2.0D;
+                for (int i = 0; i < RING_FLAMES; i++) {
+                    double a = offset + i * Math.PI * 2.0D / RING_FLAMES;
+                    // count 0: one flame, sent out at exactly this velocity
+                    level.sendParticles(ParticleTypes.FLAME, centre.x, centre.y + 0.15D, centre.z, 0, Math.cos(a), 0.0D, Math.sin(a), RING_SPEED);
+                }
+                level.sendParticles(slag(), centre.x, centre.y + 0.4D, centre.z, SHATTER_CHUNKS, 0.25D, 0.2D, 0.25D, 0.15D);
             }
         };
+    }
+
+    /** What the boulder is made of when it comes apart: vanilla's magma block, crumbled. */
+    private static ParticleOptions slag() {
+        return new BlockParticleOption(ParticleTypes.BLOCK, Blocks.MAGMA_BLOCK.defaultBlockState());
     }
 
     @Override

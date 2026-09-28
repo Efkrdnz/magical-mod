@@ -59,6 +59,16 @@ public final class CallOfTheDeepSkill implements SkillModule {
     public static final double EYE_HEIGHT = 2.6D;
     public static final int GRASP_TICKS = 30;
     private static final String KEY_POTENCY = "potency";
+    /**
+     * The veil's centre, lifted off the construct's point to the middle of the eye it veils: the
+     * eye model is drawn at scale 2.5 and its body's middle sits half a block up per unit of scale.
+     * At the construct's own point, a block over the caster's eyes, a veil of radius 1.6 wrapped
+     * the caster's head, and its puffs rolled across their own view a block from the camera. Lifted
+     * and drawn in to radius 1.0 it hugs the eye, every puff at least sixty degrees above a level
+     * gaze; round each grasp it calls it wraps the held body rather than the ground under it.
+     */
+    private static final float VEIL_LIFT = 1.25F;
+    private static final float VEIL_RADIUS = 1.0F;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -112,6 +122,7 @@ public final class CallOfTheDeepSkill implements SkillModule {
                     if (held != null && held.isAlive() && construct.tickCount == GRASP_TICKS / 2) {
                         float potency = construct.serverData().contains(KEY_POTENCY) ? construct.serverData().getFloat(KEY_POTENCY) : 1.0F;
                         SkillTargets.hurt(construct.serverLevel(), construct.owner(), held, construct.damage() * potency, construct.skillId());
+                        EldritchMatter.squeeze(construct.serverLevel(), held, GraspOfTheDeepSkill.SQUEEZE_POPS);
                     }
                     return;
                 }
@@ -160,7 +171,10 @@ public final class CallOfTheDeepSkill implements SkillModule {
                         .band(GlyphKind.SOLID_RING, 1, ColorRole.INK)
                         .stamps(StampId.RING, 9).core(CoreKind.IRIS, ColorRole.HOT).spin(SpinSignature.COUNTER_FAST))
                 .anchor(CircleAnchor.SKY)
-                .silhouette(Silhouette.swarm(Silhouette.Form.CLOUD, FxKinds.Smoke.INK_BLOOM, 24, 1.6F).withRole(ColorRole.DIM))
+                // a veil round the eye and round every grasp it calls, not a thundercloud: the ink the
+                // call throws is the real ink welling out of each eruption (GraspOfTheDeepSkill.grasp)
+                .silhouette(Silhouette.swarm(Silhouette.Form.CLOUD, FxKinds.Smoke.INK_BLOOM, 8, VEIL_RADIUS).withRole(ColorRole.DIM)
+                        .withOpacity(0.75F).withOffset(VEIL_LIFT))
                 .release(ReleaseMode.LIFT, ProfileCues.FirstPersonPreset.CASTER_SURGE)
                 .impact(FxKinds.Mark.VORTEX_SPIRAL, FxKinds.Smoke.INK_BLOOM, FxKinds.Overlay.HEARTBEAT)
                 .holdable(true)

@@ -14,6 +14,7 @@ import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
 import com.efkrdnz.magical.magic.status.MagicStatus;
 import com.efkrdnz.magical.magic.status.MagicStatusService;
+import com.efkrdnz.magical.magic.visual.Accent;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
 import com.efkrdnz.magical.magic.visual.CircleScript;
 import com.efkrdnz.magical.magic.visual.CoreKind;
@@ -28,7 +29,10 @@ import com.efkrdnz.magical.magic.visual.SpellFx;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
@@ -43,6 +47,12 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class HeatedIronSkill implements SkillModule {
     private static final ResourceLocation ARMOR_MODIFIER = ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "heated_iron");
+    /** Ticks between the wisps of steam a brand gives off between pulses. */
+    private static final int SIZZLE_INTERVAL = 4;
+    /** Small flames that lick off the brand each time it pulses. */
+    private static final int PULSE_FLAMES = 3;
+    /** Small flames where a palm that brands nothing closes on the air or the stone. */
+    private static final int MISS_FLAMES = 3;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -57,6 +67,11 @@ public final class HeatedIronSkill implements SkillModule {
                 LivingEntity victim = ctx.aim().living();
                 if (victim == null || !SkillTargets.isHostile(ctx.caster(), victim)) {
                     SpellFx.decal(ctx.level(), ctx.definition(), ctx.aim().point(), ctx.aim().normal(), 0.7F);
+                    // a palm that brands nothing flickers where it closed: a few small flames that
+                    // die in a second. It was vanilla smoke, which is near black and square, and four
+                    // of them hung as a black clump in the middle of the view for over a second.
+                    Vec3 touched = ctx.aim().point();
+                    ctx.level().sendParticles(ParticleTypes.SMALL_FLAME, touched.x, touched.y, touched.z, MISS_FLAMES, 0.12D, 0.06D, 0.12D, 0.005D);
                     return CastResult.CONSUMED_NO_COOLDOWN;
                 }
                 int ticks = Math.max(20, ctx.duration());
@@ -119,6 +134,9 @@ public final class HeatedIronSkill implements SkillModule {
                     float pulse = entity.damage() + 0.25F * (float) Math.min(base, 8.0D);
                     SkillTargets.hurt(entity.serverLevel(), entity.owner(), victim, pulse, entity.definition().id());
                     SpellFx.zoneTick(entity.serverLevel(), entity.definition(), victim.position(), 0.6F);
+                    sear(entity.serverLevel(), victim, ParticleTypes.SMALL_FLAME, PULSE_FLAMES);
+                } else if (entity.tickCount % SIZZLE_INTERVAL == 0) {
+                    sear(entity.serverLevel(), victim, ParticleTypes.WHITE_SMOKE, 1);
                 }
             }
 
@@ -135,11 +153,26 @@ public final class HeatedIronSkill implements SkillModule {
         };
     }
 
+    /**
+     * The brand, in matter, on the body that wears it: between pulses a thread of steam off the
+     * seared plate, and on each pulse a lick of flame. The cage of scales says where the brand is;
+     * this says it is still hot, for as long as it lasts, which the light alone never did. Steam
+     * rather than vanilla smoke: smoke is near black and square, and a thread of it off a body for
+     * four seconds was a column of black cards, where the pale grey reads as heat off metal.
+     */
+    private static void sear(ServerLevel level, LivingEntity victim, SimpleParticleType kind, int count) {
+        double spread = victim.getBbWidth() * 0.3D;
+        level.sendParticles(kind, victim.getX(), victim.getY() + victim.getBbHeight() * 0.6D, victim.getZ(),
+                count, spread, victim.getBbHeight() * 0.15D, spread, 0.01D);
+    }
+
     @Override
     public VisualProfile.Builder profile() {
         return VisualProfile.builder(definition())
                 .material(SchoolMaterial.FIRE)
                 .palette(2)
+                // a blacksmith's heated iron: struck sparks and smoke, not a fireball's burst of flame
+                .accent(Accent.FORGE)
                 .circle(CircleScript.of(SchoolMaterial.FIRE).emblem(EmblemId.CUIRASS).frame(4).band(GlyphKind.CHAIN_BAND, 8).band(GlyphKind.TICK_BAND, 16).stamps(StampId.SQUARE, 4).core(CoreKind.EMBER_PIT).spin(SpinSignature.SLOW))
                 .anchor(CircleAnchor.EYE_FORWARD)
                 .silhouette(Silhouette.field(Silhouette.Form.CAGE, FxKinds.Field.SCALE_PLATES, 0.5F, 1.8F, 3, 8).withOpacity(0.8F))

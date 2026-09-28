@@ -60,6 +60,17 @@ public final class HungeringMawSkill implements SkillModule {
     private static final String KEY_WINDUP = "windup";
     private static final String KEY_SNAP = "snap";
     private static final String KEY_POTENCY = "potency";
+    /** The ground splitting at the rim as the jaws open: dust only, so the mouth reads as a hole in it. */
+    private static final int OPEN_PILLARS = 10;
+    /**
+     * The snap: the rim thrown up, sculk bursting in the bite, ink out of the throat. The rim is the
+     * bite's one beat that is not the model, so it is the densest ring the school throws.
+     */
+    private static final int SNAP_PILLARS = 14;
+    private static final int SNAP_POPS = 8;
+    private static final int SNAP_INK = 4;
+    /** The rings sit just inside the bite, where the jaws break the ground. */
+    private static final double RIM = 0.85D;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -92,6 +103,7 @@ public final class HungeringMawSkill implements SkillModule {
                 synced.putInt(KEY_SNAP, 0);
                 maw.setSyncedData(synced);
                 maw.serverData().putFloat(KEY_POTENCY, potency);
+                EldritchMatter.erupt(ctx.level(), at, maw.radius() * RIM, OPEN_PILLARS, 0, 0);
                 ctx.level().playSound(null, maw.blockPosition(), SoundEvents.SCULK_CATALYST_BLOOM, SoundSource.PLAYERS, 1.0F, 0.5F);
                 return CastResult.SUCCESS;
             }
@@ -155,6 +167,7 @@ public final class HungeringMawSkill implements SkillModule {
                 shut.putInt(KEY_SNAP, maw.tickCount);
                 maw.setSyncedData(shut);
                 maw.setPhase(SpellEffectEntity.PHASE_CLOSING);
+                EldritchMatter.erupt(level, maw.position(), maw.radius() * RIM, SNAP_PILLARS, SNAP_POPS, SNAP_INK);
                 level.playSound(null, maw.blockPosition(), SoundEvents.SCULK_SHRIEKER_SHRIEK, SoundSource.PLAYERS, 1.0F, 0.4F);
             }
         };

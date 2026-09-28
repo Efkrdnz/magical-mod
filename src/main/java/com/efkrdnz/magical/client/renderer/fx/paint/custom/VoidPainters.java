@@ -78,10 +78,11 @@ public final class VoidPainters {
         ctx.pose.mulPose(Axis.XP.rotationDegrees(90.0F));
         MarkPainter.mark(ctx, FxKinds.Mark.VORTEX_SPIRAL, radius * 0.95F * form, base, 0.6F, 0.5F, 5, 8);
         ctx.pose.popPose();
-        // 24 tendrils from the rim down to the ground
+        // 16 tendrils from the rim down to the ground: enough to hang the ceiling from, few enough
+        // that it reads as a ceiling and not a curtain (the ink it drips is real, see the skill)
         VertexConsumer tendril = ctx.buffers.getBuffer(MagicalFxRenderTypes.filamentDark());
         int packed = MagicVertex.pack(FxKinds.Filament.INK_TENDRIL.id(), 3, 20, 0.5F, ctx.seed, 1);
-        int count = Math.max(6, Math.round(24 * Math.max(0.3F, ctx.lod)));
+        int count = Math.max(6, Math.round(16 * Math.max(0.3F, ctx.lod)));
         for (int i = 0; i < count; i++) {
             float a = i / (float) count * Mth.TWO_PI;
             float sway = Mth.sin(ctx.age * 0.06F + i * 1.7F) * 0.6F;
@@ -90,7 +91,7 @@ public final class VoidPainters {
             ctx.pose.mulPose(Axis.YP.rotationDegrees(-a * Mth.RAD_TO_DEG));
             ctx.pose.mulPose(Axis.ZP.rotationDegrees(sway * 8.0F));
             ctx.pose.mulPose(Axis.XP.rotationDegrees(180.0F));
-            FxMesh.emit(tendril, ctx.pose.last().pose(), FxMesh.column(), 0.22F, height, 0.22F, ink, 0.85F * form, packed);
+            FxMesh.emit(tendril, ctx.pose.last().pose(), FxMesh.column(), 0.22F, height, 0.22F, ink, 0.7F * form, packed);
             ctx.pose.popPose();
         }
         FxBudget.countQuads(2 + count * 2);

@@ -27,6 +27,7 @@ import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
 import java.util.List;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -46,6 +47,8 @@ public final class SunderGripSkill implements SkillModule {
     private static final int LUNGE = 3;
     private static final int LIFE = 12;
     private static final double REACH = 3.2D;
+    /** Crit sparks where the coil clamps a body. */
+    private static final int CLAMP_SPARKS = 10;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -110,6 +113,7 @@ public final class SunderGripSkill implements SkillModule {
                 entity.setPhase(SpellEffectEntity.PHASE_ACTIVE);
                 entity.setRadius((float) Math.max(0.5D, along));
                 SkillTargets.hurt(level, owner, victim, entity.damage(), entity.definition(), true);
+                clamp(level, p);
                 victim.setDeltaMovement(Vec3.ZERO);
                 victim.hurtMarked = true;
                 victim.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 12, 2));
@@ -128,6 +132,15 @@ public final class SunderGripSkill implements SkillModule {
                 break;
             }
         };
+    }
+
+    /**
+     * The coil closing on a body: a spray of vanilla's crit sparks where it bites. The coil is
+     * light and retracts at once, and only a disarm sends an impact cue, so against anything with
+     * empty hands the grip landing used to read as nothing but the red flash.
+     */
+    private static void clamp(ServerLevel level, Vec3 at) {
+        level.sendParticles(ParticleTypes.CRIT, at.x, at.y, at.z, CLAMP_SPARKS, 0.2D, 0.3D, 0.2D, 0.3D);
     }
 
     @Override

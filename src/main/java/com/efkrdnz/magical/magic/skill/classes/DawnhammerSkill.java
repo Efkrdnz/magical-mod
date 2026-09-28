@@ -13,6 +13,7 @@ import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
 import com.efkrdnz.magical.magic.status.MagicStatus;
 import com.efkrdnz.magical.magic.status.MagicStatusService;
+import com.efkrdnz.magical.magic.visual.Accent;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
 import com.efkrdnz.magical.magic.visual.CircleScript;
 import com.efkrdnz.magical.magic.visual.ColorRole;
@@ -29,10 +30,14 @@ import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
 import com.efkrdnz.magical.registry.MagicalAttachments;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -41,10 +46,20 @@ import net.minecraft.world.phys.Vec3;
  * and any barrier it carries is shattered. Sneak = swing behind you.
  */
 public final class DawnhammerSkill implements SkillModule {
-    private static final int SWING = 10;
-    private static final int HIT_FRAME = 7;
+    /** The swing's length and the tick it lands on; the painter walks the hammer on the same two. */
+    public static final int SWING = 10;
+    public static final int HIT_FRAME = 7;
     private static final double REACH = 2.6D;
     private static final double HALF_ARC_COS = Math.cos(Math.toRadians(60.0D));
+    /** Pillars of dust thrown off the struck floor, as many as vanilla throws under a light mace smash. */
+    private static final int SMASH_DUST = 12;
+    /**
+     * The anvil ring: sparks struck off the floor and run out flat round the head. A crit keeps
+     * 0.7 of its speed a tick and takes four tenths of what it is handed, so it runs about 1.3
+     * times that - a ring a block and a half across that is gone within half a second.
+     */
+    private static final int ANVIL_SPARKS = 14;
+    private static final double ANVIL_SPARK_SPEED = 1.15D;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -131,15 +146,40 @@ public final class DawnhammerSkill implements SkillModule {
             }
             Vec3 head = origin.add(dir.scale(reach * 0.8D)).add(0.0D, 0.05D, 0.0D);
             SpellFx.impact(level, entity.definition(), head, new Vec3(0.0D, 1.0D, 0.0D), null, owner, 1.4F);
-            SpellFx.decal(level, entity.definition(), head, new Vec3(0.0D, 1.0D, 0.0D), 1.6F);
+            smash(level, head);
             entity.setPhase(SpellEffectEntity.PHASE_ACTIVE);
         };
+    }
+
+    /**
+     * The floor under the head, thrown up the way vanilla throws it under a mace's smash: pillars of
+     * dust in the struck block's own colour. It stands where a scorch decal was, a dark disc a block
+     * and a half across that read at noon as a black puddle under a hammer made of light.
+     */
+    private static void smash(ServerLevel level, Vec3 head) {
+        // struck metal: a flat ring of sparks off the head, low along the floor rather than a
+        // spray thrown up across the caster's view
+        double offset = level.random.nextDouble() * Math.PI * 2.0D;
+        for (int i = 0; i < ANVIL_SPARKS; i++) {
+            double a = offset + Math.PI * 2.0D * i / ANVIL_SPARKS;
+            level.sendParticles(ParticleTypes.CRIT, head.x, head.y + 0.1D, head.z, 0, Math.cos(a), 0.12D, Math.sin(a), ANVIL_SPARK_SPEED);
+        }
+        BlockState floor = level.getBlockState(BlockPos.containing(head).below());
+        if (floor.isAir() || !floor.getFluidState().isEmpty()) {
+            return;
+        }
+        level.sendParticles(new BlockParticleOption(ParticleTypes.DUST_PILLAR, floor), head.x, head.y, head.z, SMASH_DUST, 0.5D, 0.0D, 0.5D, 0.2D);
     }
 
     @Override
     public VisualProfile.Builder profile() {
         return VisualProfile.builder(definition())
                 .material(SchoolMaterial.LIGHT)
+                // A hammer of dawn light: the blow throws gold motes and glints, and its own ring of
+                // struck-metal sparks and floor dust (smash). The forge accent it wore threw black
+                // smoke and a spit of slag off a hammer made of light, and its release put a clump
+                // of that smoke over the crosshair as the swing began.
+                .accent(Accent.RADIANT)
                 .circle(CircleScript.of(SchoolMaterial.LIGHT).emblem(EmblemId.HAMMER).frame(4).band(GlyphKind.PETAL_BAND, 12, ColorRole.HOT).band(GlyphKind.TICK_BAND, 24).stamps(StampId.KITE, 6).core(CoreKind.SUNBURST).spin(SpinSignature.SLOW))
                 .anchor(CircleAnchor.GROUND)
                 .silhouette(Silhouette.custom("dawnhammer", 3.5F))

@@ -60,6 +60,18 @@ public final class GraspOfTheDeepSkill implements SkillModule {
     public static final double BESIDE_GAP = 0.75D;
     private static final String KEY_CRUSH = "crush";
     private static final String KEY_POTENCY = "potency";
+    /**
+     * The eruption as matter: the ground's own dust in a ring about as wide as the base of the
+     * tentacle drawn at that scale, sculk popping in the break, ink welling out of the hole. Twelve
+     * pillars (and the four plumes that come with them) rather than seven: seven crumbs a fifth of
+     * a block across were nothing at all eight blocks off, and the tentacle read as appearing.
+     */
+    private static final double ERUPT_RADIUS_PER_SCALE = 0.55D;
+    private static final int ERUPT_PILLARS = 12;
+    private static final int ERUPT_POPS = 5;
+    private static final int ERUPT_INK = 3;
+    /** Sculk squeezed out of a body at every crush. */
+    static final int SQUEEZE_POPS = 6;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -119,8 +131,14 @@ public final class GraspOfTheDeepSkill implements SkillModule {
         if (target != null) {
             take(tentacle, target);
         }
+        erupt(level, at, tentacle.scale());
         level.playSound(null, tentacle.blockPosition(), SoundEvents.SCULK_BLOCK_SPREAD, SoundSource.PLAYERS, 1.0F, 0.6F);
         return tentacle;
+    }
+
+    /** The ground a tentacle tears out of, as real dust and ink: every grasp, the Call's and the deep's too. */
+    private static void erupt(ServerLevel level, Vec3 at, float scale) {
+        EldritchMatter.erupt(level, at, ERUPT_RADIUS_PER_SCALE * scale, ERUPT_PILLARS, ERUPT_POPS, ERUPT_INK);
     }
 
     /**
@@ -143,6 +161,7 @@ public final class GraspOfTheDeepSkill implements SkillModule {
                 EldritchConstructEntity.ANCHOR_GROUND, at, REACH_HOLD_TICKS + FORM_TICKS, 1.0F, 1.2F, player.getLookAngle());
         tentacle.serverData().putFloat(KEY_POTENCY, EldritchService.potency(state));
         take(tentacle, player);
+        erupt(player.serverLevel(), at, tentacle.scale());
         player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.SCULK_BLOCK_SPREAD, SoundSource.PLAYERS, 1.2F, 0.4F);
     }
 
@@ -189,6 +208,7 @@ public final class GraspOfTheDeepSkill implements SkillModule {
                     float potency = scratch.contains(KEY_POTENCY) ? scratch.getFloat(KEY_POTENCY) : 1.0F;
                     SkillTargets.hurt(tentacle.serverLevel(), tentacle.owner(), held, tentacle.damage() * potency, tentacle.skillId());
                     MagicStatusService.apply(held, MagicStatus.ROOTED, Math.max(ROOT_TOP_UP, tentacle.life() - tentacle.tickCount), tentacle.skillId(), tentacle.owner());
+                    EldritchMatter.squeeze(tentacle.serverLevel(), held, SQUEEZE_POPS);
                 }
             }
 

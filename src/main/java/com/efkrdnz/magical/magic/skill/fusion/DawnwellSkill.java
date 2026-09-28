@@ -29,6 +29,7 @@ import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
 import com.efkrdnz.magical.registry.MagicalAttachments;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -45,6 +46,10 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class DawnwellSkill implements SkillModule {
     private static final int BARRIER_CAP = 8;
+    /** Drops hung through the sphere on each pulse: they hang two seconds, fall as rain and splash. */
+    private static final int HANGING_DROPS = 6;
+    /** Spray spat up at the fountain's foot on each pulse. */
+    private static final int FOOT_SPRAY = 6;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -117,8 +122,21 @@ public final class DawnwellSkill implements SkillModule {
                 MagicStatusService.apply(hostile, MagicStatus.DAZZLED, 12, entity.definition().id(), entity.owner());
                 SkillTargets.hurt(level, entity.owner(), hostile, entity.damage(), entity.definition().id());
             }
-            SpellFx.zoneTick(level, entity.definition(), entity.position(), (float) radius * 0.5F);
+            SpellFx.zoneTickWithin(level, entity.definition(), entity.position(), radius);
+            water(level, entity.position(), radius);
         };
+    }
+
+    /**
+     * The well's water, as water: drops hung through the sphere that hang, fall as rain and splash
+     * where they land, and a spit of spray at the fountain's foot. The droplet swarm keeps the
+     * light; it used to carry the water too, sixty additive blobs a block across that stacked into
+     * white clouds over daylight. The swarm sphere sits one radius above the foot.
+     */
+    private static void water(ServerLevel level, Vec3 foot, double radius) {
+        double spread = radius * 0.4D;
+        level.sendParticles(ParticleTypes.DRIPPING_WATER, foot.x, foot.y + radius, foot.z, HANGING_DROPS, spread, spread, spread, 0.0D);
+        level.sendParticles(ParticleTypes.SPLASH, foot.x, foot.y + 0.1D, foot.z, FOOT_SPRAY, 0.3D, 0.0D, 0.3D, 0.0D);
     }
 
     @Override
@@ -128,7 +146,8 @@ public final class DawnwellSkill implements SkillModule {
                 .palette(3)
                 .circle(CircleScript.of(SchoolMaterial.LIGHT).emblem(EmblemId.WELL).frame(3).band(GlyphKind.PETAL_BAND, 16, ColorRole.BASE).band(GlyphKind.WAVE_BAND, 8, ColorRole.HOT).stamps(StampId.DROP, 8).orbit(3, 0.84F, 4).core(CoreKind.RIPPLE).spin(SpinSignature.SLOW))
                 .anchor(CircleAnchor.AIM_SURFACE)
-                .silhouette(Silhouette.swarm(Silhouette.Form.SPHERE, FxKinds.Smoke.DROPLET, 60, 4.0F).withRole(ColorRole.BRIGHT))
+                // the light of the droplets; the water itself is real drops thrown on each pulse
+                .silhouette(Silhouette.swarm(Silhouette.Form.SPHERE, FxKinds.Smoke.DROPLET, 20, 4.0F).withRole(ColorRole.BRIGHT).withOpacity(0.5F))
                 .silhouette(Silhouette.filament(Silhouette.Form.COLUMN, FxKinds.Filament.LIQUID_ROPE, 3, 0.25F, 3.0F, 1))
                 .silhouette(Silhouette.mark(FxKinds.Mark.RIPPLES, 4.0F, 8).withOpacity(0.6F))
                 .release(ReleaseMode.LIFT, ProfileCues.FirstPersonPreset.CASTER_LIGHT)

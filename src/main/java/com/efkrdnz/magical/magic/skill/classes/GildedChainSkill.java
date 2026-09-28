@@ -11,8 +11,10 @@ import com.efkrdnz.magical.magic.cast.SkillCastHandler;
 import com.efkrdnz.magical.magic.cast.TuningView;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
+import com.efkrdnz.magical.magic.visual.Accent;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
 import com.efkrdnz.magical.magic.visual.CircleScript;
+import com.efkrdnz.magical.magic.visual.ColorRole;
 import com.efkrdnz.magical.magic.visual.CoreKind;
 import com.efkrdnz.magical.magic.visual.EmblemId;
 import com.efkrdnz.magical.magic.visual.FxKinds;
@@ -25,7 +27,11 @@ import com.efkrdnz.magical.magic.visual.SpellFx;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import com.efkrdnz.magical.magic.visual.VisualProfiles;
+import com.efkrdnz.magical.particle.TintedParticleOptions;
+import com.efkrdnz.magical.registry.MagicalParticles;
 import java.util.List;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -42,6 +48,19 @@ import net.minecraft.world.phys.Vec3;
 public final class GildedChainSkill implements SkillModule {
     private static final double LEASH = 4.0D;
     private static final double BAR_RADIUS = 0.5D;
+    /** How often a taut chain drops molten metal, in ticks. */
+    private static final int DRIP_INTERVAL = 3;
+    /**
+     * A taut chain bites both bodies every half second, and a full hit cue on every bite stood
+     * about thirty end-rod glints on each of them (a glint lives three seconds) under a ring of
+     * puffs twice a second. So the full cue goes with the first bite and every third after it; the
+     * bites between throw a few gold motes off the body, which twinkle out inside a second.
+     */
+    private static final int FULL_BITE_EVERY = 3;
+    private static final int BITE_MOTES = 4;
+    private static final float BITE_MOTE_SCALE = 1.4F;
+    /** Server-only: how many bites the chain has taken, for which of them carries the full cue. */
+    private static final String BITE_COUNT_KEY = "BiteFx";
 
     @Override
     public MagicSkillDefinition definition() {
@@ -108,6 +127,24 @@ public final class GildedChainSkill implements SkillModule {
         return data.hasUUID(key) && level.getEntity(data.getUUID(key)) instanceof LivingEntity living && living.isAlive() ? living : null;
     }
 
+    /**
+     * A chain drawn taut goes white-hot and sheds molten metal: one drop off a link somewhere along
+     * it, falling to the floor. It is the bar's heat made visible - the thing that burns whatever
+     * crosses it - where the painter can only brighten the links.
+     */
+    private static void drip(ServerLevel level, Vec3 from, Vec3 to) {
+        Vec3 at = from.add(to.subtract(from).scale(level.random.nextDouble()));
+        level.sendParticles(ParticleTypes.FALLING_LAVA, at.x, at.y - 0.15D, at.z, 1, 0.05D, 0.0D, 0.05D, 0.0D);
+    }
+
+    /** A light bite: a few gold motes off the bitten body in place of the full hit cue. */
+    private static void glint(ServerLevel level, LivingEntity victim, MagicSkillDefinition definition) {
+        Vec3 c = victim.getBoundingBox().getCenter();
+        double across = victim.getBbWidth() * 0.3D;
+        TintedParticleOptions mote = new TintedParticleOptions(MagicalParticles.MOTE.get(), VisualProfiles.of(definition).color(ColorRole.BRIGHT), BITE_MOTE_SCALE);
+        level.sendParticles(mote, c.x, c.y, c.z, BITE_MOTES, across, victim.getBbHeight() * 0.25D, across, 0.02D);
+    }
+
     private static void pull(LivingEntity e, Vec3 toward, double strength) {
         Vec3 d = toward.subtract(e.position());
         d = new Vec3(d.x, 0.0D, d.z);
@@ -146,11 +183,20 @@ public final class GildedChainSkill implements SkillModule {
                 }
                 if (data.getInt("BiteIcd") <= entity.tickCount) {
                     data.putInt("BiteIcd", entity.tickCount + 10);
+                    int bite = data.getInt(BITE_COUNT_KEY);
+                    data.putInt(BITE_COUNT_KEY, bite + 1);
+                    boolean fullCue = bite % FULL_BITE_EVERY == 0;
                     if (a != null) {
-                        SkillTargets.hurt(level, owner, a, 2.0F, entity.definition(), true);
+                        SkillTargets.hurt(level, owner, a, 2.0F, entity.definition(), fullCue);
+                        if (!fullCue) {
+                            glint(level, a, entity.definition());
+                        }
                     }
                     if (b != null) {
-                        SkillTargets.hurt(level, owner, b, 2.0F, entity.definition(), true);
+                        SkillTargets.hurt(level, owner, b, 2.0F, entity.definition(), fullCue);
+                        if (!fullCue) {
+                            glint(level, b, entity.definition());
+                        }
                     }
                 }
             }
@@ -185,6 +231,9 @@ public final class GildedChainSkill implements SkillModule {
                 SkillTargets.hurt(level, owner, other, entity.damage(), entity.definition(), true);
                 other.igniteForSeconds(3.0F);
             }
+            if (taut && entity.tickCount % DRIP_INTERVAL == 0) {
+                drip(level, ca, cb);
+            }
             entity.setPos(ca.add(cb).scale(0.5D));
             CompoundTag synced = new CompoundTag();
             synced.putDouble("AX", ca.x);
@@ -208,6 +257,12 @@ public final class GildedChainSkill implements SkillModule {
         return VisualProfile.builder(definition())
                 .material(SchoolMaterial.LIGHT)
                 .palette(1)
+                // A chain of light: a bite throws gold motes and glints, and the taut chain sheds its
+                // own molten drops (drip). The forge accent it wore made every bite at this tier a
+                // heavy hit - an explosion sprite, a ring of seven puffs, black smoke and slag on
+                // both chained bodies twice a second for as long as the chain was drawn taut - and
+                // its release put a clump of that smoke over the caster's crosshair.
+                .accent(Accent.RADIANT)
                 .circle(CircleScript.of(SchoolMaterial.LIGHT).emblem(EmblemId.CHAIN).frame(10).band(GlyphKind.CHAIN_BAND, 14).band(GlyphKind.TICK_BAND, 30).stamps(StampId.LINK, 10).orbit(5, 0.84F, 4).core(CoreKind.SUNBURST).spin(SpinSignature.COUNTER_SLOW))
                 .anchor(CircleAnchor.AIM_SURFACE)
                 .silhouette(Silhouette.custom("gilded_chain", 4.0F))

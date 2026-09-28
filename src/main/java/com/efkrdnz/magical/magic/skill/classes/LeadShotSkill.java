@@ -26,9 +26,12 @@ import com.efkrdnz.magical.magic.visual.SpellFx;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -41,6 +44,10 @@ public final class LeadShotSkill implements SkillModule {
     private static final int LEAD = 10;
     private static final int LONG_LEAD = 20;
     private static final double BURST = 1.5D;
+    /** Bits of the glass collet thrown off as the round bursts. */
+    private static final int GLASS_BITS = 10;
+    /** Puffs of powder smoke where the round went off. */
+    private static final int POWDER_SMOKE = 4;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -79,7 +86,8 @@ public final class LeadShotSkill implements SkillModule {
                 data.putDouble("EX", end.x);
                 data.putDouble("EY", end.y);
                 data.putDouble("EZ", end.z);
-                SpellFx.release(ctx.caster(), ctx.definition(), ctx.look());
+                // the casting service releases every successful cast; a second release here stacked
+                // two muzzle flashes and two recoils on the same tick
                 return CastResult.SUCCESS;
             }
 
@@ -127,9 +135,22 @@ public final class LeadShotSkill implements SkillModule {
                     SkillTargets.hurt(level, entity.owner(), victim, entity.damage(), entity.definition(), true);
                     SkillTargets.shove(victim, end, 0.4D * Math.max(0.3D, entity.knockback()), 0.15D);
                 }
+                shatter(level, end);
                 SpellFx.impact(level, entity.definition(), end, entity.direction().scale(-1.0D), null, entity.owner(), 1.2F);
             }
         };
+    }
+
+    /**
+     * The round arriving: the collet that held it breaks as real glass, and a breath of powder
+     * smoke hangs where it went off. The flash and the school's crackle are the cue's; this is the
+     * part of a gunshot that is stuff, so the burst reads as a shot rather than one more spark.
+     */
+    private static void shatter(ServerLevel level, Vec3 at) {
+        // vanilla's own glass crumbs, the same that fly off a broken block of glass
+        BlockParticleOption glass = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.GLASS.defaultBlockState());
+        level.sendParticles(glass, at.x, at.y, at.z, GLASS_BITS, 0.2D, 0.2D, 0.2D, 0.1D);
+        level.sendParticles(ParticleTypes.SMOKE, at.x, at.y, at.z, POWDER_SMOKE, 0.12D, 0.12D, 0.12D, 0.02D);
     }
 
     @Override

@@ -7,8 +7,10 @@ import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
 import com.efkrdnz.magical.magic.MagicSkillType;
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.particle.TintedParticleOptions;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import com.efkrdnz.magical.registry.MagicalEntities;
+import com.efkrdnz.magical.registry.MagicalParticles;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -31,6 +33,7 @@ import net.minecraft.world.phys.Vec3;
 
 public final class MagicBarrageFieldEntity extends Entity {
     public static final int SHATTER_DURATION = 52;
+    private static final int SHATTER_SHARDS = 24;
     private static final EntityDataAccessor<Float> RADIUS = SynchedEntityData.defineId(MagicBarrageFieldEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Float> DAMAGE_SCALE = SynchedEntityData.defineId(MagicBarrageFieldEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Integer> FIRE_INTERVAL = SynchedEntityData.defineId(MagicBarrageFieldEntity.class, EntityDataSerializers.INT);
@@ -111,15 +114,37 @@ public final class MagicBarrageFieldEntity extends Entity {
         if (isShattering()) {
             return;
         }
-        if (level() instanceof ServerLevel) {
+        if (level() instanceof ServerLevel serverLevel) {
             ServerPlayer owner = owner();
             if (owner != null) {
                 MagicBarrageService.finishField(owner, this, applyCooldown);
                 owner.serverLevel().playSound(null, blockPosition(), SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 0.85F, 0.72F + random.nextFloat() * 0.16F);
                 owner.serverLevel().playSound(null, blockPosition(), SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.45F, 0.62F);
             }
+            shedShards(serverLevel);
         }
         entityData.set(SHATTER_TICKS, 0);
+    }
+
+    /**
+     * The dome breaks with the sound of glass, so it breaks into glass: a lit shard off the upper
+     * half of the circles, where they actually hang, thrown outward to tumble down and land. The
+     * lower half is underground and would only bury them. The renderer keeps the light of the
+     * shatter; these are the pieces.
+     */
+    private void shedShards(ServerLevel serverLevel) {
+        int count = MagicBarrageService.circleCountForRadius(radius());
+        int upper = Math.max(1, count / 2);
+        int shards = Math.min(SHATTER_SHARDS, upper);
+        TintedParticleOptions shard = new TintedParticleOptions(MagicalParticles.SHARD.get(), color(), 1.3F);
+        for (int i = 0; i < shards; i++) {
+            int index = i * upper / shards;
+            Vec3 offset = surfacePoint(index, count, radius() * 0.94F);
+            Vec3 at = position().add(offset);
+            Vec3 out = offset.lengthSqr() < 1.0E-6D ? new Vec3(0.0D, 1.0D, 0.0D) : offset.normalize();
+            // count 0 sends one shard with exactly this velocity
+            serverLevel.sendParticles(shard, at.x, at.y, at.z, 0, out.x, out.y * 0.5D, out.z, 0.12D);
+        }
     }
 
     private boolean drainMana(ServerPlayer owner) {

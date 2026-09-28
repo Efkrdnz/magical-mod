@@ -26,12 +26,16 @@ import com.efkrdnz.magical.magic.visual.SpellFx;
 import com.efkrdnz.magical.magic.visual.SpinSignature;
 import com.efkrdnz.magical.magic.visual.StampId;
 import com.efkrdnz.magical.magic.visual.VisualProfile;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -44,6 +48,15 @@ public final class CrucibleSkill implements SkillModule {
     private static final int WINDUP = 24;
     private static final int PANELS = 12;
     private static final byte MODE_PANEL = 2;
+    /** Where the smoke leaves the kiln: just under the rim of its five-block wall. */
+    private static final double CHIMNEY_Y = 4.6D;
+    /** Ticks between the chimney's smoke beats; one to three puffs a beat as the heat ramps. */
+    private static final int SMOKE_INTERVAL = 4;
+    /** Ticks between the pale plume puffs that stand over the kiln, readable from far off. */
+    private static final int PLUME_INTERVAL = 10;
+    /** Crumbs a panel drops when it is hit down, and when the whole kiln shatters (twelve at once). */
+    private static final int BROKEN_CRUMBS = 8;
+    private static final int SHATTER_CRUMBS = 2;
 
     @Override
     public MagicSkillDefinition definition() {
@@ -160,8 +173,45 @@ public final class CrucibleSkill implements SkillModule {
                         SkillTargets.hurt(level, entity.owner(), inside, damage, entity.definition().id());
                         inside.igniteForSeconds(2.0F);
                     }
-                    SpellFx.zoneTick(level, entity.definition(), centre, (float) radius * 0.9F);
+                    SpellFx.zoneTickWithin(level, entity.definition(), centre, radius * 0.9D);
                 }
+                chimney(entity, sinceSeal, hold);
+            }
+
+            /**
+             * The kiln from outside is a black wall, so what is going on inside it has to come out of
+             * the top: smoke pouring over the rim, thickening as the heat ramps, under a tall pale
+             * plume that says something is cooking in there to anyone who cannot see in.
+             */
+            private void chimney(SpellEffectEntity entity, int sinceSeal, int hold) {
+                if (sinceSeal % SMOKE_INTERVAL != 0) {
+                    return;
+                }
+                ServerLevel level = entity.serverLevel();
+                RandomSource random = level.random;
+                Vec3 centre = entity.position();
+                double reach = entity.radius() * 0.7D;
+                int puffs = 1 + Math.min(2, sinceSeal * 3 / Math.max(1, hold));
+                for (int i = 0; i < puffs; i++) {
+                    double a = random.nextDouble() * Math.PI * 2.0D;
+                    double r = reach * Math.sqrt(random.nextDouble());
+                    level.sendParticles(ParticleTypes.LARGE_SMOKE, centre.x + Math.cos(a) * r, centre.y + CHIMNEY_Y, centre.z + Math.sin(a) * r, 1, 0.2D, 0.2D, 0.2D, 0.02D);
+                }
+                if (sinceSeal % PLUME_INTERVAL == 0) {
+                    double dx = (random.nextDouble() - 0.5D) * reach * 0.5D;
+                    double dz = (random.nextDouble() - 0.5D) * reach * 0.5D;
+                    // count 0: one puff, rising at exactly the speed a campfire gives its own
+                    level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, centre.x + dx, centre.y + CHIMNEY_Y + 0.4D, centre.z + dz, 0, 0.0D, 1.0D, 0.0D, 0.07D);
+                }
+            }
+
+            /** A panel coming down, hit through or taken by the shatter: obsidian falling out of where it stood. */
+            private void crumble(SolidConstructEntity panel) {
+                double height = panel.height();
+                double spread = panel.width() * 0.3D;
+                int crumbs = panel.integrity() <= 0.0F ? BROKEN_CRUMBS : SHATTER_CRUMBS;
+                panel.serverLevel().sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.OBSIDIAN.defaultBlockState()),
+                        panel.getX(), panel.getY() + height * 0.5D, panel.getZ(), crumbs, spread, height * 0.3D, spread, 0.15D);
             }
 
             private boolean isGapAt(SpellEffectEntity entity, double angle) {
@@ -195,6 +245,9 @@ public final class CrucibleSkill implements SkillModule {
 
             @Override
             public void onExpire(SpellEffectEntity entity) {
+                if (entity instanceof SolidConstructEntity wall) {
+                    crumble(wall);
+                }
                 ListTag panels = entity.serverData().getList("Panels", Tag.TAG_COMPOUND);
                 for (int i = 0; i < panels.size(); i++) {
                     Entity panel = entity.serverLevel().getEntity(panels.getCompound(i).getUUID("Id"));
