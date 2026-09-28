@@ -105,7 +105,9 @@ public final class MindGazeService {
     /** The impression key for what is under the crosshair, or null when it is nothing one can imagine. */
     public static String keyOf(Entity entity, BlockState block) {
         if (entity != null) {
-            if (entity instanceof Player || entity instanceof ArmorStand || !(entity instanceof LivingEntity)) {
+            if (entity instanceof Player || entity instanceof ArmorStand
+                    || entity instanceof com.efkrdnz.magical.entity.mind.FigmentEntity
+                    || !(entity instanceof LivingEntity)) {
                 return null;
             }
             return Impression.creature(BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString()).key();

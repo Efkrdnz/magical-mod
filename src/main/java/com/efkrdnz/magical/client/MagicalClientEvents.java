@@ -166,6 +166,7 @@ public final class MagicalClientEvents {
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(MagicalEntities.UNWAKING_GOD.get(), com.efkrdnz.magical.client.renderer.UnwakingGodRenderer::new);
         event.registerEntityRenderer(MagicalEntities.UNWAKING_COUNTER.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.FIGMENT.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);
         event.registerEntityRenderer(MagicalEntities.MAGIC_OPPONENT.get(), MagicOpponentRenderer::new);
         event.registerEntityRenderer(MagicalEntities.TRAINING_DUMMY.get(), com.efkrdnz.magical.client.renderer.TrainingDummyRenderer::new);
         event.registerEntityRenderer(MagicalEntities.TRAINING_THREAT.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);

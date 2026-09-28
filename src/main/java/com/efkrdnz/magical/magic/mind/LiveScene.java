@@ -45,6 +45,7 @@ public final class LiveScene {
     final Set<Long> inside = new HashSet<>();
     final Set<Long> seenProjectiles = new HashSet<>();
     final Set<Integer> knownViewers = new LinkedHashSet<>();
+    final Map<Integer, Integer> figmentEntities = new HashMap<>();
 
     LiveScene(int id, UUID owner, ResourceKey<Level> dimension, Reverie reverie, BlockPos anchor, int turns,
               Lexicon lexicon, long bornAt) {
@@ -122,6 +123,11 @@ public final class LiveScene {
 
     public int elementAt(long packedPos) {
         return cellIndex.getOrDefault(packedPos, -1);
+    }
+
+    /** The entity id of a figment element's creature, or -1 when it has none. */
+    public int figmentEntity(int element) {
+        return figmentEntities.getOrDefault(element, -1);
     }
 
     public boolean expired(long now) {

@@ -58,6 +58,13 @@ public final class MindService {
         LiveScene scene = new LiveScene(nextId++, owner, level.dimension(), reverie.copy(), anchor, turns, lexicon,
                 level.getGameTime());
         scene.reread(new LevelMindWorld(level));
+        for (LiveScene.Element element : scene.elements()) {
+            if (element.kind() == LiveScene.Kind.FIGMENT) {
+                com.efkrdnz.magical.entity.mind.FigmentEntity figment =
+                        com.efkrdnz.magical.entity.mind.FigmentEntity.spawn(level, scene, element);
+                scene.figmentEntities.put(element.index(), figment.getId());
+            }
+        }
         live.add(scene);
         return scene;
     }
@@ -107,6 +114,47 @@ public final class MindService {
         return scene.belief().get(viewer.getId(), element);
     }
 
+    public static LiveScene scene(int id) {
+        for (LiveScene scene : allScenes()) {
+            if (scene.id() == id) {
+                return scene;
+            }
+        }
+        return null;
+    }
+
+    public static float believes(Entity viewer, com.efkrdnz.magical.entity.mind.FigmentEntity figment) {
+        LiveScene scene = scene(figment.sceneId());
+        return scene == null ? 0.0F : scene.belief().get(viewer.getId(), figment.element());
+    }
+
+    /** A blow through a figment: the striker learns, and so does everyone watching. */
+    public static void figmentStruck(com.efkrdnz.magical.entity.mind.FigmentEntity figment, LivingEntity attacker) {
+        LiveScene scene = scene(figment.sceneId());
+        if (scene == null || !(figment.level() instanceof ServerLevel level)) {
+            return;
+        }
+        LiveScene.Element element = scene.elements().get(figment.element());
+        long now = level.getGameTime();
+        contradict(scene, attacker, element, Contradiction.TOUCH, now);
+        for (LivingEntity witness : viewers(level, scene)) {
+            if (witness != attacker && perceives(level, witness, element, Susceptibility.blind(typeId(witness)))) {
+                contradict(scene, witness, element, Contradiction.WITNESS, now);
+            }
+        }
+    }
+
+    /** A figment lands a blow. On a doubter nothing happens, and that is the evidence. */
+    public static void figmentStrikes(com.efkrdnz.magical.entity.mind.FigmentEntity figment, LivingEntity target) {
+        LiveScene scene = scene(figment.sceneId());
+        if (scene == null || !(figment.level() instanceof ServerLevel level)) {
+            return;
+        }
+        if (scene.belief().get(target.getId(), figment.element()) < Belief.CONVINCED) {
+            contradict(scene, target, scene.elements().get(figment.element()), Contradiction.HOLLOW_STRIKE, level.getGameTime());
+        }
+    }
+
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
         MinecraftServer server = event.getServer();
@@ -145,6 +193,11 @@ public final class MindService {
         for (LivingEntity viewer : viewers) {
             present.add(viewer.getId());
             perceiveAll(level, scene, viewer, now);
+            if (viewer instanceof Mob mob && mob.getTarget() instanceof com.efkrdnz.magical.entity.mind.FigmentEntity figment
+                    && figment.sceneId() == scene.id()
+                    && scene.belief().get(mob.getId(), figment.element()) < Belief.CONVINCED) {
+                mob.setTarget(null);
+            }
         }
         for (Integer gone : List.copyOf(scene.knownViewers)) {
             if (present.contains(gone)) {
@@ -165,6 +218,7 @@ public final class MindService {
     static List<LivingEntity> viewers(ServerLevel level, LiveScene scene) {
         return level.getEntitiesOfClass(LivingEntity.class, scene.bounds().inflate(VIEW_RANGE),
                 entity -> entity.isAlive() && !entity.isSpectator() && !entity.getUUID().equals(scene.owner())
+                        && !(entity instanceof com.efkrdnz.magical.entity.mind.FigmentEntity)
                         && (entity instanceof Mob || entity instanceof Player));
     }
 

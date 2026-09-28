@@ -18,5 +18,6 @@ public final class MagicalEntityEvents {
         event.put(MagicalEntities.EFFIGY.get(), com.efkrdnz.magical.entity.fx.EffigyEntity.createAttributes().build());
         event.put(MagicalEntities.SPIRIT_WOLF.get(), com.efkrdnz.magical.entity.fx.SpiritWolfEntity.createAttributes().build());
         event.put(MagicalEntities.POLYMORPH_SHELL.get(), com.efkrdnz.magical.entity.fx.PolymorphShellEntity.createAttributes().build());
+        event.put(MagicalEntities.FIGMENT.get(), com.efkrdnz.magical.entity.mind.FigmentEntity.createAttributes().build());
     }
 }

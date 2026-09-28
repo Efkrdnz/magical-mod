@@ -269,6 +269,17 @@ public final class MagicalEntities {
                     .updateInterval(1)
                     .build(key("blood_harvest")));
 
+    /** A creature someone imagined: real to the server's AI, drawn only for the minds that believe it. */
+    public static final DeferredHolder<EntityType<?>, EntityType<com.efkrdnz.magical.entity.mind.FigmentEntity>> FIGMENT = ENTITY_TYPES.register(
+            "figment",
+            () -> EntityType.Builder.<com.efkrdnz.magical.entity.mind.FigmentEntity>of(com.efkrdnz.magical.entity.mind.FigmentEntity::new, MobCategory.MISC)
+                    .sized(0.6F, 1.95F)
+                    .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
+                    .updateInterval(2)
+                    .noSave()
+                    .noSummon()
+                    .build(key("figment")));
+
     /** A piece of the deep an eldritch mage called up: a tentacle, an eye or a maw. */
     public static final DeferredHolder<EntityType<?>, EntityType<com.efkrdnz.magical.entity.fx.EldritchConstructEntity>> ELDRITCH_CONSTRUCT = ENTITY_TYPES.register(
             "eldritch_construct",
