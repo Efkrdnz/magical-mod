@@ -889,11 +889,12 @@ public final class MagicalCommands {
                                                         player.displayClientMessage(Component.literal("FX stress spawned."), false);
                                                         return 1;
                                                     }))))))
-                    // The sigil library hung in front of the player: every ink a row, or one ink as a block.
+                    // The sigil library hung where the player looks: every ink a row, or one ink as a block.
+                    // Feedback goes through sendSuccess, so a capture's sendCommandFeedback false keeps it out of the shot.
                     .then(Commands.literal("sigils")
                             .executes(context -> withPlayer(context.getSource(), player -> {
                                 int sent = com.efkrdnz.magical.magic.visual.sigil.SigilPreview.show(player, java.util.Optional.empty());
-                                player.displayClientMessage(Component.literal("Sigils: " + sent + " hung, every ink."), false);
+                                context.getSource().sendSuccess(() -> Component.literal("Sigils: " + sent + " hung, every ink."), false);
                                 return sent;
                             }))
                             .then(Commands.argument("ink", StringArgumentType.word())
@@ -902,11 +903,11 @@ public final class MagicalCommands {
                                         String name = StringArgumentType.getString(context, "ink");
                                         var ink = com.efkrdnz.magical.magic.visual.sigil.SigilInk.byName(name);
                                         if (ink.isEmpty()) {
-                                            player.displayClientMessage(Component.literal("No ink called " + name + "."), false);
+                                            context.getSource().sendFailure(Component.literal("No ink called " + name + "."));
                                             return 0;
                                         }
                                         int sent = com.efkrdnz.magical.magic.visual.sigil.SigilPreview.show(player, ink);
-                                        player.displayClientMessage(Component.literal("Sigils: " + sent + " hung in " + name + "."), false);
+                                        context.getSource().sendSuccess(() -> Component.literal("Sigils: " + sent + " hung in " + name + "."), false);
                                         return sent;
                                     }))))
                     .then(Commands.literal("forge")

@@ -8,9 +8,11 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * {@code /magical-debug sigils [ink]}: the library hung in the air in front of the player, as
+ * {@code /magical-debug sigils [ink]}: the library hung in the air where the player is looking, as
  * hovering sigils sent past the particle setting so a capture always shows them. One ink is a
  * block of every symbol; no ink is every ink, one row each, top to bottom in declaration order.
+ * The panel stands upright and square to the player's heading; only its centre follows the pitch,
+ * so looking up hangs it against the sky and looking down lays it over the ground.
  */
 public final class SigilPreview {
     private static final int BLOCK_COLUMNS = 11;
@@ -40,7 +42,7 @@ public final class SigilPreview {
         double spacing = block ? BLOCK_SPACING : WALL_SPACING;
         double distance = block ? BLOCK_DISTANCE : WALL_DISTANCE;
         float scale = block ? BLOCK_SCALE : WALL_SCALE;
-        Vec3 centre = player.getEyePosition().add(flat.scale(distance));
+        Vec3 centre = player.getEyePosition().add(look.scale(distance));
         List<Spawn> cells = SigilPlacement.wall(centre.x, centre.y, centre.z, flat.x, flat.z, columns, rows, spacing);
         int sent = 0;
         for (int i = 0; i < cells.size(); i++) {
