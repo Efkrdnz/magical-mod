@@ -13,7 +13,6 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -28,6 +27,7 @@ public final class DraftRenderer {
     private static final float EDGE_ALPHA = 0.5F;
     private static final int CURSOR = 0xFFFFFF;
     private static final float CURSOR_ALPHA = 0.9F;
+    private static final float FIGMENT_ALPHA = 0.9F;
 
     private DraftRenderer() {}
 
@@ -48,7 +48,7 @@ public final class DraftRenderer {
             IllusionRenderer.drawEdge(pose, lines, cam, new AABB(DaydreamMode.world(block.at())), IllusionRenderer.LILAC, EDGE_ALPHA);
         }
         for (Figment figment : DaydreamMode.draft().figments()) {
-            IllusionRenderer.drawEdge(pose, lines, cam, figmentBox(figment), IllusionRenderer.LILAC, CURSOR_ALPHA);
+            IllusionRenderer.drawEdge(pose, lines, cam, DaydreamMode.figmentBox(figment), IllusionRenderer.LILAC, FIGMENT_ALPHA);
         }
         DraftRay.Hit hit = DaydreamMode.cursor(minecraft);
         if (hit != null) {
@@ -67,13 +67,5 @@ public final class DraftRenderer {
     private static BlockState state(String id) {
         ResourceLocation key = ResourceLocation.tryParse(id);
         return key == null ? Blocks.AIR.defaultBlockState() : BuiltInRegistries.BLOCK.getValue(key).defaultBlockState();
-    }
-
-    private static AABB figmentBox(Figment figment) {
-        BlockPos at = DaydreamMode.world(figment.at());
-        var size = EntityType.byString(figment.creatureId()).map(EntityType::getDimensions).orElse(null);
-        double half = size == null ? 0.3 : size.width() / 2.0;
-        double height = size == null ? 1.95 : size.height();
-        return new AABB(at.getX() + 0.5 - half, at.getY(), at.getZ() + 0.5 - half, at.getX() + 0.5 + half, at.getY() + height, at.getZ() + 0.5 + half);
     }
 }
