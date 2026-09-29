@@ -219,7 +219,9 @@ public final class MindService {
     /** A blow through a figment: the striker learns, and so does everyone watching. */
     public static void figmentStruck(com.efkrdnz.magical.entity.mind.FigmentEntity figment, LivingEntity attacker) {
         LiveScene scene = scene(figment.sceneId());
-        if (scene == null || !(figment.level() instanceof ServerLevel level)) {
+        // The wielder is never a viewer: a blow on their own figment teaches them nothing, or it
+        // would write them a shattered row and dent their scepticism for someone else's lies.
+        if (scene == null || !(figment.level() instanceof ServerLevel level) || attacker.getUUID().equals(scene.owner())) {
             return;
         }
         LiveScene.Element element = scene.elements().get(figment.element());

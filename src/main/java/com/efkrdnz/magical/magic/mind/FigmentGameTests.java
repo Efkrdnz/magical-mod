@@ -78,6 +78,21 @@ public final class FigmentGameTests {
         });
     }
 
+    @GameTest(template = TEMPLATE, timeoutTicks = 60, batch = "mind_figment_10")
+    public static void theWielderStrikingTheirOwnFigmentLearnsNothing(GameTestHelper helper) {
+        ServerPlayer player = GameTestPlayers.survival(helper, new BlockPos(1, 2, 2), "mind-owner-test");
+        LiveScene scene = villagerAt(helper, player.getUUID(), new BlockPos(2, 2, 2));
+        helper.runAtTickTime(2, () -> {
+            FigmentEntity target = figment(helper, scene);
+            helper.assertTrue(target != null, "the figment was never spawned");
+            player.attack(target);
+            helper.assertFalse(scene.belief().shattered(player.getId(), 0),
+                    "the wielder is never a viewer, so their own blow cannot see through their own lie");
+            MindService.endAll(player.getUUID());
+            helper.succeed();
+        });
+    }
+
     @GameTest(template = TEMPLATE, timeoutTicks = 100, batch = "mind_figment_3")
     public static void aHuskThatStopsBelievingLetsGo(GameTestHelper helper) {
         UUID owner = UUID.randomUUID();
