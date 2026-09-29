@@ -1,10 +1,20 @@
 package com.efkrdnz.magical.magic.mind;
 
 import com.efkrdnz.magical.MagicalMod;
+import com.efkrdnz.magical.magic.MagicContent;
+import com.efkrdnz.magical.magic.MagicSinService;
+import com.efkrdnz.magical.magic.MagicSkillDefinition;
+import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
+import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.cast.AimResolver;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -37,6 +47,7 @@ import java.util.UUID;
 public final class MindService {
     public static final int MAX_LIVE = 2;
     public static final double VIEW_RANGE = 32.0;
+    public static final double UNVEIL_REACH = 24.0;
     public static final double HEARING_RANGE = 16.0;
     public static final double PLAYER_VIEW_CONE = 0.5;
     private static final int SCEPTICISM_PRUNE_TICKS = 1200;
@@ -67,6 +78,56 @@ public final class MindService {
         }
         live.add(scene);
         return scene;
+    }
+
+    /**
+     * Sets the active reverie down in front of the block face the wielder looks at, turned to the
+     * way they face. Every refusal is checked before anything is billed.
+     */
+    public static boolean unveil(ServerPlayer player, PlayerMagicState state) {
+        if (player == null) {
+            return false;
+        }
+        Reverie reverie = state.mind().active();
+        if (reverie.isEmpty()) {
+            player.displayClientMessage(Component.translatable("message.magical.unveil_empty"), true);
+            return false;
+        }
+        if (scenesOf(player.getUUID()).size() >= MAX_LIVE) {
+            player.displayClientMessage(Component.translatable("message.magical.unveil_too_many"), true);
+            return false;
+        }
+        ServerLevel level = player.serverLevel();
+        AimResolver.Result aim = AimResolver.resolve(level, player, UNVEIL_REACH, 0.0, false);
+        if (!aim.hitBlock()) {
+            player.displayClientMessage(Component.translatable("message.magical.unveil_nowhere"), true);
+            return false;
+        }
+        if (!payFor(player, state, MagicContent.UNVEIL, UnveilCost.of(reverie))) {
+            return false;
+        }
+        BlockPos anchor = aim.blockPos().relative(aim.face());
+        int turns = player.getDirection().get2DDataValue() - reverie.facing();
+        unveilAt(level, player.getUUID(), reverie, anchor, turns, state.mind().lexicon());
+        level.playSound(null, anchor, SoundEvents.ILLUSIONER_CAST_SPELL, SoundSource.PLAYERS, 0.8F, 1.3F);
+        state.sync(player);
+        return true;
+    }
+
+    /** Bills a self-managed press by hand: the cast pipeline returns before it charges anything. */
+    private static boolean payFor(ServerPlayer player, PlayerMagicState state, MagicSkillDefinition skill, int baseMana) {
+        if (state.isSkillOnCooldown(skill.id())) {
+            player.displayClientMessage(Component.translatable("message.magical.skill_cooling"), true);
+            return false;
+        }
+        MagicSkillResolvedStats stats = skill.resolve(state.tuningFor(skill.id()));
+        int mana = Math.max(1, Math.round(baseMana * stats.costScale()));
+        if (!MagicSinService.spendManaForSkill(player, state, mana)) {
+            player.displayClientMessage(Component.translatable("message.magical.not_enough_mana"), true);
+            return false;
+        }
+        state.setSkillCooldown(skill.id(), stats.cooldownTicks());
+        return true;
     }
 
     public static List<LiveScene> scenesOf(UUID owner) {

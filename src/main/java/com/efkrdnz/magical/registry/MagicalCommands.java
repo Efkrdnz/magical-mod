@@ -177,6 +177,7 @@ public final class MagicalCommands {
                                     .executes(context -> spawnCloneOpponent(context.getSource(), 2))
                                     .then(Commands.argument("difficulty", IntegerArgumentType.integer(0, AscendantTier.MAX_TIER))
                                             .executes(context -> spawnCloneOpponent(context.getSource(), IntegerArgumentType.getInteger(context, "difficulty"))))))
+                    .then(com.efkrdnz.magical.magic.mind.MindCommands.build())
                     // The Authority of Causality: the board, a reading of it, and the knobs a capture
                     // needs. A preset is a whole worked board, which is also how the three examples in
                     // WeavePresets get exercised against a real player rather than only in a test.
