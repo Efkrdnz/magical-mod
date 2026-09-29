@@ -248,6 +248,15 @@ public final class DreamService {
         }
     }
 
+    /** A dreamed creature died: if it was its plot's Flaw, the plot has none now. */
+    static void figmentGone(ServerLevel dream, Entity figment) {
+        int plot = DreamRules.plotAt(figment.getX(), figment.getZ());
+        UUID owner = plot < 0 ? null : DreamPlots.of(dream).ownerOf(plot);
+        if (owner != null && dreamscape(dream, owner).clearIfFlaw(figment.getUUID())) {
+            DreamPlots.of(dream).changed();
+        }
+    }
+
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
         if (SESSIONS.isEmpty() && PENDING_HURTS.isEmpty()) {
