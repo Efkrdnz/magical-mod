@@ -13,7 +13,6 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -29,7 +28,6 @@ public final class DraftRenderer {
     private static final int CURSOR = 0xFFFFFF;
     private static final float CURSOR_ALPHA = 0.9F;
     private static final float FIGMENT_ALPHA = 0.9F;
-    private static final int FLAW = 0xFFD36B;
 
     private DraftRenderer() {}
 
@@ -61,15 +59,6 @@ public final class DraftRenderer {
                     : DaydreamMode.brush().cells(DaydreamMode.offset(from), DaydreamMode.offset(hit.place()));
             for (Offset cell : cells) {
                 IllusionRenderer.drawEdge(pose, lines, cam, new AABB(DaydreamMode.world(cell)), CURSOR, CURSOR_ALPHA);
-            }
-        }
-        if (ClientDream.ownDream()) {
-            if (ClientDream.flawBlock() != null) {
-                IllusionRenderer.drawEdge(pose, lines, cam, new AABB(ClientDream.flawBlock()).inflate(0.02), FLAW, 1.0F);
-            }
-            Entity figment = ClientDream.flawEntity() >= 0 ? minecraft.level.getEntity(ClientDream.flawEntity()) : null;
-            if (figment != null) {
-                IllusionRenderer.drawEdge(pose, lines, cam, figment.getBoundingBox().inflate(0.05), FLAW, 1.0F);
             }
         }
         buffers.endBatch(RenderType.lines());

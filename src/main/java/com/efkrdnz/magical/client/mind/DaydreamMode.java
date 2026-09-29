@@ -232,7 +232,8 @@ public final class DaydreamMode {
         if (hit == null) {
             return;
         }
-        if (Screen.hasShiftDown()) {
+        // The sneak binding, whatever key it is on: a physical Shift check ignored a player who sneaks on Control.
+        if (minecraft.options.keyShift.isDown()) {
             markFlaw(minecraft, hit);
             return;
         }

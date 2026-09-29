@@ -5,9 +5,12 @@ import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.network.DreamEditPayload;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
@@ -116,14 +119,22 @@ public final class DreamBuilder {
                 return false;
             }
             scape.markFigment(target.getUUID());
+            flare(dream, target.getBoundingBox().getCenter());
         } else if (edit.cells().size() == 1 && usable(player, scape, edit.cells().get(0))
                 && !dream.getBlockState(edit.cells().get(0)).isAir()) {
             scape.markBlock(DreamService.offsetIn(scape.plot(), edit.cells().get(0)));
+            flare(dream, Vec3.atCenterOf(edit.cells().get(0)));
         } else {
             return false;
         }
         player.displayClientMessage(Component.translatable("message.magical.dream_flaw_marked"), true);
         return true;
+    }
+
+    /** Marking the Flaw is felt at once: gold sparks round it and a chime, where before there was only a line of text. */
+    private static void flare(ServerLevel dream, Vec3 at) {
+        dream.sendParticles(ParticleTypes.WAX_ON, at.x, at.y, at.z, 24, 0.4, 0.4, 0.4, 0.0);
+        dream.playSound(null, at.x, at.y, at.z, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.0F, 1.3F);
     }
 
     private static boolean usable(ServerPlayer player, Dreamscape scape, BlockPos pos) {

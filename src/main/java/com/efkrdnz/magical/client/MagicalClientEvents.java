@@ -375,6 +375,7 @@ public final class MagicalClientEvents {
             if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
                 com.efkrdnz.magical.client.mind.IllusionRenderer.render(event, minecraft);
                 com.efkrdnz.magical.client.mind.DraftRenderer.render(event, minecraft);
+                com.efkrdnz.magical.client.mind.FlawRenderer.render(event, minecraft);
                 return;
             }
             if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) {
