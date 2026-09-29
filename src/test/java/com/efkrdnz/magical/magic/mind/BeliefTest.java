@@ -56,6 +56,28 @@ class BeliefTest {
     }
 
     @Test
+    void aFirstHandBlowShattersAViewerWhoNeverBelieved() {
+        Belief belief = new Belief();
+        assertTrue(belief.expose(5, 0, Contradiction.TOUCH), "walking through a wall you never saw is seeing through it");
+        assertTrue(belief.shattered(5, 0));
+        assertEquals(0.0F, belief.gain(5, 0, 1.0F, 1.0F, 1.0F, 1.0F), EPSILON, "and it never fades in afterwards");
+        assertFalse(belief.expose(5, 0, Contradiction.TOUCH), "a shattered element cannot shatter twice");
+
+        belief.set(6, 0, 0.9F);
+        assertFalse(belief.expose(6, 0, Contradiction.HOLLOW_STRIKE), "a strong belief is only dented, as by contradict");
+        assertEquals(0.65F, belief.get(6, 0), EPSILON);
+    }
+
+    @Test
+    void scepticismForgetsEverythingWhenCleared() {
+        Scepticism scepticism = new Scepticism();
+        Set<String> wall = Set.of("block:minecraft:stone");
+        scepticism.seenThrough("u", wall, 0L);
+        scepticism.clear();
+        assertEquals(1.0F, scepticism.novelty("u", wall, 10L), EPSILON);
+    }
+
+    @Test
     void convincedIsAtOneHalf() {
         Belief belief = new Belief();
         belief.set(1, 0, 0.49F);

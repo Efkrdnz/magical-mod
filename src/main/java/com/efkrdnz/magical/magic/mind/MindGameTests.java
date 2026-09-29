@@ -93,6 +93,24 @@ public final class MindGameTests {
         });
     }
 
+    /**
+     * A body that never believed the wall - it never saw it, the wall rose round it - has still been
+     * inside it, and that is first-hand evidence: the wall is shattered for it, so it can never fade in
+     * afterwards the way it would for a mind that simply had not looked yet.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 20, batch = "mind_5")
+    public static void aBodyThatNeverBelievedAWallItStandsInHasSeenThroughIt(GameTestHelper helper) {
+        LivingEntity stander = helper.spawnWithNoFreeWill(EntityType.HUSK, helper.relativeVec(onFloor(helper, new BlockPos(2, 2, 2))));
+        UUID owner = UUID.randomUUID();
+        LiveScene scene = unveil(helper, owner, column(), stander.blockPosition());
+        helper.runAtTickTime(3, () -> {
+            helper.assertTrue(scene.belief().shattered(stander.getId(), 0),
+                    "a body that stood inside a wall it never believed can still come to believe it");
+            MindService.endAll(owner);
+            helper.succeed();
+        });
+    }
+
     @GameTest(template = TEMPLATE, timeoutTicks = 20, batch = "mind_4")
     public static void aWielderHoldsTwoScenesAtOnce(GameTestHelper helper) {
         UUID owner = UUID.randomUUID();

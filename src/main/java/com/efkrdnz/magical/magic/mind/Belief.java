@@ -86,6 +86,24 @@ public final class Belief {
         return false;
     }
 
+    /**
+     * First-hand evidence - a body inside the element, a blow through it, a blow from it that lands on
+     * nothing. It dents a belief exactly as {@link #contradict} does, and on a viewer who holds no
+     * belief at all it shatters the element outright: one who walked through a wall before ever seeing
+     * it must not watch it fade in afterwards. True when this is the evidence that shattered it.
+     */
+    public boolean expose(int viewer, int element, Contradiction contradiction) {
+        long key = key(viewer, element);
+        if (shattered.contains(key)) {
+            return false;
+        }
+        if (!values.containsKey(key)) {
+            shattered.add(key);
+            return true;
+        }
+        return contradict(viewer, element, contradiction);
+    }
+
     public void forget(int viewer) {
         values.keySet().removeIf(key -> (int) (key >> 32) == viewer);
         shattered.removeIf(key -> (int) (key >> 32) == viewer);

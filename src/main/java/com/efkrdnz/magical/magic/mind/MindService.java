@@ -224,7 +224,7 @@ public final class MindService {
         }
         LiveScene.Element element = scene.elements().get(figment.element());
         long now = level.getGameTime();
-        contradict(scene, attacker, element, Contradiction.TOUCH, now);
+        expose(scene, attacker, element, Contradiction.TOUCH, now);
         witnessed(level, scene, viewers(level, scene), attacker, element, now);
     }
 
@@ -272,7 +272,7 @@ public final class MindService {
             return;
         }
         if (scene.belief().get(target.getId(), figment.element()) < Belief.CONVINCED) {
-            contradict(scene, target, scene.elements().get(figment.element()), Contradiction.HOLLOW_STRIKE, level.getGameTime());
+            expose(scene, target, scene.elements().get(figment.element()), Contradiction.HOLLOW_STRIKE, level.getGameTime());
         }
     }
 
@@ -300,6 +300,9 @@ public final class MindService {
     @SubscribeEvent
     public static void onServerStopping(ServerStoppingEvent event) {
         SCENES.clear();
+        // A memory's expiry is an absolute game time; carried into a world with a lower clock it would
+        // never be pruned, and the host's own player would bring the old world's doubt with them.
+        SCEPTICISM.clear();
     }
 
     static void tickScene(ServerLevel level, LiveScene scene) {
@@ -398,7 +401,7 @@ public final class MindService {
                 if (!scene.inside.add(key)) {
                     continue;
                 }
-                contradict(scene, viewer, element, Contradiction.TOUCH, now);
+                expose(scene, viewer, element, Contradiction.TOUCH, now);
                 witnessed(level, scene, viewers, viewer, element, now);
             }
         }
@@ -437,6 +440,16 @@ public final class MindService {
 
     static void contradict(LiveScene scene, LivingEntity viewer, LiveScene.Element element, Contradiction contradiction, long now) {
         if (scene.belief().contradict(viewer.getId(), element.index(), contradiction)) {
+            SCEPTICISM.seenThrough(viewer.getStringUUID(), element.impressions(), now);
+        }
+    }
+
+    /**
+     * First-hand evidence: the viewer's own body met the element. Unlike watching someone else, this
+     * needs no belief to act on - see {@link Belief#expose}.
+     */
+    static void expose(LiveScene scene, LivingEntity viewer, LiveScene.Element element, Contradiction contradiction, long now) {
+        if (scene.belief().expose(viewer.getId(), element.index(), contradiction)) {
             SCEPTICISM.seenThrough(viewer.getStringUUID(), element.impressions(), now);
         }
     }

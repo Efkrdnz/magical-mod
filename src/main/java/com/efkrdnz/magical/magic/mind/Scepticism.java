@@ -35,4 +35,9 @@ public final class Scepticism {
     public void prune(long now) {
         memories.values().removeIf(memory -> memory.until() < now);
     }
+
+    /** Every memory gone: a memory holds an absolute game time, which means nothing in another world. */
+    public void clear() {
+        memories.clear();
+    }
 }
