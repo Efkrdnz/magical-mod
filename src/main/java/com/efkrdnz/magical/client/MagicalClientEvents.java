@@ -291,6 +291,12 @@ public final class MagicalClientEvents {
                     }
                     continue;
                 }
+                if (com.efkrdnz.magical.client.mind.DaydreamInput.tickSlot(minecraft, i)) {
+                    while (MagicalKeyMappings.CAST_SLOTS[i].consumeClick()) {
+                        // Daydream is a toggle the client owns; nothing is cast.
+                    }
+                    continue;
+                }
                 if (CausalityAuthorityInput.tickSlot(minecraft, i)) {
                     while (MagicalKeyMappings.CAST_SLOTS[i].consumeClick()) {
                         // A Mark is chosen off the bodies in reach, not taken off the crosshair.
@@ -367,6 +373,7 @@ public final class MagicalClientEvents {
             }
             if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
                 com.efkrdnz.magical.client.mind.IllusionRenderer.render(event, minecraft);
+                com.efkrdnz.magical.client.mind.DraftRenderer.render(event, minecraft);
                 return;
             }
             if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) {
@@ -464,7 +471,8 @@ public final class MagicalClientEvents {
          * photograph its opening state.
          */
         public static boolean dispatchScroll(double scrollDeltaY) {
-            return SovereignAegisInput.handleScroll(scrollDeltaY)
+            return com.efkrdnz.magical.client.mind.DaydreamMode.handleScroll(scrollDeltaY)
+                    || SovereignAegisInput.handleScroll(scrollDeltaY)
                     || BlackFlamesInput.handleScroll(scrollDeltaY)
                     || SpaceOffenseInput.handleScroll(scrollDeltaY)
                     || SoulVowInput.handleScroll(scrollDeltaY)
@@ -477,7 +485,8 @@ public final class MagicalClientEvents {
 
         /** The same for a mouse button, in the same order the event handler used. */
         public static boolean dispatchMouseButton(int button, int action) {
-            return CausalAnchorOverlay.handleMouseButton(button, action)
+            return com.efkrdnz.magical.client.mind.DaydreamMode.handleMouseButton(button, action)
+                    || CausalAnchorOverlay.handleMouseButton(button, action)
                     || FractureOverlay.handleMouseButton(button, action)
                     || SpaceManipulationOverlay.handleMouseButton(button, action)
                     || SwordStanceOverlay.handleMouse(button, action)
