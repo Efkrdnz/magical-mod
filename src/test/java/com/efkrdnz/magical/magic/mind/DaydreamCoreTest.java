@@ -65,4 +65,15 @@ class DaydreamCoreTest {
         }
         assertEquals(Reverie.Refusal.FULL, big.validate(lexicon), "one impression buys 18, not 20");
     }
+
+    @Test
+    void aNameIsCappedWhereverItComesFrom() {
+        Reverie direct = new Reverie();
+        direct.setName("x".repeat(500));
+        assertEquals(Reverie.MAX_NAME_LENGTH, direct.name().length());
+
+        net.minecraft.nbt.CompoundTag forged = new net.minecraft.nbt.CompoundTag();
+        forged.putString("name", "y".repeat(30000));
+        assertEquals(Reverie.MAX_NAME_LENGTH, ReverieNbt.load(forged).name().length());
+    }
 }

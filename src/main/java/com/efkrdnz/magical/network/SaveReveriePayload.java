@@ -14,8 +14,13 @@ import net.minecraft.resources.ResourceLocation;
  * {@code Reverie.validate}, so a forged packet can at worst describe a smaller scene than it meant to.
  */
 public record SaveReveriePayload(int slot, CompoundTag data) implements CustomPacketPayload {
-    /** A full draft is a few dozen entries of a few dozen bytes; anything past this is not one. */
-    public static final long MAX_BYTES = 64 * 1024;
+    /**
+     * The quota vanilla gives every packet's tag. {@code NbtAccounter} charges far more than a byte
+     * per byte (each compound, key and string carries overhead), so a maximal legitimate draft - 128
+     * elements - costs several times its ~10 KB on the wire; a tighter quota would throw on it and
+     * disconnect an honest player. {@code SaveReveriePayloadTest} holds a maximal draft under it.
+     */
+    public static final long MAX_BYTES = 2L * 1024 * 1024;
 
     public static final Type<SaveReveriePayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "save_reverie"));

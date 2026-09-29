@@ -17,6 +17,8 @@ import java.util.Set;
  */
 public final class Reverie {
     public static final int REACH = 24;
+    /** The longest name a reverie keeps; it rides every sync, so a forged client cannot bank a novel per slot. */
+    public static final int MAX_NAME_LENGTH = 32;
 
     public enum Refusal { NONE, FULL, UNKNOWN, OCCUPIED, TOO_FAR }
 
@@ -30,7 +32,8 @@ public final class Reverie {
     }
 
     public void setName(String name) {
-        this.name = name == null ? "" : name;
+        String next = name == null ? "" : name;
+        this.name = next.length() > MAX_NAME_LENGTH ? next.substring(0, MAX_NAME_LENGTH) : next;
     }
 
     public int facing() {
