@@ -6,14 +6,17 @@ import com.efkrdnz.magical.client.hud.HudQuiet;
 import com.efkrdnz.magical.client.mind.DaydreamMode;
 import com.efkrdnz.magical.client.screen.CodexLayout.Rect;
 import com.efkrdnz.magical.magic.mind.Belief;
+import com.efkrdnz.magical.magic.mind.Consensus;
 import com.efkrdnz.magical.magic.mind.Figment;
 import com.efkrdnz.magical.magic.mind.ImaginedBlock;
 import com.efkrdnz.magical.magic.mind.LevelMindWorld;
+import com.efkrdnz.magical.magic.mind.KindStats;
 import com.efkrdnz.magical.magic.mind.Lexicon;
 import com.efkrdnz.magical.magic.mind.MindGazeService;
 import com.efkrdnz.magical.magic.mind.MindService;
 import com.efkrdnz.magical.magic.mind.MindState;
 import com.efkrdnz.magical.magic.mind.Offset;
+import com.efkrdnz.magical.magic.mind.PhantomHarm;
 import com.efkrdnz.magical.magic.mind.Plausibility;
 import com.efkrdnz.magical.magic.mind.Reaction;
 import com.efkrdnz.magical.magic.mind.Reverie;
@@ -38,6 +41,7 @@ import net.minecraft.world.phys.Vec3;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
@@ -324,7 +328,9 @@ public final class PlaybillScreen extends Screen implements HudDebug.Captured, H
                     figment.script(), lexicon, working.size());
         }
         y = line(g, Component.translatable("screen.magical.playbill.plausibility"), String.format(Locale.ROOT, "%.2f", reading.p()), x, y, width, BRIGHT);
-        for (Plausibility.Term term : reading.terms()) {
+        List<Plausibility.Term> terms = new ArrayList<>(reading.terms());
+        terms.sort(Comparator.comparingDouble((Plausibility.Term term) -> -Math.abs(term.value())));
+        for (Plausibility.Term term : terms.subList(0, Math.min(terms.size(), layout.forecastTerms()))) {
             y = line(g, Component.translatable("mind.magical.term." + term.key()),
                     String.format(Locale.ROOT, "%+.2f", term.value()), x, y, width, term.value() >= 0 ? GAIN : LOSS);
         }
@@ -341,7 +347,27 @@ public final class PlaybillScreen extends Screen implements HudDebug.Captured, H
             y = line(g, who, value, x, y, width, BRIGHT);
         }
         y += 4;
+        g.drawString(font, Component.translatable("screen.magical.playbill.becomes_real"), x, y, MUTED, true);
+        y += PlaybillLayout.LINE;
+        float weight = selectedWeight();
+        for (String voter : new String[] {"minecraft:zombie", "minecraft:player"}) {
+            Component who = EntityType.byString(voter).map(EntityType::getDescription).orElse(Component.literal(voter));
+            int needed = weight < 0.0F ? -1 : Consensus.needed(weight, Consensus.voter(voter));
+            String value = needed < 0 ? Component.translatable("screen.magical.playbill.never").getString() : String.valueOf(needed);
+            y = line(g, who, value, x, y, width, GAIN);
+        }
+        y += 4;
         line(g, Component.translatable("screen.magical.playbill.cost"), UnveilCost.of(working) + "", x, y, width, LILAC);
+    }
+
+    /** What the selected element weighs, or -1 when nothing in it can ever be placed for real. */
+    private float selectedWeight() {
+        if (selected < clusterCount()) {
+            List<ImaginedBlock> cluster = working.clusters().get(selected);
+            boolean placeable = cluster.stream().anyMatch(block -> !PhantomHarm.unmanifestable(block.blockId()));
+            return placeable ? Consensus.clusterWeight(cluster.size()) : -1.0F;
+        }
+        return Consensus.figmentWeight(KindStats.maxHealth(working.figments().get(selected - clusterCount()).creatureId()));
     }
 
     /**

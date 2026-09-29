@@ -71,6 +71,18 @@ public record PlaybillLayout(int guiWidth, int guiHeight) {
         return new Rect("reaction" + i, column(1) + stanceWidth() + INNER_GAP, contentTop() + (i + 6) * LINE, reactionWidth(), LINE);
     }
 
+    /**
+     * Everything in the forecast but its plausibility terms: eleven lines and three 4 px gaps. The
+     * terms get what is left above the buttons, largest movers first. The bound is the top of Save
+     * rather than {@link #floor()}: the forecast column runs under the buttons, and at the smallest
+     * gui the floor's four spare pixels are the difference between two terms and one.
+     */
+    public static final int FORECAST_FIXED = 11 * LINE + 3 * 4;
+
+    public int forecastTerms() {
+        return Math.max(0, (save().y() - contentTop() - FORECAST_FIXED) / LINE);
+    }
+
     public int forecastX() {
         return column(2);
     }

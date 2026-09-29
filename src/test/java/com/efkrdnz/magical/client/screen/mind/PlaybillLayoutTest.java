@@ -131,6 +131,17 @@ class PlaybillLayoutTest {
         }
     }
 
+    @Test
+    void theForecastKeepsTwoTermsAndEndsAboveTheButtons() {
+        for (int[] screen : SCREENS) {
+            PlaybillLayout layout = new PlaybillLayout(screen[0], screen[1]);
+            assertTrue(layout.forecastTerms() >= 2, "under two plausibility terms at " + screen[0] + "x" + screen[1]);
+            int bottom = layout.contentTop() + PlaybillLayout.FORECAST_FIXED + layout.forecastTerms() * PlaybillLayout.LINE;
+            assertTrue(bottom <= layout.save().y(), "the forecast runs to " + bottom + ", onto Save at " + layout.save().y()
+                    + " at " + screen[0] + "x" + screen[1]);
+        }
+    }
+
     private static double cx(Rect rect) {
         return rect.x() + rect.w() / 2.0;
     }
