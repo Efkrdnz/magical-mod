@@ -107,7 +107,7 @@ public final class MagicCastContentKept {
         SkillCastRegistry.register(MagicContent.INSIST, SkillCastRegistry.selfManaged(ctx -> {}));
         // Lull bills itself: a sneak into your own dream is free, a refusal costs nothing.
         SkillCastRegistry.register(MagicContent.LULL, SkillCastRegistry.selfManaged(ctx ->
-                com.efkrdnz.magical.magic.mind.DreamService.lull(ctx.player(), ctx.state())));
+                com.efkrdnz.magical.magic.mind.DreamService.lull(ctx.player(), ctx.state(), ctx.sneak())));
         // Circle Arsenal is hold/release like Gabriel and Black Flames: the press only hints.
         SkillCastRegistry.register(MagicContent.CIRCLE_ARSENAL, new SkillCastHandler() {
             @Override

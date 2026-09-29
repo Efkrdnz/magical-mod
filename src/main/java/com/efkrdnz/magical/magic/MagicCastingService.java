@@ -314,7 +314,11 @@ public final class MagicCastingService {
         }
 
         if (java.util.Set.of("iron_charge", "transposition").contains(skillId.getPath()) && UnwakingCapabilities.refuseMovement(player)) return;
-        if (state.isSkillOnCooldown(skillId)) {
+        // Lull's own dream is free and uncooled: the clock binds the weapon, and payFor still refuses on it.
+        boolean lullOwnDream = MagicContent.LULL.id().equals(skillId)
+                && (sneakDown || player.isShiftKeyDown()
+                || com.efkrdnz.magical.magic.mind.DreamService.dreamingOwn(player.getUUID()));
+        if (!lullOwnDream && state.isSkillOnCooldown(skillId)) {
             player.displayClientMessage(Component.translatable("message.magical.skill_cooling"), true);
             return;
         }

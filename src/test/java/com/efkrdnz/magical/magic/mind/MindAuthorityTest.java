@@ -59,7 +59,7 @@ class MindAuthorityTest {
                 "message.magical.manifested", "message.magical.unmanifested",
                 "skill.magical.lull", "skill.magical.lull.desc", "message.magical.lull_nobody",
                 "message.magical.lull_unsure", "message.magical.lull_no_flaw", "message.magical.lull_no_dream",
-                "message.magical.lull_dreaming", "message.magical.dream_enter", "message.magical.dream_woke",
+                "message.magical.lull_dreaming", "message.magical.lull_not_grounded", "message.magical.lull_asleep", "message.magical.dream_enter", "message.magical.dream_woke",
                 "entity.magical.sleeper"));
         for (String term : List.of("unsupported", "context", "alien", "fidelity", "habitat", "like_kind", "unlike_kind", "size")) {
             keys.add("mind.magical.term." + term);

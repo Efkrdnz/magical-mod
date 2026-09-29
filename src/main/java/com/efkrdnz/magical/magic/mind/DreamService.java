@@ -2,9 +2,11 @@ package com.efkrdnz.magical.magic.mind;
 
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.entity.mind.SleeperEntity;
+import com.efkrdnz.magical.boss.unwaking.UnwakingCapabilities;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.cast.AimResolver;
+import com.efkrdnz.magical.magic.passive.ArcanePassives;
 import com.efkrdnz.magical.magic.status.MagicStatus;
 import com.efkrdnz.magical.magic.status.MagicStatusService;
 import com.efkrdnz.magical.registry.MagicalAttachments;
@@ -422,6 +424,11 @@ public final class DreamService {
      * Dreamscape, if it has a Flaw. Billed only once there is something to do.
      */
     public static boolean lull(ServerPlayer wielder, PlayerMagicState state) {
+        return lull(wielder, state, wielder.isShiftKeyDown());
+    }
+
+    /** As {@link #lull(ServerPlayer, PlayerMagicState)}, with the sneak the cast pipeline saw. */
+    public static boolean lull(ServerPlayer wielder, PlayerMagicState state, boolean sneak) {
         DreamSession mine = SESSIONS.get(wielder.getUUID());
         if (mine != null) {
             if (mine.own) {
@@ -433,7 +440,11 @@ public final class DreamService {
         if (isDream(wielder)) {
             return false;
         }
-        if (wielder.isShiftKeyDown()) {
+        if (sneak) {
+            if (!wielder.onGround()) {
+                wielder.displayClientMessage(Component.translatable("message.magical.lull_not_grounded"), true);
+                return false;
+            }
             return enterOwn(wielder);
         }
         ServerLevel level = wielder.serverLevel();
@@ -448,6 +459,14 @@ public final class DreamService {
             return false;
         }
         if (target instanceof Mob mob) {
+            // Refuse for nothing what ASLEEP would not take: a boss that resists control, a Null Field, a sleeper.
+            if (UnwakingCapabilities.refuseControl(wielder, mob) || ArcanePassives.blocksStatus(mob)) {
+                return false;
+            }
+            if (MagicStatusService.has(mob, MagicStatus.ASLEEP)) {
+                wielder.displayClientMessage(Component.translatable("message.magical.lull_asleep"), true);
+                return false;
+            }
             if (!MindService.payFor(wielder, state, MagicContent.LULL, DreamRules.LULL_MANA)) {
                 return false;
             }
