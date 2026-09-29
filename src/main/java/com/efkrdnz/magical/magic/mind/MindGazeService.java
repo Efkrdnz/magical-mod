@@ -55,7 +55,8 @@ public final class MindGazeService {
         Vec3 now = player.position();
         Vec3 last = LAST.put(id, now);
         boolean still = last != null && last.distanceToSqr(now) < STILL_SQR;
-        String done = TRACKERS.computeIfAbsent(id, key -> new GazeTracker()).tick(lookedAt(player.level(), player), still);
+        String target = state.mind().lexicon().studyable(lookedAt(player.level(), player), DreamService.isDream(player));
+        String done = TRACKERS.computeIfAbsent(id, key -> new GazeTracker()).tick(target, still);
         if (done != null) {
             learn(player, state, done);
         }

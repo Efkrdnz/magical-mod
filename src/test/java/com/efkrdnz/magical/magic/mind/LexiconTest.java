@@ -62,4 +62,17 @@ class LexiconTest {
         assertEquals(1, copy.size());
         assertEquals(0, loaded.size());
     }
+
+    @Test
+    void aLookTeachesNothingOnceLearnedAndNothingInADream() {
+        Lexicon lexicon = new Lexicon();
+        String key = "block:minecraft:stone";
+        assertEquals(key, lexicon.studyable(key, false), "something never seen was not worth a look");
+        lexicon.learn(key, Lexicon.FIDELITY_3_AT - 1);
+        assertEquals(key, lexicon.studyable(key, false), "something not yet fully learned was not worth a look");
+        lexicon.learn(key, Lexicon.FIDELITY_3_AT);
+        assertNull(lexicon.studyable(key, false), "something fully learned was still being studied");
+        assertNull(new Lexicon().studyable(key, true), "a look inside a dream taught something");
+        assertNull(lexicon.studyable(null, false));
+    }
 }

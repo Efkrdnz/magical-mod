@@ -3,6 +3,7 @@ package com.efkrdnz.magical.client.mind;
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.client.ClientMagicState;
 import com.efkrdnz.magical.magic.AuthorityContent;
+import com.efkrdnz.magical.magic.mind.DreamService;
 import com.efkrdnz.magical.magic.mind.GazeTracker;
 import com.efkrdnz.magical.magic.mind.MindGazeService;
 import net.minecraft.client.Minecraft;
@@ -42,7 +43,10 @@ public final class GazeEyeOverlay {
         Vec3 now = minecraft.player.position();
         boolean still = last != null && last.distanceToSqr(now) < MindGazeService.STILL_SQR;
         last = now;
-        TRACKER.tick(MindGazeService.lookedAt(minecraft.level, minecraft.player), still);
+        // The same question the server asks, so the eye never fills on a look that teaches nothing.
+        boolean dreaming = minecraft.level.dimension().equals(DreamService.DREAM);
+        TRACKER.tick(ClientMagicState.get().mind().lexicon().studyable(
+                MindGazeService.lookedAt(minecraft.level, minecraft.player), dreaming), still);
     }
 
     public static void render(GuiGraphics graphics, Minecraft minecraft) {

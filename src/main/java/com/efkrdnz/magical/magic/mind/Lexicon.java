@@ -51,6 +51,14 @@ public final class Lexicon {
         return count >= 1 ? 1 : 0;
     }
 
+    /**
+     * What a look at {@code key} can still teach: nothing once it is fully learned, and nothing inside
+     * a dream, where everything seen is already something the dreamer knew. Null when there is nothing.
+     */
+    public String studyable(String key, boolean dreaming) {
+        return key == null || dreaming || gazes(key) >= FIDELITY_3_AT ? null : key;
+    }
+
     public int size() {
         return gazes.size();
     }
