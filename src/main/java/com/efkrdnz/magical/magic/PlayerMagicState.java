@@ -127,6 +127,9 @@ public final class PlayerMagicState {
      */
     private int classMaxManaBonus;
     private int classMaxBarrierBonus;
+    /** The base of each pool moved by hand ({@code /magical max}), kept apart from what the Greed vault buys. */
+    private int baseManaBonus;
+    private int baseBarrierBonus;
     private long lastSlothRestDay = -1L;
     private long lastSlothPenaltyDay = -1L;
     /** Bumped when the skill roster is replaced wholesale; saves below it get a one-time re-grant on load. */
@@ -238,7 +241,7 @@ public final class PlayerMagicState {
     }
 
     public int maxMana() {
-        int base = MagicalConfig.MAX_MANA.get() + Math.max(0, maxManaBonus) + Math.max(0, classMaxManaBonus);
+        int base = MagicalConfig.MAX_MANA.get() + Math.max(0, baseManaBonus) + Math.max(0, maxManaBonus) + Math.max(0, classMaxManaBonus);
         return base - corruptionPenalty(base);
     }
 
@@ -248,7 +251,7 @@ public final class PlayerMagicState {
     private static final float ENDURANCE_REDUCTION_CAP = 0.32F;
 
     public int maxBarrier() {
-        int base = MagicalConfig.MAX_BARRIER.get() + Math.max(0, maxBarrierBonus) + Math.max(0, classMaxBarrierBonus)
+        int base = MagicalConfig.MAX_BARRIER.get() + Math.max(0, baseBarrierBonus) + Math.max(0, maxBarrierBonus) + Math.max(0, classMaxBarrierBonus)
                 + ENDURANCE_BARRIER_PER_LEVEL * enduranceLevel();
         return base - corruptionPenalty(base);
     }
@@ -434,6 +437,29 @@ public final class PlayerMagicState {
 
     public int maxBarrierBonus() {
         return maxBarrierBonus;
+    }
+
+    public int baseManaBonus() {
+        return baseManaBonus;
+    }
+
+    public int baseBarrierBonus() {
+        return baseBarrierBonus;
+    }
+
+    /**
+     * Moves the base of the mana pool by hand. Never touches the vault, what it bought or what it
+     * charges next, and never takes the base below the default.
+     */
+    public void adjustBaseManaBonus(int delta) {
+        baseManaBonus = Math.max(0, baseManaBonus + delta);
+        setMana(mana);
+    }
+
+    /** As {@link #adjustBaseManaBonus(int)}, for the barrier. */
+    public void adjustBaseBarrierBonus(int delta) {
+        baseBarrierBonus = Math.max(0, baseBarrierBonus + delta);
+        setBarrier(barrier);
     }
 
     public void addMaxManaBonus(int amount) {
@@ -2096,6 +2122,8 @@ public final class PlayerMagicState {
         // here leaves the HUD drawing the base ceiling while the server spends the real one.
         copy.classMaxManaBonus = classMaxManaBonus;
         copy.classMaxBarrierBonus = classMaxBarrierBonus;
+        copy.baseManaBonus = baseManaBonus;
+        copy.baseBarrierBonus = baseBarrierBonus;
         // save() is the wire format and ClientMagicState rebuilds through copy(), so the Vessel
         // has to be in both or the HUD bar stays empty while the server spends a full one.
         copy.bloodVessel = bloodVessel;
@@ -2222,6 +2250,8 @@ public final class PlayerMagicState {
         tag.putInt("notice", notice);
         tag.putInt("classMaxManaBonus", classMaxManaBonus);
         tag.putInt("classMaxBarrierBonus", classMaxBarrierBonus);
+        tag.putInt("baseManaBonus", baseManaBonus);
+        tag.putInt("baseBarrierBonus", baseBarrierBonus);
         tag.putInt("manaBoostPurchases", manaBoostPurchases);
         tag.putInt("barrierBoostPurchases", barrierBoostPurchases);
         if (authorityId != null) {
@@ -2390,6 +2420,8 @@ public final class PlayerMagicState {
         state.notice = clamp(tag.getInt("notice"), 0, MAX_NOTICE);
         state.classMaxManaBonus = tag.getInt("classMaxManaBonus");
         state.classMaxBarrierBonus = tag.getInt("classMaxBarrierBonus");
+        state.baseManaBonus = Math.max(0, tag.getInt("baseManaBonus"));
+        state.baseBarrierBonus = Math.max(0, tag.getInt("baseBarrierBonus"));
         state.manaBoostPurchases = tag.getInt("manaBoostPurchases");
         state.barrierBoostPurchases = tag.getInt("barrierBoostPurchases");
         if (tag.contains("authorityId")) {

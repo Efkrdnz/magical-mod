@@ -245,6 +245,11 @@ public final class MagicalCommands {
                                 player.getData(MagicalAttachments.MAGIC_STATE).sync(player);
                                 return 1;
                             })))
+                    // The base of each pool, moved by hand: its own bonus beside what the Greed vault buys, so
+                    // the vault, its bought upgrades and its prices never move.
+                    .then(Commands.literal("max")
+                            .then(maxPool("mana", true))
+                            .then(maxPool("barrier", false)))
                     // The creator screen, optionally straight onto a tab or with a pair preloaded (for captures).
                     .then(Commands.literal("creator")
                             .executes(context -> withPlayer(context.getSource(), player -> openCreator(player, OpenSpellCreatorPayload.TAB_CREATE, null, null)))
@@ -1291,6 +1296,34 @@ public final class MagicalCommands {
                         com.efkrdnz.magical.magic.sword.SwordService.scale(player))));
         // 1 rather than the sword count: Brigadier reads 0 as a refusal, and a sheathed formation
         // is a true answer to the question, not a command that failed to run.
+        return 1;
+    }
+
+    /** {@code max <mana|barrier> add <amount>} (negative lowers it, never below the default) and {@code reset}. */
+    private static LiteralArgumentBuilder<CommandSourceStack> maxPool(String name, boolean mana) {
+        return Commands.literal(name)
+                .then(Commands.literal("add")
+                        .then(Commands.argument("amount", IntegerArgumentType.integer(-1_000_000, 1_000_000))
+                                .executes(context -> withPlayer(context.getSource(), player ->
+                                        moveBase(context.getSource(), player, mana, IntegerArgumentType.getInteger(context, "amount"))))))
+                .then(Commands.literal("reset")
+                        .executes(context -> withPlayer(context.getSource(), player -> {
+                            PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+                            return moveBase(context.getSource(), player, mana, -(mana ? data.baseManaBonus() : data.baseBarrierBonus()));
+                        })));
+    }
+
+    private static int moveBase(CommandSourceStack source, ServerPlayer player, boolean mana, int delta) {
+        PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
+        if (mana) {
+            data.adjustBaseManaBonus(delta);
+        } else {
+            data.adjustBaseBarrierBonus(delta);
+        }
+        data.sync(player);
+        int max = mana ? data.maxMana() : data.maxBarrier();
+        int bonus = mana ? data.baseManaBonus() : data.baseBarrierBonus();
+        source.sendSuccess(() -> Component.translatable(mana ? "message.magical.max_mana_base" : "message.magical.max_barrier_base", max, bonus), true);
         return 1;
     }
 
