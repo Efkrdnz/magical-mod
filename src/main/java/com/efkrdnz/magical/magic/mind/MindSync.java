@@ -40,6 +40,7 @@ final class MindSync {
             return;
         }
         List<Belief.Row> rows = scene.belief().rows();
+        List<Integer> real = forTheWire(scene.manifestedList());
         for (UUID id : scene.audience) {
             if (!(level.getPlayerByUUID(id) instanceof ServerPlayer player)) {
                 continue;
@@ -52,8 +53,13 @@ final class MindSync {
                             (byte) Math.round(row.belief() * 100.0F), row.shattered()));
                 }
             }
-            PacketDistributor.sendToPlayer(player, new BeliefSyncPayload(scene.id(), entries));
+            PacketDistributor.sendToPlayer(player, new BeliefSyncPayload(scene.id(), entries, real));
         }
+    }
+
+    /** What is real, cut to what the wire takes: the lowest indices first. */
+    static List<Integer> forTheWire(List<Integer> real) {
+        return real.size() > BeliefSyncPayload.MAX_MANIFESTED ? real.subList(0, BeliefSyncPayload.MAX_MANIFESTED) : real;
     }
 
     static void ended(LiveScene scene) {

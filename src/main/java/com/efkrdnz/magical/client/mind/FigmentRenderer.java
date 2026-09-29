@@ -8,8 +8,9 @@ import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
 
-/** Draws a figment as its imagined kind - for the owner always, for anyone else once they half-believe it. */
+/** Draws a figment as its imagined kind - for the owner always, for anyone else once they half-believe it, for everyone once it is real. */
 public final class FigmentRenderer extends EntityRenderer<FigmentEntity, FigmentRenderer.State> {
     public static final class State extends EntityRenderState {
         FigmentEntity figment;
@@ -36,12 +37,21 @@ public final class FigmentRenderer extends EntityRenderer<FigmentEntity, Figment
     @Override
     public void render(State state, PoseStack pose, MultiBufferSource buffers, int light) {
         FigmentEntity figment = state.figment;
-        if (figment == null || !ClientMind.sees(figment.sceneId(), figment.element())) {
+        if (figment == null) {
             return;
         }
-        if (ClientMind.mine(figment.sceneId())) {
+        boolean real = figment.isManifested();
+        if (!real && !ClientMind.sees(figment.sceneId(), figment.element())) {
+            return;
+        }
+        AABB local = figment.getBoundingBox().move(figment.position().reverse());
+        if (!real && ClientMind.mine(figment.sceneId())) {
             // The wielder is never fooled: their figments carry the same lilac edge as their blocks.
-            IllusionRenderer.drawLocalEdge(pose, buffers, figment.getBoundingBox().move(figment.position().reverse()));
+            IllusionRenderer.drawLocalEdge(pose, buffers, local);
+        }
+        float rim = real ? figment.hardening(state.partial) : 0.0F;
+        if (rim > 0.0F) {
+            IllusionRenderer.drawLocalEdge(pose, buffers, local, IllusionRenderer.EDGE_ALPHA * rim);
         }
         LivingEntity dummy = FigmentDummies.posed(figment);
         if (dummy != null) {

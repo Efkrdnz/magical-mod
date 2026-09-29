@@ -2,6 +2,7 @@ package com.efkrdnz.magical.client.mind;
 
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.magic.mind.Belief;
+import com.efkrdnz.magical.magic.mind.Consensus;
 import com.efkrdnz.magical.network.BeliefSyncPayload;
 import com.efkrdnz.magical.network.IllusionEndPayload;
 import com.efkrdnz.magical.network.IllusionScenePayload;
@@ -21,6 +22,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** Every scene this client has been told about, and the belief rows it has been sent. */
 @EventBusSubscriber(modid = MagicalMod.MODID, value = Dist.CLIENT)
@@ -34,6 +36,11 @@ public final class ClientMind {
 
     private static final Map<Integer, View> SCENES = new LinkedHashMap<>();
     private static final Map<Integer, List<BeliefSyncPayload.Entry>> ROWS = new HashMap<>();
+    private static final Map<Integer, Set<Integer>> MANIFESTED = new HashMap<>();
+    /** When each (scene, element) became real, in client game time; drives the hardening rim. */
+    private static final Map<Long, Long> HARDENED = new HashMap<>();
+    /** A sync taken with no level to read the time from. */
+    static final long NO_CLOCK = Long.MIN_VALUE;
     private static ClientLevel lastLevel;
 
     private ClientMind() {}
@@ -49,10 +56,56 @@ public final class ClientMind {
     public static void accept(IllusionEndPayload payload) {
         SCENES.remove(payload.scene());
         ROWS.remove(payload.scene());
+        MANIFESTED.remove(payload.scene());
+        HARDENED.keySet().removeIf(k -> (int) (k >> 32) == payload.scene());
     }
 
     public static void accept(BeliefSyncPayload payload) {
+        ClientLevel level = Minecraft.getInstance().level;
+        record(payload, level == null ? NO_CLOCK : level.getGameTime());
+    }
+
+    /**
+     * Takes a sync at client game time {@code now}. An element real now and not at the last sync has just
+     * hardened. The scene's first sync stamps nothing: what is already real then hardened before this client
+     * was watching, and a lie that set long ago must not replay its rim for a newcomer. With no clock
+     * ({@link #NO_CLOCK}) nothing is stamped either.
+     */
+    static void record(BeliefSyncPayload payload, long now) {
         ROWS.put(payload.scene(), List.copyOf(payload.entries()));
+        Set<Integer> was = MANIFESTED.get(payload.scene());
+        Set<Integer> real = Set.copyOf(payload.manifested());
+        if (was != null && now != NO_CLOCK) {
+            for (int element : real) {
+                if (!was.contains(element)) {
+                    HARDENED.put(key(payload.scene(), element), now);
+                }
+            }
+        }
+        MANIFESTED.put(payload.scene(), real);
+    }
+
+    static long key(int scene, int element) {
+        return ((long) scene << 32) | (element & 0xFFFFFFFFL);
+    }
+
+    public static boolean manifested(int scene, int element) {
+        return MANIFESTED.getOrDefault(scene, Set.of()).contains(element);
+    }
+
+    /** How much of the lilac rim is left on an element that has just become real, 1 to 0. */
+    public static float hardening(int scene, int element, float partial) {
+        ClientLevel level = Minecraft.getInstance().level;
+        return level == null ? 0.0F : hardeningAt(scene, element, partial, level.getGameTime());
+    }
+
+    static float hardeningAt(int scene, int element, float partial, long now) {
+        Long at = HARDENED.get(key(scene, element));
+        if (at == null || !manifested(scene, element)) {
+            return 0.0F;
+        }
+        float age = (now - at) + partial;
+        return Math.max(0.0F, Math.min(1.0F, 1.0F - age / Consensus.HARDEN_TICKS));
     }
 
     public static Collection<View> scenes() {
@@ -85,6 +138,9 @@ public final class ClientMind {
         if (view == null || minecraft.player == null) {
             return 0.0F;
         }
+        if (manifested(scene, element)) {
+            return 1.0F;
+        }
         if (view.mine()) {
             return 1.0F;
         }
@@ -99,6 +155,8 @@ public final class ClientMind {
     public static void clear() {
         SCENES.clear();
         ROWS.clear();
+        MANIFESTED.clear();
+        HARDENED.clear();
     }
 
     @SubscribeEvent

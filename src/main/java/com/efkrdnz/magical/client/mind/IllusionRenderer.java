@@ -19,7 +19,7 @@ import net.neoforged.neoforge.client.model.data.ModelData;
 /** Imagined blocks, drawn by this client at the strength its own mind holds them. */
 public final class IllusionRenderer {
     public static final int LILAC = 0xBDA4FF;
-    private static final float EDGE_ALPHA = 0.9F;
+    static final float EDGE_ALPHA = 0.9F;
     private static final float MIN_ALPHA = 0.02F;
 
     private IllusionRenderer() {}
@@ -33,15 +33,25 @@ public final class IllusionRenderer {
         Vec3 cam = event.getCamera().getPosition();
         for (ClientMind.View view : ClientMind.scenes()) {
             for (ClientMind.Cell cell : view.cells()) {
+                if (ClientMind.manifested(view.id(), cell.element()) && minecraft.level.getBlockState(cell.pos()) == cell.state()) {
+                    continue;
+                }
                 float alpha = view.mine() ? ClientMind.OWNER_ALPHA : ClientMind.visibility(view.id(), cell.element());
                 drawBlock(minecraft, pose, buffers, cam, cell.state(), cell.pos(), alpha);
             }
         }
         buffers.endBatch(IllusionRenderTypes.block());
         VertexConsumer lines = buffers.getBuffer(RenderType.lines());
+        float partial = event.getPartialTick().getGameTimeDeltaPartialTick(false);
         for (ClientMind.View view : ClientMind.scenes()) {
-            if (view.mine()) {
-                for (ClientMind.Cell cell : view.cells()) {
+            for (ClientMind.Cell cell : view.cells()) {
+                if (ClientMind.manifested(view.id(), cell.element())) {
+                    // Everyone sees a lie harden: the rim closes on the material and fades.
+                    float rim = ClientMind.hardening(view.id(), cell.element(), partial);
+                    if (rim > 0.0F) {
+                        drawEdge(pose, lines, cam, new AABB(cell.pos()), LILAC, EDGE_ALPHA * rim);
+                    }
+                } else if (view.mine()) {
                     drawEdge(pose, lines, cam, new AABB(cell.pos()), LILAC, EDGE_ALPHA);
                 }
             }
@@ -72,8 +82,13 @@ public final class IllusionRenderer {
 
     /** A lilac line box in the caller's own pose (already at the entity); {@code box} is relative to that origin. */
     public static void drawLocalEdge(PoseStack pose, MultiBufferSource buffers, AABB box) {
+        drawLocalEdge(pose, buffers, box, EDGE_ALPHA);
+    }
+
+    /** As {@link #drawLocalEdge(PoseStack, MultiBufferSource, AABB)}, at {@code alpha}. */
+    public static void drawLocalEdge(PoseStack pose, MultiBufferSource buffers, AABB box, float alpha) {
         ShapeRenderer.renderLineBox(pose, buffers.getBuffer(RenderType.lines()), box,
-                ((LILAC >> 16) & 0xFF) / 255.0F, ((LILAC >> 8) & 0xFF) / 255.0F, (LILAC & 0xFF) / 255.0F, EDGE_ALPHA);
+                ((LILAC >> 16) & 0xFF) / 255.0F, ((LILAC >> 8) & 0xFF) / 255.0F, (LILAC & 0xFF) / 255.0F, alpha);
     }
 
     /** Passes every vertex through with its alpha scaled; the bulk paths default through setColor. */

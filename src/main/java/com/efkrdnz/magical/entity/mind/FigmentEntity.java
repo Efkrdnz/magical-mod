@@ -182,7 +182,9 @@ public class FigmentEntity extends PathfinderMob {
             // Both sides: a client that still thought it no body would let a block be placed into it.
             this.blocksBuilding = isManifested();
             if (level().isClientSide() && isManifested()) {
-                hardenedAt = level().getGameTime();
+                // The pairing bundle lands before the first tick: a figment that arrives already real became
+                // so before this client was watching, and must not replay the rim for a newcomer.
+                hardenedAt = firstTick ? Long.MIN_VALUE : level().getGameTime();
             }
         }
     }

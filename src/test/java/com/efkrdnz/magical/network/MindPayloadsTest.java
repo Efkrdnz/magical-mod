@@ -35,7 +35,22 @@ class MindPayloadsTest {
     void anEndAndABeliefRoundTrip() {
         roundTrip(IllusionEndPayload.STREAM_CODEC, new IllusionEndPayload(7));
         roundTrip(BeliefSyncPayload.STREAM_CODEC, new BeliefSyncPayload(7,
-                List.of(new BeliefSyncPayload.Entry(42, 0, (byte) 64, false), new BeliefSyncPayload.Entry(42, 1, (byte) 0, true))));
+                List.of(new BeliefSyncPayload.Entry(42, 0, (byte) 64, false), new BeliefSyncPayload.Entry(42, 1, (byte) 0, true)),
+                List.of(0, 3)));
+    }
+
+    @Test
+    void aHostileManifestedListIsRefused() {
+        List<Integer> manifested = new ArrayList<>();
+        for (int i = 0; i <= BeliefSyncPayload.MAX_MANIFESTED; i++) {
+            manifested.add(i);
+        }
+        RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+        try {
+            assertThrows(Exception.class, () -> BeliefSyncPayload.STREAM_CODEC.encode(buffer, new BeliefSyncPayload(1, List.of(), manifested)));
+        } finally {
+            buffer.release();
+        }
     }
 
     @Test

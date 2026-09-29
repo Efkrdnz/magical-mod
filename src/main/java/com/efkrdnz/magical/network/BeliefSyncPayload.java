@@ -10,9 +10,10 @@ import net.minecraft.resources.ResourceLocation;
 
 import java.util.List;
 
-/** A scene's belief rows: a viewer is sent its own, the scene's owner everybody's. Belief in hundredths. */
-public record BeliefSyncPayload(int scene, List<Entry> entries) implements CustomPacketPayload {
+/** A scene's belief rows: a viewer is sent its own, the scene's owner everybody's. Belief in hundredths, and which of its elements are real. */
+public record BeliefSyncPayload(int scene, List<Entry> entries, List<Integer> manifested) implements CustomPacketPayload {
     public static final int MAX_ENTRIES = 512;
+    public static final int MAX_MANIFESTED = 128;
 
     public record Entry(int viewer, int element, byte belief, boolean shattered) {
         public static final StreamCodec<ByteBuf, Entry> STREAM_CODEC = StreamCodec.composite(
@@ -33,6 +34,7 @@ public record BeliefSyncPayload(int scene, List<Entry> entries) implements Custo
     public static final StreamCodec<RegistryFriendlyByteBuf, BeliefSyncPayload> STREAM_CODEC = StreamCodec.composite(
             ByteBufCodecs.VAR_INT, BeliefSyncPayload::scene,
             Entry.STREAM_CODEC.apply(ByteBufCodecs.list(MAX_ENTRIES)), BeliefSyncPayload::entries,
+            ByteBufCodecs.VAR_INT.apply(ByteBufCodecs.list(MAX_MANIFESTED)), BeliefSyncPayload::manifested,
             BeliefSyncPayload::new);
 
     @Override
