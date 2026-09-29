@@ -2,9 +2,15 @@ package com.efkrdnz.magical.magic.mind;
 
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.entity.mind.SleeperEntity;
+import com.efkrdnz.magical.magic.MagicContent;
+import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.cast.AimResolver;
+import com.efkrdnz.magical.magic.status.MagicStatus;
+import com.efkrdnz.magical.magic.status.MagicStatusService;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import com.efkrdnz.magical.registry.MagicalChunkTickets;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
@@ -17,6 +23,8 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.Relative;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
@@ -403,5 +411,104 @@ public final class DreamService {
                 dream.setBlock(at(plot, new Offset(x, -1, z)), Blocks.SMOOTH_STONE.defaultBlockState(), Block.UPDATE_ALL);
             }
         }
+    }
+
+    /** How far off the crosshair a body may stand and still be the one Lull means. */
+    static final double LULL_TOLERANCE = 0.5;
+
+    /**
+     * The Lull press. In your own dream, it wakes you. Sneaking, it takes you into your own dream, free.
+     * Aimed at a mob that is sure of your scene, the mob sleeps; at a player who is, they fall into your
+     * Dreamscape, if it has a Flaw. Billed only once there is something to do.
+     */
+    public static boolean lull(ServerPlayer wielder, PlayerMagicState state) {
+        DreamSession mine = SESSIONS.get(wielder.getUUID());
+        if (mine != null) {
+            if (mine.own) {
+                wake(wielder);
+                return true;
+            }
+            return false;
+        }
+        if (isDream(wielder)) {
+            return false;
+        }
+        if (wielder.isShiftKeyDown()) {
+            return enterOwn(wielder);
+        }
+        ServerLevel level = wielder.serverLevel();
+        AimResolver.Result aim = AimResolver.resolve(level, wielder, MindService.UNVEIL_REACH, LULL_TOLERANCE, false);
+        LivingEntity target = aim.living();
+        if (!(target instanceof Mob) && !(target instanceof ServerPlayer)) {
+            wielder.displayClientMessage(Component.translatable("message.magical.lull_nobody"), true);
+            return false;
+        }
+        if (!sure(wielder.getUUID(), target)) {
+            wielder.displayClientMessage(Component.translatable("message.magical.lull_unsure"), true);
+            return false;
+        }
+        if (target instanceof Mob mob) {
+            if (!MindService.payFor(wielder, state, MagicContent.LULL, DreamRules.LULL_MANA)) {
+                return false;
+            }
+            MagicStatusService.apply(mob, MagicStatus.ASLEEP, DreamRules.MOB_SLEEP_TICKS, MagicContent.LULL.id(), wielder);
+            level.sendParticles(new DustParticleOptions(0xBDA4FF, 1.2F), mob.getX(), mob.getEyeY() + 0.4, mob.getZ(),
+                    12, 0.3, 0.2, 0.3, 0.0);
+            state.sync(wielder);
+            return true;
+        }
+        ServerPlayer dreamer = (ServerPlayer) target;
+        if (SESSIONS.containsKey(dreamer.getUUID())) {
+            wielder.displayClientMessage(Component.translatable("message.magical.lull_dreaming"), true);
+            return false;
+        }
+        ServerLevel dream = dreamLevel(wielder.server);
+        if (dream == null) {
+            wielder.displayClientMessage(Component.translatable("message.magical.lull_no_dream"), true);
+            return false;
+        }
+        if (!flawStands(dream, dreamscape(dream, wielder.getUUID()))) {
+            wielder.displayClientMessage(Component.translatable("message.magical.lull_no_flaw"), true);
+            return false;
+        }
+        if (!MindService.payFor(wielder, state, MagicContent.LULL, DreamRules.LULL_MANA)) {
+            return false;
+        }
+        enter(dreamer, wielder.getUUID(), false);
+        state.sync(wielder);
+        return true;
+    }
+
+    /** Into your own dream, to build it: free, no clock, and no Flaw needed yet. */
+    static boolean enterOwn(ServerPlayer wielder) {
+        if (dreamLevel(wielder.server) == null) {
+            wielder.displayClientMessage(Component.translatable("message.magical.lull_no_dream"), true);
+            return false;
+        }
+        return enter(wielder, wielder.getUUID(), true);
+    }
+
+    /** Whether the viewer believes some live element of the wielder's, in its own level, at 0.8 or more. */
+    static boolean sure(UUID owner, LivingEntity viewer) {
+        for (LiveScene scene : MindService.scenesOf(owner)) {
+            if (!scene.dimension().equals(viewer.level().dimension())) {
+                continue;
+            }
+            for (LiveScene.Element element : scene.elements()) {
+                if (scene.belief().get(viewer.getId(), element.index()) >= DreamRules.LULL_BELIEF) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** A Flaw that is still there: a block not yet air, or a figment not yet dead (a dead one clears itself). */
+    static boolean flawStands(ServerLevel dream, Dreamscape scape) {
+        Dreamscape.Flaw flaw = scape.flaw();
+        if (flaw == null) {
+            return false;
+        }
+        return flaw.figment() != null || !dream.getBlockState(at(scape.plot(), flaw.block())).isAir();
     }
 }

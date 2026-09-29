@@ -149,6 +149,7 @@ public final class MagicContent {
     public static final MagicSkillDefinition DAYDREAM = register("daydream", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 0, 0, 20, 0.0F, 0, 0xBDA4FF, MagicAttribute.ARCANE);
     public static final MagicSkillDefinition UNVEIL = register("unveil", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 10, 200, 20, 0.0F, 0, 0xD9C8FF, MagicAttribute.ARCANE);
     public static final MagicSkillDefinition INSIST = register("insist", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 3, 0, 20, 0.0F, 0, 0xC9B4FF, MagicAttribute.ARCANE);
+    public static final MagicSkillDefinition LULL = register("lull", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 60, 1200, 20, 0.0F, 0, 0xA990FF, MagicAttribute.ARCANE);
     public static final MagicSkillDefinition DECREE = register("decree", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 4, 20, 20, 0.0F, 0, 0xE8C05A, MagicAttribute.ARCANE);
     public static final MagicSkillDefinition RECOMPENSE = register("recompense", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 20, 300, 20, 0.0F, 0, 0xE8615C, MagicAttribute.ARCANE);
     public static final MagicSkillDefinition SUSPEND = register("suspend", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 0, 40, 20, 0.0F, 0, 0x7FC8E8, MagicAttribute.ARCANE);
@@ -261,7 +262,7 @@ public final class MagicContent {
             INCANTATION_1.id(), INCANTATION_2.id(), INCANTATION_3.id(), INCANTATION_4.id(), GRIMOIRE.id(),
             BURDEN.id(), FRACTURE.id(), LAST_GRAIN.id(), CRITICALITY.id(),
             CAUSAL_BOARD.id(), CAUSAL_ANCHOR.id(), DECREE.id(), RECOMPENSE.id(), SUSPEND.id(),
-            DAYDREAM.id(), UNVEIL.id(), INSIST.id());
+            DAYDREAM.id(), UNVEIL.id(), INSIST.id(), LULL.id());
     public static final Set<ResourceLocation> CLASS_REWARD_SKILLS = Set.of(
             HEATED_IRON.id(),
             DAWNHAMMER.id(),

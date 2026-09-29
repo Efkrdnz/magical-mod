@@ -26,15 +26,13 @@ class MindAuthorityTest {
     }
 
     @Test
-    void theAuthorityGrantsDaydreamUnveilAndInsistAndNothingElse() {
-        assertEquals(List.of(MagicContent.DAYDREAM.id(), MagicContent.UNVEIL.id(), MagicContent.INSIST.id()),
+    void theAuthorityGrantsItsFourSkillsAndNothingElse() {
+        assertEquals(List.of(MagicContent.DAYDREAM.id(), MagicContent.UNVEIL.id(), MagicContent.INSIST.id(), MagicContent.LULL.id()),
                 AuthorityContent.get(AuthorityContent.MIND).skillIds());
-        assertTrue(MagicContent.AUTHORITY_SKILLS.contains(MagicContent.DAYDREAM.id()));
-        assertTrue(MagicContent.AUTHORITY_SKILLS.contains(MagicContent.UNVEIL.id()));
-        assertTrue(MagicContent.AUTHORITY_SKILLS.contains(MagicContent.INSIST.id()));
-        assertEquals(-6, MagicContent.DAYDREAM.tier());
-        assertEquals(-6, MagicContent.UNVEIL.tier());
-        assertEquals(-6, MagicContent.INSIST.tier());
+        for (var skill : List.of(MagicContent.DAYDREAM, MagicContent.UNVEIL, MagicContent.INSIST, MagicContent.LULL)) {
+            assertTrue(MagicContent.AUTHORITY_SKILLS.contains(skill.id()), skill.id() + " is not an authority skill");
+            assertEquals(-6, skill.tier());
+        }
         assertTrue(AuthorityContent.commandIds().contains("authority_of_mind"));
     }
 
@@ -58,7 +56,11 @@ class MindAuthorityTest {
                 "screen.magical.playbill.stance", "screen.magical.playbill.reaction",
                 "screen.magical.playbill.cluster", "mind.magical.daydream.hint",
                 "skill.magical.insist", "skill.magical.insist.desc", "message.magical.insist_nothing",
-                "message.magical.manifested", "message.magical.unmanifested"));
+                "message.magical.manifested", "message.magical.unmanifested",
+                "skill.magical.lull", "skill.magical.lull.desc", "message.magical.lull_nobody",
+                "message.magical.lull_unsure", "message.magical.lull_no_flaw", "message.magical.lull_no_dream",
+                "message.magical.lull_dreaming", "message.magical.dream_enter", "message.magical.dream_woke",
+                "entity.magical.sleeper"));
         for (String term : List.of("unsupported", "context", "alien", "fidelity", "habitat", "like_kind", "unlike_kind", "size")) {
             keys.add("mind.magical.term." + term);
         }

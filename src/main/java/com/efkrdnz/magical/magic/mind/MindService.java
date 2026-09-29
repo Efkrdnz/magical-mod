@@ -147,7 +147,7 @@ public final class MindService {
     }
 
     /** Bills a self-managed press by hand: the cast pipeline returns before it charges anything. */
-    private static boolean payFor(ServerPlayer player, PlayerMagicState state, MagicSkillDefinition skill, int baseMana) {
+    static boolean payFor(ServerPlayer player, PlayerMagicState state, MagicSkillDefinition skill, int baseMana) {
         if (state.isSkillOnCooldown(skill.id())) {
             player.displayClientMessage(Component.translatable("message.magical.skill_cooling"), true);
             return false;

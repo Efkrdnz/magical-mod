@@ -105,6 +105,9 @@ public final class MagicCastContentKept {
         // Insist is a hold: GenericHoldInput reports it and MindService's tick does the work, so the
         // press itself has nothing to do - and nothing to bill.
         SkillCastRegistry.register(MagicContent.INSIST, SkillCastRegistry.selfManaged(ctx -> {}));
+        // Lull bills itself: a sneak into your own dream is free, a refusal costs nothing.
+        SkillCastRegistry.register(MagicContent.LULL, SkillCastRegistry.selfManaged(ctx ->
+                com.efkrdnz.magical.magic.mind.DreamService.lull(ctx.player(), ctx.state())));
         // Circle Arsenal is hold/release like Gabriel and Black Flames: the press only hints.
         SkillCastRegistry.register(MagicContent.CIRCLE_ARSENAL, new SkillCastHandler() {
             @Override
