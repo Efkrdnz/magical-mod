@@ -76,17 +76,23 @@ public final class MindMobEvents {
         }
 
         /**
-         * {@code TargetGoal.canContinueToUse}, except that a figment is kept without {@code mob.canAttack},
-         * which refuses every figment; anything else is held to it as vanilla holds it.
+         * Anything that is not a figment is held exactly as vanilla holds it, by vanilla's own code. A
+         * figment cannot be: {@code TargetGoal.canContinueToUse} opens with {@code mob.canAttack(target)},
+         * which is {@code target.canBeSeenAsEnemy()} and refuses every figment by design, and it cannot be
+         * replayed from here with that one test swapped because the sight memory it counts,
+         * {@code unseenTicks}, is private to {@code TargetGoal}. So the figment branch below is that
+         * method (1.21.4) with {@code canAttack} replaced by {@code canBeSeenByAnyone} and a sight memory
+         * of its own; every other line is vanilla's, in vanilla's order. Re-diff it against
+         * {@code TargetGoal} when Minecraft moves. Letting go when belief falls is not here but in
+         * {@code MindService.tickScene}, which clears the target.
          */
         @Override
         public boolean canContinueToUse() {
             LivingEntity target = mob.getTarget() != null ? mob.getTarget() : targetMob;
-            if (target == null) {
-                return false;
+            if (!(target instanceof FigmentEntity)) {
+                return super.canContinueToUse();
             }
-            boolean kept = target instanceof FigmentEntity ? target.canBeSeenByAnyone() : mob.canAttack(target);
-            if (!kept) {
+            if (!target.canBeSeenByAnyone()) {
                 return false;
             }
             Team team = mob.getTeam();
