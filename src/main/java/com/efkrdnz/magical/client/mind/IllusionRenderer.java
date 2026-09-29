@@ -33,11 +33,7 @@ public final class IllusionRenderer {
         Vec3 cam = event.getCamera().getPosition();
         for (ClientMind.View view : ClientMind.scenes()) {
             for (ClientMind.Cell cell : view.cells()) {
-                if (ClientMind.manifested(view.id(), cell.element()) && minecraft.level.getBlockState(cell.pos()) == cell.state()) {
-                    continue;
-                }
-                float alpha = view.mine() ? ClientMind.OWNER_ALPHA : ClientMind.visibility(view.id(), cell.element());
-                drawBlock(minecraft, pose, buffers, cam, cell.state(), cell.pos(), alpha);
+                drawBlock(minecraft, pose, buffers, cam, cell.state(), cell.pos(), look(minecraft, view, cell).alpha());
             }
         }
         buffers.endBatch(IllusionRenderTypes.block());
@@ -45,18 +41,27 @@ public final class IllusionRenderer {
         float partial = event.getPartialTick().getGameTimeDeltaPartialTick(false);
         for (ClientMind.View view : ClientMind.scenes()) {
             for (ClientMind.Cell cell : view.cells()) {
-                if (ClientMind.manifested(view.id(), cell.element())) {
+                ClientMind.CellLook look = look(minecraft, view, cell);
+                if (look.edge()) {
+                    drawEdge(pose, lines, cam, new AABB(cell.pos()), LILAC, EDGE_ALPHA);
+                } else if (look.rim()) {
                     // Everyone sees a lie harden: the rim closes on the material and fades.
                     float rim = ClientMind.hardening(view.id(), cell.element(), partial);
                     if (rim > 0.0F) {
                         drawEdge(pose, lines, cam, new AABB(cell.pos()), LILAC, EDGE_ALPHA * rim);
                     }
-                } else if (view.mine()) {
-                    drawEdge(pose, lines, cam, new AABB(cell.pos()), LILAC, EDGE_ALPHA);
                 }
             }
         }
         buffers.endBatch(RenderType.lines());
+    }
+
+    /** A cell is real here only when its element is real and the world holds its block there, whatever state the block has taken since. */
+    private static ClientMind.CellLook look(Minecraft minecraft, ClientMind.View view, ClientMind.Cell cell) {
+        boolean real = ClientMind.manifested(view.id(), cell.element());
+        boolean holds = real && minecraft.level.getBlockState(cell.pos()).is(cell.state().getBlock());
+        float believed = view.mine() ? 1.0F : ClientMind.visibility(view.id(), cell.element());
+        return ClientMind.look(real, holds, view.mine(), believed);
     }
 
     /** One block at {@code alpha}; the caller ends the {@link IllusionRenderTypes#block()} batch. Shared with the Daydream draft. */

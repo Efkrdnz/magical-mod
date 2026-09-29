@@ -34,6 +34,12 @@ public final class ClientMind {
 
     public record View(int id, boolean mine, List<Cell> cells) {}
 
+    /** How one imagined cell is drawn: its block at {@code alpha} (0 draws none), the owner's lilac edge, and whether the hardening rim may show. */
+    public record CellLook(float alpha, boolean edge, boolean rim) {}
+
+    private static final CellLook REAL = new CellLook(0.0F, false, true);
+    private static final CellLook OWNED = new CellLook(OWNER_ALPHA, true, false);
+
     private static final Map<Integer, View> SCENES = new LinkedHashMap<>();
     private static final Map<Integer, List<BeliefSyncPayload.Entry>> ROWS = new HashMap<>();
     private static final Map<Integer, Set<Integer>> MANIFESTED = new HashMap<>();
@@ -138,14 +144,25 @@ public final class ClientMind {
         if (view == null || minecraft.player == null) {
             return 0.0F;
         }
-        if (manifested(scene, element)) {
-            return 1.0F;
-        }
         if (view.mine()) {
             return 1.0F;
         }
         float belief = belief(scene, minecraft.player.getId(), element);
         return belief <= 0.0F ? 0.0F : Math.min(1.0F, belief / Belief.CONVINCED);
+    }
+
+    /**
+     * How a cell is drawn. It is real here only when its element is real <em>and</em> the world holds its
+     * block at the cell: then the world draws it and all that is left of the lie is the hardening rim. A
+     * cell of a real element that could not be placed is still only an illusion - at the owner's 45% with
+     * the lilac edge, or at this viewer's own belief ({@code believed}, see {@link #visibility}) - so no
+     * doubter ever sees a full-strength ghost.
+     */
+    public static CellLook look(boolean realElement, boolean worldHolds, boolean mine, float believed) {
+        if (realElement && worldHolds) {
+            return REAL;
+        }
+        return mine ? OWNED : new CellLook(believed, false, false);
     }
 
     public static boolean sees(int scene, int element) {

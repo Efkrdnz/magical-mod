@@ -82,4 +82,40 @@ class ClientMindHardeningTest {
         assertNotEquals(ClientMind.key(1, -1), ClientMind.key(0, -1));
         assertEquals(7, (int) (ClientMind.key(7, -3) >> 32));
     }
+
+    @Test
+    void aRealCellTheWorldHoldsIsLeftToTheWorldAndWearsOnlyTheRim() {
+        ClientMind.CellLook look = ClientMind.look(true, true, false, 0.0F);
+        assertEquals(0.0F, look.alpha(), 1.0E-6F, "the real block is drawn by the world, not by us");
+        assertFalse(look.edge());
+        assertTrue(look.rim());
+        ClientMind.CellLook owner = ClientMind.look(true, true, true, 1.0F);
+        assertEquals(0.0F, owner.alpha(), 1.0E-6F);
+        assertFalse(owner.edge(), "the owner's lilac edge marks a lie, and this is no longer one");
+        assertTrue(owner.rim());
+    }
+
+    @Test
+    void aCellOfARealElementTheWorldDoesNotHoldIsStillOnlyAnIllusion() {
+        ClientMind.CellLook doubter = ClientMind.look(true, false, false, 0.0F);
+        assertEquals(0.0F, doubter.alpha(), 1.0E-6F, "no doubter ever sees a full ghost");
+        assertFalse(doubter.rim());
+        assertFalse(doubter.edge());
+        assertEquals(0.4F, ClientMind.look(true, false, false, 0.4F).alpha(), 1.0E-6F, "a believer sees it as they believe it");
+        ClientMind.CellLook owner = ClientMind.look(true, false, true, 1.0F);
+        assertEquals(ClientMind.OWNER_ALPHA, owner.alpha(), 1.0E-6F);
+        assertTrue(owner.edge());
+        assertFalse(owner.rim());
+    }
+
+    @Test
+    void anOrdinaryCellIsDrawnAsBelievedAndTheOwnerSeesItForALie() {
+        assertEquals(0.6F, ClientMind.look(false, false, false, 0.6F).alpha(), 1.0E-6F);
+        assertFalse(ClientMind.look(false, true, false, 0.6F).rim(), "a matching block that is not real is someone else's");
+        assertEquals(0.6F, ClientMind.look(false, true, false, 0.6F).alpha(), 1.0E-6F);
+        ClientMind.CellLook owner = ClientMind.look(false, false, true, 1.0F);
+        assertEquals(ClientMind.OWNER_ALPHA, owner.alpha(), 1.0E-6F);
+        assertTrue(owner.edge());
+        assertFalse(owner.rim());
+    }
 }
