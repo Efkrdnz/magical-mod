@@ -2226,6 +2226,12 @@ public final class PlayerMagicState {
         MagicalNetwork.syncMagicState(player, snapshot);
     }
 
+    /** Sends the state even if it has not changed: a client that wrote ahead of a refusal is put back. */
+    public void resync(ServerPlayer player) {
+        lastSyncedTag = null;
+        sync(player);
+    }
+
     public CompoundTag save() {
         CompoundTag tag = new CompoundTag();
         tag.putInt("mana", mana);

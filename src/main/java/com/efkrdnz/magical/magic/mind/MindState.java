@@ -60,7 +60,13 @@ public final class MindState {
         for (int i = 0; i < SLOTS; i++) {
             reveries[i].copyFrom(i < slots.size() ? ReverieNbt.load(slots.getCompound(i)) : new Reverie());
         }
-        belt.load(tag.getList("belt", Tag.TAG_STRING));
+        if (tag.contains("belt")) {
+            belt.load(tag.getList("belt", Tag.TAG_STRING));
+        } else {
+            // A save from before the belt: hand it the first lies known, or the brush holds nothing.
+            belt.clear();
+            lexicon.keys().forEach(belt::offer);
+        }
         setActiveSlot(tag.getInt("active"));
     }
 

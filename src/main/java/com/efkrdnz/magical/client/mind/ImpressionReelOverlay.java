@@ -30,7 +30,8 @@ public final class ImpressionReelOverlay {
                         : Component.literal(DaydreamMode.draft().size() + " / " + lexicon.budget()));
         String statusLine = minecraft.font.plainSubstrByWidth(status.getString(), lineLimit);
         Component hint = DaydreamMode.dreaming()
-                ? Component.translatable("mind.magical.dream.hint")
+                ? Component.translatable("mind.magical.dream.hint", minecraft.options.keyInventory.getTranslatedKeyMessage(),
+                        minecraft.options.keyShift.getTranslatedKeyMessage())
                 : Component.translatable("mind.magical.daydream.hint", minecraft.options.keyInventory.getTranslatedKeyMessage());
         String hintLine = minecraft.font.plainSubstrByWidth(hint.getString(), lineLimit);
 

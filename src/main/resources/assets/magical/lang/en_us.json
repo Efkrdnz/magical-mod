@@ -2385,7 +2385,7 @@
   "message.magical.lull_no_dream": "There is nowhere to dream.",
   "message.magical.lull_dreaming": "They are already dreaming.",
   "message.magical.dream_flaw_marked": "That is the Flaw.",
-  "mind.magical.dream.hint": "1-9 / Scroll: lie   Alt+scroll: brush   Right: real   Left: unmake   Sneak+right: Flaw",
+  "mind.magical.dream.hint": "1-9 / Scroll: lie   Alt+scroll: brush   Right: real   Left: unmake   %2$s+right: Flaw   %1$s: Lexicon",
   "mind.magical.dream.status": "Dreamscape",
   "message.magical.lull_not_grounded": "You cannot fall asleep in mid-air.",
   "message.magical.lull_asleep": "They are already asleep.",

@@ -151,12 +151,12 @@ public final class MindService {
         PlayerMagicState state = player.getData(com.efkrdnz.magical.registry.MagicalAttachments.MAGIC_STATE);
         // A refusal still syncs: the client wrote its belt ahead of the answer and must be put back.
         if (!state.hasAuthority(com.efkrdnz.magical.magic.AuthorityContent.MIND) || slot < 0 || slot >= Belt.SIZE) {
-            state.sync(player);
+            state.resync(player);
             return false;
         }
         String clean = key == null || key.isBlank() ? null : key;
         if (clean != null && (Impression.parse(clean) == null || !state.mind().lexicon().knows(clean))) {
-            state.sync(player);
+            state.resync(player);
             return false;
         }
         state.mind().belt().set(slot, clean);

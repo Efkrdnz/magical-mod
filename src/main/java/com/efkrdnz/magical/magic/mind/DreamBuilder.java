@@ -119,11 +119,11 @@ public final class DreamBuilder {
                 return false;
             }
             scape.markFigment(target.getUUID());
-            flare(dream, target.getBoundingBox().getCenter());
+            flare(player, target.getBoundingBox().getCenter());
         } else if (edit.cells().size() == 1 && usable(player, scape, edit.cells().get(0))
                 && !dream.getBlockState(edit.cells().get(0)).isAir()) {
             scape.markBlock(DreamService.offsetIn(scape.plot(), edit.cells().get(0)));
-            flare(dream, Vec3.atCenterOf(edit.cells().get(0)));
+            flare(player, Vec3.atCenterOf(edit.cells().get(0)));
         } else {
             return false;
         }
@@ -131,10 +131,13 @@ public final class DreamBuilder {
         return true;
     }
 
-    /** Marking the Flaw is felt at once: gold sparks round it and a chime, where before there was only a line of text. */
-    private static void flare(ServerLevel dream, Vec3 at) {
-        dream.sendParticles(ParticleTypes.WAX_ON, at.x, at.y, at.z, 24, 0.4, 0.4, 0.4, 0.0);
-        dream.playSound(null, at.x, at.y, at.z, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.0F, 1.3F);
+    /**
+     * Marking the Flaw is felt at once: gold sparks round it and a chime - for the owner alone, because
+     * a sleeper in the same plot who saw it would know exactly what to touch to wake.
+     */
+    private static void flare(ServerPlayer owner, Vec3 at) {
+        owner.serverLevel().sendParticles(owner, ParticleTypes.WAX_ON, false, false, at.x, at.y, at.z, 24, 0.4, 0.4, 0.4, 0.0);
+        owner.playNotifySound(SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.0F, 1.3F);
     }
 
     private static boolean usable(ServerPlayer player, Dreamscape scape, BlockPos pos) {

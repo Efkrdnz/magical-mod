@@ -53,4 +53,23 @@ class MindStateTest {
         assertSame(mind.reverie(2), mind.reverie(-1 + 3));
         assertSame(mind.reverie(0), mind.reverie(-5));
     }
+
+    @Test
+    void aSaveFromBeforeTheBeltFillsItWithWhatIsKnown() {
+        PlayerMagicState state = written();
+        net.minecraft.nbt.CompoundTag tag = state.save();
+        tag.getCompound("mind").remove("belt");
+        PlayerMagicState back = PlayerMagicState.load(tag);
+        assertEquals("block:minecraft:stone", back.mind().belt().get(0));
+    }
+
+    @Test
+    void aBeltEmptiedByHandStaysEmpty() {
+        PlayerMagicState state = written();
+        state.mind().belt().clear();
+        PlayerMagicState back = PlayerMagicState.load(state.save());
+        for (int i = 0; i < Belt.SIZE; i++) {
+            assertNull(back.mind().belt().get(i));
+        }
+    }
 }

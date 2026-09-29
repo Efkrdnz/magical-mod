@@ -513,7 +513,7 @@ public final class LexiconInventoryScreen extends Screen implements HudDebug.Cap
         drawPageArrows(graphics, layout, page, mx, my);
         graphics.drawString(font, tabs.isEmpty() ? title : tabs.get(selectedTab).title(), layout.left() + 8, layout.top() + 6, LABEL, false);
         drawCells(graphics, layout, mx, my);
-        if (lexicon().keys().isEmpty()) {
+        if (lexicon().size() == 0) {
             drawEmpty(graphics, layout);
         }
         if (carried != null) {

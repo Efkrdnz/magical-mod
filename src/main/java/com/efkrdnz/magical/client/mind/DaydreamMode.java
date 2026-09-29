@@ -392,6 +392,13 @@ public final class DaydreamMode {
                     BeltHotbarOverlay.selectionChanged();
                 }
             }
+            // The real hand is hidden under the belt, so drop and swap would act on an item nobody can see.
+            while (minecraft.options.keyDrop.consumeClick()) {
+                // swallowed
+            }
+            while (minecraft.options.keySwapOffhand.consumeClick()) {
+                // swallowed
+            }
         }
         if (active && minecraft.screen == null && minecraft.options.keyInventory.consumeClick()) {
             while (minecraft.options.keyInventory.consumeClick()) {
