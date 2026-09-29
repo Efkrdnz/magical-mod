@@ -427,6 +427,26 @@ public final class DreamGameTests {
         helper.succeed();
     }
 
+    /**
+     * A rescue is a way home like a wake, so it ends what the dream was doing to the body: a player
+     * found burning and withered in a plot with no session arrives neither.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "dream_21")
+    public static void aRescueEndsWhatTheDreamWasDoingToTheBody(GameTestHelper helper) {
+        ServerPlayer player = sleeper(helper, "dream-rescue-calm-test");
+        player.setData(MagicalAttachments.DREAM_RETURN, DreamReturn.of(player));
+        Dreamscape scape = DreamService.dreamscape(helper.getLevel(), UUID.randomUUID());
+        BlockPos arrival = DreamService.at(scape.plot(), scape.arrival());
+        player.teleportTo(arrival.getX() + 0.5, arrival.getY(), arrival.getZ() + 0.5);
+        player.igniteForSeconds(15.0F);
+        player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.WITHER, 400, 1));
+        DreamService.rescueStranded(player.server);
+        helper.assertFalse(DreamService.isDream(player), "the stranded player was not rescued");
+        helper.assertTrue(player.getRemainingFireTicks() <= 0, "a rescued player is still burning");
+        helper.assertFalse(player.hasEffect(net.minecraft.world.effect.MobEffects.WITHER), "a rescued player is still withered");
+        helper.succeed();
+    }
+
     /** A sleeping body is a player in all but the name: never gazed at, and never learned or dreamed by its id. */
     @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "dream_20")
     public static void aSleepingBodyIsNeverAnImpression(GameTestHelper helper) {

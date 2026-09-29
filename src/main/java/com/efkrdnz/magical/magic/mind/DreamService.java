@@ -261,6 +261,8 @@ public final class DreamService {
      * the dream. True once they are there; the return point is left for the caller to let go.
      */
     private static boolean sendHome(ServerPlayer player) {
+        // Every road home ends what the dream was doing to the body, a login's recovery and a rescue as much as a wake.
+        calm(player);
         if (player.hasData(MagicalAttachments.DREAM_RETURN)) {
             DreamReturn back = player.getData(MagicalAttachments.DREAM_RETURN);
             ServerLevel level = back.level(player.server);
@@ -287,7 +289,7 @@ public final class DreamService {
             return;
         }
         for (ServerPlayer player : List.copyOf(dream.players())) {
-            if (SESSIONS.containsKey(player.getUUID()) || !isDream(player)) {
+            if (!player.isAlive() || SESSIONS.containsKey(player.getUUID()) || !isDream(player)) {
                 continue;
             }
             if (sendHome(player)) {

@@ -132,6 +132,11 @@ public final class SoulAuthorityService {
         if (manaCost < 0) {
             return;
         }
+        // A soul move never touches a dream, and says so before it bills: a refusal after the bill refunded as mana.
+        if (com.efkrdnz.magical.magic.mind.DreamService.isDream(player) || com.efkrdnz.magical.magic.mind.DreamService.isDream(target)) {
+            player.displayClientMessage(Component.translatable("message.magical.soul_valley_action_failed"), true);
+            return;
+        }
         if (!MagicSinService.spendManaForSkill(player, state, manaCost)) {
             player.displayClientMessage(Component.translatable("message.magical.not_enough_mana"), true);
             return;
