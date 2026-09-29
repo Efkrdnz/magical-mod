@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:frogspawn",
+    "minecraft:sniffer_egg",
+    "minecraft:turtle_egg",
+    "minecraft:tnt",
+    "minecraft:powder_snow",
+    "minecraft:scaffolding"
+  ]
+}

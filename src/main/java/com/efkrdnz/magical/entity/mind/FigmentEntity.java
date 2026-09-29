@@ -56,6 +56,11 @@ public class FigmentEntity extends PathfinderMob {
     public static volatile BiPredicate<Integer, Integer> clientSees = (scene, element) -> true;
 
     private UUID owner;
+    /**
+     * Server: whether this figment has ever been real. Only its first manifesting makes it whole;
+     * made real again it keeps the wounds it carried. Never saved: the type does not save.
+     */
+    private boolean everReal;
     /** Client: the game time this figment became real, for the hardening rim; see {@link #hardening}. */
     private long hardenedAt = Long.MIN_VALUE;
 
@@ -140,14 +145,18 @@ public class FigmentEntity extends PathfinderMob {
         return entityData.get(MANIFESTED);
     }
 
-    /** Becomes real: its kind's health, as much of it as the agreement allows, and its kind's bite. */
+    /**
+     * Becomes real: its kind's bite, and its kind's health as far as the agreement allows. Whole only
+     * the first time; made real again it is never healed, only held within the new maximum.
+     */
     public void manifest(float maxHealth, float attack) {
         AttributeInstance damage = getAttribute(Attributes.ATTACK_DAMAGE);
         if (damage != null) {
             damage.setBaseValue(attack);
         }
         hold(maxHealth);
-        setHealth(getMaxHealth());
+        setHealth(everReal ? Math.min(getHealth(), getMaxHealth()) : getMaxHealth());
+        everReal = true;
         entityData.set(MANIFESTED, true);
     }
 

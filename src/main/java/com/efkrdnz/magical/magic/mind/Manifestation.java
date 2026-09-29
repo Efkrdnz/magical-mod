@@ -1,9 +1,11 @@
 package com.efkrdnz.magical.magic.mind;
 
+import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.entity.mind.FigmentEntity;
 import com.efkrdnz.magical.magic.service.ConjuredTerrainService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
@@ -11,20 +13,21 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.FallingBlock;
+import net.minecraft.world.level.block.BonemealableBlock;
+import net.minecraft.world.level.block.Fallable;
 import net.minecraft.world.level.block.LevelEvent;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
-import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -34,6 +37,14 @@ import java.util.UUID;
  * turned real by its own flag.
  */
 final class Manifestation {
+    /**
+     * Blocks that pass every other refusal and still make something real on their own: an egg or
+     * frogspawn hatches a real creature, TNT primes into a real explosion, powder snow is picked up
+     * with a bucket, scaffolding falls as a block entity of its own (it is not {@link Fallable}).
+     */
+    static final TagKey<Block> NEVER_MANIFESTS = TagKey.create(Registries.BLOCK,
+            ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "never_manifests"));
+
     private Manifestation() {}
 
     static void step(ServerLevel level, LiveScene scene, long now) {
@@ -84,7 +95,8 @@ final class Manifestation {
         } else if (level.getEntity(scene.figmentEntity(element.index())) instanceof FigmentEntity figment) {
             figment.unmanifest();
         }
-        Vec3 at = element.box().getCenter();
+        // Where the element is now: a figment has walked since it was written.
+        Vec3 at = MindService.liveBox(level, scene, element).getCenter();
         level.playSound(null, at.x, at.y, at.z, SoundEvents.ILLUSIONER_MIRROR_MOVE, SoundSource.PLAYERS, 0.8F, 1.0F);
         if (tell) {
             tell(level, scene, "message.magical.unmanifested");
@@ -104,11 +116,18 @@ final class Manifestation {
     }
 
     /**
-     * Whether {@code state} at {@code pos} is a block some scene actually placed: the position is in
-     * that element's live edit and the state is one the element placed. The geometry of a scene is not
-     * enough, or a real block built into a cell the wall refused would drop nothing and never burst.
+     * Whether some scene holds {@code pos}: the position is in the live edit of a manifested element.
+     * The edit owns the position, not a state - a fence that reconnected, a lamp that was powered or a
+     * log that was stripped is still imagined matter, and whatever stands there comes back to the
+     * world's original when the element does. A cell the element refused, or one a player built into
+     * after breaking it ({@link #forget}), is not in the edit and is not held.
      */
-    static boolean holds(ServerLevel level, BlockPos pos, BlockState state) {
+    static boolean holds(ServerLevel level, BlockPos pos) {
+        return editHolding(level, pos) != null;
+    }
+
+    /** The edit holding {@code pos}, or null when no manifested element of any scene here holds it. */
+    static ConjuredTerrainService.Edit editHolding(ServerLevel level, BlockPos pos) {
         for (LiveScene scene : MindService.scenesIn(level.dimension())) {
             int element = scene.elementAt(pos);
             if (element < 0 || !scene.manifested(element)) {
@@ -116,35 +135,44 @@ final class Manifestation {
             }
             UUID id = scene.edits.get(element);
             ConjuredTerrainService.Edit edit = id == null ? null : ConjuredTerrainService.lookup(level, id);
-            if (edit != null && edit.positions().contains(pos) && placedStates(scene.elements().get(element)).contains(state)) {
-                return true;
+            if (edit != null && edit.positions().contains(pos)) {
+                return edit;
             }
         }
-        return false;
+        return null;
     }
 
-    private static Set<BlockState> placedStates(LiveScene.Element element) {
-        Set<BlockState> placed = new HashSet<>();
-        for (String blockId : element.blockIds()) {
-            BlockState state = stateOf(blockId);
-            if (state != null) {
-                placed.add(state);
-            }
+    /** A player placed a block into a held cell: it is theirs, and the element gives it nothing back. */
+    static void forget(ServerLevel level, BlockPos pos) {
+        ConjuredTerrainService.Edit edit = editHolding(level, pos);
+        if (edit != null) {
+            ConjuredTerrainService.forget(level, edit, pos);
         }
-        return placed;
     }
 
     /**
-     * A block that cannot be made real without escaping the guard: one that falls (and lands for
-     * good), keeps a block entity, would not survive in its cell, or melts into water that stays.
+     * A block that cannot be made real without escaping the guard. See {@link #refusesByNature} for
+     * what is refused whatever the cell; here also a block that would not survive where it stands.
      */
     static boolean refuses(ServerLevel level, BlockPos pos, String blockId, BlockState state) {
+        return refusesByNature(blockId, state) || !state.canSurvive(level, pos);
+    }
+
+    /**
+     * Refused whatever the cell: an unknown id; fire, lava and water; one that falls and lands
+     * somewhere no edit holds ({@link Fallable}); one that keeps a block entity; ice that melts into
+     * water that stays; one that ticks at random, because it grows, spreads, decays or hatches into
+     * something real; one bone meal grows into more; and anything in {@link #NEVER_MANIFESTS}.
+     */
+    static boolean refusesByNature(String blockId, BlockState state) {
         return PhantomHarm.unmanifestable(blockId)
                 || state == null
-                || state.getBlock() instanceof FallingBlock
+                || state.getBlock() instanceof Fallable
                 || state.hasBlockEntity()
                 || state.is(Blocks.ICE) || state.is(Blocks.FROSTED_ICE)
-                || !state.canSurvive(level, pos);
+                || state.isRandomlyTicking()
+                || state.getBlock() instanceof BonemealableBlock
+                || state.is(NEVER_MANIFESTS);
     }
 
     static BlockState stateOf(String blockId) {
@@ -156,21 +184,26 @@ final class Manifestation {
     }
 
     private static boolean manifestCluster(ServerLevel level, LiveScene scene, LiveScene.Element element) {
+        List<Integer> placeable = new ArrayList<>();
+        for (int i = 0; i < element.cells().size(); i++) {
+            String id = element.blockIds().get(i);
+            BlockPos pos = element.cells().get(i);
+            if (placeable(level, pos, id)) {
+                placeable.add(i);
+            }
+        }
+        if (placeable.isEmpty()) {
+            // Agreed on and nothing placeable: no edit is opened, or it would be opened and closed
+            // (and the ledger saved) every step for as long as the agreement lasts.
+            return false;
+        }
         ConjuredTerrainService.Edit edit = ConjuredTerrainService.begin(level);
         // Real before it is placed, so a drop fired while a cell goes in is already caught by holds().
         scene.edits.put(element.index(), edit.id());
         scene.manifested.add(element.index());
-        for (int i = 0; i < element.cells().size(); i++) {
-            String id = element.blockIds().get(i);
-            BlockState state = stateOf(id);
+        for (int i : placeable) {
+            BlockState state = stateOf(element.blockIds().get(i));
             BlockPos pos = element.cells().get(i);
-            if (!level.isLoaded(pos) || refuses(level, pos, id, state)) {
-                continue;
-            }
-            BlockState here = level.getBlockState(pos);
-            if (!here.canBeReplaced() || here.hasBlockEntity() || !clearOfBodies(level, pos)) {
-                continue;
-            }
             if (ConjuredTerrainService.replace(level, edit, pos, state)) {
                 level.levelEvent(LevelEvent.PARTICLES_DESTROY_BLOCK, pos, Block.getId(state));
             }
@@ -202,8 +235,18 @@ final class Manifestation {
         if (edit == null) {
             return;
         }
-        Set<BlockState> placed = placedStates(element);
-        ConjuredTerrainService.restoreUnlessBuiltOver(level, edit, placed::contains);
+        // Everything still in the edit is imagined matter, whatever it has turned into; a block a
+        // player placed was forgotten from the edit as it went in.
+        ConjuredTerrainService.restore(level, edit);
+    }
+
+    /** Whether a cell can take its block now: loaded, not refused, free to replace and clear of bodies. */
+    private static boolean placeable(ServerLevel level, BlockPos pos, String blockId) {
+        if (!level.isLoaded(pos) || refuses(level, pos, blockId, stateOf(blockId))) {
+            return false;
+        }
+        BlockState here = level.getBlockState(pos);
+        return here.canBeReplaced() && !here.hasBlockEntity() && clearOfBodies(level, pos);
     }
 
     /** No real block is put inside a living body; a ghost figment is no body. */

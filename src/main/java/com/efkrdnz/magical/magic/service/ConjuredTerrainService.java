@@ -167,6 +167,21 @@ public final class ConjuredTerrainService {
         ledger(level).setDirty();
     }
 
+    /**
+     * Drops a position, and the original recorded for it, from an edit without restoring anything:
+     * whatever stands there now is no longer the edit's to give back. The edit stays open, even
+     * empty, for its owner to restore or close.
+     */
+    public static void forget(ServerLevel level, Edit edit, BlockPos pos) {
+        int idx = edit.positions.indexOf(pos);
+        if (idx < 0) {
+            return;
+        }
+        edit.positions.remove(idx);
+        edit.originals.remove(idx);
+        ledger(level).setDirty();
+    }
+
     public static Edit lookup(ServerLevel level, UUID id) {
         return ledger(level).edits.get(id);
     }
