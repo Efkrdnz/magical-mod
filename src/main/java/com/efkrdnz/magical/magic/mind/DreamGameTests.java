@@ -19,11 +19,15 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.ForcedChunksSavedData;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.EntityTravelToDimensionEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -40,6 +44,18 @@ public final class DreamGameTests {
         ServerPlayer player = GameTestPlayers.survival(helper, new BlockPos(2, 2, 2), name);
         player.getData(MagicalAttachments.MAGIC_STATE).setBarrier(0);
         return player;
+    }
+
+    /**
+     * Another mod refusing this one player every teleport, the way a real listener would. It stays
+     * registered, and is inert once the player is gone.
+     */
+    static void refuseTravelFor(ServerPlayer player) {
+        NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, false, EntityTravelToDimensionEvent.class, event -> {
+            if (event.getEntity() == player) {
+                event.setCanceled(true);
+            }
+        });
     }
 
     /** A stone Flaw one block east of the arrival. */
@@ -471,5 +487,68 @@ public final class DreamGameTests {
         ForcedChunksSavedData data = level.getDataStorage().get(ForcedChunksSavedData.factory(), ForcedChunksSavedData.FILE_ID);
         return data != null && data.getEntityForcedChunks().getTickingChunks().values().stream()
                 .anyMatch(chunks -> chunks.contains(chunk.toLong()));
+    }
+
+    /** A teleport something else refuses leaves no dream behind: no session, no return point, no body, nobody moved. */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "dream_22")
+    public static void aRefusedEntryLeavesNothingBehind(GameTestHelper helper) {
+        ServerPlayer player = sleeper(helper, "dream-refused-test");
+        refuseTravelFor(player);
+        Vec3 stood = player.position();
+        helper.assertFalse(DreamService.enter(player, UUID.randomUUID(), false), "a refused teleport still entered the dream");
+        helper.assertFalse(DreamService.dreaming(player.getUUID()), "a refused entry left a session");
+        helper.assertFalse(player.hasData(MagicalAttachments.DREAM_RETURN), "a refused entry left a return point");
+        helper.assertTrue(player.position().distanceTo(stood) < 0.01, "a refused entry moved the player");
+        helper.assertTrue(helper.getLevel().getEntitiesOfClass(SleeperEntity.class, player.getBoundingBox().inflate(3.0)).isEmpty(),
+                "a refused entry left a body lying");
+        helper.succeed();
+    }
+
+    /** A body nobody is dreaming in - the capture command's, or one a crash left - unmakes itself after its grace. */
+    @GameTest(template = TEMPLATE, timeoutTicks = SleeperEntity.ORPHAN_GRACE_TICKS + 60, batch = "dream_23")
+    public static void aBodyNobodyDreamsInUnmakesItself(GameTestHelper helper) {
+        ServerPlayer player = sleeper(helper, "dream-orphan-test");
+        SleeperEntity body = SleeperEntity.of(player);
+        helper.getLevel().addFreshEntity(body);
+        helper.runAfterDelay(SleeperEntity.ORPHAN_GRACE_TICKS + 25, () -> {
+            helper.assertTrue(body.isRemoved(), "a body nobody dreams in outlived its grace");
+            helper.succeed();
+        });
+    }
+
+    /** The body of someone still dreaming is never taken for an orphan, however long they dream. */
+    @GameTest(template = TEMPLATE, timeoutTicks = SleeperEntity.ORPHAN_GRACE_TICKS + 60, batch = "dream_24")
+    public static void aBodySomeoneDreamsInOutlastsTheGrace(GameTestHelper helper) {
+        ServerPlayer player = sleeper(helper, "dream-kept-body-test");
+        helper.assertTrue(DreamService.enter(player, UUID.randomUUID(), true), "the dream was refused");
+        SleeperEntity body = helper.getLevel().getEntitiesOfClass(SleeperEntity.class, helper.getBounds().inflate(4.0)).get(0);
+        helper.runAfterDelay(SleeperEntity.ORPHAN_GRACE_TICKS + 25, () -> {
+            helper.assertFalse(body.isRemoved(), "the body of a dreamer was unmade while they dreamed");
+            helper.assertTrue(DreamService.dreaming(player.getUUID()), "the dreamer woke");
+            DreamService.wake(player);
+            helper.succeed();
+        });
+    }
+
+    /**
+     * A player in creative or spectator is a visitor, not a dreamer: they may be moved into the dream
+     * by a command and are never sent home - until they stop being one.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "dream_25")
+    public static void aCreativeVisitorMayStandInTheDream(GameTestHelper helper) {
+        ServerPlayer player = sleeper(helper, "dream-visitor-test");
+        player.setGameMode(GameType.CREATIVE);
+        EntityTravelToDimensionEvent ask = new EntityTravelToDimensionEvent(player, DreamService.DREAM);
+        DreamService.onTravel(ask);
+        helper.assertFalse(ask.isCanceled(), "a creative visitor was refused the dream");
+        Dreamscape scape = DreamService.dreamscape(helper.getLevel(), UUID.randomUUID());
+        BlockPos arrival = DreamService.at(scape.plot(), scape.arrival());
+        player.teleportTo(arrival.getX() + 0.5, arrival.getY(), arrival.getZ() + 0.5);
+        DreamService.rescueStranded(player.server);
+        helper.assertTrue(DreamService.isDream(player), "a creative visitor was sent home");
+        player.setGameMode(GameType.SURVIVAL);
+        DreamService.rescueStranded(player.server);
+        helper.assertFalse(DreamService.isDream(player), "a visitor who stopped being one was left in the dream");
+        helper.succeed();
     }
 }

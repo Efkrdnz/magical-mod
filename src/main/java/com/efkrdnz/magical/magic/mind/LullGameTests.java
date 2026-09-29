@@ -227,4 +227,22 @@ public final class LullGameTests {
         MindService.endAll(wielder.getUUID());
         helper.succeed();
     }
+
+    /** A player no teleport can move is refused before the bill: no dream, no mana, no clock. */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "lull_12")
+    public static void aPlayerTheDreamCannotTakeCostsNothing(GameTestHelper helper) {
+        ServerPlayer wielder = wielder(helper, "lull-unmovable-test");
+        PlayerMagicState state = wielder.getData(MagicalAttachments.MAGIC_STATE);
+        ServerPlayer dreamer = GameTestPlayers.another(helper, new BlockPos(2, 2, 3), "lull-unmovable-dreamer-test");
+        DreamGameTests.withFlaw(helper.getLevel(), wielder.getUUID());
+        believes(helper, wielder, dreamer, 0.9F);
+        DreamGameTests.refuseTravelFor(dreamer);
+        wielder.lookAt(EntityAnchorArgument.Anchor.EYES, dreamer.getEyePosition());
+        int before = state.mana();
+        helper.assertFalse(DreamService.lull(wielder, state), "a player no teleport could move was lulled");
+        helper.assertFalse(DreamService.dreaming(dreamer.getUUID()), "a player no teleport could move is dreaming");
+        helper.assertTrue(state.mana() == before && !state.isSkillOnCooldown(MagicContent.LULL.id()), "a refusal was billed");
+        MindService.endAll(wielder.getUUID());
+        helper.succeed();
+    }
 }

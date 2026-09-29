@@ -30,6 +30,9 @@ public class SleeperEntity extends LivingEntity {
     private static final EntityDataAccessor<Optional<UUID>> DREAMER = SynchedEntityData.defineId(SleeperEntity.class, EntityDataSerializers.OPTIONAL_UUID);
     private static final EntityDataAccessor<String> NAME = SynchedEntityData.defineId(SleeperEntity.class, EntityDataSerializers.STRING);
 
+    /** How long a body nobody is dreaming in may lie before it unmakes itself: long enough for a capture. */
+    public static final int ORPHAN_GRACE_TICKS = 200;
+
     public SleeperEntity(EntityType<? extends SleeperEntity> type, Level level) {
         super(type, level);
     }
@@ -62,6 +65,15 @@ public class SleeperEntity extends LivingEntity {
 
     public String dreamerName() {
         return entityData.get(NAME);
+    }
+
+    /** A body nobody is dreaming in - the capture command's, or one a lost session left - does not lie there for good. */
+    @Override
+    public void tick() {
+        super.tick();
+        if (!level().isClientSide && tickCount >= ORPHAN_GRACE_TICKS && tickCount % 20 == 0 && !DreamService.isLiveBody(this)) {
+            discard();
+        }
     }
 
     @Override

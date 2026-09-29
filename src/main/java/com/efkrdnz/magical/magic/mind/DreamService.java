@@ -46,6 +46,7 @@ import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.common.Tags;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityTravelToDimensionEvent;
 import net.neoforged.neoforge.event.entity.living.LivingConversionEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
@@ -177,7 +178,13 @@ public final class DreamService {
         session.wakesAt = own ? Long.MAX_VALUE : dreamer.server.getTickCount() + DreamRules.DREAM_TICKS;
         SESSIONS.put(dreamer.getUUID(), session);
         BlockPos arrival = at(scape.plot(), scape.arrival());
-        move(dreamer, dream, arrival.getX() + 0.5, arrival.getY(), arrival.getZ() + 0.5, scape.arrivalYaw(), 0.0F);
+        if (!move(dreamer, dream, arrival.getX() + 0.5, arrival.getY(), arrival.getZ() + 0.5, scape.arrivalYaw(), 0.0F)) {
+            // Something else refused the teleport: nothing of the dream is left behind, and nobody moved.
+            SESSIONS.remove(dreamer.getUUID());
+            releaseBody(dreamer.server, session);
+            dreamer.removeData(MagicalAttachments.DREAM_RETURN);
+            return false;
+        }
         dream.playSound(null, arrival, SoundEvents.ILLUSIONER_PREPARE_BLINDNESS, SoundSource.PLAYERS, 0.8F, 0.6F);
         dreamer.displayClientMessage(Component.translatable("message.magical.dream_enter"), true);
         if (own) {
@@ -289,7 +296,7 @@ public final class DreamService {
             return;
         }
         for (ServerPlayer player : List.copyOf(dream.players())) {
-            if (!player.isAlive() || SESSIONS.containsKey(player.getUUID()) || !isDream(player)) {
+            if (!player.isAlive() || visitor(player) || SESSIONS.containsKey(player.getUUID()) || !isDream(player)) {
                 continue;
             }
             if (sendHome(player)) {
@@ -306,6 +313,38 @@ public final class DreamService {
         return isDream(level, x, z) && !SESSIONS.containsKey(mover.getUUID());
     }
 
+    /**
+     * A player in creative or spectator is a visitor, not a dreamer: an operator may look round the
+     * dream level by command, is never sent home from it, and stops being one on leaving the mode.
+     */
+    static boolean visitor(ServerPlayer player) {
+        return player.isCreative() || player.isSpectator();
+    }
+
+    /**
+     * Whether the teleport into the dream would be allowed, asked before anything is billed: the same
+     * event the teleport itself posts, put to every listener with the door held open as a real move holds it.
+     */
+    static boolean canEnter(ServerPlayer dreamer, ServerLevel dream) {
+        if (UnwakingCapabilities.refuseTravel(dreamer, dream.dimension())) {
+            return false;
+        }
+        EntityTravelToDimensionEvent ask = new EntityTravelToDimensionEvent(dreamer, dream.dimension());
+        entering = true;
+        try {
+            NeoForge.EVENT_BUS.post(ask);
+        } finally {
+            entering = false;
+        }
+        return !ask.isCanceled();
+    }
+
+    /** Whether this body is the one a live dream left lying; any other body is an orphan. */
+    public static boolean isLiveBody(SleeperEntity body) {
+        DreamSession session = body.dreamer().map(SESSIONS::get).orElse(null);
+        return session != null && session.sleeperId == body.getId();
+    }
+
     /** Set only while this class moves a player, so the one door into the dream level is its own. */
     private static boolean entering;
 
@@ -316,7 +355,8 @@ public final class DreamService {
      */
     @SubscribeEvent
     public static void onTravel(EntityTravelToDimensionEvent event) {
-        if (event.getDimension().equals(DREAM) && !entering && !event.getEntity().level().dimension().equals(DREAM)) {
+        if (event.getDimension().equals(DREAM) && !entering && !event.getEntity().level().dimension().equals(DREAM)
+                && !(event.getEntity() instanceof ServerPlayer player && visitor(player))) {
             event.setCanceled(true);
         }
     }
@@ -713,10 +753,22 @@ public final class DreamService {
             wielder.displayClientMessage(Component.translatable("message.magical.lull_no_flaw"), true);
             return false;
         }
+        if (!canEnter(dreamer, dream)) {
+            wielder.displayClientMessage(Component.translatable("message.magical.dream_refused"), true);
+            return false;
+        }
+        int manaBefore = state.mana();
         if (!MindService.payFor(wielder, state, MagicContent.LULL, DreamRules.LULL_MANA)) {
             return false;
         }
-        enter(dreamer, wielder.getUUID(), false);
+        if (!enter(dreamer, wielder.getUUID(), false)) {
+            // Refused after it was asked and allowed: the bill is taken back, never paid out as more than it took.
+            state.setMana(Math.max(state.mana(), manaBefore));
+            state.setSkillCooldown(MagicContent.LULL.id(), 0);
+            wielder.displayClientMessage(Component.translatable("message.magical.dream_refused"), true);
+            state.sync(wielder);
+            return false;
+        }
         state.sync(wielder);
         return true;
     }
@@ -731,7 +783,11 @@ public final class DreamService {
             wielder.displayClientMessage(Component.translatable("message.magical.lull_no_dream"), true);
             return false;
         }
-        return enter(wielder, wielder.getUUID(), true);
+        if (!canEnter(wielder, dreamLevel(wielder.server)) || !enter(wielder, wielder.getUUID(), true)) {
+            wielder.displayClientMessage(Component.translatable("message.magical.dream_refused"), true);
+            return false;
+        }
+        return true;
     }
 
     /** Whether the viewer believes some live element of the wielder's, in its own level, at 0.8 or more. */

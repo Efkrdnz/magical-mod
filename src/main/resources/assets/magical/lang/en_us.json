@@ -2390,6 +2390,7 @@
   "message.magical.lull_not_grounded": "You cannot fall asleep in mid-air.",
   "message.magical.lull_asleep": "They are already asleep.",
   "message.magical.lull_boss": "Nothing that great will sleep for you.",
+  "message.magical.dream_refused": "The way into the dream is barred.",
   "entity.magical.sleeper": "Sleeper",
   "message.magical.insist_nothing": "Nothing of yours is there to insist on.",
   "message.magical.gaze_learned": "You can imagine %s now.",
