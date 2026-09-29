@@ -8,6 +8,7 @@ import com.efkrdnz.magical.magic.cast.CastContext;
 import com.efkrdnz.magical.magic.cast.CastResult;
 import com.efkrdnz.magical.magic.cast.MobCastProfile;
 import com.efkrdnz.magical.magic.cast.SkillCastHandler;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
@@ -107,7 +108,7 @@ public final class ScaldingGeyserSkill implements SkillModule {
             }
             if (erupting) {
                 double launch = Math.max(0.8D, entity.speed());
-                for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, entity.getBoundingBox().inflate(BORE, JET_HEIGHT, BORE), l -> l.isAlive())) {
+                for (LivingEntity e : Bodies.of(level, LivingEntity.class, entity.getBoundingBox().inflate(BORE, JET_HEIGHT, BORE), l -> l.isAlive())) {
                     double dx = e.getX() - entity.getX();
                     double dz = e.getZ() - entity.getZ();
                     if (dx * dx + dz * dz > BORE * BORE || e.getY() < entity.getY() - 0.5D || e.getY() > entity.getY() + JET_HEIGHT) {

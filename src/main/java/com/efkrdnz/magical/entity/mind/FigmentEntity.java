@@ -68,6 +68,8 @@ public class FigmentEntity extends PathfinderMob {
     /**
      * Whether an entity is out of a reverie and not real: no body to anything outside the Mind code. A
      * figment enough minds agree on is real, and answers false - every spell, sweep and target can find it.
+     * The rest of the mod asks it through {@link com.efkrdnz.magical.magic.service.Bodies}, which every
+     * sweep for a living thing goes through, and through the target filters in {@code SkillTargets}.
      */
     public static boolean isFigment(Entity entity) {
         return entity instanceof FigmentEntity figment && !figment.isManifested();
@@ -311,6 +313,16 @@ public class FigmentEntity extends PathfinderMob {
         } else if (y < 0.0) {
             fallDistance -= (float) y;
         }
+    }
+
+    /**
+     * A figment belongs to its scene and the scene to one level, so it never crosses a portal: it
+     * ends with its scene where it stands. A copy in another dimension would be drawn for everyone
+     * there, believed by no one, and gone from the scene that ticks it.
+     */
+    @Override
+    public boolean canUsePortal(boolean allowPassengers) {
+        return false;
     }
 
     @Override

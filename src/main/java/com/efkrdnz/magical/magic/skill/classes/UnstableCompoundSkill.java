@@ -10,6 +10,7 @@ import com.efkrdnz.magical.magic.cast.CastResult;
 import com.efkrdnz.magical.magic.cast.MobCastProfile;
 import com.efkrdnz.magical.magic.cast.SkillCastHandler;
 import com.efkrdnz.magical.magic.cast.TuningView;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
 import com.efkrdnz.magical.magic.visual.Accent;
@@ -144,7 +145,7 @@ public final class UnstableCompoundSkill implements SkillModule {
                 float damage = entity.damage();
                 float knockback = entity.knockback();
                 Vec3 centre = entity.position();
-                for (LivingEntity victim : level.getEntitiesOfClass(LivingEntity.class, entity.getBoundingBox().inflate(entity.radius()), e -> e.isAlive() && e != owner && !SkillTargets.isAlly(owner, e))) {
+                for (LivingEntity victim : Bodies.of(level, LivingEntity.class, entity.getBoundingBox().inflate(entity.radius()), e -> e.isAlive() && e != owner && !SkillTargets.isAlly(owner, e))) {
                     if (victim.getBoundingBox().getCenter().distanceTo(centre) > entity.radius()) {
                         continue;
                     }

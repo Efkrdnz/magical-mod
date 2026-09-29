@@ -10,6 +10,7 @@ import com.efkrdnz.magical.magic.cast.CastResult;
 import com.efkrdnz.magical.magic.cast.MobCastProfile;
 import com.efkrdnz.magical.magic.cast.SkillCastHandler;
 import com.efkrdnz.magical.magic.cast.TuningView;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
 import com.efkrdnz.magical.magic.status.MagicStatus;
@@ -241,7 +242,7 @@ public final class ContagionSkill implements SkillModule {
             }
             List<LivingEntity> carriers = new ArrayList<>();
             AABB scan = new AABB(entity.position(), entity.position()).inflate(SCAN);
-            for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, scan, l -> l.isAlive() && carrierOf(l, owner))) {
+            for (LivingEntity e : Bodies.of(level, LivingEntity.class, scan, l -> l.isAlive() && carrierOf(l, owner))) {
                 carriers.add(e);
             }
             if (carriers.isEmpty() && !data.contains("StainX")) {

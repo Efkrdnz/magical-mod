@@ -1,6 +1,5 @@
 package com.efkrdnz.magical.magic.service;
 
-import com.efkrdnz.magical.entity.mind.FigmentEntity;
 import com.efkrdnz.magical.magic.MagicDamageService;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.visual.SpellFx;
@@ -27,7 +26,7 @@ public final class SkillTargets {
      */
     public static boolean isHostile(Entity caster, Entity target) {
         if (!(target instanceof LivingEntity living) || !living.isAlive() || target == caster
-                || FigmentEntity.isFigment(target)) {
+                || !Bodies.isBody(target)) {
             return false;
         }
         if (target instanceof ArmorStand) {
@@ -48,7 +47,7 @@ public final class SkillTargets {
     }
 
     public static boolean isAlly(Entity caster, Entity target) {
-        if (!(target instanceof LivingEntity living) || !living.isAlive() || FigmentEntity.isFigment(target)) {
+        if (!(target instanceof LivingEntity living) || !living.isAlive() || !Bodies.isBody(target)) {
             return false;
         }
         if (target == caster) {
@@ -65,7 +64,7 @@ public final class SkillTargets {
 
     public static List<LivingEntity> hostilesIn(ServerLevel level, Entity caster, AABB box) {
         List<LivingEntity> out = new ArrayList<>();
-        for (Entity entity : level.getEntities(caster, box, e -> isHostile(caster, e))) {
+        for (Entity entity : Bodies.around(level, caster, box, e -> isHostile(caster, e))) {
             out.add((LivingEntity) entity);
         }
         return out;
@@ -74,7 +73,7 @@ public final class SkillTargets {
     public static List<LivingEntity> hostilesWithin(ServerLevel level, Entity caster, Vec3 centre, double radius) {
         List<LivingEntity> out = new ArrayList<>();
         AABB box = new AABB(centre, centre).inflate(radius);
-        for (Entity entity : level.getEntities(caster, box, e -> isHostile(caster, e))) {
+        for (Entity entity : Bodies.around(level, caster, box, e -> isHostile(caster, e))) {
             if (entity.getBoundingBox().getCenter().distanceToSqr(centre) <= radius * radius) {
                 out.add((LivingEntity) entity);
             }
@@ -86,7 +85,7 @@ public final class SkillTargets {
     public static List<LivingEntity> alliesWithin(ServerLevel level, Entity caster, Vec3 centre, double radius) {
         List<LivingEntity> out = new ArrayList<>();
         AABB box = new AABB(centre, centre).inflate(radius);
-        for (Entity entity : level.getEntities((Entity) null, box, e -> isAlly(caster, e))) {
+        for (Entity entity : Bodies.around(level, (Entity) null, box, e -> isAlly(caster, e))) {
             if (entity.getBoundingBox().getCenter().distanceToSqr(centre) <= radius * radius) {
                 out.add((LivingEntity) entity);
             }
@@ -98,7 +97,7 @@ public final class SkillTargets {
     public static List<LivingEntity> hostilesInCylinder(ServerLevel level, Entity caster, Vec3 base, double radius, double height) {
         List<LivingEntity> out = new ArrayList<>();
         AABB box = new AABB(base.x - radius, base.y - 0.5D, base.z - radius, base.x + radius, base.y + height, base.z + radius);
-        for (Entity entity : level.getEntities(caster, box, e -> isHostile(caster, e))) {
+        for (Entity entity : Bodies.around(level, caster, box, e -> isHostile(caster, e))) {
             double dx = entity.getX() - base.x;
             double dz = entity.getZ() - base.z;
             if (dx * dx + dz * dz <= radius * radius) {

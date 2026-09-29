@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.entity;
 
 import com.efkrdnz.magical.magic.SphericalBlockRemover;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.registry.MagicalEntities;
 
 import java.util.HashSet;
@@ -64,7 +65,7 @@ public final class SpacePortalEntity extends Entity {
             return;
         }
         AABB touchBox = getBoundingBox().inflate(0.55D, 0.25D, 0.55D);
-        for (Entity entity : level().getEntities(this, touchBox, target -> target.isAlive() && target != this && !(target instanceof SpacePortalEntity))) {
+        for (Entity entity : Bodies.around(level(), this, touchBox, target -> target.isAlive() && target != this && !(target instanceof SpacePortalEntity))) {
             if (!teleported.add(entity.getUUID())) {
                 continue;
             }

@@ -7,6 +7,7 @@ import com.efkrdnz.magical.magic.MagicCounterService;
 import com.efkrdnz.magical.magic.MagicDamageService;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.registry.MagicalEntities;
 import java.util.Optional;
 import java.util.UUID;
@@ -162,7 +163,7 @@ public final class BlackFlameProjectileEntity extends Entity implements Countera
         AABB path = getBoundingBox().expandTowards(to.subtract(from)).inflate(0.65D + radius() * 0.22D);
         Entity closest = null;
         double closestDistance = Double.MAX_VALUE;
-        for (Entity entity : level().getEntities(this, path, target -> target instanceof LivingEntity && target.isAlive() && target != owner)) {
+        for (Entity entity : Bodies.around(level(), this, path, target -> target instanceof LivingEntity && target.isAlive() && target != owner)) {
             Optional<Vec3> hit = entity.getBoundingBox().inflate(0.36D).clip(from, to);
             if (hit.isPresent()) {
                 double distance = from.distanceToSqr(hit.get());
@@ -179,7 +180,7 @@ public final class BlackFlameProjectileEntity extends Entity implements Countera
         Vec3 movement = getDeltaMovement();
         Vec3 lookAhead = movement.lengthSqr() < 1.0E-6D ? to : from.add(movement.normalize().scale(9.0D));
         AABB warningPath = new AABB(from, lookAhead).inflate(2.0D + radius() * 0.35D);
-        for (Entity entity : level().getEntities(this, warningPath, target -> target instanceof ServerPlayer player && player.isAlive() && target != ownerEntity())) {
+        for (Entity entity : Bodies.around(level(), this, warningPath, target -> target instanceof ServerPlayer player && player.isAlive() && target != ownerEntity())) {
             ServerPlayer player = (ServerPlayer) entity;
             Vec3 toPlayer = player.getEyePosition().subtract(from);
             if (movement.lengthSqr() > 1.0E-6D && toPlayer.dot(movement.normalize()) < 0.0D) {
@@ -192,7 +193,7 @@ public final class BlackFlameProjectileEntity extends Entity implements Countera
     private void scorchWake() {
         Entity owner = ownerEntity();
         AABB area = getBoundingBox().inflate(0.5D + radius() * 0.16D);
-        for (Entity entity : level().getEntities(this, area, target -> target instanceof LivingEntity && target.isAlive() && target != owner)) {
+        for (Entity entity : Bodies.around(level(), this, area, target -> target instanceof LivingEntity && target.isAlive() && target != owner)) {
             MagicDamageService.hurt(entity, damageSources().indirectMagic(this, owner == null ? this : owner), Math.max(1.0F, damage() * 0.1F), MagicContent.BLACK_FLAMES_CAST.id());
             if (entity instanceof LivingEntity living) {
                 applyCorrosion(living, owner);
@@ -210,7 +211,7 @@ public final class BlackFlameProjectileEntity extends Entity implements Countera
         serverLevel.addFreshEntity(BlackFlameFieldEntity.create(serverLevel, owner, position, impactRadius, Math.max(1.0F, damage() * 0.22F), entityData.get(FIELD_LIFE), knockback()));
         com.efkrdnz.magical.magic.visual.SpellFx.impact(serverLevel, com.efkrdnz.magical.magic.MagicContent.BLACK_FLAMES, position, new Vec3(0.0D, 1.0D, 0.0D), null, ownerEntity(), Math.max(1.0F, impactRadius * 0.5F));
         AABB area = new AABB(position, position).inflate(impactRadius);
-        for (Entity entity : serverLevel.getEntities(this, area, target -> target instanceof LivingEntity && target.isAlive() && target != owner)) {
+        for (Entity entity : Bodies.around(serverLevel, this, area, target -> target instanceof LivingEntity && target.isAlive() && target != owner)) {
             double distance = Math.sqrt(entity.distanceToSqr(position));
             float falloff = (float) Math.max(0.28D, 1.0D - distance / impactRadius);
             MagicDamageService.hurt(entity, damageSources().indirectMagic(this, owner == null ? this : owner), damage() * falloff, MagicContent.BLACK_FLAMES_CAST.id());

@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.entity;
 
+import com.efkrdnz.magical.magic.service.Bodies;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -343,7 +344,7 @@ public final class ForgeStrikeEntity extends Entity {
         Entity owner = ownerEntity();
         long now = server.getGameTime();
         int hits = 0;
-        for (Entity entity : server.getEntities(this, area,
+        for (Entity entity : Bodies.around(server, this, area,
                 candidate -> candidate instanceof LivingEntity living && living.isAlive() && candidate != owner)) {
             if (hits >= budget) {
                 break;

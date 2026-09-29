@@ -3,6 +3,7 @@ package com.efkrdnz.magical.magic;
 import com.efkrdnz.magical.boss.unwaking.UnwakingCapabilities;
 import com.efkrdnz.magical.entity.SoulBondEntity;
 import com.efkrdnz.magical.entity.SovereignAegisEntity;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -299,7 +300,7 @@ public final class SoulAuthorityService {
         AABB area = player.getBoundingBox().expandTowards(look.scale(maxDistance)).inflate(1.25D);
         LivingEntity best = null;
         double bestDistance = Double.MAX_VALUE;
-        for (Entity entity : player.level().getEntities(player, area, target -> target instanceof LivingEntity && target.isAlive() && target != player)) {
+        for (Entity entity : Bodies.around(player.level(), player, area, target -> target instanceof LivingEntity && target.isAlive() && target != player)) {
             AABB box = entity.getBoundingBox().inflate(0.5D);
             EntityHitResult hit = ProjectileUtil.getEntityHitResult(player, eye, eye.add(look.scale(maxDistance)), box, candidate -> candidate == entity, maxDistance * maxDistance);
             if (hit == null) {

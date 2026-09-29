@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.magic;
 
 import com.efkrdnz.magical.entity.SovereignAegisEntity;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -71,7 +72,7 @@ public record MobCombatSense(boolean targetWarded, boolean apexThreatInbound, bo
      */
     private static boolean apexThreatNear(LivingEntity caster) {
         AABB box = caster.getBoundingBox().inflate(THREAT_SCAN_RADIUS);
-        for (Entity entity : caster.level().getEntities(caster, box)) {
+        for (Entity entity : Bodies.around(caster.level(), caster, box)) {
             if (!(entity instanceof CounterableSkillThreat threat)) {
                 continue;
             }

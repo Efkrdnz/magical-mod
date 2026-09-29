@@ -4,6 +4,7 @@ import com.efkrdnz.magical.entity.fx.SpellBehavior;
 import com.efkrdnz.magical.entity.fx.SpellEffectEntity;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.sword.SwordImpacts;
 import com.efkrdnz.magical.magic.sword.SwordService;
@@ -381,7 +382,7 @@ public class SwordBladeEntity extends SpellEffectEntity {
         AABB path = getBoundingBox().expandTowards(to.subtract(from)).inflate(SWEEP_SLACK);
         LivingEntity closest = null;
         double nearest = Double.MAX_VALUE;
-        for (Entity candidate : level().getEntities(this, path, target -> target instanceof LivingEntity living
+        for (Entity candidate : Bodies.around(level(), this, path, target -> target instanceof LivingEntity living
                 && living.isAlive() && target != owner)) {
             LivingEntity living = (LivingEntity) candidate;
             if (waitingOn(living)) {

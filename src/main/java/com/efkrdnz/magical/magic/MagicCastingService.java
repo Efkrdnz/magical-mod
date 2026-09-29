@@ -11,6 +11,7 @@ import com.efkrdnz.magical.entity.JudgementBeamEntity;
 import com.efkrdnz.magical.entity.MagicCircleEffectEntity;
 import com.efkrdnz.magical.entity.SingularityEntity;
 import com.efkrdnz.magical.entity.SovereignAegisEntity;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.network.MagicalNetwork;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.ArrayList;
@@ -523,7 +524,7 @@ public final class MagicCastingService {
         LivingEntity best = null;
         double bestSqr = reachSqr;
         AABB search = new AABB(eye, end).inflate(tolerance);
-        for (Entity entity : level.getEntities(player, search, t -> t instanceof LivingEntity living && living.isAlive() && t != player)) {
+        for (Entity entity : Bodies.around(level, player, search, t -> t instanceof LivingEntity living && living.isAlive() && t != player)) {
             Optional<Vec3> clip = entity.getBoundingBox().inflate(tolerance).clip(eye, end);
             if (clip.isEmpty()) {
                 continue;
@@ -616,7 +617,7 @@ public final class MagicCastingService {
         AABB search = new AABB(eye, end).inflate(1.35D);
         LivingEntity closest = null;
         double closestDistance = Double.MAX_VALUE;
-        for (Entity entity : player.serverLevel().getEntities(player, search, target -> target instanceof LivingEntity living && living.isAlive() && target != player)) {
+        for (Entity entity : Bodies.around(player.serverLevel(), player, search, target -> target instanceof LivingEntity living && living.isAlive() && target != player)) {
             Optional<Vec3> hit = entity.getBoundingBox().inflate(0.75D).clip(eye, end);
             if (hit.isEmpty()) {
                 continue;
@@ -695,7 +696,7 @@ public final class MagicCastingService {
         AABB search = new AABB(eye, end).inflate(2.0D);
         LivingEntity closest = null;
         double closestDistance = Double.MAX_VALUE;
-        for (Entity entity : level.getEntities(player, search, candidate -> candidate instanceof LivingEntity living && living.isAlive() && candidate != player)) {
+        for (Entity entity : Bodies.around(level, player, search, candidate -> candidate instanceof LivingEntity living && living.isAlive() && candidate != player)) {
             AABB bounds = entity.getBoundingBox().inflate(1.1D);
             Optional<Vec3> hit = bounds.clip(eye, end);
             if (hit.isEmpty()) {

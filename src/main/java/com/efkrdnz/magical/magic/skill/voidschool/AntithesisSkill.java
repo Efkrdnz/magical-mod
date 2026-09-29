@@ -9,6 +9,7 @@ import com.efkrdnz.magical.magic.cast.CastResult;
 import com.efkrdnz.magical.magic.cast.MobCastProfile;
 import com.efkrdnz.magical.magic.cast.SkillCastHandler;
 import com.efkrdnz.magical.magic.cast.TuningView;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.service.SpellIntercept;
 import com.efkrdnz.magical.magic.skill.SkillModule;
@@ -124,7 +125,7 @@ public final class AntithesisSkill implements SkillModule {
             glint(level, entity, c, n, halfW, halfH);
             AABB box = new AABB(c, c).inflate(halfW + 1.0D, halfH + 1.0D, halfW + 1.0D);
             CompoundTag data = entity.serverData();
-            for (Entity e : level.getEntities(entity, box, en -> en.isAlive() && en != owner)) {
+            for (Entity e : Bodies.around(level, entity, box, en -> en.isAlive() && en != owner)) {
                 Vec3 p = e.position().add(0.0D, e.getBbHeight() * 0.5D, 0.0D);
                 Vec3 rel = p.subtract(c);
                 double s = rel.dot(n);

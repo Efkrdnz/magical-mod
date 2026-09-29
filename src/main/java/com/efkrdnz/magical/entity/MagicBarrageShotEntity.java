@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.entity;
 
 import com.efkrdnz.magical.magic.MagicDamageService;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.particle.TintedParticleOptions;
 import com.efkrdnz.magical.registry.MagicalEntities;
 import com.efkrdnz.magical.registry.MagicalParticles;
@@ -103,7 +104,7 @@ public final class MagicBarrageShotEntity extends Entity {
         Entity owner = ownerEntity();
         double radius = 0.38D + size() * 0.18D;
         AABB area = getBoundingBox().inflate(radius);
-        for (Entity entity : level().getEntities(this, area, candidate -> candidate instanceof LivingEntity living && living.isAlive() && candidate != owner)) {
+        for (Entity entity : Bodies.around(level(), this, area, candidate -> candidate instanceof LivingEntity living && living.isAlive() && candidate != owner)) {
             LivingEntity target = (LivingEntity) entity;
             target.invulnerableTime = 0;
             MagicDamageService.hurt(target, damageSources().indirectMagic(this, owner == null ? this : owner), damage(), sourceSkillId);

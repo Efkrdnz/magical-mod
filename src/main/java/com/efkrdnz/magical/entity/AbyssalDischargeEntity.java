@@ -3,6 +3,7 @@ package com.efkrdnz.magical.entity;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicDamageService;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.particle.TintedParticleOptions;
 import com.efkrdnz.magical.registry.MagicalEntities;
 import com.efkrdnz.magical.registry.MagicalParticles;
@@ -99,7 +100,7 @@ public final class AbyssalDischargeEntity extends Entity {
                 getX() + currentRadius,
                 getY() + 4.0D,
                 getZ() + currentRadius);
-        for (Entity entity : level().getEntities(this, area, target -> target instanceof LivingEntity && target.isAlive() && target != owner)) {
+        for (Entity entity : Bodies.around(level(), this, area, target -> target instanceof LivingEntity && target.isAlive() && target != owner)) {
             double distance = entity.position().distanceTo(position());
             if (distance > currentRadius || !corrodedTargets.add(entity.getUUID())) {
                 continue;

@@ -10,6 +10,7 @@ import com.efkrdnz.magical.magic.cast.CastResult;
 import com.efkrdnz.magical.magic.cast.MobCastProfile;
 import com.efkrdnz.magical.magic.cast.SkillCastHandler;
 import com.efkrdnz.magical.magic.cast.TuningView;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
 import com.efkrdnz.magical.magic.status.MagicStatus;
@@ -174,7 +175,7 @@ public final class UmbralTenancySkill implements SkillModule {
             // Anything already hunting you loses the thread, every tick, for as long as you are in
             // there. Done per tick rather than once on cast so that a mob which acquires you
             // mid-ride does not get to keep you.
-            for (Mob hunter : level.getEntitiesOfClass(Mob.class, player.getBoundingBox().inflate(24.0D))) {
+            for (Mob hunter : Bodies.of(level, Mob.class, player.getBoundingBox().inflate(24.0D))) {
                 if (hunter.getTarget() == player) {
                     hunter.setTarget(null);
                 }

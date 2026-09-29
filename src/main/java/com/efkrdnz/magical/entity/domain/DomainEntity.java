@@ -2,6 +2,7 @@ package com.efkrdnz.magical.entity.domain;
 
 import com.efkrdnz.magical.entity.SpellEntityVisibility;
 import com.efkrdnz.magical.magic.DomainPass;
+import com.efkrdnz.magical.magic.service.Bodies;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -148,7 +149,7 @@ public abstract class DomainEntity extends Entity {
         double searchRadius = searchRadius();
         AABB area = new AABB(getX() - searchRadius, getY() - searchRadius, getZ() - searchRadius,
                 getX() + searchRadius, getY() + searchRadius, getZ() + searchRadius);
-        for (Entity entity : level().getEntities(this, area,
+        for (Entity entity : Bodies.around(level(), this, area,
                 target -> target.isAlive() && target != this && !(target instanceof DomainEntity))) {
             // A player's movement belongs to their own client, which runs the other half of the
             // law through SpaceLawClient. All the server can do here is hand out what it costs.

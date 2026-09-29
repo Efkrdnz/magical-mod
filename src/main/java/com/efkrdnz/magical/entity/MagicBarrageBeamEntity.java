@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.entity;
 
 import com.efkrdnz.magical.magic.MagicDamageService;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.registry.MagicalEntities;
 import java.util.HashSet;
 import java.util.Set;
@@ -78,7 +79,7 @@ public final class MagicBarrageBeamEntity extends Entity {
         Entity owner = ownerEntity();
         double radius = 0.95D + size() * 0.62D;
         AABB area = new AABB(getX() - radius, getY() - radius, getZ() - radius, getX() + radius, getY() + radius, getZ() + radius);
-        for (Entity entity : level().getEntities(this, area, candidate -> candidate instanceof LivingEntity living && living.isAlive() && candidate != owner)) {
+        for (Entity entity : Bodies.around(level(), this, area, candidate -> candidate instanceof LivingEntity living && living.isAlive() && candidate != owner)) {
             LivingEntity target = (LivingEntity) entity;
             double distance = target.getBoundingBox().getCenter().distanceTo(position());
             if (distance > radius || !hitTargets.add(target.getUUID())) {

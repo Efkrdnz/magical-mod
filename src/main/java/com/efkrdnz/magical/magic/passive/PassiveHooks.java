@@ -2,6 +2,7 @@ package com.efkrdnz.magical.magic.passive;
 
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.MagicSkillType;
+import com.efkrdnz.magical.magic.service.Bodies;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -54,7 +55,7 @@ public final class PassiveHooks {
 
     /** Hostiles near the player, excluding the player, their pets and other players. */
     public static List<LivingEntity> hostilesNear(ServerPlayer player, double radius) {
-        return player.level().getEntitiesOfClass(LivingEntity.class,
+        return Bodies.of(player.level(), LivingEntity.class,
                 new AABB(player.blockPosition()).inflate(radius),
                 other -> other.isAlive() && other != player && !isOwnedPet(player, other)
                         && !(other instanceof net.minecraft.world.entity.player.Player));

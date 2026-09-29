@@ -4,6 +4,7 @@ import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicDamageService;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
 import com.efkrdnz.magical.magic.SpacePocketService;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.registry.MagicalEntities;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
@@ -114,7 +115,7 @@ public final class SingularityEntity extends Entity {
         double pullRadius = 8.5D + radius() * 2.2D;
         double coreRadius = 1.05D + radius() * 0.72D;
         AABB area = getBoundingBox().inflate(pullRadius);
-        for (Entity entity : level().getEntities(this, area, target -> target.isAlive() && target != owner)) {
+        for (Entity entity : Bodies.around(level(), this, area, target -> target.isAlive() && target != owner)) {
             Vec3 toCore = position().subtract(entity.position().add(0.0D, entity.getBbHeight() * 0.45D, 0.0D));
             double distance = Math.max(0.35D, toCore.length());
             if (distance > pullRadius) {

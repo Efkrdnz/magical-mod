@@ -6,6 +6,7 @@ import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
 import com.efkrdnz.magical.magic.MagicSinService;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -579,7 +580,7 @@ public final class CausalityService {
         }
         Entity found = player.serverLevel().getEntity(entityId);
         if (!(found instanceof LivingEntity target) || !target.isAlive() || target == player
-                || com.efkrdnz.magical.entity.mind.FigmentEntity.isFigment(target)
+                || !Bodies.isBody(target)
                 || target.position().distanceTo(player.getEyePosition()) > Anchor.REACH) {
             player.displayClientMessage(Component.translatable("message.magical.weave_no_target"), true);
             return false;
@@ -776,10 +777,9 @@ public final class CausalityService {
         Vec3 end = eye.add(player.getLookAngle().normalize().scale(Anchor.REACH));
         LivingEntity best = null;
         double nearest = Double.MAX_VALUE;
-        for (LivingEntity living : player.level().getEntitiesOfClass(LivingEntity.class,
+        for (LivingEntity living : Bodies.of(player.level(), LivingEntity.class,
                 new net.minecraft.world.phys.AABB(eye, end).inflate(1.0D),
-                candidate -> candidate.isAlive() && candidate != player
-                        && !com.efkrdnz.magical.entity.mind.FigmentEntity.isFigment(candidate))) {
+                candidate -> candidate.isAlive() && candidate != player)) {
             var clip = living.getBoundingBox().inflate(0.35D).clip(eye, end);
             if (clip.isEmpty()) {
                 continue;

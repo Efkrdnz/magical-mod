@@ -3,6 +3,7 @@ package com.efkrdnz.magical.magic.incantation;
 import com.efkrdnz.magical.entity.verse.VerseBodyEntity;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.blood.BloodDamageTypes;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import java.util.List;
 import net.minecraft.resources.ResourceLocation;
@@ -33,7 +34,7 @@ public final class LevelReciteWorld implements ReciteWorld {
     /** Anything in flight counts, another wielder's bodies included: a crowded sky is a crowded sky. */
     @Override
     public int projectilesWithin(double blocks) {
-        return player.serverLevel().getEntities(player, player.getBoundingBox().inflate(blocks),
+        return Bodies.around(player.serverLevel(), player, player.getBoundingBox().inflate(blocks),
                 entity -> entity instanceof Projectile || entity instanceof VerseBodyEntity).size();
     }
 

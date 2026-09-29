@@ -8,6 +8,7 @@ import com.efkrdnz.magical.magic.SpaceRuleOperation;
 import com.efkrdnz.magical.magic.SpaceTargetGroup;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicDamageService;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import com.efkrdnz.magical.registry.MagicalEntities;
 import com.efkrdnz.magical.client.renderer.space.SubspaceCrossings;
@@ -153,7 +154,7 @@ public final class SpaceSubspaceEntity extends DomainEntity {
         double radius = radius();
         AABB area = new AABB(position(), position()).inflate(radius + CROSSING_WATCH);
         Map<Integer, Boolean> seen = new HashMap<>();
-        for (Entity entity : level().getEntities(this, area,
+        for (Entity entity : Bodies.around(level(), this, area,
                 target -> target.isAlive() && target instanceof LivingEntity)) {
             Vec3 fromCentre = entityBoundaryPoint(entity).subtract(position());
             double lengthSq = fromCentre.lengthSqr();
@@ -866,7 +867,7 @@ public final class SpaceSubspaceEntity extends DomainEntity {
             return;
         }
         AABB contactArea = entity.getBoundingBox().inflate(0.42D);
-        for (Entity other : level().getEntities(entity, contactArea,
+        for (Entity other : Bodies.around(level(), entity, contactArea,
                 candidate -> candidate.isAlive() && candidate != this && candidate != entity && !(candidate instanceof SpaceSubspaceEntity))) {
             if (entityBoundaryPoint(other).distanceToSqr(position()) > radius() * radius()) {
                 continue;

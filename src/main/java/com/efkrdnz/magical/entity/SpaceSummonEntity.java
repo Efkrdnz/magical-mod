@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.entity;
 
 import com.efkrdnz.magical.magic.SphericalBlockRemover;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.registry.MagicalEntities;
 
 import java.util.UUID;
@@ -166,7 +167,7 @@ public final class SpaceSummonEntity extends Entity {
         double pullRadius = 9.0D + charge * 24.0D;
         Entity owner = ownerEntity();
         AABB area = getBoundingBox().inflate(pullRadius);
-        for (Entity entity : level().getEntities(this, area, target -> target.isAlive() && target != owner)) {
+        for (Entity entity : Bodies.around(level(), this, area, target -> target.isAlive() && target != owner)) {
             Vec3 center = entity.position().add(0.0D, entity.getBbHeight() * 0.45D, 0.0D);
             Vec3 offset = position().subtract(center);
             double distance = Math.max(0.45D, offset.length());
@@ -218,7 +219,7 @@ public final class SpaceSummonEntity extends Entity {
     private void damageCollapseEntities(float progress) {
         Entity owner = ownerEntity();
         double activeRadius = radius() * Mth.clamp(0.18F + progress * 0.9F, 0.18F, 1.0F);
-        for (Entity entity : level().getEntities(this, getBoundingBox().inflate(activeRadius), target -> target.isAlive() && target != owner)) {
+        for (Entity entity : Bodies.around(level(), this, getBoundingBox().inflate(activeRadius), target -> target.isAlive() && target != owner)) {
             Vec3 offset = entity.position().add(0.0D, entity.getBbHeight() * 0.45D, 0.0D).subtract(position());
             double distance = Math.max(0.35D, offset.length());
             if (distance > activeRadius) {
@@ -272,7 +273,7 @@ public final class SpaceSummonEntity extends Entity {
         double areaRadius = radius();
         Entity owner = ownerEntity();
         AABB area = getBoundingBox().inflate(areaRadius);
-        for (Entity entity : level().getEntities(this, area, target -> target.isAlive() && target != owner)) {
+        for (Entity entity : Bodies.around(level(), this, area, target -> target.isAlive() && target != owner)) {
             Vec3 center = entity.position().add(0.0D, entity.getBbHeight() * 0.45D, 0.0D);
             Vec3 offset = position().subtract(center);
             double distance = Math.max(0.35D, offset.length());
@@ -300,7 +301,7 @@ public final class SpaceSummonEntity extends Entity {
         int mode = mode();
         Entity owner = ownerEntity();
         double burstRadius = radius() * (mode == WHITE_HOLE_PULSE ? 1.35D : 1.0D);
-        for (Entity entity : level().getEntities(this, getBoundingBox().inflate(burstRadius), target -> target.isAlive() && target != owner)) {
+        for (Entity entity : Bodies.around(level(), this, getBoundingBox().inflate(burstRadius), target -> target.isAlive() && target != owner)) {
             Vec3 offset = entity.position().add(0.0D, entity.getBbHeight() * 0.45D, 0.0D).subtract(position());
             double distance = Math.max(0.4D, offset.length());
             if (distance > burstRadius) {

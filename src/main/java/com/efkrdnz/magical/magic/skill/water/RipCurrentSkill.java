@@ -10,6 +10,7 @@ import com.efkrdnz.magical.magic.cast.CastResult;
 import com.efkrdnz.magical.magic.cast.MobCastProfile;
 import com.efkrdnz.magical.magic.cast.SkillCastHandler;
 import com.efkrdnz.magical.magic.cast.TuningView;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
 import com.efkrdnz.magical.magic.visual.CircleAnchor;
@@ -96,7 +97,7 @@ public final class RipCurrentSkill implements SkillModule {
             Vec3 flow = reverse ? axis.scale(-1.0D) : axis;
             AABB box = new AABB(start, start.add(axis.scale(LENGTH))).inflate(halfWidth + 0.5D, 2.5D, halfWidth + 0.5D);
             current(level, start, axis, reverse, halfWidth, flowSpeed);
-            for (Entity e : level.getEntities(entity, box, en -> en instanceof LivingEntity l && l.isAlive())) {
+            for (Entity e : Bodies.around(level, entity, box, en -> en instanceof LivingEntity l && l.isAlive())) {
                 LivingEntity living = (LivingEntity) e;
                 Vec3 rel = living.position().subtract(start);
                 double along = rel.dot(axis);

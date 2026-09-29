@@ -2,6 +2,7 @@ package com.efkrdnz.magical.entity;
 
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicDamageService;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.registry.MagicalEntities;
 import java.util.UUID;
 import net.minecraft.core.particles.ParticleTypes;
@@ -69,7 +70,7 @@ public final class BlackFlameFieldEntity extends Entity {
     private void burn() {
         Entity owner = ownerEntity();
         AABB area = getBoundingBox().inflate(radius(), 2.4D, radius());
-        for (Entity entity : level().getEntities(this, area, target -> target instanceof LivingEntity living && living.isAlive() && target != owner)) {
+        for (Entity entity : Bodies.around(level(), this, area, target -> target instanceof LivingEntity living && living.isAlive() && target != owner)) {
             double horizontal = horizontalDistance(entity.position());
             if (horizontal > radius()) {
                 continue;

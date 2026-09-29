@@ -7,6 +7,7 @@ import com.efkrdnz.magical.magic.MagicCounterService;
 import com.efkrdnz.magical.magic.MagicDamageService;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.network.MagicalNetwork;
 import com.efkrdnz.magical.registry.MagicalEntities;
 import java.util.UUID;
@@ -145,7 +146,7 @@ public final class JudgementBeamEntity extends Entity implements CounterableSkil
                 getX() + aoeRadius(),
                 getY() + targetHeight() + 3.0D,
                 getZ() + aoeRadius());
-        for (Entity entity : level().getEntities(this, area, candidate -> candidate instanceof LivingEntity && candidate.isAlive() && candidate != target && candidate != caster)) {
+        for (Entity entity : Bodies.around(level(), this, area, candidate -> candidate instanceof LivingEntity && candidate.isAlive() && candidate != target && candidate != caster)) {
             double distance = Math.sqrt(entity.distanceToSqr(position()));
             float falloff = (float) Mth.clamp(1.0D - distance / Math.max(0.1D, aoeRadius()), 0.18D, 1.0D);
             MagicDamageService.hurt(entity, damageSources().indirectMagic(this, caster == null ? this : caster), damage() * 0.35F * falloff, MagicContent.GABRIEL_JUDGEMENT.id());

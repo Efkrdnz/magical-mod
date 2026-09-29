@@ -7,6 +7,7 @@ import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
 import com.efkrdnz.magical.magic.MagicSkillType;
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.particle.TintedParticleOptions;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import com.efkrdnz.magical.registry.MagicalEntities;
@@ -209,7 +210,7 @@ public final class MagicBarrageFieldEntity extends Entity {
         double softEdge = radius * 0.78D;
         double hardEdge = radius + 1.35D;
         AABB area = new AABB(getX() - hardEdge, getY() - hardEdge, getZ() - hardEdge, getX() + hardEdge, getY() + hardEdge, getZ() + hardEdge);
-        for (Entity entity : level().getEntities(this, area, candidate -> candidate instanceof LivingEntity living && living.isAlive() && candidate != owner)) {
+        for (Entity entity : Bodies.around(level(), this, area, candidate -> candidate instanceof LivingEntity living && living.isAlive() && candidate != owner)) {
             Vec3 fromCenter = entity.position().subtract(position());
             double distance = fromCenter.length();
             if (distance < softEdge || distance > hardEdge || distance < 0.001D) {
@@ -231,7 +232,7 @@ public final class MagicBarrageFieldEntity extends Entity {
     private List<LivingEntity> targets(ServerPlayer owner) {
         AABB area = new AABB(getX() - radius(), getY() - radius(), getZ() - radius(), getX() + radius(), getY() + radius(), getZ() + radius());
         List<LivingEntity> targets = new ArrayList<>();
-        for (Entity entity : level().getEntities(this, area, candidate -> candidate instanceof LivingEntity living && living.isAlive() && candidate != owner)) {
+        for (Entity entity : Bodies.around(level(), this, area, candidate -> candidate instanceof LivingEntity living && living.isAlive() && candidate != owner)) {
             if (entity.position().distanceToSqr(position()) <= radius() * radius()) {
                 targets.add((LivingEntity) entity);
             }

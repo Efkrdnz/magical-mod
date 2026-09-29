@@ -9,6 +9,7 @@ import com.efkrdnz.magical.magic.cast.CastResult;
 import com.efkrdnz.magical.magic.cast.MobCastProfile;
 import com.efkrdnz.magical.magic.cast.SkillCastHandler;
 import com.efkrdnz.magical.magic.cast.TuningView;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
 import com.efkrdnz.magical.magic.status.MagicStatus;
@@ -94,7 +95,7 @@ public final class CompressionSkill implements SkillModule {
                 LivingEntity victim = ctx.aim().living();
                 if (victim == null || !SkillTargets.isHostile(ctx.caster(), victim)) {
                     Vec3 point = ctx.aim().point();
-                    List<LivingEntity> near = ctx.level().getEntitiesOfClass(LivingEntity.class, new AABB(point, point).inflate(1.4D), e -> e != ctx.caster() && e.isAlive() && SkillTargets.isHostile(ctx.caster(), e));
+                    List<LivingEntity> near = Bodies.of(ctx.level(), LivingEntity.class, new AABB(point, point).inflate(1.4D), e -> e != ctx.caster() && e.isAlive() && SkillTargets.isHostile(ctx.caster(), e));
                     near.sort(Comparator.comparingDouble(e -> e.distanceToSqr(point)));
                     victim = near.isEmpty() ? null : near.get(0);
                 }

@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.magic;
 
 import com.efkrdnz.magical.magic.passive.ClassPassiveEffects;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.network.MagicalNetwork;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import net.minecraft.core.particles.ParticleTypes;
@@ -221,7 +222,7 @@ public final class MagicSinService {
         AABB area = new AABB(eye, end).inflate(1.1D);
         LivingEntity best = null;
         double bestDistance = Double.MAX_VALUE;
-        for (Entity entity : player.level().getEntities(player, area, candidate -> candidate instanceof LivingEntity living && living.isAlive() && candidate != player)) {
+        for (Entity entity : Bodies.around(player.level(), player, area, candidate -> candidate instanceof LivingEntity living && living.isAlive() && candidate != player)) {
             AABB box = entity.getBoundingBox().inflate(0.45D);
             if (box.clip(eye, end).isEmpty()) {
                 continue;

@@ -5,6 +5,7 @@ import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.incantation.VersePassives;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.sword.SwordImpacts;
 import com.efkrdnz.magical.magic.sword.SwordService;
@@ -227,7 +228,7 @@ public final class StanceWatchService {
         double cone = Math.cos(Math.toRadians(STAB_CONE));
         LivingEntity best = null;
         double nearest = Double.MAX_VALUE;
-        for (LivingEntity body : level.getEntitiesOfClass(LivingEntity.class,
+        for (LivingEntity body : Bodies.of(level, LivingEntity.class,
                 new AABB(eye, eye).inflate(range), one -> one.isAlive() && one != wielder)) {
             Vec3 offset = body.getBoundingBox().getCenter().subtract(eye);
             double distance = offset.length();
@@ -260,7 +261,7 @@ public final class StanceWatchService {
             return;
         }
         Vec3 centre = wielder.getBoundingBox().getCenter();
-        List<LivingEntity> caught = level.getEntitiesOfClass(LivingEntity.class,
+        List<LivingEntity> caught = Bodies.of(level, LivingEntity.class,
                 new AABB(centre, centre).inflate(watch.range()),
                 one -> one.isAlive() && one != wielder);
         if (caught.isEmpty()) {

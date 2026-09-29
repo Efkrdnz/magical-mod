@@ -3,6 +3,7 @@ package com.efkrdnz.magical.magic.passive;
 import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.service.Bodies;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -166,7 +167,7 @@ public final class WarPassives implements ClassPassiveHandler {
         }
         // Rally Cry: everything on your side hits harder because you opened your mouth.
         boolean rallied = false;
-        for (LivingEntity ally : player.level().getEntitiesOfClass(LivingEntity.class,
+        for (LivingEntity ally : Bodies.of(player.level(), LivingEntity.class,
                 player.getBoundingBox().inflate(RALLY_RADIUS),
                 other -> other != player && (other instanceof Player || PassiveHooks.isOwnedPet(player, other)))) {
             ally.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, RALLY_TICKS, 0, true, false));

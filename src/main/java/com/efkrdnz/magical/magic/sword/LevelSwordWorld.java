@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.magic.sword;
 
+import com.efkrdnz.magical.magic.service.Bodies;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -101,7 +102,7 @@ public final class LevelSwordWorld implements SwordWorld {
      * the service's own sweeps: the line a shed blade cuts home, the bodies a risen blade meets.
      */
     public List<LivingEntity> bodiesIn(AABB box, Predicate<LivingEntity> filter) {
-        List<LivingEntity> bodies = new ArrayList<>(level.getEntitiesOfClass(LivingEntity.class, box, filter));
+        List<LivingEntity> bodies = new ArrayList<>(Bodies.of(level, LivingEntity.class, box, filter));
         bodies.sort(Comparator.comparingInt(Entity::getId));
         return bodies;
     }

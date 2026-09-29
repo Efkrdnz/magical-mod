@@ -3,6 +3,7 @@ package com.efkrdnz.magical.entity;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicDamageService;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.registry.MagicalEntities;
 import java.util.HashSet;
 import java.util.Set;
@@ -96,7 +97,7 @@ public final class DimensionalGuillotineEntity extends Entity {
         double thickness = 1.35D + width() * 0.035D;
         AABB area = new AABB(getX() - halfWidth - 2.0D, getY() - halfHeight - 2.0D, getZ() - halfWidth - 2.0D,
                 getX() + halfWidth + 2.0D, getY() + halfHeight + 2.0D, getZ() + halfWidth + 2.0D);
-        for (Entity entity : level().getEntities(this, area, target -> target instanceof LivingEntity && target.isAlive() && target != owner)) {
+        for (Entity entity : Bodies.around(level(), this, area, target -> target instanceof LivingEntity && target.isAlive() && target != owner)) {
             Vec3 point = entity.position().add(0.0D, entity.getBbHeight() * 0.52D, 0.0D).subtract(position());
             double lateral = Math.abs(point.dot(right));
             double depth = Math.abs(point.dot(forward));

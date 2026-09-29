@@ -6,6 +6,7 @@ import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicCounterService;
 import com.efkrdnz.magical.magic.MagicDamageService;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.registry.MagicalEntities;
 import java.util.HashSet;
 import java.util.Set;
@@ -113,7 +114,7 @@ public final class BlackFlameArcEntity extends Entity implements CounterableSkil
         Vec3 from = position();
         Vec3 to = from.add(movement);
         AABB area = new AABB(from, to).inflate(width() * 0.52D, height() * 0.45D, width() * 0.52D);
-        for (Entity entity : level().getEntities(this, area, target -> target instanceof LivingEntity living && living.isAlive() && target != owner)) {
+        for (Entity entity : Bodies.around(level(), this, area, target -> target instanceof LivingEntity living && living.isAlive() && target != owner)) {
             if (!hitTargets.add(entity.getUUID())) {
                 continue;
             }
@@ -134,7 +135,7 @@ public final class BlackFlameArcEntity extends Entity implements CounterableSkil
         Vec3 forward = direction();
         Vec3 lookAhead = position().add(forward.scale(7.5D + speed() * MagicCounterService.QTE_WINDOW_TICKS));
         AABB area = new AABB(position(), lookAhead).inflate(width() * 0.72D, height() * 0.55D, width() * 0.72D);
-        for (Entity entity : level().getEntities(this, area, target -> target instanceof ServerPlayer player && player.isAlive() && target != owner)) {
+        for (Entity entity : Bodies.around(level(), this, area, target -> target instanceof ServerPlayer player && player.isAlive() && target != owner)) {
             ServerPlayer player = (ServerPlayer) entity;
             if (hitTargets.contains(player.getUUID())) {
                 continue;

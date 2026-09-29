@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.magic;
 
+import com.efkrdnz.magical.magic.service.Bodies;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -589,7 +590,7 @@ public final class ForgeComboService {
         LivingEntity best = null;
         double bestDistance = Double.MAX_VALUE;
         AABB area = player.getBoundingBox().inflate(range);
-        for (Entity entity : player.serverLevel().getEntities(player, area,
+        for (Entity entity : Bodies.around(player.serverLevel(), player, area,
                 candidate -> candidate instanceof LivingEntity living && living.isAlive() && candidate != player
                         && candidate.isAttackable())) {
             Vec3 to = entity.getBoundingBox().getCenter().subtract(eye);

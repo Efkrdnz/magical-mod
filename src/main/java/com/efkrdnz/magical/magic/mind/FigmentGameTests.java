@@ -3,8 +3,11 @@ package com.efkrdnz.magical.magic.mind;
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.entity.mind.FigmentEntity;
 import com.efkrdnz.magical.entity.mind.FigmentReactionGoal;
+import com.efkrdnz.magical.forge.art.ArtSupport;
 import com.efkrdnz.magical.gametest.GameTestPlayers;
 import com.efkrdnz.magical.magic.cast.AimResolver;
+import com.efkrdnz.magical.magic.passive.PassiveHooks;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
@@ -15,9 +18,12 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.monster.Zoglin;
 import net.minecraft.world.entity.projectile.Arrow;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -208,6 +214,56 @@ public final class FigmentGameTests {
         helper.assertFalse(figment.addEffect(new MobEffectInstance(MobEffects.POISON, 100)), "a figment took a potion effect");
         MindService.endAll(owner);
         helper.succeed();
+    }
+
+    /**
+     * The same, for every sweep the mod makes of the world rather than the handful that aim: a spell
+     * gathers its victims through {@code Bodies} and nothing else ({@code BodiesSweepTest} holds the
+     * source to that), so a husk beside a figment is gathered and the figment is not - by the choke
+     * point itself, by a passive's count of hostiles, and by a forge art's blast.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "mind_figment_11")
+    public static void noSweepOfTheWorldGathersAFigment(GameTestHelper helper) {
+        ServerPlayer caster = GameTestPlayers.survival(helper, new BlockPos(1, 2, 1), "mind-sweep-test");
+        UUID owner = UUID.randomUUID();
+        LiveScene scene = villagerAt(helper, owner, new BlockPos(3, 2, 2));
+        Mob husk = helper.spawnWithNoFreeWill(EntityType.HUSK, helper.relativeVec(onFloor(helper, new BlockPos(3, 2, 3))));
+        FigmentEntity figment = figment(helper, scene);
+        helper.assertTrue(figment != null, "the figment was never spawned");
+        ServerLevel level = helper.getLevel();
+        AABB around = figment.getBoundingBox().inflate(4.0);
+        helper.assertTrue(Bodies.of(level, LivingEntity.class, around).contains(husk), "the sweep missed the husk");
+        helper.assertFalse(Bodies.of(level, LivingEntity.class, around).contains(figment), "Bodies.of gathered a figment");
+        helper.assertFalse(Bodies.around(level, null, around).contains(figment), "Bodies.around gathered a figment");
+        helper.assertFalse(PassiveHooks.hostilesNear(caster, 6.0).contains(figment), "a passive counted a figment as a hostile");
+        helper.assertTrue(ArtSupport.around(level, figment.position(), 4.0, caster, null).contains(husk),
+                "a forge art missed the husk beside the figment");
+        helper.assertFalse(ArtSupport.around(level, figment.position(), 4.0, caster, null).contains(figment),
+                "a forge art caught a figment in its blast");
+        MindService.endAll(owner);
+        helper.succeed();
+    }
+
+    /**
+     * A figment belongs to its scene and the scene to one level. Walked into a portal it must stay
+     * where it is: a creature that crossed would arrive in a dimension its scene is not in, drawn for
+     * every client there and believed by nobody, and the scene would lose the body it is ticking.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "mind_figment_12")
+    public static void aFigmentNeverTravelsThroughAPortal(GameTestHelper helper) {
+        UUID owner = UUID.randomUUID();
+        LiveScene scene = villagerAt(helper, owner, new BlockPos(2, 2, 2));
+        FigmentEntity figment = figment(helper, scene);
+        helper.assertTrue(figment != null, "the figment was never spawned");
+        helper.assertFalse(figment.canUsePortal(false), "a figment may use a portal");
+        // No neighbour updates, or the frameless portal block breaks itself before the figment is in it.
+        helper.getLevel().setBlock(figment.blockPosition(), Blocks.NETHER_PORTAL.defaultBlockState(), Block.UPDATE_CLIENTS);
+        helper.runAtTickTime(20, () -> {
+            helper.assertTrue(figment.isAlive() && figment.level() == helper.getLevel(), "the figment went through the portal");
+            helper.assertTrue(helper.getLevel().getEntity(scene.figmentEntity(0)) == figment, "the scene lost its figment");
+            MindService.endAll(owner);
+            helper.succeed();
+        });
     }
 
     /**

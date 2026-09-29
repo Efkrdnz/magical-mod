@@ -5,6 +5,7 @@ import com.efkrdnz.magical.entity.BlackFlameBrandEntity;
 import com.efkrdnz.magical.entity.BlackFlameFieldEntity;
 import com.efkrdnz.magical.entity.BlackFlameProjectileEntity;
 import com.efkrdnz.magical.entity.MagicCircleEffectEntity;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.network.MagicalNetwork;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.Iterator;
@@ -147,7 +148,7 @@ public final class BlackFlamesService {
         MagicDamageService.hurt(target, level.damageSources().indirectMagic(owner == null ? target : owner, owner == null ? target : owner), brand.damage() * 1.15F, MagicContent.BLACK_FLAMES_BRAND.id());
         BlackFlameProjectileEntity.applyCorrosion(target, owner);
         AABB area = target.getBoundingBox().inflate(brand.radius());
-        for (Entity entity : level.getEntities(target, area, candidate -> candidate instanceof LivingEntity living && living.isAlive() && candidate != owner)) {
+        for (Entity entity : Bodies.around(level, target, area, candidate -> candidate instanceof LivingEntity living && living.isAlive() && candidate != owner)) {
             double distance = Math.max(0.35D, entity.distanceTo(target));
             float falloff = (float) Math.max(0.0D, 1.0D - distance / brand.radius());
             if (falloff <= 0.0F) {
@@ -171,7 +172,7 @@ public final class BlackFlamesService {
         AABB area = new AABB(eye, end).inflate(1.35D);
         LivingEntity best = null;
         double bestDistance = Double.MAX_VALUE;
-        for (Entity entity : player.level().getEntities(player, area, candidate -> candidate instanceof LivingEntity living && living.isAlive() && candidate != player)) {
+        for (Entity entity : Bodies.around(player.level(), player, area, candidate -> candidate instanceof LivingEntity living && living.isAlive() && candidate != player)) {
             Optional<Vec3> hit = entity.getBoundingBox().inflate(0.62D).clip(eye, end);
             if (hit.isEmpty()) {
                 continue;

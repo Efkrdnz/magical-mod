@@ -18,6 +18,7 @@ import com.efkrdnz.magical.magic.incantation.ShotState;
 import com.efkrdnz.magical.magic.incantation.VersePrototype;
 import com.efkrdnz.magical.magic.incantation.VersePrototypes;
 import com.efkrdnz.magical.magic.incantation.Wake;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.magic.service.SafeSpotSearch;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.visual.SpellFx;
@@ -330,7 +331,7 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
         AABB path = getBoundingBox().expandTowards(to.subtract(from)).inflate(0.3D + radius());
         LivingEntity closest = null;
         double closestDistance = Double.MAX_VALUE;
-        for (Entity entity : level().getEntities(this, path, target -> target instanceof LivingEntity living && living.isAlive()
+        for (Entity entity : Bodies.around(level(), this, path, target -> target instanceof LivingEntity living && living.isAlive()
                 && !struck.contains(target.getId()) && (target != owner || ownerFair))) {
             Optional<Vec3> hit = entity.getBoundingBox().inflate(radius()).clip(from, to);
             if (hit.isPresent()) {
@@ -378,7 +379,7 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
         double healing = plan.prototype().healing() + s.healingAdd();
         double damage = damage();
         List<HitEffect> effects = VerseHitEffects.pulseEffectsOf(plan);
-        for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, getBoundingBox().inflate(radius), LivingEntity::isAlive)) {
+        for (LivingEntity target : Bodies.of(level, LivingEntity.class, getBoundingBox().inflate(radius), LivingEntity::isAlive)) {
             if (target.distanceToSqr(position()) > radius * radius) {
                 continue;
             }
@@ -423,7 +424,7 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
         }
         Entity owner = ownerEntity();
         double reach = radius() + WAKE_REACH + s.wakeAmount() * 0.04D;
-        for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, getBoundingBox().inflate(reach), living -> living.isAlive() && living != owner)) {
+        for (LivingEntity target : Bodies.of(level, LivingEntity.class, getBoundingBox().inflate(reach), living -> living.isAlive() && living != owner)) {
             for (Wake wakeKind : s.wakes()) {
                 switch (wakeKind) {
                     case FIRE -> target.igniteForSeconds(WAKE_BURN_SECONDS);
@@ -492,7 +493,7 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
             SpellFx.impact(level, skill, at, new Vec3(0.0D, 1.0D, 0.0D), null, owner, (float) Math.max(0.5D, radius * 0.5D));
         }
         level.playSound(null, at.x, at.y, at.z, SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 0.6F, 1.3F);
-        for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, new AABB(at, at).inflate(radius), LivingEntity::isAlive)) {
+        for (LivingEntity target : Bodies.of(level, LivingEntity.class, new AABB(at, at).inflate(radius), LivingEntity::isAlive)) {
             AABB box = target.getBoundingBox();
             Vec3 nearest = new Vec3(Mth.clamp(at.x, box.minX, box.maxX), Mth.clamp(at.y, box.minY, box.maxY), Mth.clamp(at.z, box.minZ, box.maxZ));
             double distance = nearest.distanceTo(at);
@@ -550,7 +551,7 @@ public final class VerseBodyEntity extends Entity implements CounterableSkillThr
             far = wall.getLocation();
         }
         AABB warningPath = new AABB(from, far).inflate(2.0D + radius());
-        for (Entity entity : level.getEntities(this, warningPath, target -> target instanceof ServerPlayer player && player.isAlive() && target != owner)) {
+        for (Entity entity : Bodies.around(level, this, warningPath, target -> target instanceof ServerPlayer player && player.isAlive() && target != owner)) {
             ServerPlayer player = (ServerPlayer) entity;
             if (player.getEyePosition().subtract(from).dot(heading) < 0.0D) {
                 continue;

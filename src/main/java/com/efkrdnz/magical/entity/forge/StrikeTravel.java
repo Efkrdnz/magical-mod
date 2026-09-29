@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.entity.forge;
 
+import com.efkrdnz.magical.magic.service.Bodies;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -68,7 +69,7 @@ public final class StrikeTravel {
             Vec3 direction) {
         LivingEntity best = null;
         double bestDistance = Double.MAX_VALUE;
-        for (Entity entity : level.getEntities(self, self.getBoundingBox().inflate(SEEKING_RANGE),
+        for (Entity entity : Bodies.around(level, self, self.getBoundingBox().inflate(SEEKING_RANGE),
                 candidate -> candidate instanceof LivingEntity living && living.isAlive() && candidate != owner)) {
             Vec3 to = entity.getBoundingBox().getCenter().subtract(position);
             double distance = to.length();

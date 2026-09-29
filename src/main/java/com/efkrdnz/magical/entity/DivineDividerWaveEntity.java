@@ -7,6 +7,7 @@ import com.efkrdnz.magical.magic.MagicCounterService;
 import com.efkrdnz.magical.magic.MagicDamageService;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.particle.TintedParticleOptions;
 import com.efkrdnz.magical.registry.MagicalEntities;
 import com.efkrdnz.magical.registry.MagicalParticles;
@@ -202,7 +203,7 @@ public final class DivineDividerWaveEntity extends Entity implements Counterable
                 getX() + lookahead,
                 getY() + height() * 0.58D,
                 getZ() + lookahead);
-        for (Entity entity : level().getEntities(this, area, target -> target instanceof ServerPlayer && target.isAlive() && target != owner)) {
+        for (Entity entity : Bodies.around(level(), this, area, target -> target instanceof ServerPlayer && target.isAlive() && target != owner)) {
             ServerPlayer player = (ServerPlayer) entity;
             if (hitTargets.contains(player.getUUID())) {
                 continue;
@@ -235,7 +236,7 @@ public final class DivineDividerWaveEntity extends Entity implements Counterable
                 getZ() + broad);
         Vec3 pushDirection = direction();
         Vec3 right = horizontalRight(yaw());
-        for (Entity entity : level().getEntities(this, area, target -> target instanceof LivingEntity && target.isAlive() && target != owner)) {
+        for (Entity entity : Bodies.around(level(), this, area, target -> target instanceof LivingEntity && target.isAlive() && target != owner)) {
             Vec3 toTarget = entity.position().add(0.0D, entity.getBbHeight() * 0.5D, 0.0D).subtract(position());
             double forwardDistance = Math.abs(toTarget.dot(pushDirection));
             double lateralDistance = Math.abs(toTarget.dot(right));

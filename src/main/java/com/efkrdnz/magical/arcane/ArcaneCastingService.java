@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.arcane;
 
 import com.efkrdnz.magical.MagicalMod;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -76,7 +77,7 @@ public final class ArcaneCastingService {
                 eyePos,
                 end,
                 player.getBoundingBox().expandTowards(player.getLookAngle().scale(resolution.range())).inflate(1.5D),
-                entity -> entity instanceof LivingEntity living && living != player && living.isAlive(),
+                entity -> entity instanceof LivingEntity living && living != player && living.isAlive() && Bodies.isBody(entity),
                 resolution.range() * resolution.range());
 
         List<LivingEntity> targets = new ArrayList<>();
@@ -99,7 +100,7 @@ public final class ArcaneCastingService {
         Vec3 forward = player.getLookAngle().normalize();
         Vec3 center = player.position().add(forward.scale(resolution.range() * 0.5F));
         AABB box = new AABB(center, center).inflate(resolution.range() * 0.5F, 2.5D, resolution.range() * 0.5F);
-        List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, box, entity -> entity != player && entity.isAlive());
+        List<LivingEntity> targets = Bodies.of(level, LivingEntity.class, box, entity -> entity != player && entity.isAlive());
         targets.stream()
                 .filter(entity -> player.position().vectorTo(entity.position()).normalize().dot(forward) > 0.35D)
                 .sorted(Comparator.comparingDouble(player::distanceToSqr))
@@ -122,7 +123,7 @@ public final class ArcaneCastingService {
     private static void castBurst(ServerPlayer player, SpellResolution resolution) {
         ServerLevel level = player.serverLevel();
         AABB box = player.getBoundingBox().inflate(resolution.range());
-        List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, box, entity -> entity != player && entity.isAlive());
+        List<LivingEntity> targets = Bodies.of(level, LivingEntity.class, box, entity -> entity != player && entity.isAlive());
         targets.stream()
                 .limit(Math.max(3, 3 + resolution.extraTargets()))
                 .forEach(target -> applyRuneEffect(player, target, resolution));
@@ -146,7 +147,7 @@ public final class ArcaneCastingService {
             return List.of();
         }
         AABB area = player.getBoundingBox().expandTowards(player.getLookAngle().scale(resolution.range())).inflate(5.0D);
-        return player.serverLevel().getEntitiesOfClass(LivingEntity.class, area, entity -> entity != player && entity.isAlive() && !existingTargets.contains(entity))
+        return Bodies.of(player.serverLevel(), LivingEntity.class, area, entity -> entity != player && entity.isAlive() && !existingTargets.contains(entity))
                 .stream()
                 .sorted(Comparator.comparingDouble(player::distanceToSqr))
                 .limit(resolution.extraTargets())

@@ -2,6 +2,7 @@ package com.efkrdnz.magical.entity.verse;
 
 import com.efkrdnz.magical.magic.incantation.Matter;
 import com.efkrdnz.magical.magic.incantation.VersePrototype;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.magic.service.ConjuredTerrainService;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -188,6 +189,6 @@ public final class VerseMatter {
     }
 
     private static boolean clearOfBodies(ServerLevel level, BlockPos pos) {
-        return level.getEntitiesOfClass(LivingEntity.class, new AABB(pos), LivingEntity::isAlive).isEmpty();
+        return Bodies.of(level, LivingEntity.class, new AABB(pos), LivingEntity::isAlive).isEmpty();
     }
 }

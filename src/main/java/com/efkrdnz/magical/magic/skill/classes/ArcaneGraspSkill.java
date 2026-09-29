@@ -11,6 +11,7 @@ import com.efkrdnz.magical.magic.cast.HoldService;
 import com.efkrdnz.magical.magic.cast.MobCastProfile;
 import com.efkrdnz.magical.magic.cast.SkillCastHandler;
 import com.efkrdnz.magical.magic.cast.TuningView;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.magic.service.HeldEntityService;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import com.efkrdnz.magical.magic.skill.SkillModule;
@@ -236,7 +237,7 @@ public final class ArcaneGraspSkill implements SkillModule {
                         SkillTargets.hurt(level, entity.owner(), victim, entity.damage(), entity.definition(), true);
                     }
                     BlockPos place = BlockPos.containing(at.x, at.y + 0.1D, at.z);
-                    if (level.getBlockState(place).canBeReplaced() && level.getEntitiesOfClass(LivingEntity.class, new net.minecraft.world.phys.AABB(place)).isEmpty()) {
+                    if (level.getBlockState(place).canBeReplaced() && Bodies.of(level, LivingEntity.class, new net.minecraft.world.phys.AABB(place)).isEmpty()) {
                         level.setBlock(place, state, Block.UPDATE_ALL);
                     }
                     SpellFx.impact(level, entity.definition(), at, new Vec3(0.0D, 1.0D, 0.0D), null, entity.owner(), 1.3F);

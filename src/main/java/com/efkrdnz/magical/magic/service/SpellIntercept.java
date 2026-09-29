@@ -16,7 +16,7 @@ public final class SpellIntercept {
     public static List<Entity> hostileProjectiles(ServerLevel level, Vec3 centre, double radius, Entity owner) {
         List<Entity> out = new ArrayList<>();
         AABB box = new AABB(centre, centre).inflate(radius);
-        for (Entity entity : level.getEntities(owner, box, e -> e.isAlive() && isProjectile(e) && !ownedBy(e, owner))) {
+        for (Entity entity : Bodies.around(level, owner, box, e -> e.isAlive() && isProjectile(e) && !ownedBy(e, owner))) {
             if (entity.position().distanceToSqr(centre) <= radius * radius) {
                 out.add(entity);
             }

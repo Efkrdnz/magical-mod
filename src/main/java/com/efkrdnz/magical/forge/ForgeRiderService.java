@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.forge;
 
+import com.efkrdnz.magical.magic.service.Bodies;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -287,7 +288,7 @@ public final class ForgeRiderService {
         float splash = ctx.dealtDamage() * (20 + 4 * grade) / 100.0f;
         double radius = 1.5 + 0.2 * grade;
         int slowTicks = 20 + 5 * grade;
-        for (Entity entity : level.getEntities(target, target.getBoundingBox().inflate(radius),
+        for (Entity entity : Bodies.around(level, target, target.getBoundingBox().inflate(radius),
                 candidate -> candidate instanceof LivingEntity living && living.isAlive() && living.onGround())) {
             if (entity == owner) {
                 continue;
@@ -434,7 +435,7 @@ public final class ForgeRiderService {
             return;
         }
         Vec3 origin = target.getBoundingBox().getCenter();
-        for (Entity entity : level.getEntities(target, target.getBoundingBox().inflate(radius),
+        for (Entity entity : Bodies.around(level, target, target.getBoundingBox().inflate(radius),
                 candidate -> candidate instanceof LivingEntity living && living.isAlive())) {
             if (entity == owner) {
                 continue;
@@ -496,7 +497,7 @@ public final class ForgeRiderService {
 
     private static LivingEntity nearestOther(ServerLevel level, LivingEntity from, Set<UUID> visited, double range) {
         List<LivingEntity> candidates = new ArrayList<>();
-        for (Entity entity : level.getEntities(from, from.getBoundingBox().inflate(range),
+        for (Entity entity : Bodies.around(level, from, from.getBoundingBox().inflate(range),
                 candidate -> candidate instanceof LivingEntity living && living.isAlive())) {
             if (!visited.contains(entity.getUUID())) {
                 candidates.add((LivingEntity) entity);

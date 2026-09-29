@@ -5,6 +5,7 @@ import com.efkrdnz.magical.client.screen.CodexLayout.Rect;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.causality.Anchor;
 import com.efkrdnz.magical.magic.causality.WeaveReview;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.network.MagicalNetwork;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -126,10 +127,9 @@ public final class CausalAnchorOverlay {
         }
         Vec3 eye = minecraft.player.getEyePosition();
         Vec3 look = minecraft.player.getLookAngle().normalize();
-        List<LivingEntity> found = new ArrayList<>(minecraft.level.getEntitiesOfClass(LivingEntity.class,
+        List<LivingEntity> found = new ArrayList<>(Bodies.of(minecraft.level, LivingEntity.class,
                 minecraft.player.getBoundingBox().inflate(Anchor.REACH),
                 candidate -> candidate.isAlive() && candidate != minecraft.player
-                        && !com.efkrdnz.magical.entity.mind.FigmentEntity.isFigment(candidate)
                         && candidate.position().distanceTo(eye) <= Anchor.REACH
                         && (candidate.getId() == focusId || offAxis(eye, look, candidate) >= FRONT_ENOUGH)));
         found.sort(Comparator.comparingDouble(candidate -> -offAxis(eye, look, candidate)));

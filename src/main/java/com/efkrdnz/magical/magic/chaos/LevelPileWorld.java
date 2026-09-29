@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.magic.chaos;
 
 import com.efkrdnz.magical.magic.MagicContent;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.magic.service.SkillTargets;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -79,7 +80,7 @@ public final class LevelPileWorld implements PileWorld {
 
     /** Sorted by entity id, so the same crowd always produces the same neighbour order. */
     private void addBodies(List<PileSite> out, AABB box, Entity except) {
-        List<LivingEntity> bodies = level.getEntitiesOfClass(LivingEntity.class, box, body -> body != except);
+        List<LivingEntity> bodies = Bodies.of(level, LivingEntity.class, box, body -> body != except);
         bodies.sort(Comparator.comparingInt(Entity::getId));
         for (LivingEntity body : bodies) {
             out.add(PileSite.of(body.getId()));
@@ -125,7 +126,7 @@ public final class LevelPileWorld implements PileWorld {
         float damage = 1.5F * amount;
         double radius = 1.5D + amount * 0.3D;
         ServerPlayer wielder = level.getServer() == null ? null : level.getServer().getPlayerList().getPlayer(owner);
-        for (LivingEntity victim : level.getEntitiesOfClass(LivingEntity.class,
+        for (LivingEntity victim : Bodies.of(level, LivingEntity.class,
                 new AABB(centre, centre).inflate(radius))) {
             SkillTargets.hurt(level, wielder, victim, damage, MagicContent.LAST_GRAIN.id());
             SkillTargets.shove(victim, centre, 0.35D + amount * 0.05D, 0.25D);

@@ -6,6 +6,7 @@ import com.efkrdnz.magical.magic.MagicSinService;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import java.util.List;
 import net.minecraft.core.particles.ParticleTypes;
@@ -183,7 +184,7 @@ public final class ChaosAuthorityService {
         Vec3 end = eye.add(player.getLookAngle().normalize().scale(REACH));
         Entity best = null;
         double nearest = Double.MAX_VALUE;
-        List<Entity> candidates = player.level().getEntities(player, new AABB(eye, end).inflate(1.0D),
+        List<Entity> candidates = Bodies.around(player.level(), player, new AABB(eye, end).inflate(1.0D),
                 entity -> entity.isAlive() && entity.isPickable());
         for (Entity candidate : candidates) {
             var clip = candidate.getBoundingBox().inflate(0.3D).clip(eye, end);

@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.forge.art;
 
+import com.efkrdnz.magical.magic.service.Bodies;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -48,7 +49,7 @@ public final class ArtSupport {
         AABB area = new AABB(centre.subtract(radius, radius, radius), centre.add(radius, radius, radius));
         List<LivingEntity> found = new ArrayList<>();
         double radiusSqr = radius * radius;
-        for (Entity entity : level.getEntities((Entity) null, area, candidate -> candidate instanceof LivingEntity
+        for (Entity entity : Bodies.around(level, (Entity) null, area, candidate -> candidate instanceof LivingEntity
                 living && living.isAlive() && candidate != owner && candidate != excluded)) {
             if (entity.getBoundingBox().getCenter().distanceToSqr(centre) <= radiusSqr) {
                 found.add((LivingEntity) entity);
@@ -68,7 +69,7 @@ public final class ArtSupport {
         Vec3 to = from.add(forward.scale(length));
         AABB area = new AABB(from, to).inflate(halfWidth + 1.0);
         List<LivingEntity> found = new ArrayList<>();
-        for (Entity entity : level.getEntities((Entity) null, area, candidate -> candidate instanceof LivingEntity
+        for (Entity entity : Bodies.around(level, (Entity) null, area, candidate -> candidate instanceof LivingEntity
                 living && living.isAlive() && candidate != owner && candidate != excluded)) {
             Vec3 offset = entity.getBoundingBox().getCenter().subtract(from);
             double along = offset.dot(forward);

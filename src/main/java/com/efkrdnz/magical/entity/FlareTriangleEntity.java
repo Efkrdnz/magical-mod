@@ -3,6 +3,7 @@ package com.efkrdnz.magical.entity;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicDamageService;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.registry.MagicalEntities;
 import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
@@ -143,7 +144,7 @@ public final class FlareTriangleEntity extends Entity {
     private void burnWallsAndInterior() {
         ServerPlayer owner = owner();
         AABB area = bounds().inflate(2.5D, 3.0D, 2.5D);
-        for (Entity entity : level().getEntities(this, area, target -> target instanceof LivingEntity living && living.isAlive() && target != owner)) {
+        for (Entity entity : Bodies.around(level(), this, area, target -> target instanceof LivingEntity living && living.isAlive() && target != owner)) {
             LivingEntity living = (LivingEntity) entity;
             Vec3 pos = living.position();
             double edgeDistance = minEdgeDistance(pos);
@@ -197,7 +198,7 @@ public final class FlareTriangleEntity extends Entity {
         }
         ServerPlayer owner = owner();
         AABB area = new AABB(point, point).inflate(1.55D + wallThickness() * 0.45D, 2.3D, 1.55D + wallThickness() * 0.45D);
-        for (Entity entity : level().getEntities(this, area, target -> target instanceof LivingEntity living && living.isAlive() && target != owner)) {
+        for (Entity entity : Bodies.around(level(), this, area, target -> target instanceof LivingEntity living && living.isAlive() && target != owner)) {
             MagicDamageService.hurt(entity, damageSources().indirectMagic(this, owner == null ? this : owner), damage() * 0.65F, MagicContent.FLARE_RING.id());
             entity.setRemainingFireTicks(Math.max(entity.getRemainingFireTicks(), 70));
             entity.push(0.0D, 0.34D, 0.0D);

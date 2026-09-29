@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.magic.causality;
 
 import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.service.Bodies;
 import java.util.Map;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -111,9 +112,8 @@ public final class LevelCausalWorld implements CausalWorld {
 
     /** Every living thing but the wielder within that many blocks, for FIELD and for NEAREST. */
     public static java.util.List<LivingEntity> nearby(ServerPlayer player, double radius) {
-        return player.level().getEntitiesOfClass(LivingEntity.class,
+        return Bodies.of(player.level(), LivingEntity.class,
                 new AABB(player.blockPosition()).inflate(radius),
-                living -> living.isAlive() && living != player
-                        && !com.efkrdnz.magical.entity.mind.FigmentEntity.isFigment(living));
+                living -> living.isAlive() && living != player);
     }
 }

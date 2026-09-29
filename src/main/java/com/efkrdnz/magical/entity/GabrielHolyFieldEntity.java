@@ -3,6 +3,7 @@ package com.efkrdnz.magical.entity;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicDamageService;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
+import com.efkrdnz.magical.magic.service.Bodies;
 import com.efkrdnz.magical.network.MagicalNetwork;
 import com.efkrdnz.magical.registry.MagicalEntities;
 import java.util.Comparator;
@@ -116,7 +117,7 @@ public final class GabrielHolyFieldEntity extends Entity {
         Entity caster = casterEntity();
         float activeRadius = currentRadius();
         AABB area = new AABB(getX() - activeRadius, getY() - 2.0D, getZ() - activeRadius, getX() + activeRadius, getY() + 18.0D, getZ() + activeRadius);
-        List<LivingEntity> targets = level().getEntities(this, area, candidate -> candidate instanceof LivingEntity living
+        List<LivingEntity> targets = Bodies.around(level(), this, area, candidate -> candidate instanceof LivingEntity living
                         && living.isAlive()
                         && candidate != caster)
                 .stream()
