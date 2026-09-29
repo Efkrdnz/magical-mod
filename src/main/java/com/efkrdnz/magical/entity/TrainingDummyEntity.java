@@ -32,6 +32,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.damagesource.DamageContainer;
 
 /**
@@ -123,6 +124,19 @@ public final class TrainingDummyEntity extends Mob {
 
     @Override protected void registerGoals() {}
     @Override public boolean isPushable() { return false; }
+
+    /**
+     * No knockback of any kind: every velocity a dummy is handed loses its sideways part and any
+     * lift, and only falling survives.
+     *
+     * <p>Knockback resistance answers vanilla's {@code knockback} alone. Explosions, {@code push},
+     * fluids and every skill that writes a velocity outright all come through here - and so does
+     * the client's motion packet - so this one override is the whole of it. A dummy slid off by a
+     * spell is a dummy the next spell misses, which is a meter measuring aim instead of damage.
+     */
+    @Override public void setDeltaMovement(Vec3 motion) {
+        super.setDeltaMovement(new Vec3(0.0, Math.min(0.0, motion.y), 0.0));
+    }
     @Override protected void doPush(net.minecraft.world.entity.Entity entity) {}
     @Override public boolean removeWhenFarAway(double distance) { return false; }
     @Override public boolean canBeLeashed() { return false; }

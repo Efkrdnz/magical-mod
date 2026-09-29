@@ -35,6 +35,25 @@ public final class TrainingDummyGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "unwaking_empty", timeoutTicks = 60, batch = "training_dummy")
+    public static void nothingKnocksADummyAside(GameTestHelper helper) {
+        TrainingDummyEntity dummy = helper.spawn(MagicalEntities.TRAINING_DUMMY.get(), new BlockPos(2, 1, 2));
+        helper.runAtTickTime(5, () -> {
+            net.minecraft.world.phys.Vec3 start = dummy.position();
+            // The three routes a hit moves a body by: vanilla's knockback, a skill's push, and a
+            // velocity written outright - knockback resistance only ever answered the first.
+            dummy.knockback(4.0, 1.0, 0.0);
+            dummy.push(1.5, 1.0, -1.5);
+            dummy.setDeltaMovement(2.0, 2.0, 2.0);
+            helper.runAfterDelay(10, () -> {
+                net.minecraft.world.phys.Vec3 now = dummy.position();
+                helper.assertTrue(Math.abs(now.x - start.x) < 1e-6 && Math.abs(now.z - start.z) < 1e-6
+                        && now.y <= start.y + 1e-6, "a dummy stays where it stands: " + start + " -> " + now);
+                helper.succeed();
+            });
+        });
+    }
+
     @GameTest(template = "unwaking_empty", timeoutTicks = 40, batch = "training_dummy")
     public static void killRemovesADummyInsteadOfMeteringIt(GameTestHelper helper) {
         TrainingDummyEntity dummy = helper.spawn(MagicalEntities.TRAINING_DUMMY.get(), new BlockPos(2, 1, 2));
