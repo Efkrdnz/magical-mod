@@ -75,6 +75,29 @@ public final class PhantomHarmGameTests {
         });
     }
 
+    /**
+     * With the wielder online the burn is credited to them, and it must still not shove its victim:
+     * vanilla's indirect_magic is not in {@code #minecraft:no_knockback}, so a burn on that type
+     * pushed the believer away from wherever the hidden wielder stood.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 60, batch = "mind_harm_4")
+    public static void imaginedLavaBurnsForAnOnlineWielderWithoutAShove(GameTestHelper helper) {
+        ServerPlayer player = bare(helper, new BlockPos(3, 2, 3), "mind-shoved-test");
+        ServerPlayer wielder = GameTestPlayers.another(helper, new BlockPos(1, 2, 1), "mind-wielder-test");
+        UUID owner = wielder.getUUID();
+        LiveScene scene = lavaUnder(helper, owner, player);
+        scene.belief().set(player.getId(), 0, 0.6F);
+        net.minecraft.world.phys.Vec3 before = player.getDeltaMovement();
+        helper.runAtTickTime(3, () -> {
+            helper.assertTrue(player.getHealth() < player.getMaxHealth(), "imagined lava burned nothing");
+            net.minecraft.world.phys.Vec3 after = player.getDeltaMovement();
+            double shove = after.subtract(before).horizontalDistance();
+            helper.assertTrue(shove < 1.0E-6, "the burn shoved its victim by " + shove);
+            MindService.endAll(owner);
+            helper.succeed();
+        });
+    }
+
     @GameTest(template = TEMPLATE, timeoutTicks = 60, batch = "mind_harm_3")
     public static void aFigmentThatStrikesABelieverHurtsAndConvinces(GameTestHelper helper) {
         ServerPlayer player = bare(helper, new BlockPos(1, 2, 2), "mind-bitten-test");

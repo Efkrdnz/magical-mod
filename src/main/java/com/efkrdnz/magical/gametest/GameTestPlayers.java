@@ -29,6 +29,16 @@ public final class GameTestPlayers {
                 server.getPlayerList().remove(leftover);
             }
         }
+        return another(helper, at, name);
+    }
+
+    /**
+     * A second survival player in the same test, made exactly as {@link #survival} makes one but
+     * without clearing the players already there - {@link #survival} would remove the first one.
+     * End the name in {@code -test} all the same, so the next test clears it.
+     */
+    public static ServerPlayer another(GameTestHelper helper, BlockPos at, String name) {
+        var server = helper.getLevel().getServer();
         var cookie = net.minecraft.server.network.CommonListenerCookie.createInitial(
                 new com.mojang.authlib.GameProfile(UUID.randomUUID(), name), false);
         var player = new ServerPlayer(server, helper.getLevel(), cookie.gameProfile(), cookie.clientInformation());

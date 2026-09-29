@@ -60,9 +60,9 @@ final class MindHarm {
         if (amount <= 0.0F) {
             return;
         }
+        // Credited to the wielder when they are online, pushed by nothing: see MindDamageTypes.
         ServerPlayer owner = level.getServer().getPlayerList().getPlayer(scene.owner());
-        DamageSource source = owner == null ? level.damageSources().magic()
-                : level.damageSources().indirectMagic(direct != null ? direct : owner, owner);
+        DamageSource source = MindDamageTypes.phantom(level, direct, owner);
         MagicDamageService.hurt(victim, source, amount, MagicContent.UNVEIL.id());
     }
 }
