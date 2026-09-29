@@ -2,9 +2,12 @@ package com.efkrdnz.magical.magic.mind;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -130,5 +133,103 @@ class PlausibilityTest {
                 new Script(Stance.IDLE, Reaction.FLEE), studied("creature:minecraft:zombie", 1), 128);
         assertEquals(Plausibility.FLOOR, reading.p(), EPSILON, "0.5 - 0.30 - 0.20 - 0.20 is below the floor");
         assertEquals(List.of("habitat", "unlike_kind", "size"), reading.terms().stream().map(Plausibility.Term::key).toList());
+    }
+
+    /** Counts every read of a real block id, per cell. */
+    private static final class CountingWorld implements MindWorld {
+        private final MindWorld inner;
+        private final Map<String, Integer> reads = new HashMap<>();
+
+        CountingWorld(MindWorld inner) {
+            this.inner = inner;
+        }
+
+        int calls() {
+            return reads.values().stream().mapToInt(Integer::intValue).sum();
+        }
+
+        int mostReadsOfOneCell() {
+            return reads.values().stream().mapToInt(Integer::intValue).max().orElse(0);
+        }
+
+        @Override public String blockId(int x, int y, int z) {
+            reads.merge(x + "," + y + "," + z, 1, Integer::sum);
+            return inner.blockId(x, y, z);
+        }
+
+        @Override public boolean solid(int x, int y, int z) {
+            return inner.solid(x, y, z);
+        }
+
+        @Override public boolean water(int x, int y, int z) {
+            return inner.water(x, y, z);
+        }
+
+        @Override public boolean openSkyDaylight(int x, int y, int z) {
+            return inner.openSkyDaylight(x, y, z);
+        }
+    }
+
+    /** The context term's definition, scanned the slow way: every real material within the radius. */
+    private static Set<String> naiveNearby(MindWorld world, Plausibility.Placed at) {
+        Set<String> materials = new HashSet<>();
+        int r = Plausibility.CONTEXT_RADIUS;
+        for (int dx = -r; dx <= r; dx++) {
+            for (int dy = -r; dy <= r; dy++) {
+                for (int dz = -r; dz <= r; dz++) {
+                    String id = world.blockId(at.x() + dx, at.y() + dy, at.z() + dz);
+                    if (!id.equals("minecraft:air")) {
+                        materials.add(id);
+                    }
+                }
+            }
+        }
+        return materials;
+    }
+
+    /**
+     * Fake ore scattered through a real field is a hundred one-block clusters, and a re-read used to scan
+     * 17 cubed blocks for every one of them. The scene reads each real cell once and shares it, and every
+     * cluster still reads exactly what it would have read alone.
+     */
+    @Test
+    void aSceneReadsTheGroundAroundAllItsClustersOnceAndEachReadsWhatItWouldAlone() {
+        FlatWorld world = new FlatWorld("minecraft:stone", false);
+        world.set(11, 0, 11, "minecraft:diamond_ore");
+        world.set(-12, 3, 0, "minecraft:gold_block");
+        Lexicon lexicon = studied("block:minecraft:stone", 5);
+        lexicon.learn("block:minecraft:diamond_ore", 1);
+        List<List<Plausibility.Placed>> clusters = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            for (int j = 0; j < 10; j++) {
+                String id = (i + j) % 3 == 0 ? "minecraft:diamond_ore" : "minecraft:stone";
+                clusters.add(List.of(new Plausibility.Placed(i * 2 - 9, 1 + (i % 2), j * 2 - 9, id)));
+            }
+        }
+        List<Plausibility.Placed> firsts = clusters.stream().map(cluster -> cluster.get(0)).toList();
+        CountingWorld counting = new CountingWorld(world);
+        Plausibility.Surroundings around = Plausibility.surroundings(counting, firsts);
+
+        Set<String> union = new HashSet<>();
+        int r = Plausibility.CONTEXT_RADIUS;
+        for (Plausibility.Placed first : firsts) {
+            for (int dx = -r; dx <= r; dx++) {
+                for (int dy = -r; dy <= r; dy++) {
+                    for (int dz = -r; dz <= r; dz++) {
+                        union.add((first.x() + dx) + "," + (first.y() + dy) + "," + (first.z() + dz));
+                    }
+                }
+            }
+        }
+        assertEquals(1, counting.mostReadsOfOneCell(), "a real cell was read twice in one re-read");
+        assertEquals(union.size(), counting.calls(), "the scene read cells no cluster looks at, or missed some");
+
+        for (List<Plausibility.Placed> cluster : clusters) {
+            Plausibility.Placed first = cluster.get(0);
+            assertEquals(naiveNearby(world, first), around.near(first.x(), first.y(), first.z()), "context around " + first);
+            assertEquals(Plausibility.cluster(world, cluster, lexicon, 100),
+                    Plausibility.cluster(counting, cluster, lexicon, 100, around), "reading of " + first);
+        }
+        assertEquals(union.size(), counting.calls(), "reading the clusters went back to the world");
     }
 }

@@ -95,17 +95,33 @@ public final class LiveScene {
         return anchor.offset(turned.dx(), turned.dy(), turned.dz());
     }
 
+    /**
+     * Reads every element's plausibility where it stands. The real materials around the clusters are
+     * read once for the whole scene and shared ({@link Plausibility.Surroundings}), so a scene of many
+     * small clusters costs one neighbourhood rather than one per cluster.
+     */
     public void reread(MindWorld world) {
         int size = elements.stream().mapToInt(e -> e.kind() == Kind.CLUSTER ? e.cells().size() : 1).sum();
+        List<List<Plausibility.Placed>> clusters = new ArrayList<>();
+        List<Plausibility.Placed> firsts = new ArrayList<>();
+        for (Element element : elements) {
+            if (element.kind() != Kind.CLUSTER) {
+                continue;
+            }
+            List<Plausibility.Placed> placed = new ArrayList<>();
+            for (int i = 0; i < element.cells().size(); i++) {
+                BlockPos cell = element.cells().get(i);
+                placed.add(new Plausibility.Placed(cell.getX(), cell.getY(), cell.getZ(), element.blockIds().get(i)));
+            }
+            clusters.add(placed);
+            firsts.add(placed.get(0));
+        }
+        Plausibility.Surroundings around = Plausibility.surroundings(world, firsts);
         for (Element element : elements) {
             Plausibility.Reading reading;
             if (element.kind() == Kind.CLUSTER) {
-                List<Plausibility.Placed> placed = new ArrayList<>();
-                for (int i = 0; i < element.cells().size(); i++) {
-                    BlockPos cell = element.cells().get(i);
-                    placed.add(new Plausibility.Placed(cell.getX(), cell.getY(), cell.getZ(), element.blockIds().get(i)));
-                }
-                reading = Plausibility.cluster(world, placed, lexicon, size);
+                // Clusters come first among the elements, so a cluster's index is its place in the list.
+                reading = Plausibility.cluster(world, clusters.get(element.index()), lexicon, size, around);
             } else {
                 BlockPos at = element.figmentAt();
                 reading = Plausibility.figment(world, new Plausibility.Placed(at.getX(), at.getY(), at.getZ(),
