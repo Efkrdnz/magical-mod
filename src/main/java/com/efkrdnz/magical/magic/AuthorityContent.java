@@ -48,7 +48,7 @@ public final class AuthorityContent {
     public static final AuthorityDefinition AUTHORITY_OF_MIND = register(
             MIND,
             0xBDA4FF,
-            List.of(MagicContent.DAYDREAM.id(), MagicContent.UNVEIL.id()));
+            List.of(MagicContent.DAYDREAM.id(), MagicContent.UNVEIL.id(), MagicContent.INSIST.id()));
 
     private AuthorityContent() {}
 

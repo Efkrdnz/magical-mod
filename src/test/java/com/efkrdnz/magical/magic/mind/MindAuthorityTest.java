@@ -26,13 +26,15 @@ class MindAuthorityTest {
     }
 
     @Test
-    void theAuthorityGrantsDaydreamAndUnveilAndNothingElse() {
-        assertEquals(List.of(MagicContent.DAYDREAM.id(), MagicContent.UNVEIL.id()),
+    void theAuthorityGrantsDaydreamUnveilAndInsistAndNothingElse() {
+        assertEquals(List.of(MagicContent.DAYDREAM.id(), MagicContent.UNVEIL.id(), MagicContent.INSIST.id()),
                 AuthorityContent.get(AuthorityContent.MIND).skillIds());
         assertTrue(MagicContent.AUTHORITY_SKILLS.contains(MagicContent.DAYDREAM.id()));
         assertTrue(MagicContent.AUTHORITY_SKILLS.contains(MagicContent.UNVEIL.id()));
+        assertTrue(MagicContent.AUTHORITY_SKILLS.contains(MagicContent.INSIST.id()));
         assertEquals(-6, MagicContent.DAYDREAM.tier());
         assertEquals(-6, MagicContent.UNVEIL.tier());
+        assertEquals(-6, MagicContent.INSIST.tier());
         assertTrue(AuthorityContent.commandIds().contains("authority_of_mind"));
     }
 
@@ -53,7 +55,9 @@ class MindAuthorityTest {
                 "screen.magical.playbill.cost", "screen.magical.playbill.save",
                 "screen.magical.playbill.done", "screen.magical.playbill.empty",
                 "screen.magical.playbill.stance", "screen.magical.playbill.reaction",
-                "screen.magical.playbill.cluster", "mind.magical.daydream.hint"));
+                "screen.magical.playbill.cluster", "mind.magical.daydream.hint",
+                "skill.magical.insist", "skill.magical.insist.desc", "message.magical.insist_nothing",
+                "message.magical.manifested", "message.magical.unmanifested"));
         for (String term : List.of("unsupported", "context", "alien", "fidelity", "habitat", "like_kind", "unlike_kind", "size")) {
             keys.add("mind.magical.term." + term);
         }

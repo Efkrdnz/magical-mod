@@ -26,7 +26,8 @@ public final class GenericHoldInput {
         var state = ClientMagicState.get();
         for (int slot = 0; slot < MagicalKeyMappings.CAST_SLOTS.length && slot < HELD.length; slot++) {
             ResourceLocation skill = state.equippedSkill(slot);
-            boolean holdable = skill != null && VisualProfiles.of(skill).holdable();
+            // Insist has no visual profile to carry the flag (no Authority skill has one), so it is named.
+            boolean holdable = skill != null && (VisualProfiles.of(skill).holdable() || MagicContent.INSIST.id().equals(skill));
             boolean down = holdable && MagicalKeyMappings.CAST_SLOTS[slot].isDown() && minecraft.screen == null;
             if (down) {
                 if (!HELD[slot] || --REFRESH[slot] <= 0) {

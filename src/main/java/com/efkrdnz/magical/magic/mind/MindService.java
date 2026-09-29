@@ -1,12 +1,15 @@
 package com.efkrdnz.magical.magic.mind;
 
 import com.efkrdnz.magical.MagicalMod;
+import com.efkrdnz.magical.magic.AuthorityContent;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.MagicSinService;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.MagicSkillResolvedStats;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.magic.cast.AimResolver;
+import com.efkrdnz.magical.magic.cast.HoldService;
+import com.efkrdnz.magical.registry.MagicalAttachments;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -149,14 +152,29 @@ public final class MindService {
             player.displayClientMessage(Component.translatable("message.magical.skill_cooling"), true);
             return false;
         }
-        MagicSkillResolvedStats stats = skill.resolve(state.tuningFor(skill.id()));
-        int mana = Math.max(1, Math.round(baseMana * stats.costScale()));
-        if (!MagicSinService.spendManaForSkill(player, state, mana)) {
+        if (!spend(player, state, skill, baseMana)) {
             player.displayClientMessage(Component.translatable("message.magical.not_enough_mana"), true);
             return false;
         }
-        state.setSkillCooldown(skill.id(), stats.cooldownTicks());
+        state.setSkillCooldown(skill.id(), skill.resolve(state.tuningFor(skill.id())).cooldownTicks());
         return true;
+    }
+
+    /** A hold's bill for one tick: mana only, never a clock, and the refusal said at most once a second. */
+    static boolean payTick(ServerPlayer player, PlayerMagicState state, MagicSkillDefinition skill, int baseMana) {
+        if (spend(player, state, skill, baseMana)) {
+            return true;
+        }
+        if (player.level().getGameTime() % 20 == 0) {
+            player.displayClientMessage(Component.translatable("message.magical.not_enough_mana"), true);
+        }
+        return false;
+    }
+
+    /** Resolve floors mana at 4, so the base is scaled here rather than read off the stats. */
+    private static boolean spend(ServerPlayer player, PlayerMagicState state, MagicSkillDefinition skill, int baseMana) {
+        MagicSkillResolvedStats stats = skill.resolve(state.tuningFor(skill.id()));
+        return MagicSinService.spendManaForSkill(player, state, Math.max(1, Math.round(baseMana * stats.costScale())));
     }
 
     public static List<LiveScene> scenesOf(UUID owner) {
@@ -309,6 +327,17 @@ public final class MindService {
             }
             tickScene(level, scene);
         }
+        // After every scene has ticked, so Insist looks at the world as the scenes left it: it builds
+        // its own Sight rather than borrow a scene's, because Manifestation.step may have placed or
+        // taken blocks since that Sight looked.
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            if (HoldService.isHeldSkill(player, MagicContent.INSIST.id())) {
+                PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+                if (state.hasAuthority(AuthorityContent.MIND)) {
+                    Insist.tick(player, state);
+                }
+            }
+        }
         if (server.getTickCount() % SCEPTICISM_PRUNE_TICKS == 0) {
             SCEPTICISM.prune(server.overworld().getGameTime());
         }
@@ -375,9 +404,9 @@ public final class MindService {
      * while perceiving, and again for every witness of every touch and every viewer of every projectile.
      * Nothing in the world moves inside a tick, so each is answered once and kept until the tick ends:
      * the answer is the one asking again would have got. That is why this changes what a tick costs and
-     * never what anybody believes.
+     * never what anybody believes. Insist builds one of its own for the scene it aims at, the same way.
      */
-    private static final class Sight {
+    static final class Sight {
         private static final byte UNASKED = 0;
         private static final byte UNSEEN = 1;
         private static final byte SEEN = 2;
