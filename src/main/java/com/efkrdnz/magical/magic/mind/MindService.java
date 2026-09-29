@@ -137,8 +137,41 @@ public final class MindService {
         LiveScene.Element element = scene.elements().get(figment.element());
         long now = level.getGameTime();
         contradict(scene, attacker, element, Contradiction.TOUCH, now);
-        for (LivingEntity witness : viewers(level, scene)) {
-            if (witness != attacker && perceives(level, witness, element, Susceptibility.blind(typeId(witness)))) {
+        witnessed(level, scene, viewers(level, scene), attacker, element, now);
+    }
+
+    /** Whether this viewer has seen through this figment: the element is shattered for them. */
+    public static boolean shattered(Entity viewer, com.efkrdnz.magical.entity.mind.FigmentEntity figment) {
+        LiveScene scene = scene(figment.sceneId());
+        return scene == null || scene.belief().shattered(viewer.getId(), figment.element());
+    }
+
+    /** Where an element is right now: a figment walks, so its box is its creature's, not its birthplace. */
+    static AABB liveBox(ServerLevel level, LiveScene scene, LiveScene.Element element) {
+        if (element.kind() == LiveScene.Kind.FIGMENT
+                && level.getEntity(scene.figmentEntity(element.index())) instanceof com.efkrdnz.magical.entity.mind.FigmentEntity figment
+                && figment.isAlive()) {
+            return figment.getBoundingBox();
+        }
+        return element.box();
+    }
+
+    /** Everything a scene occupies now: its birthplace bounds and wherever its figments have walked to. */
+    private static AABB reach(ServerLevel level, LiveScene scene) {
+        AABB all = scene.bounds();
+        for (LiveScene.Element element : scene.elements()) {
+            if (element.kind() == LiveScene.Kind.FIGMENT) {
+                all = all.minmax(liveBox(level, scene, element));
+            }
+        }
+        return all;
+    }
+
+    /** Everyone else in view of an actor's exposure sees through the element too. */
+    private static void witnessed(ServerLevel level, LiveScene scene, List<LivingEntity> viewers, LivingEntity actor,
+                                  LiveScene.Element element, long now) {
+        for (LivingEntity witness : viewers) {
+            if (witness != actor && perceives(level, scene, witness, element, Susceptibility.blind(typeId(witness)))) {
                 contradict(scene, witness, element, Contradiction.WITNESS, now);
             }
         }
@@ -216,7 +249,7 @@ public final class MindService {
     }
 
     static List<LivingEntity> viewers(ServerLevel level, LiveScene scene) {
-        return level.getEntitiesOfClass(LivingEntity.class, scene.bounds().inflate(VIEW_RANGE),
+        return level.getEntitiesOfClass(LivingEntity.class, reach(level, scene).inflate(VIEW_RANGE),
                 entity -> entity.isAlive() && !entity.isSpectator() && !entity.getUUID().equals(scene.owner())
                         && !(entity instanceof com.efkrdnz.magical.entity.mind.FigmentEntity)
                         && (entity instanceof Mob || entity instanceof Player));
@@ -232,7 +265,7 @@ public final class MindService {
             if (scene.belief().shattered(id, index) || scene.inside.contains(LiveScene.key(id, index))) {
                 continue;
             }
-            if (perceives(level, viewer, element, blind)) {
+            if (perceives(level, scene, viewer, element, blind)) {
                 float novelty = SCEPTICISM.novelty(viewer.getStringUUID(), element.impressions(), now);
                 scene.belief().gain(id, index, scene.plausibility(index), Sense.multiplier(element.senses()),
                         susceptibility, novelty);
@@ -242,9 +275,10 @@ public final class MindService {
         }
     }
 
-    static boolean perceives(ServerLevel level, LivingEntity viewer, LiveScene.Element element, boolean blind) {
+    static boolean perceives(ServerLevel level, LiveScene scene, LivingEntity viewer, LiveScene.Element element, boolean blind) {
         Vec3 eye = viewer.getEyePosition();
-        Vec3 centre = element.box().getCenter();
+        AABB box = liveBox(level, scene, element);
+        Vec3 centre = box.getCenter();
         double distance = eye.distanceTo(centre);
         if (blind) {
             return element.senses().contains(Sense.SOUND) && distance <= HEARING_RANGE;
@@ -257,7 +291,7 @@ public final class MindService {
             return false;
         }
         BlockHitResult hit = level.clip(new ClipContext(eye, centre, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, viewer));
-        return hit.getType() == HitResult.Type.MISS || element.box().inflate(0.5).contains(hit.getLocation());
+        return hit.getType() == HitResult.Type.MISS || box.inflate(0.5).contains(hit.getLocation());
     }
 
     private static void touches(ServerLevel level, LiveScene scene, List<LivingEntity> viewers, long now) {
@@ -276,29 +310,23 @@ public final class MindService {
                     continue;
                 }
                 contradict(scene, viewer, element, Contradiction.TOUCH, now);
-                for (LivingEntity witness : viewers) {
-                    if (witness != viewer && perceives(level, witness, element, Susceptibility.blind(typeId(witness)))) {
-                        contradict(scene, witness, element, Contradiction.WITNESS, now);
-                    }
-                }
+                witnessed(level, scene, viewers, viewer, element, now);
             }
         }
     }
 
     private static void projectiles(ServerLevel level, LiveScene scene, List<LivingEntity> viewers, long now) {
         for (LiveScene.Element element : scene.elements()) {
-            if (element.kind() != LiveScene.Kind.CLUSTER) {
-                continue;
-            }
-            for (Projectile projectile : level.getEntitiesOfClass(Projectile.class, element.box().inflate(4.0))) {
+            AABB box = liveBox(level, scene, element);
+            for (Projectile projectile : level.getEntitiesOfClass(Projectile.class, box.inflate(4.0))) {
                 AABB path = new AABB(projectile.xo, projectile.yo, projectile.zo,
                         projectile.getX(), projectile.getY(), projectile.getZ()).inflate(0.1);
-                if (!crosses(path, element)
-                        || !scene.seenProjectiles.add(LiveScene.key(projectile.getId(), element.index()))) {
+                boolean crosses = element.kind() == LiveScene.Kind.FIGMENT ? path.intersects(box) : crosses(path, element);
+                if (!crosses || !scene.seenProjectiles.add(LiveScene.key(projectile.getId(), element.index()))) {
                     continue;
                 }
                 for (LivingEntity viewer : viewers) {
-                    if (perceives(level, viewer, element, Susceptibility.blind(typeId(viewer)))) {
+                    if (perceives(level, scene, viewer, element, Susceptibility.blind(typeId(viewer)))) {
                         contradict(scene, viewer, element, Contradiction.PROJECTILE, now);
                     }
                 }

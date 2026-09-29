@@ -10,6 +10,7 @@ import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -117,13 +118,37 @@ public class FigmentEntity extends PathfinderMob {
         }
     }
 
-    /** Nothing lands on a thing that is not there; the blow is evidence instead. */
+    /**
+     * Nothing lands on a thing that is not there; a melee blow is evidence instead. Only /kill gets
+     * through, so an operator can always clear one away.
+     */
     @Override
     public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
-        if (source.getEntity() instanceof LivingEntity attacker) {
+        if (source.is(DamageTypes.GENERIC_KILL)) {
+            return super.hurtServer(level, source, amount);
+        }
+        if (source.getDirectEntity() == source.getEntity() && source.getEntity() instanceof LivingEntity attacker) {
             MindService.figmentStruck(this, attacker);
         }
         return false;
+    }
+
+    /** Arrows and the like pass through; the world sees them cross it, see {@code MindService.projectiles}. */
+    @Override
+    public boolean canBeHitByProjectile() {
+        return false;
+    }
+
+    /** A figment leaves no steps, no sounds and no vibrations in a world it is not part of. */
+    @Override
+    protected MovementEmission getMovementEmission() {
+        return MovementEmission.NONE;
+    }
+
+    /** Nor does it trip a pressure plate or a tripwire. */
+    @Override
+    public boolean isIgnoringBlockTriggers() {
+        return true;
     }
 
     @Override

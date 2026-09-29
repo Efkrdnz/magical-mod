@@ -39,10 +39,26 @@ public final class FigmentReactionGoal extends Goal {
         return viewer != null;
     }
 
+    /** The strike cooldown counts ticks, so the goal has to be ticked every one of them. */
+    @Override
+    public boolean requiresUpdateEveryTick() {
+        return true;
+    }
+
+    /**
+     * A reaction begins only against a believer. A chase, once begun, goes on after its quarry starts
+     * to doubt - that is how a doubter is reached and struck hollow - and ends when the quarry has
+     * seen through it entirely. Every other reaction lets go the moment belief falls.
+     */
     @Override
     public boolean canContinueToUse() {
-        return viewer != null && viewer.isAlive() && figment.distanceToSqr(viewer) < NOTICE * NOTICE * 2.25
-                && MindService.believes(viewer, figment) >= Belief.CONVINCED;
+        if (viewer == null || !viewer.isAlive() || figment.distanceToSqr(viewer) >= NOTICE * NOTICE * 2.25) {
+            return false;
+        }
+        if (reaction == Reaction.CHASE) {
+            return !MindService.shattered(viewer, figment);
+        }
+        return MindService.believes(viewer, figment) >= Belief.CONVINCED;
     }
 
     @Override
