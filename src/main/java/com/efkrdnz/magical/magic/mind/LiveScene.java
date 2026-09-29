@@ -4,8 +4,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -13,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.IntFunction;
 
 /**
  * One reverie set down in the world. Its elements are its clusters (in {@link Reverie#clusters()}
@@ -48,6 +51,14 @@ public final class LiveScene {
     final Map<Integer, Integer> figmentEntities = new HashMap<>();
     /** Players this scene has been sent to; see {@link MindSync}. */
     final Set<UUID> audience = new HashSet<>();
+    /** Elements that are real right now; see {@code Manifestation}. */
+    final Set<Integer> manifested = new HashSet<>();
+    /** Real figments that were killed: gone from the scene for good. */
+    final Set<Integer> slain = new HashSet<>();
+    /** The terrain edit holding each real cluster's blocks, by element. */
+    final Map<Integer, UUID> edits = new HashMap<>();
+    /** Each element's consensus at the last step, see {@link Consensus}. */
+    float[] consensus;
 
     LiveScene(int id, UUID owner, ResourceKey<Level> dimension, Reverie reverie, BlockPos anchor, int turns,
               Lexicon lexicon, long bornAt) {
@@ -88,6 +99,7 @@ public final class LiveScene {
         }
         this.bounds = all;
         this.plausibility = new float[elements.size()];
+        this.consensus = new float[elements.size()];
     }
 
     private BlockPos world(Offset offset) {
@@ -150,6 +162,70 @@ public final class LiveScene {
 
     public boolean expired(long now) {
         return now - bornAt >= LIFE_TICKS;
+    }
+
+    /** Whether a scene is finished: its clock has run out and nothing in it is real. */
+    public static boolean over(long age, boolean anythingReal) {
+        return age >= LIFE_TICKS && !anythingReal;
+    }
+
+    public boolean over(long now) {
+        return over(now - bornAt, anythingReal());
+    }
+
+    public boolean manifested(int element) {
+        return manifested.contains(element);
+    }
+
+    public boolean slain(int element) {
+        return slain.contains(element);
+    }
+
+    public boolean anythingReal() {
+        return !manifested.isEmpty();
+    }
+
+    /** The real elements in index order, for the wire. */
+    public List<Integer> manifestedList() {
+        List<Integer> list = new ArrayList<>(manifested);
+        Collections.sort(list);
+        return list;
+    }
+
+    public float consensus(int element) {
+        return consensus[element];
+    }
+
+    /** What an element weighs: half a point a block, a quarter of its kind's health. */
+    public float weight(int element) {
+        Element e = elements.get(element);
+        return e.kind() == Kind.CLUSTER ? Consensus.clusterWeight(e.cells().size())
+                : Consensus.figmentWeight(KindStats.maxHealth(e.figment().creatureId()));
+    }
+
+    /**
+     * The element nearest along a ray: a cluster by any of its cells, a figment by the box it has now
+     * ({@code figmentBox}, by element index). Slain elements are not there to aim at.
+     */
+    public SceneAim.Hit aim(Vec3 from, Vec3 to, IntFunction<AABB> figmentBox) {
+        List<AABB> boxes = new ArrayList<>();
+        List<Integer> owners = new ArrayList<>();
+        for (Element element : elements) {
+            if (slain(element.index())) {
+                continue;
+            }
+            if (element.kind() == Kind.CLUSTER) {
+                for (BlockPos cell : element.cells()) {
+                    boxes.add(new AABB(cell));
+                    owners.add(element.index());
+                }
+            } else {
+                boxes.add(figmentBox.apply(element.index()));
+                owners.add(element.index());
+            }
+        }
+        SceneAim.Hit hit = SceneAim.nearest(from, to, boxes);
+        return hit == null ? null : new SceneAim.Hit(owners.get(hit.index()), hit.distance());
     }
 
     public int id() { return id; }
