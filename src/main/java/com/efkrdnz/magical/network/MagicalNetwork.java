@@ -26,7 +26,7 @@ public final class MagicalNetwork {
     private MagicalNetwork() {}
 
     public static void registerPayloads(RegisterPayloadHandlersEvent event) {
-        event.registrar("9")
+        event.registrar("10")
                 .playToClient(UnwakingSnapshotPayload.TYPE, UnwakingSnapshotPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToServer(UnwakingGuardPayload.TYPE, UnwakingGuardPayload.STREAM_CODEC, (payload, context) ->
@@ -71,6 +71,14 @@ public final class MagicalNetwork {
                                 com.efkrdnz.magical.magic.mind.MindService.saveReverie(player, payload.slot(), payload.data());
                             }
                         }))
+                .playToServer(DreamEditPayload.TYPE, DreamEditPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> {
+                            if (context.player() instanceof ServerPlayer player) {
+                                com.efkrdnz.magical.magic.mind.DreamBuilder.apply(player, payload);
+                            }
+                        }))
+                .playToClient(DreamStatePayload.TYPE, DreamStatePayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToServer(AnchorTargetPayload.TYPE, AnchorTargetPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> {
                             if (context.player() instanceof ServerPlayer player) {
@@ -367,6 +375,15 @@ public final class MagicalNetwork {
     /** A Daydream draft to the server. Re-read and re-validated there before a byte of it lands. */
     public static void sendSaveReverie(int slot, net.minecraft.nbt.CompoundTag data) {
         PacketDistributor.sendToServer(new SaveReveriePayload(slot, data));
+    }
+
+    /** A Daydream edit in the wielder's own dream. Re-checked on the server before anything is built. */
+    public static void sendDreamEdit(DreamEditPayload payload) {
+        PacketDistributor.sendToServer(payload);
+    }
+
+    public static void sendDreamState(ServerPlayer player, DreamStatePayload payload) {
+        PacketDistributor.sendToPlayer(player, payload);
     }
 
     /** The body the anchor hold was released on. Nothing about it is trusted on the far side. */

@@ -111,6 +111,10 @@ public final class ClientPayloadHandlers {
         com.efkrdnz.magical.client.mind.ClientMind.accept(payload);
     }
 
+    public static void handle(com.efkrdnz.magical.network.DreamStatePayload payload) {
+        com.efkrdnz.magical.client.mind.ClientDream.accept(payload);
+    }
+
     /** A space rule landed on this player's subspace: the formula flashes. Ordinals off the wire are checked, not trusted. */
     public static void handle(SpaceRuleAppliedPayload payload) {
         SpaceRuleCategory[] categories = SpaceRuleCategory.values();

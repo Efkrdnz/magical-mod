@@ -9,6 +9,8 @@ import com.efkrdnz.magical.magic.cast.AimResolver;
 import com.efkrdnz.magical.magic.passive.ArcanePassives;
 import com.efkrdnz.magical.magic.status.MagicStatus;
 import com.efkrdnz.magical.magic.status.MagicStatusService;
+import com.efkrdnz.magical.network.DreamStatePayload;
+import com.efkrdnz.magical.network.MagicalNetwork;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import com.efkrdnz.magical.registry.MagicalChunkTickets;
 import net.minecraft.core.BlockPos;
@@ -49,6 +51,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -169,6 +172,9 @@ public final class DreamService {
         move(dreamer, dream, arrival.getX() + 0.5, arrival.getY(), arrival.getZ() + 0.5, scape.arrivalYaw(), 0.0F);
         dream.playSound(null, arrival, SoundEvents.ILLUSIONER_PREPARE_BLINDNESS, SoundSource.PLAYERS, 0.8F, 0.6F);
         dreamer.displayClientMessage(Component.translatable("message.magical.dream_enter"), true);
+        if (own) {
+            sendState(dreamer);
+        }
         return true;
     }
 
@@ -180,6 +186,9 @@ public final class DreamService {
         DreamSession session = SESSIONS.remove(dreamer.getUUID());
         if (session == null) {
             return;
+        }
+        if (session.own) {
+            sendState(dreamer);
         }
         ServerLevel dream = dreamLevel(dreamer.server);
         if (session.own && dream != null && dreamer.level() == dream
@@ -264,7 +273,29 @@ public final class DreamService {
         UUID owner = plot < 0 ? null : DreamPlots.of(dream).ownerOf(plot);
         if (owner != null && dreamscape(dream, owner).clearIfFlaw(figment.getUUID())) {
             DreamPlots.of(dream).changed();
+            ServerPlayer online = dream.getServer().getPlayerList().getPlayer(owner);
+            if (online != null) {
+                sendState(online);
+            }
         }
+    }
+
+    /** To the wielder: whether they are in their own dream, and its Flaw, so Daydream can show it. */
+    static void sendState(ServerPlayer player) {
+        DreamSession session = SESSIONS.get(player.getUUID());
+        ServerLevel dream = dreamLevel(player.server);
+        if (session == null || !session.own || dream == null) {
+            MagicalNetwork.sendDreamState(player, new DreamStatePayload(false, Optional.empty(), -1));
+            return;
+        }
+        Dreamscape.Flaw flaw = dreamscape(dream, session.owner).flaw();
+        Optional<BlockPos> block = flaw != null && flaw.block() != null ? Optional.of(at(session.plot, flaw.block())) : Optional.empty();
+        int entity = -1;
+        if (flaw != null && flaw.figment() != null) {
+            Entity figment = dream.getEntity(flaw.figment());
+            entity = figment == null ? -1 : figment.getId();
+        }
+        MagicalNetwork.sendDreamState(player, new DreamStatePayload(true, block, entity));
     }
 
     @SubscribeEvent
