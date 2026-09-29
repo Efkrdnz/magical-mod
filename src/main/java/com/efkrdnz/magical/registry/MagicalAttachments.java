@@ -76,6 +76,22 @@ public final class MagicalAttachments {
                     .copyOnDeath()
                     .build());
 
+    public static final DeferredHolder<AttachmentType<?>, AttachmentType<com.efkrdnz.magical.magic.mind.DreamReturn>> DREAM_RETURN = ATTACHMENTS.register(
+            "dream_return",
+            () -> AttachmentType.builder(com.efkrdnz.magical.magic.mind.DreamReturn::new)
+                    .serialize(new IAttachmentSerializer<CompoundTag, com.efkrdnz.magical.magic.mind.DreamReturn>() {
+                        @Override
+                        public com.efkrdnz.magical.magic.mind.DreamReturn read(IAttachmentHolder holder, CompoundTag tag, net.minecraft.core.HolderLookup.Provider provider) {
+                            return com.efkrdnz.magical.magic.mind.DreamReturn.load(tag);
+                        }
+
+                        @Override
+                        public CompoundTag write(com.efkrdnz.magical.magic.mind.DreamReturn attachment, net.minecraft.core.HolderLookup.Provider provider) {
+                            return attachment.save();
+                        }
+                    })
+                    .build());
+
     /** Skill-applied combat statuses on any living entity; transient (never serialized). */
     public static final DeferredHolder<AttachmentType<?>, AttachmentType<com.efkrdnz.magical.magic.status.MagicStatusData>> MAGIC_STATUS = ATTACHMENTS.register(
             "magic_status",

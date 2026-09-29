@@ -281,6 +281,16 @@ public final class MagicalEntities {
                     .fireImmune()
                     .build(key("figment")));
 
+    public static final DeferredHolder<EntityType<?>, EntityType<com.efkrdnz.magical.entity.mind.SleeperEntity>> SLEEPER = ENTITY_TYPES.register(
+            "sleeper",
+            () -> EntityType.Builder.<com.efkrdnz.magical.entity.mind.SleeperEntity>of(com.efkrdnz.magical.entity.mind.SleeperEntity::new, MobCategory.MISC)
+                    .sized(1.2F, 0.5F)
+                    .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
+                    .updateInterval(2)
+                    .noSave()
+                    .noSummon()
+                    .build(key("sleeper")));
+
     /** A piece of the deep an eldritch mage called up: a tentacle, an eye or a maw. */
     public static final DeferredHolder<EntityType<?>, EntityType<com.efkrdnz.magical.entity.fx.EldritchConstructEntity>> ELDRITCH_CONSTRUCT = ENTITY_TYPES.register(
             "eldritch_construct",
