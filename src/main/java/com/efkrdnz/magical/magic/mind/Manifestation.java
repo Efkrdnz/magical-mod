@@ -55,6 +55,10 @@ final class Manifestation {
                 }
             } else if (!real && was) {
                 unmanifest(level, scene, element, true);
+            } else if (real && element.kind() == LiveScene.Kind.FIGMENT
+                    && level.getEntity(scene.figmentEntity(index)) instanceof FigmentEntity figment) {
+                figment.hold(KindStats.maxHealth(element.figment().creatureId())
+                        * Consensus.healthFraction(scene.consensus(index), scene.weight(index)));
             }
         }
     }
@@ -67,7 +71,7 @@ final class Manifestation {
     static boolean manifest(ServerLevel level, LiveScene scene, LiveScene.Element element) {
         return switch (element.kind()) {
             case CLUSTER -> manifestCluster(level, scene, element);
-            case FIGMENT -> false;
+            case FIGMENT -> manifestFigment(level, scene, element);
         };
     }
 
@@ -77,6 +81,8 @@ final class Manifestation {
         }
         if (element.kind() == LiveScene.Kind.CLUSTER) {
             unmanifestCluster(level, scene, element);
+        } else if (level.getEntity(scene.figmentEntity(element.index())) instanceof FigmentEntity figment) {
+            figment.unmanifest();
         }
         Vec3 at = element.box().getCenter();
         level.playSound(null, at.x, at.y, at.z, SoundEvents.ILLUSIONER_MIRROR_MOVE, SoundSource.PLAYERS, 0.8F, 1.0F);
@@ -175,6 +181,18 @@ final class Manifestation {
             ConjuredTerrainService.restore(level, edit);
             return false;
         }
+        return true;
+    }
+
+    private static boolean manifestFigment(ServerLevel level, LiveScene scene, LiveScene.Element element) {
+        if (!(level.getEntity(scene.figmentEntity(element.index())) instanceof FigmentEntity figment) || !figment.isAlive()) {
+            return false;
+        }
+        String kind = element.figment().creatureId();
+        figment.manifest(KindStats.maxHealth(kind) * Consensus.healthFraction(scene.consensus(element.index()), scene.weight(element.index())),
+                KindStats.attack(kind));
+        level.playSound(null, figment.getX(), figment.getY(), figment.getZ(), SoundEvents.ILLUSIONER_PREPARE_MIRROR,
+                SoundSource.PLAYERS, 1.0F, 1.0F);
         return true;
     }
 

@@ -1,9 +1,12 @@
 package com.efkrdnz.magical.magic.mind;
 
 import com.efkrdnz.magical.MagicalMod;
+import com.efkrdnz.magical.entity.mind.FigmentEntity;
+import com.efkrdnz.magical.gametest.GameTestPlayers;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -109,6 +112,75 @@ public final class ManifestGameTests {
             AABB around = new AABB(anchor).inflate(4.0);
             helper.assertTrue(helper.getLevel().getEntitiesOfClass(FallingBlockEntity.class, around).isEmpty(), "a sand block fell");
             helper.assertTrue(helper.getLevel().getEntitiesOfClass(ItemEntity.class, around).isEmpty(), "sand was dropped");
+            MindService.endAll(owner);
+            helper.succeed();
+        });
+    }
+
+    private static final String CHICKEN = "minecraft:chicken";
+
+    /** A chicken figment on the floor at (2,2,3) and a husk at (2,2,1) certain of it. */
+    private static LiveScene believedChicken(GameTestHelper helper, UUID owner, LivingEntity[] believer) {
+        Reverie reverie = new Reverie();
+        Lexicon lexicon = MindGameTests.knowing("creature:" + CHICKEN);
+        reverie.addFigment(new Offset(0, 0, 0), CHICKEN, lexicon);
+        LiveScene scene = MindService.unveilAt(helper.getLevel(), owner, reverie,
+                BlockPos.containing(onFloor(helper, new BlockPos(2, 2, 3))), 0, lexicon);
+        helper.assertTrue(scene != null, "the chicken was refused");
+        LivingEntity husk = helper.spawnWithNoFreeWill(EntityType.HUSK, helper.relativeVec(onFloor(helper, new BlockPos(2, 2, 1))));
+        scene.belief().set(husk.getId(), 0, 1.0F);
+        believer[0] = husk;
+        return scene;
+    }
+
+    private static FigmentEntity creature(GameTestHelper helper, LiveScene scene) {
+        return (FigmentEntity) helper.getLevel().getEntity(scene.figmentEntity(0));
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 60, batch = "mind_manifest_5")
+    public static void aRealFigmentTakesRealBlowsAndWeakensAsDoubtGrows(GameTestHelper helper) {
+        UUID owner = UUID.randomUUID();
+        LivingEntity[] believer = new LivingEntity[1];
+        LiveScene scene = believedChicken(helper, owner, believer);
+        ServerPlayer player = GameTestPlayers.survival(helper, new BlockPos(1, 2, 3), "mind-real-test");
+        helper.runAtTickTime(12, () -> {
+            FigmentEntity chicken = creature(helper, scene);
+            helper.assertTrue(chicken.isManifested(), "the chicken never became real");
+            helper.assertFalse(FigmentEntity.isFigment(chicken), "a real chicken is still no body to the mod");
+            helper.assertTrue(chicken.canBeSeenAsEnemy(), "a real chicken is still no enemy to vanilla");
+            player.attack(chicken);
+            helper.assertTrue(chicken.getHealth() < chicken.getMaxHealth(), "a blow on a real chicken landed nothing");
+            helper.assertFalse(scene.belief().shattered(player.getId(), 0), "striking a real thing was taken as evidence it is not there");
+            // Consensus 0.6 of a weight of 1 holds it, at six tenths of a chicken.
+            scene.belief().set(believer[0].getId(), 0, 0.6F);
+        });
+        helper.runAtTickTime(20, () -> {
+            FigmentEntity chicken = creature(helper, scene);
+            helper.assertTrue(chicken.isManifested(), "a chicken held at 0.6 of its weight fell");
+            // The husk still sees the chicken, so its belief climbs a little past 0.6 before the step
+            // reads it: hold to the agreement the step actually read, and prove it is well short of whole.
+            float share = Consensus.healthFraction(scene.consensus(0), scene.weight(0));
+            helper.assertTrue(share >= 0.6F && share < 0.7F, "the agreement " + share + " is not about six tenths");
+            helper.assertTrue(Math.abs(chicken.getMaxHealth() - 4.0F * share) < 0.01F,
+                    "max health " + chicken.getMaxHealth() + " is not " + share + " of 4");
+            MindService.endAll(owner);
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 60, batch = "mind_manifest_6")
+    public static void aSlainFigmentIsGoneForGood(GameTestHelper helper) {
+        UUID owner = UUID.randomUUID();
+        LiveScene scene = believedChicken(helper, owner, new LivingEntity[1]);
+        helper.runAtTickTime(12, () -> {
+            FigmentEntity chicken = creature(helper, scene);
+            helper.assertTrue(chicken.isManifested(), "the chicken never became real");
+            chicken.hurtServer(helper.getLevel(), helper.getLevel().damageSources().magic(), 100.0F);
+            helper.assertTrue(scene.slain(0), "a killed chicken is not slain");
+            helper.assertFalse(scene.manifested(0), "a slain chicken is still counted real");
+        });
+        helper.runAtTickTime(25, () -> {
+            helper.assertTrue(scene.slain(0) && !scene.manifested(0), "the chicken came back");
             MindService.endAll(owner);
             helper.succeed();
         });

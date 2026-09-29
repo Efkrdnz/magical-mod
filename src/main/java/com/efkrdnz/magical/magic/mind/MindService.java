@@ -222,7 +222,9 @@ public final class MindService {
         LiveScene scene = scene(figment.sceneId());
         // The wielder is never a viewer: a blow on their own figment teaches them nothing, or it
         // would write them a shattered row and dent their scepticism for someone else's lies.
-        if (scene == null || !(figment.level() instanceof ServerLevel level) || attacker.getUUID().equals(scene.owner())) {
+        // A real figment is really there: a blow on it is a blow, not evidence.
+        if (scene == null || !(figment.level() instanceof ServerLevel level) || attacker.getUUID().equals(scene.owner())
+                || figment.isManifested()) {
             return;
         }
         LiveScene.Element element = scene.elements().get(figment.element());
@@ -268,15 +270,35 @@ public final class MindService {
         }
     }
 
-    /** A figment lands a blow. On a doubter nothing happens, and that is the evidence. */
+    /**
+     * A figment lands a blow. A real one bites with its kind's attack; on a believer it is phantom harm
+     * (see MindHarm); on a doubter nothing happens, and that is the evidence.
+     */
     public static void figmentStrikes(com.efkrdnz.magical.entity.mind.FigmentEntity figment, LivingEntity target) {
         LiveScene scene = scene(figment.sceneId());
         if (scene == null || !(figment.level() instanceof ServerLevel level)) {
             return;
         }
+        if (figment.isManifested()) {
+            float attack = (float) figment.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
+            if (attack > 0.0F) {
+                target.hurtServer(level, figment.damageSources().mobAttack(figment), attack);
+            }
+            return;
+        }
         if (scene.belief().get(target.getId(), figment.element()) < Belief.CONVINCED) {
             expose(scene, target, scene.elements().get(figment.element()), Contradiction.HOLLOW_STRIKE, level.getGameTime());
         }
+    }
+
+    /** A real figment was killed: it is gone from its scene for good. */
+    public static void figmentSlain(com.efkrdnz.magical.entity.mind.FigmentEntity figment) {
+        LiveScene scene = scene(figment.sceneId());
+        if (scene == null) {
+            return;
+        }
+        scene.slain.add(figment.element());
+        scene.manifested.remove(figment.element());
     }
 
     @SubscribeEvent
@@ -323,7 +345,7 @@ public final class MindService {
             present.add(viewer.getId());
             perceiveAll(level, scene, viewer, now);
             if (viewer instanceof Mob mob && mob.getTarget() instanceof com.efkrdnz.magical.entity.mind.FigmentEntity figment
-                    && figment.sceneId() == scene.id()
+                    && figment.sceneId() == scene.id() && !figment.isManifested()
                     && scene.belief().get(mob.getId(), figment.element()) < Belief.CONVINCED) {
                 mob.setTarget(null);
             }
