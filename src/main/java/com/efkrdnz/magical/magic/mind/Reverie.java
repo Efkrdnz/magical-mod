@@ -143,6 +143,21 @@ public final class Reverie {
         }
     }
 
+    /** The server's check of a draft it was sent: every element studied, and within the budget. */
+    public Refusal validate(Lexicon lexicon) {
+        for (ImaginedBlock block : blocks.values()) {
+            if (!lexicon.knows("block:" + block.blockId())) {
+                return Refusal.UNKNOWN;
+            }
+        }
+        for (Figment figment : figments) {
+            if (!lexicon.knows("creature:" + figment.creatureId())) {
+                return Refusal.UNKNOWN;
+            }
+        }
+        return size() > lexicon.budget() ? Refusal.FULL : Refusal.NONE;
+    }
+
     public int size() {
         return blocks.size() + figments.size();
     }

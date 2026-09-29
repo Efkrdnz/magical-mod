@@ -114,6 +114,32 @@ public final class MindService {
         return true;
     }
 
+    /**
+     * A Daydream draft sent home. Nothing in it is trusted: it is read through {@link ReverieNbt#load},
+     * which drops what is out of reach and caps the count, then refused whole if any element was never
+     * studied or the scene is over budget. A refusal still syncs, so a client that drafted on a stale
+     * lexicon snaps back to the truth.
+     */
+    public static void saveReverie(ServerPlayer player, int slot, net.minecraft.nbt.CompoundTag data) {
+        PlayerMagicState state = player.getData(com.efkrdnz.magical.registry.MagicalAttachments.MAGIC_STATE);
+        if (!state.hasAuthority(com.efkrdnz.magical.magic.AuthorityContent.MIND) || slot < 0 || slot >= MindState.SLOTS
+                || data == null) {
+            return;
+        }
+        Reverie draft = ReverieNbt.load(data);
+        Reverie.Refusal refusal = draft.validate(state.mind().lexicon());
+        if (refusal != Reverie.Refusal.NONE) {
+            player.displayClientMessage(Component.translatable("message.magical.reverie_refused",
+                    Component.translatable("mind.magical.refusal." + refusal.name().toLowerCase(java.util.Locale.ROOT))), true);
+            state.sync(player);
+            return;
+        }
+        state.mind().reverie(slot).copyFrom(draft);
+        state.mind().setActiveSlot(slot);
+        state.sync(player);
+        player.displayClientMessage(Component.translatable("message.magical.reverie_saved"), true);
+    }
+
     /** Bills a self-managed press by hand: the cast pipeline returns before it charges anything. */
     private static boolean payFor(ServerPlayer player, PlayerMagicState state, MagicSkillDefinition skill, int baseMana) {
         if (state.isSkillOnCooldown(skill.id())) {

@@ -63,6 +63,12 @@ public final class MagicalNetwork {
                                 com.efkrdnz.magical.magic.causality.CausalityService.applyWeave(player, payload.data());
                             }
                         }))
+                .playToServer(SaveReveriePayload.TYPE, SaveReveriePayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> {
+                            if (context.player() instanceof ServerPlayer player) {
+                                com.efkrdnz.magical.magic.mind.MindService.saveReverie(player, payload.slot(), payload.data());
+                            }
+                        }))
                 .playToServer(AnchorTargetPayload.TYPE, AnchorTargetPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> {
                             if (context.player() instanceof ServerPlayer player) {
@@ -349,6 +355,11 @@ public final class MagicalNetwork {
         if (data != null) {
             PacketDistributor.sendToServer(new SetWeavePayload(data));
         }
+    }
+
+    /** A Daydream draft to the server. Re-read and re-validated there before a byte of it lands. */
+    public static void sendSaveReverie(int slot, net.minecraft.nbt.CompoundTag data) {
+        PacketDistributor.sendToServer(new SaveReveriePayload(slot, data));
     }
 
     /** The body the anchor hold was released on. Nothing about it is trusted on the far side. */
