@@ -166,6 +166,9 @@ public final class DaydreamMode {
         if (Screen.hasAltDown()) {
             brush = brush.next();
             corner = null;
+        } else if (!BeltHotbarOverlay.showing(Minecraft.getInstance())) {
+            // A spectator's wheel belongs to the spectator menu, as the number keys do.
+            return false;
         } else {
             // As vanilla's hotbar turns: the wheel up is the slot to the left, wrapping.
             selected = Math.floorMod(selected + (delta > 0 ? -1 : 1), Belt.SIZE);
