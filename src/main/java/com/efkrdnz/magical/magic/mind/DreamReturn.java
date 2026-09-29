@@ -39,11 +39,14 @@ public final class DreamReturn {
     public float yaw() { return yaw; }
     public float pitch() { return pitch; }
 
-    /** The level to wake in; the overworld if the one they fell asleep in is gone. */
+    /**
+     * The level to wake in, or null when there is none to trust: the level they fell asleep in is
+     * gone, or the point was refused on load. The caller then wakes them at the overworld's shared
+     * spawn - never at these coordinates in some other level, where they mean nothing.
+     */
     public ServerLevel level(MinecraftServer server) {
-        ResourceLocation id = ResourceLocation.tryParse(dimension);
-        ServerLevel level = id == null ? null : server.getLevel(ResourceKey.create(Registries.DIMENSION, id));
-        return level != null ? level : server.overworld();
+        ResourceLocation id = dimension.isEmpty() ? null : ResourceLocation.tryParse(dimension);
+        return id == null ? null : server.getLevel(ResourceKey.create(Registries.DIMENSION, id));
     }
 
     public CompoundTag save() {
@@ -65,6 +68,11 @@ public final class DreamReturn {
         point.z = tag.getDouble("z");
         point.yaw = tag.getFloat("yaw");
         point.pitch = tag.getFloat("pitch");
+        if (!Double.isFinite(point.x) || !Double.isFinite(point.y) || !Double.isFinite(point.z)
+                || !Float.isFinite(point.yaw) || !Float.isFinite(point.pitch)) {
+            // A save that says NaN or infinity names no place; forget the level so waking falls back to spawn.
+            point.dimension = "";
+        }
         return point;
     }
 }

@@ -45,6 +45,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.EntityTravelToDimensionEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -188,12 +189,9 @@ public final class DreamService {
      * from anywhere, so a dreamer who left the dream by some other route wakes the same way.
      */
     static void wake(ServerPlayer dreamer) {
-        DreamSession session = SESSIONS.remove(dreamer.getUUID());
+        DreamSession session = SESSIONS.get(dreamer.getUUID());
         if (session == null) {
             return;
-        }
-        if (session.own) {
-            sendState(dreamer);
         }
         ServerLevel dream = dreamLevel(dreamer.server);
         if (session.own && dream != null && dreamer.level() == dream
@@ -201,21 +199,20 @@ public final class DreamService {
             dreamscape(dream, session.owner).setArrival(offsetIn(session.plot, dreamer.blockPosition()), dreamer.getYRot());
             DreamPlots.of(dream).changed();
         }
-        releaseBody(dreamer.server, session);
         calm(dreamer);
-        ServerLevel home;
-        if (dreamer.hasData(MagicalAttachments.DREAM_RETURN)) {
-            DreamReturn back = dreamer.getData(MagicalAttachments.DREAM_RETURN);
-            dreamer.removeData(MagicalAttachments.DREAM_RETURN);
-            home = back.level(dreamer.server);
-            move(dreamer, home, back.x(), back.y(), back.z(), back.yaw(), back.pitch());
-        } else {
-            // Nothing remembers where they lay: never strand them in the dream, wake them at the world spawn.
-            home = dreamer.server.overworld();
-            BlockPos spawn = home.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, home.getSharedSpawnPos());
-            move(dreamer, home, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, home.getSharedSpawnAngle(), 0.0F);
+        if (!sendHome(dreamer)) {
+            // The move was refused. Nothing is let go - not the session, not the return point, not the
+            // body - so the next server tick tries again rather than leaving them in the dream with neither.
+            session.wakeNow = true;
+            return;
         }
-        home.playSound(null, dreamer.blockPosition(), SoundEvents.ILLUSIONER_MIRROR_MOVE, SoundSource.PLAYERS, 0.8F, 0.7F);
+        SESSIONS.remove(dreamer.getUUID());
+        dreamer.removeData(MagicalAttachments.DREAM_RETURN);
+        releaseBody(dreamer.server, session);
+        if (session.own) {
+            sendState(dreamer);
+        }
+        dreamer.serverLevel().playSound(null, dreamer.blockPosition(), SoundEvents.ILLUSIONER_MIRROR_MOVE, SoundSource.PLAYERS, 0.8F, 0.7F);
         dreamer.displayClientMessage(Component.translatable("message.magical.dream_woke"), true);
         if (session.hurt != null) {
             PENDING_HURTS.put(dreamer.getUUID(),
@@ -251,9 +248,73 @@ public final class DreamService {
         if (SESSIONS.containsKey(player.getUUID()) || !player.hasData(MagicalAttachments.DREAM_RETURN)) {
             return;
         }
-        DreamReturn back = player.getData(MagicalAttachments.DREAM_RETURN);
-        player.removeData(MagicalAttachments.DREAM_RETURN);
-        move(player, back.level(player.server), back.x(), back.y(), back.z(), back.yaw(), back.pitch());
+        if (sendHome(player)) {
+            player.removeData(MagicalAttachments.DREAM_RETURN);
+        }
+    }
+
+    /**
+     * Back to where they lay, or to the overworld's shared spawn when nothing usable remembers it: no
+     * return point, a level that is gone, coordinates that would not load, or a point that is itself in
+     * the dream. True once they are there; the return point is left for the caller to let go.
+     */
+    private static boolean sendHome(ServerPlayer player) {
+        if (player.hasData(MagicalAttachments.DREAM_RETURN)) {
+            DreamReturn back = player.getData(MagicalAttachments.DREAM_RETURN);
+            ServerLevel level = back.level(player.server);
+            if (level != null && !isDream(level, back.x(), back.z())) {
+                return move(player, level, back.x(), back.y(), back.z(), back.yaw(), back.pitch());
+            }
+        }
+        ServerLevel home = player.server.overworld();
+        BlockPos spawn = home.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, home.getSharedSpawnPos());
+        return move(player, home, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, home.getSharedSpawnAngle(), 0.0F);
+    }
+
+    /** How often the dream level is searched for players in it with no dream to be in. */
+    static final int RESCUE_INTERVAL_TICKS = 20;
+
+    /**
+     * Anybody in the dream the server has no session for is sent home: a wake whose move failed and
+     * was then lost, a move this class did not make, anything. Nobody is ever kept in a dream that
+     * nothing is running, where a death would cost them everything they carry.
+     */
+    static void rescueStranded(MinecraftServer server) {
+        ServerLevel dream = dreamLevel(server);
+        if (dream == null) {
+            return;
+        }
+        for (ServerPlayer player : List.copyOf(dream.players())) {
+            if (SESSIONS.containsKey(player.getUUID()) || !isDream(player)) {
+                continue;
+            }
+            if (sendHome(player)) {
+                player.removeData(MagicalAttachments.DREAM_RETURN);
+            }
+        }
+    }
+
+    /**
+     * Whether moving this player to there would put them in a dream nobody sent them into. Only a
+     * dreamer, who already has a session, may be moved to a place in the dream by anything else.
+     */
+    public static boolean refusesEntry(ServerPlayer mover, Level level, double x, double z) {
+        return isDream(level, x, z) && !SESSIONS.containsKey(mover.getUUID());
+    }
+
+    /** Set only while this class moves a player, so the one door into the dream level is its own. */
+    private static boolean entering;
+
+    /**
+     * Nothing enters the dream level but by this class: a command, a portal, another mod's teleport
+     * are all refused. NeoForge posts this for every teleport, a move within one level included, so a
+     * move that starts in the dream level is left alone - it is not an entry.
+     */
+    @SubscribeEvent
+    public static void onTravel(EntityTravelToDimensionEvent event) {
+        if (event.getDimension().equals(DREAM) && !entering && !event.getEntity().level().dimension().equals(DREAM)) {
+            event.setCanceled(true);
+        }
     }
 
     /** A blow on a body. With a dreamer to wake, it wakes them; a body with no dreamer is only a shape, and goes. */
@@ -367,6 +428,9 @@ public final class DreamService {
         ServerLevel swept = dreamLevel(event.getServer());
         if (swept != null && event.getServer().getTickCount() % SWEEP_INTERVAL_TICKS == 0) {
             sweepFigments(swept);
+        }
+        if (event.getServer().getTickCount() % RESCUE_INTERVAL_TICKS == 0) {
+            rescueStranded(event.getServer());
         }
         if (SESSIONS.isEmpty() && PENDING_HURTS.isEmpty()) {
             return;
@@ -500,10 +564,20 @@ public final class DreamService {
         }
     }
 
-    private static void move(ServerPlayer player, ServerLevel level, double x, double y, double z, float yaw, float pitch) {
-        player.teleportTo(level, x, y, z, EnumSet.noneOf(Relative.class), yaw, pitch, true);
-        player.setDeltaMovement(Vec3.ZERO);
-        player.fallDistance = 0.0F;
+    /** Every move this class makes; false when the teleport was refused and the player has not moved. */
+    private static boolean move(ServerPlayer player, ServerLevel level, double x, double y, double z, float yaw, float pitch) {
+        boolean moved;
+        entering = true;
+        try {
+            moved = player.teleportTo(level, x, y, z, EnumSet.noneOf(Relative.class), yaw, pitch, true);
+        } finally {
+            entering = false;
+        }
+        if (moved) {
+            player.setDeltaMovement(Vec3.ZERO);
+            player.fallDistance = 0.0F;
+        }
+        return moved;
     }
 
     private static void floor(ServerLevel dream, int plot) {

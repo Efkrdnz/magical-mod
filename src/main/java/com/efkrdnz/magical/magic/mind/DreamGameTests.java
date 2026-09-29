@@ -3,7 +3,10 @@ package com.efkrdnz.magical.magic.mind;
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.entity.mind.SleeperEntity;
 import com.efkrdnz.magical.gametest.GameTestPlayers;
+import com.efkrdnz.magical.magic.AuthorityContent;
 import com.efkrdnz.magical.magic.MagicContent;
+import com.efkrdnz.magical.magic.PlayerMagicState;
+import com.efkrdnz.magical.magic.SoulAuthorityService;
 import com.efkrdnz.magical.magic.status.MagicStatus;
 import com.efkrdnz.magical.magic.status.MagicStatusService;
 import com.efkrdnz.magical.registry.MagicalAttachments;
@@ -321,6 +324,103 @@ public final class DreamGameTests {
             helper.assertTrue(player.fallDistance == 0.0F, "the dreamer woke still falling");
             woke.set(true);
         });
+    }
+
+    /**
+     * Nobody is left in the dream with no dream running: a player found in a plot with no session is
+     * sent to where they lay if anything remembers it, and to the world spawn if nothing does. Driven
+     * by the server tick, so this also proves the rescue is wired to it.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 60, batch = "dream_15")
+    public static void aPlayerInTheDreamWithNoSessionIsSentHome(GameTestHelper helper) {
+        ServerPlayer remembered = sleeper(helper, "dream-stranded-test");
+        ServerPlayer forgotten = GameTestPlayers.another(helper, new BlockPos(1, 2, 2), "dream-lost-test");
+        Vec3 stood = remembered.position();
+        remembered.setData(MagicalAttachments.DREAM_RETURN, DreamReturn.of(remembered));
+        forgotten.removeData(MagicalAttachments.DREAM_RETURN);
+        Dreamscape scape = DreamService.dreamscape(helper.getLevel(), UUID.randomUUID());
+        BlockPos arrival = DreamService.at(scape.plot(), scape.arrival());
+        remembered.teleportTo(arrival.getX() + 0.5, arrival.getY(), arrival.getZ() + 0.5);
+        forgotten.teleportTo(arrival.getX() + 1.5, arrival.getY(), arrival.getZ() + 0.5);
+        helper.assertTrue(DreamService.isDream(remembered) && DreamService.isDream(forgotten), "the stage did not put them in the dream");
+        helper.runAfterDelay(DreamService.RESCUE_INTERVAL_TICKS + 2, () -> {
+            helper.assertTrue(remembered.position().distanceTo(stood) < 0.01, "a stranded player was not sent to where they lay");
+            helper.assertFalse(remembered.hasData(MagicalAttachments.DREAM_RETURN), "the return point outlived the rescue");
+            helper.assertFalse(DreamService.isDream(forgotten), "a stranded player with no return point was left in the dream");
+            helper.assertTrue(forgotten.level() == forgotten.server.overworld(), "a stranded player with no return point was not sent to the overworld");
+            forgotten.server.getPlayerList().remove(forgotten);
+            helper.succeed();
+        });
+    }
+
+    /**
+     * A Soul move is refused whole when it would put a player in a dream nobody sent them into: a
+     * dreamer who calls a friend, or swaps with one, leaves the friend where they stand, and the
+     * price is handed back.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "dream_16")
+    public static void aSoulMoveNeverPullsAPlayerIntoTheDream(GameTestHelper helper) {
+        ServerPlayer dreamer = sleeper(helper, "dream-soul-test");
+        ServerPlayer friend = GameTestPlayers.another(helper, new BlockPos(1, 2, 3), "dream-friend-test");
+        Vec3 friendStood = friend.position();
+        helper.assertTrue(DreamService.enter(dreamer, UUID.randomUUID(), false), "the dream was refused");
+        Vec3 dreamerStood = dreamer.position();
+        PlayerMagicState state = dreamer.getData(MagicalAttachments.MAGIC_STATE);
+        state.setAuthority(AuthorityContent.SOUL);
+        state.unlock(MagicContent.SOUL_VOW.id());
+        state.equip(0, MagicContent.SOUL_VOW.id());
+        state.setSoulBond(friend.level().dimension().location().toString(), friend.getUUID());
+        state.setMana(state.maxMana());
+        int before = state.mana();
+        SoulAuthorityService.castSoulVowMode(dreamer, 0, 101);
+        helper.assertTrue(friend.position().distanceTo(friendStood) < 0.01 && !DreamService.isDream(friend),
+                "a dreamer's call pulled a player into the dream");
+        SoulAuthorityService.castSoulVowMode(dreamer, 0, 100);
+        helper.assertTrue(friend.position().distanceTo(friendStood) < 0.01 && !DreamService.isDream(friend),
+                "a dreamer's swap put a player in the dream");
+        helper.assertTrue(dreamer.position().distanceTo(dreamerStood) < 0.01, "a refused swap still moved the dreamer");
+        helper.assertTrue(state.mana() == before, "a refused Soul move kept its price: " + state.mana() + " of " + before);
+        DreamService.wake(dreamer);
+        friend.server.getPlayerList().remove(friend);
+        helper.succeed();
+    }
+
+    /** A return point in a level that no longer exists wakes its dreamer at the world spawn, not at its stale coordinates. */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "dream_17")
+    public static void aReturnPointInAMissingLevelWakesAtTheWorldSpawn(GameTestHelper helper) {
+        ServerPlayer player = sleeper(helper, "dream-gone-test");
+        DreamService.enter(player, UUID.randomUUID(), false);
+        CompoundTag gone = DreamReturn.of(player).save();
+        gone.putString("dimension", "magical:nowhere_at_all");
+        gone.putDouble("x", 4000.5);
+        gone.putDouble("z", 4000.5);
+        player.setData(MagicalAttachments.DREAM_RETURN, DreamReturn.load(gone));
+        DreamService.wake(player);
+        assertAtWorldSpawn(helper, player, "a return point in a missing level");
+        helper.succeed();
+    }
+
+    /** A return point whose coordinates are not numbers is no return point: its dreamer wakes at the world spawn. */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "dream_18")
+    public static void aReturnPointThatIsNotANumberWakesAtTheWorldSpawn(GameTestHelper helper) {
+        ServerPlayer player = sleeper(helper, "dream-nan-test");
+        DreamService.enter(player, UUID.randomUUID(), false);
+        CompoundTag broken = DreamReturn.of(player).save();
+        broken.putDouble("x", Double.NaN);
+        helper.assertTrue(DreamReturn.load(broken).level(player.server) == null, "a return point that is not a number still names a level");
+        player.setData(MagicalAttachments.DREAM_RETURN, DreamReturn.load(broken));
+        DreamService.wake(player);
+        assertAtWorldSpawn(helper, player, "a return point that is not a number");
+        helper.succeed();
+    }
+
+    private static void assertAtWorldSpawn(GameTestHelper helper, ServerPlayer player, String what) {
+        ServerLevel overworld = player.server.overworld();
+        BlockPos spawn = overworld.getSharedSpawnPos();
+        helper.assertFalse(DreamService.dreaming(player.getUUID()), what + " kept its dreamer dreaming");
+        helper.assertTrue(player.level() == overworld && Double.isFinite(player.getX())
+                        && Math.abs(player.getX() - (spawn.getX() + 0.5)) < 0.01 && Math.abs(player.getZ() - (spawn.getZ() + 0.5)) < 0.01,
+                what + " did not wake its dreamer at the world spawn: " + player.position());
     }
 
     private static boolean forced(ServerLevel level, ChunkPos chunk) {

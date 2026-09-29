@@ -164,10 +164,16 @@ public final class SoulAuthorityService {
         float targetYaw = target.getYRot();
         float targetPitch = target.getXRot();
         if (target instanceof ServerPlayer targetPlayer) {
+            // Refused whole rather than half done: neither of them may be put in a dream they were not sent into.
+            if (com.efkrdnz.magical.magic.mind.DreamService.refusesEntry(player, targetLevel, targetPos.x, targetPos.z)
+                    || com.efkrdnz.magical.magic.mind.DreamService.refusesEntry(targetPlayer, playerLevel, playerPos.x, playerPos.z)) {
+                return false;
+            }
             player.teleportTo(targetLevel, targetPos.x, targetPos.y, targetPos.z, java.util.EnumSet.noneOf(net.minecraft.world.entity.Relative.class), targetYaw, targetPitch, true);
             targetPlayer.teleportTo(playerLevel, playerPos.x, playerPos.y, playerPos.z, java.util.EnumSet.noneOf(net.minecraft.world.entity.Relative.class), playerYaw, playerPitch, true);
         } else {
-            if (targetLevel != playerLevel) {
+            if (targetLevel != playerLevel
+                    || com.efkrdnz.magical.magic.mind.DreamService.refusesEntry(player, playerLevel, targetPos.x, targetPos.z)) {
                 return false;
             }
             target.teleportTo(playerPos.x, playerPos.y, playerPos.z);
@@ -181,6 +187,9 @@ public final class SoulAuthorityService {
     private static boolean callSoul(ServerPlayer player, LivingEntity target) {
         Vec3 destination = player.position().add(player.getLookAngle().normalize().scale(1.8D));
         if (target instanceof ServerPlayer targetPlayer) {
+            if (com.efkrdnz.magical.magic.mind.DreamService.refusesEntry(targetPlayer, player.serverLevel(), destination.x, destination.z)) {
+                return false;
+            }
             targetPlayer.teleportTo(player.serverLevel(), destination.x, destination.y, destination.z, java.util.EnumSet.noneOf(net.minecraft.world.entity.Relative.class), target.getYRot(), target.getXRot(), true);
         } else {
             if (target.level() != player.level()) {
@@ -197,6 +206,9 @@ public final class SoulAuthorityService {
             return false;
         }
         Vec3 destination = target.position().subtract(target.getLookAngle().normalize().scale(1.6D));
+        if (com.efkrdnz.magical.magic.mind.DreamService.refusesEntry(player, targetLevel, destination.x, destination.z)) {
+            return false;
+        }
         player.teleportTo(targetLevel, destination.x, destination.y, destination.z, java.util.EnumSet.noneOf(net.minecraft.world.entity.Relative.class), player.getYRot(), player.getXRot(), true);
         playSoulMoveEffects(targetLevel, destination, 1.05F);
         return true;
