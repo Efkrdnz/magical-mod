@@ -108,7 +108,8 @@ public final class AnchorMarkRenderer {
         buffers.endBatch(MagicalFxRenderTypes.glyphInkThrough());
     }
 
-    private static void band(VertexConsumer consumer, org.joml.Matrix4f matrix, GlyphKind kind,
+    /** A glyph ring in a camera-facing pose; shared with Belief Sight. */
+    public static void band(VertexConsumer consumer, org.joml.Matrix4f matrix, GlyphKind kind,
             int count, float radius, int weight, int rgb, float opacity) {
         float[] mesh = FxMesh.annulus(SEGMENTS, BAND_INNER);
         int packed = MagicVertex.pack(kind.id(), count, Math.max(0, weight), PHASE, 0, 0);
