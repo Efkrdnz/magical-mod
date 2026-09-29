@@ -60,7 +60,7 @@ public final class SwordRackGameTests {
      */
     @GameTest(template = TEMPLATE, timeoutTicks = 80, batch = "sword_rack_1")
     public static void aFireAspectSwordRackedInSocketOneSetsItsTargetAlight(GameTestHelper helper) {
-        ServerPlayer player = wielder(helper, "rack-fire", EVERY_RUNG);
+        ServerPlayer player = wielder(helper, "rack-fire-test", EVERY_RUNG);
         ItemStack sword = new ItemStack(Items.DIAMOND_SWORD);
         sword.enchant(helper.getLevel().registryAccess().lookupOrThrow(Registries.ENCHANTMENT)
                 .getOrThrow(Enchantments.FIRE_ASPECT), 2);
@@ -93,7 +93,7 @@ public final class SwordRackGameTests {
      */
     @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "sword_rack_2")
     public static void anAxeWaitsForWeaponGod(GameTestHelper helper) {
-        ServerPlayer player = wielder(helper, "rack-axe", BELOW_THE_APEX);
+        ServerPlayer player = wielder(helper, "rack-axe-test", BELOW_THE_APEX);
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
         helper.runAtTickTime(1, () -> {
             helper.assertValueEqual(SwordArms.unlocked(state), 10, "sockets a Saint has opened");
@@ -120,7 +120,7 @@ public final class SwordRackGameTests {
     /** The apex hands Weapon God to a wielder who reached it before the passive existed. */
     @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "sword_rack_3")
     public static void aSwordGodIsHandedWeaponGod(GameTestHelper helper) {
-        ServerPlayer player = wielder(helper, "rack-god", EVERY_RUNG);
+        ServerPlayer player = wielder(helper, "rack-god-test", EVERY_RUNG);
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
         helper.runAtTickTime(1, () -> {
             helper.assertTrue(SwordArms.weaponGod(state), "a Sword God is refused any weapon but a sword");
@@ -135,7 +135,7 @@ public final class SwordRackGameTests {
     /** Shift-clicking a sword racks it; a stick, and a sword past the rung's sockets, stay put. */
     @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "sword_rack_4")
     public static void theMenuRacksSwordsAndRefusesTheRest(GameTestHelper helper) {
-        ServerPlayer player = wielder(helper, "rack-menu", List.of(MagicalClasses.SWORD_SUMMONER));
+        ServerPlayer player = wielder(helper, "rack-menu-test", List.of(MagicalClasses.SWORD_SUMMONER));
         helper.runAtTickTime(1, () -> {
             SwordRack rack = SwordArms.rack(player);
             SwordRackMenu menu = new SwordRackMenu(0, player.getInventory(), rack, SwordRackMenu.data(player));
@@ -167,7 +167,7 @@ public final class SwordRackGameTests {
     /** The formation carries the rack: socket one's sword is what its first sword is drawn as, and a swap follows. */
     @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "sword_rack_5")
     public static void theFormationFliesWhatIsRacked(GameTestHelper helper) {
-        ServerPlayer player = wielder(helper, "rack-array", EVERY_RUNG);
+        ServerPlayer player = wielder(helper, "rack-array-test", EVERY_RUNG);
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
         helper.runAtTickTime(1, () -> {
             SwordArms.rack(player).setItem(0, new ItemStack(Items.DIAMOND_SWORD));
@@ -196,7 +196,7 @@ public final class SwordRackGameTests {
      */
     @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "sword_rack_6")
     public static void onlyTheRackedSwordsStand(GameTestHelper helper) {
-        ServerPlayer player = wielder(helper, "rack-count", EVERY_RUNG);
+        ServerPlayer player = wielder(helper, "rack-count-test", EVERY_RUNG);
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
         helper.runAtTickTime(1, () -> {
             SwordRack rack = SwordArms.rack(player);
@@ -231,7 +231,7 @@ public final class SwordRackGameTests {
      */
     @GameTest(template = TEMPLATE, timeoutTicks = 80, batch = "sword_rack_7")
     public static void aRackedSwordLandsItsOwnAttack(GameTestHelper helper) {
-        ServerPlayer player = wielder(helper, "rack-damage", List.of(MagicalClasses.SWORD_SUMMONER));
+        ServerPlayer player = wielder(helper, "rack-damage-test", List.of(MagicalClasses.SWORD_SUMMONER));
         ItemStack sword = new ItemStack(Items.IRON_SWORD);
         sword.set(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.builder()
                 .add(Attributes.ATTACK_DAMAGE, new AttributeModifier(

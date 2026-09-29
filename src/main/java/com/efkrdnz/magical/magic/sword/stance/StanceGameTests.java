@@ -65,7 +65,7 @@ public final class StanceGameTests {
      */
     @GameTest(template = TEMPLATE, timeoutTicks = 200, batch = "sword_stance_1")
     public static void interceptTurnsAnArrowAndSpendsExactlyOneSword(GameTestHelper helper) {
-        ServerPlayer player = wielder(helper, "stance-guard");
+        ServerPlayer player = wielder(helper, "stance-guard-test");
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
         int[] before = new int[1];
         Arrow[] shot = new Arrow[1];
@@ -103,7 +103,7 @@ public final class StanceGameTests {
      */
     @GameTest(template = TEMPLATE, timeoutTicks = 200, batch = "sword_stance_2")
     public static void sheathingLeavesNoEntityBehind(GameTestHelper helper) {
-        ServerPlayer player = wielder(helper, "stance-sheathe");
+        ServerPlayer player = wielder(helper, "stance-sheathe-test");
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
         helper.runAtTickTime(1, () -> {
             standUp(player, state, SwordStance.GUARD);
@@ -141,7 +141,7 @@ public final class StanceGameTests {
      */
     @GameTest(template = TEMPLATE, timeoutTicks = 200, batch = "sword_stance_3")
     public static void aVolleyIsNotPaidOffByChangingStance(GameTestHelper helper) {
-        ServerPlayer player = wielder(helper, "stance-debt");
+        ServerPlayer player = wielder(helper, "stance-debt-test");
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
         int[] whole = new int[1];
         helper.runAtTickTime(1, () -> {
@@ -179,7 +179,7 @@ public final class StanceGameTests {
      */
     @GameTest(template = TEMPLATE, timeoutTicks = 200, batch = "sword_stance_4")
     public static void everySwordComesHomeEvenFromANarrowerStance(GameTestHelper helper) {
-        ServerPlayer player = wielder(helper, "stance-strand");
+        ServerPlayer player = wielder(helper, "stance-strand-test");
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
         int[] spent = new int[1];
         helper.runAtTickTime(1, () -> {
@@ -214,7 +214,7 @@ public final class StanceGameTests {
      */
     @GameTest(template = TEMPLATE, timeoutTicks = 100, batch = "sword_stance_5")
     public static void anOrbitTakesNoneOfItsWielderTurn(GameTestHelper helper) {
-        ServerPlayer player = wielder(helper, "stance-orbit");
+        ServerPlayer player = wielder(helper, "stance-orbit-test");
         PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
         float[] before = new float[1];
         float[] crown = new float[1];
