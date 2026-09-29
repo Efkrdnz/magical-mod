@@ -7,8 +7,12 @@ import com.efkrdnz.magical.registry.MagicalAttachments;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.ForcedChunksSavedData;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
@@ -193,5 +197,86 @@ public final class DreamGameTests {
                     "a dreamer who left the dream did not wake in their body");
             helper.succeed();
         });
+    }
+
+    /**
+     * The body lies in another dimension from the dream, so waking is a real crossing. A fake player
+     * never acknowledges one, so it stays mid-crossing (invulnerable to everything) until the test
+     * says the client has arrived; the blow must wait for that, then land exactly once.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 60, batch = "dream_11")
+    public static void aBlowOnTheBodyWaitsForTheDreamerToFinishCrossingBack(GameTestHelper helper) {
+        ServerPlayer player = sleeper(helper, "dream-crossing-test");
+        ServerLevel nether = helper.getLevel().getServer().getLevel(Level.NETHER);
+        if (nether == null) {
+            helper.succeed();
+            return;
+        }
+        BlockPos pocket = new BlockPos(0, 100, 0);
+        for (BlockPos pos : BlockPos.betweenClosed(pocket.offset(-1, -1, -1), pocket.offset(1, 2, 1))) {
+            boolean inside = pos.getX() == 0 && pos.getZ() == 0 && pos.getY() >= 100 && pos.getY() <= 101;
+            nether.setBlock(pos, inside ? Blocks.AIR.defaultBlockState() : Blocks.OBSIDIAN.defaultBlockState(), Block.UPDATE_ALL);
+        }
+        DreamService.enter(player, UUID.randomUUID(), false);
+        CompoundTag home = DreamReturn.of(player).save();
+        home.putString("dimension", Level.NETHER.location().toString());
+        home.putDouble("x", 0.5);
+        home.putDouble("y", 100.0);
+        home.putDouble("z", 0.5);
+        player.setData(MagicalAttachments.DREAM_RETURN, DreamReturn.load(home));
+        ServerLevel level = helper.getLevel();
+        SleeperEntity body = (SleeperEntity) level.getEntity(DreamService.session(player.getUUID()).sleeperId);
+        float before = player.getHealth();
+        body.hurtServer(level, level.damageSources().generic(), 4.0F);
+        helper.runAfterDelay(3, () -> {
+            helper.assertFalse(DreamService.dreaming(player.getUUID()), "the body was struck and nothing woke");
+            helper.assertTrue(player.level() == nether, "the dreamer did not cross back into the body's dimension");
+            helper.assertTrue(player.isChangingDimension(), "the crossing finished by itself, so nothing here holds the blow back");
+            helper.assertTrue(player.getHealth() == before, "the blow landed mid-crossing: " + player.getHealth());
+            helper.assertTrue(DreamService.pendingHurt(player.getUUID()) != null, "the blow was dropped instead of held");
+            player.hasChangedDimension();
+            helper.runAfterDelay(2, () -> {
+                helper.assertTrue(Math.abs(player.getHealth() - (before - 4.0F)) < 0.01F,
+                        "the blow never landed once the crossing was done: " + player.getHealth());
+                helper.assertTrue(DreamService.pendingHurt(player.getUUID()) == null, "the blow is still owed after landing");
+                player.server.getPlayerList().remove(player);
+                helper.succeed();
+            });
+        });
+    }
+
+    /** Nothing keeps a dreamer's chunk loaded but the dream itself, so the body's chunk is held for exactly that long. */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "dream_12")
+    public static void theBodyChunkIsHeldForTheDreamAndLetGoOnWaking(GameTestHelper helper) {
+        ServerPlayer player = sleeper(helper, "dream-ticket-test");
+        ChunkPos chunk = player.chunkPosition();
+        ServerLevel level = helper.getLevel();
+        helper.assertFalse(forced(level, chunk), "the chunk was already held before anyone slept");
+        DreamService.enter(player, UUID.randomUUID(), false);
+        helper.assertTrue(forced(level, chunk), "nothing holds the sleeping body's chunk");
+        DreamService.wake(player);
+        helper.assertFalse(forced(level, chunk), "the body's chunk is still held after waking");
+        helper.succeed();
+    }
+
+    /** A dreamer with no return point is not stranded in the dream: they wake at the world spawn and the body still goes. */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "dream_13")
+    public static void aDreamerWithNoReturnPointWakesAtTheWorldSpawn(GameTestHelper helper) {
+        ServerPlayer player = sleeper(helper, "dream-noreturn-test");
+        DreamService.enter(player, UUID.randomUUID(), false);
+        int bodyId = DreamService.session(player.getUUID()).sleeperId;
+        player.removeData(MagicalAttachments.DREAM_RETURN);
+        DreamService.wake(player);
+        ServerLevel overworld = player.server.overworld();
+        helper.assertTrue(player.level() == overworld, "a dreamer with no return point did not wake in the overworld");
+        helper.assertTrue(DreamRules.plotAt(player.getX(), player.getZ()) < 0, "a dreamer with no return point was left in the dream");
+        helper.assertTrue(helper.getLevel().getEntity(bodyId) == null, "the body outlived the dream");
+        helper.succeed();
+    }
+
+    private static boolean forced(ServerLevel level, ChunkPos chunk) {
+        ForcedChunksSavedData data = level.getDataStorage().get(ForcedChunksSavedData.factory(), ForcedChunksSavedData.FILE_ID);
+        return data != null && data.getEntityForcedChunks().getTickingChunks().values().stream()
+                .anyMatch(chunks -> chunks.contains(chunk.toLong()));
     }
 }

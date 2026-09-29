@@ -3,6 +3,7 @@ package com.efkrdnz.magical.magic.mind;
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.entity.mind.SleeperEntity;
 import com.efkrdnz.magical.registry.MagicalAttachments;
+import com.efkrdnz.magical.registry.MagicalChunkTickets;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -17,11 +18,14 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Relative;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
@@ -31,6 +35,7 @@ import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 import java.util.EnumSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -101,6 +106,20 @@ public final class DreamService {
     }
 
     private static final Map<UUID, DreamSession> SESSIONS = new LinkedHashMap<>();
+    /**
+     * How long a blow on the body waits for its dreamer to finish crossing back into it. A player
+     * changing dimension is invulnerable to everything until their client acknowledges the move, so
+     * a blow landed in the same call as the wake would be refused without a word.
+     */
+    static final int HURT_WAIT_TICKS = 100;
+    private static final Map<UUID, PendingHurt> PENDING_HURTS = new LinkedHashMap<>();
+
+    /** A blow the body took, owed to its dreamer once they can take it. */
+    record PendingHurt(DamageSource source, float amount, long expiresAt) {}
+
+    static PendingHurt pendingHurt(UUID dreamer) {
+        return PENDING_HURTS.get(dreamer);
+    }
 
     static DreamSession session(UUID dreamer) {
         return SESSIONS.get(dreamer);
@@ -130,6 +149,10 @@ public final class DreamService {
         dreamer.serverLevel().addFreshEntity(body);
         DreamSession session = new DreamSession(dreamer.getUUID(), owner, own, scape.plot());
         session.sleeperId = body.getId();
+        session.sleeperLevel = dreamer.serverLevel().dimension();
+        session.sleeperChunk = body.chunkPosition();
+        MagicalChunkTickets.DREAM_SLEEPERS.forceChunk(dreamer.serverLevel(), dreamer.getUUID(),
+                session.sleeperChunk.x, session.sleeperChunk.z, true, true);
         session.wakesAt = own ? Long.MAX_VALUE : dreamer.server.getTickCount() + DreamRules.DREAM_TICKS;
         SESSIONS.put(dreamer.getUUID(), session);
         BlockPos arrival = at(scape.plot(), scape.arrival());
@@ -154,18 +177,24 @@ public final class DreamService {
             dreamscape(dream, session.owner).setArrival(offsetIn(session.plot, dreamer.blockPosition()), dreamer.getYRot());
             DreamPlots.of(dream).changed();
         }
-        if (!dreamer.hasData(MagicalAttachments.DREAM_RETURN)) {
-            return;
+        releaseBody(dreamer.server, session);
+        ServerLevel home;
+        if (dreamer.hasData(MagicalAttachments.DREAM_RETURN)) {
+            DreamReturn back = dreamer.getData(MagicalAttachments.DREAM_RETURN);
+            dreamer.removeData(MagicalAttachments.DREAM_RETURN);
+            home = back.level(dreamer.server);
+            move(dreamer, home, back.x(), back.y(), back.z(), back.yaw(), back.pitch());
+        } else {
+            // Nothing remembers where they lay: never strand them in the dream, wake them at the world spawn.
+            home = dreamer.server.overworld();
+            BlockPos spawn = home.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, home.getSharedSpawnPos());
+            move(dreamer, home, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, home.getSharedSpawnAngle(), 0.0F);
         }
-        DreamReturn back = dreamer.getData(MagicalAttachments.DREAM_RETURN);
-        dreamer.removeData(MagicalAttachments.DREAM_RETURN);
-        ServerLevel home = back.level(dreamer.server);
-        discardBody(home, session.sleeperId);
-        move(dreamer, home, back.x(), back.y(), back.z(), back.yaw(), back.pitch());
         home.playSound(null, dreamer.blockPosition(), SoundEvents.ILLUSIONER_MIRROR_MOVE, SoundSource.PLAYERS, 0.8F, 0.7F);
         dreamer.displayClientMessage(Component.translatable("message.magical.dream_woke"), true);
         if (session.hurt != null) {
-            dreamer.hurtServer(home, session.hurt, session.hurtAmount);
+            PENDING_HURTS.put(dreamer.getUUID(),
+                    new PendingHurt(session.hurt, session.hurtAmount, dreamer.server.getTickCount() + HURT_WAIT_TICKS));
         }
     }
 
@@ -221,7 +250,7 @@ public final class DreamService {
 
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
-        if (SESSIONS.isEmpty()) {
+        if (SESSIONS.isEmpty() && PENDING_HURTS.isEmpty()) {
             return;
         }
         MinecraftServer server = event.getServer();
@@ -230,6 +259,7 @@ public final class DreamService {
             ServerPlayer player = server.getPlayerList().getPlayer(session.dreamer);
             if (player == null) {
                 SESSIONS.remove(session.dreamer);
+                releaseBody(server, session);
                 continue;
             }
             // Left the dream level by some other route (a skill, a command): the dream is simply over.
@@ -246,6 +276,25 @@ public final class DreamService {
             if (!session.own && touchesFlaw(dream, player, scape)) {
                 wake(player);
             }
+        }
+        landPendingHurts(server);
+    }
+
+    /** Lands each blow owed to a woken dreamer once they have finished crossing back; drops it if they never do. */
+    private static void landPendingHurts(MinecraftServer server) {
+        Iterator<Map.Entry<UUID, PendingHurt>> owed = PENDING_HURTS.entrySet().iterator();
+        while (owed.hasNext()) {
+            Map.Entry<UUID, PendingHurt> entry = owed.next();
+            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
+            if (player == null || server.getTickCount() >= entry.getValue().expiresAt()) {
+                owed.remove();
+                continue;
+            }
+            if (player.isChangingDimension() || !player.hasClientLoaded()) {
+                continue;
+            }
+            owed.remove();
+            player.hurtServer(player.serverLevel(), entry.getValue().source(), entry.getValue().amount());
         }
     }
 
@@ -268,7 +317,7 @@ public final class DreamService {
     }
 
     /** What gets past the damage event (a /kill, the void) still does not kill a dreamer. */
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onDeath(LivingDeathEvent event) {
         if (event.getEntity() instanceof ServerPlayer player && SESSIONS.containsKey(player.getUUID())) {
             event.setCanceled(true);
@@ -281,9 +330,10 @@ public final class DreamService {
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             DreamSession session = SESSIONS.remove(player.getUUID());
-            if (session != null && player.hasData(MagicalAttachments.DREAM_RETURN)) {
-                discardBody(player.getData(MagicalAttachments.DREAM_RETURN).level(player.server), session.sleeperId);
+            if (session != null) {
+                releaseBody(player.server, session);
             }
+            PENDING_HURTS.remove(player.getUUID());
         }
     }
 
@@ -296,7 +346,11 @@ public final class DreamService {
 
     @SubscribeEvent
     public static void onServerStopping(ServerStoppingEvent event) {
+        for (DreamSession session : SESSIONS.values()) {
+            releaseBody(event.getServer(), session);
+        }
         SESSIONS.clear();
+        PENDING_HURTS.clear();
     }
 
     private static boolean touchesFlaw(ServerLevel dream, ServerPlayer player, Dreamscape scape) {
@@ -313,9 +367,18 @@ public final class DreamService {
         return figment != null && reach.intersects(figment.getBoundingBox());
     }
 
-    private static void discardBody(ServerLevel level, int id) {
-        if (level.getEntity(id) instanceof SleeperEntity body) {
+    /** The body goes and its chunk is let go: every way a session ends comes through here. */
+    private static void releaseBody(MinecraftServer server, DreamSession session) {
+        ServerLevel level = session.sleeperLevel == null ? null : server.getLevel(session.sleeperLevel);
+        if (level == null) {
+            return;
+        }
+        if (level.getEntity(session.sleeperId) instanceof SleeperEntity body) {
             body.discard();
+        }
+        ChunkPos chunk = session.sleeperChunk;
+        if (chunk != null) {
+            MagicalChunkTickets.DREAM_SLEEPERS.forceChunk(level, session.dreamer, chunk.x, chunk.z, false, true);
         }
     }
 
