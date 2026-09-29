@@ -46,6 +46,8 @@ public final class LiveScene {
     final Set<Long> seenProjectiles = new HashSet<>();
     final Set<Integer> knownViewers = new LinkedHashSet<>();
     final Map<Integer, Integer> figmentEntities = new HashMap<>();
+    /** Players this scene has been sent to; see {@link MindSync}. */
+    final Set<UUID> audience = new HashSet<>();
 
     LiveScene(int id, UUID owner, ResourceKey<Level> dimension, Reverie reverie, BlockPos anchor, int turns,
               Lexicon lexicon, long bornAt) {

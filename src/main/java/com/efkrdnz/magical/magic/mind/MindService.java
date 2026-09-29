@@ -164,6 +164,7 @@ public final class MindService {
         if (live.isEmpty()) {
             SCENES.remove(scene.owner());
         }
+        MindSync.ended(scene);
     }
 
     public static void endAll(UUID owner) {
@@ -307,6 +308,7 @@ public final class MindService {
             }
         }
         scene.knownViewers.addAll(present);
+        MindSync.tick(level, scene);
     }
 
     static List<LivingEntity> viewers(ServerLevel level, LiveScene scene) {

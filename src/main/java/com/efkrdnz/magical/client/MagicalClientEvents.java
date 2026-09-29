@@ -133,6 +133,8 @@ public final class MagicalClientEvents {
     @SubscribeEvent
     public static void onClientSetup(net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) {
         event.enqueueWork(com.efkrdnz.magical.client.renderer.fx.FxTextures::register);
+        event.enqueueWork(() -> com.efkrdnz.magical.entity.mind.FigmentEntity.clientSees =
+                com.efkrdnz.magical.client.mind.ClientMind::sees);
         com.efkrdnz.magical.client.renderer.fx.paint.custom.MagicalPainters.register();
     }
 
@@ -166,7 +168,7 @@ public final class MagicalClientEvents {
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(MagicalEntities.UNWAKING_GOD.get(), com.efkrdnz.magical.client.renderer.UnwakingGodRenderer::new);
         event.registerEntityRenderer(MagicalEntities.UNWAKING_COUNTER.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);
-        event.registerEntityRenderer(MagicalEntities.FIGMENT.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.FIGMENT.get(), com.efkrdnz.magical.client.mind.FigmentRenderer::new);
         event.registerEntityRenderer(MagicalEntities.MAGIC_OPPONENT.get(), MagicOpponentRenderer::new);
         event.registerEntityRenderer(MagicalEntities.TRAINING_DUMMY.get(), com.efkrdnz.magical.client.renderer.TrainingDummyRenderer::new);
         event.registerEntityRenderer(MagicalEntities.TRAINING_THREAT.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);
@@ -360,6 +362,7 @@ public final class MagicalClientEvents {
                 renderHolyFieldsBeforeEntities(event, minecraft);
                 com.efkrdnz.magical.client.fx.TransientVisuals.renderThroughTerrain(event, minecraft);
                 com.efkrdnz.magical.client.renderer.causality.AnchorMarkRenderer.render(event, minecraft);
+                com.efkrdnz.magical.client.mind.IllusionRenderer.render(event, minecraft);
                 return;
             }
             if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) {
