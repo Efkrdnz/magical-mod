@@ -17,6 +17,7 @@ import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Pose;
+import net.minecraft.world.phys.AABB;
 
 import java.util.UUID;
 
@@ -26,6 +27,10 @@ import java.util.UUID;
  * with no bed the game would lay every sleeper due north.
  */
 public final class SleeperRenderer extends LivingEntityRenderer<SleeperEntity, PlayerRenderState, PlayerModel> {
+    /** Half of the model's 2.0-block length: how far back along the bed the body is shifted to sit centred on the entity. */
+    private static final float BODY_CENTRE_SHIFT = 1.0F;
+    private static final float LIFT = 0.125F;
+
     private final PlayerModel wide;
     private final PlayerModel slim;
 
@@ -47,13 +52,31 @@ public final class SleeperRenderer extends LivingEntityRenderer<SleeperEntity, P
         state.skin = skin(sleeper.dreamer().orElse(sleeper.getUUID()));
         state.pose = Pose.SLEEPING;
         state.bedOrientation = Direction.fromYRot(sleeper.getYRot());
-        state.eyeHeight = 1.62F;
+        // The bed shifts the body back along its length by eyeHeight - 0.1. The unscaled model is 32 px
+        // (2.0 blocks) foot to crown and runs from the origin forward, so 1.1 centres it on the entity.
+        state.eyeHeight = BODY_CENTRE_SHIFT + 0.1F;
+        state.showHat = true;
+        state.showJacket = true;
+        state.showLeftPants = true;
+        state.showRightPants = true;
+        state.showLeftSleeve = true;
+        state.showRightSleeve = true;
     }
 
     @Override
     public void render(PlayerRenderState state, PoseStack pose, MultiBufferSource buffers, int light) {
         this.model = state.skin.model() == PlayerSkin.Model.SLIM ? slim : wide;
+        // A laid-down model is centred vertically on the entity's y; vanilla seats a sleeper 0.125 above its mattress.
+        pose.pushPose();
+        pose.translate(0.0F, LIFT, 0.0F);
         super.render(state, pose, buffers, light);
+        pose.popPose();
+    }
+
+    /** The body lies out to a block either side of the entity, past its hitbox, so the box the view is culled by is wider. */
+    @Override
+    protected AABB getBoundingBoxForCulling(SleeperEntity sleeper) {
+        return sleeper.getBoundingBox().inflate(1.0, 0.0, 1.0);
     }
 
     @Override
