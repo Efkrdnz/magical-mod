@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.magic.cast;
 
 import java.util.function.Predicate;
+import com.efkrdnz.magical.entity.mind.FigmentEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -54,7 +55,8 @@ public final class AimResolver {
         double bestDist = Double.MAX_VALUE;
         if (tolerance > 0.0D) {
             AABB sweep = new AABB(from, from.add(dir.scale(blockDist))).inflate(tolerance);
-            for (Entity candidate : level.getEntities(caster, sweep, e -> e instanceof LivingEntity && e.isAlive() && e != caster && (filter == null || filter.test(e)))) {
+            for (Entity candidate : level.getEntities(caster, sweep, e -> e instanceof LivingEntity && e.isAlive() && e != caster
+                    && !FigmentEntity.isFigment(e) && (filter == null || filter.test(e)))) {
                 Vec3 centre = candidate.getBoundingBox().getCenter();
                 Vec3 rel = centre.subtract(from);
                 double along = rel.dot(dir);

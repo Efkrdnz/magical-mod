@@ -579,6 +579,7 @@ public final class CausalityService {
         }
         Entity found = player.serverLevel().getEntity(entityId);
         if (!(found instanceof LivingEntity target) || !target.isAlive() || target == player
+                || com.efkrdnz.magical.entity.mind.FigmentEntity.isFigment(target)
                 || target.position().distanceTo(player.getEyePosition()) > Anchor.REACH) {
             player.displayClientMessage(Component.translatable("message.magical.weave_no_target"), true);
             return false;
@@ -777,7 +778,8 @@ public final class CausalityService {
         double nearest = Double.MAX_VALUE;
         for (LivingEntity living : player.level().getEntitiesOfClass(LivingEntity.class,
                 new net.minecraft.world.phys.AABB(eye, end).inflate(1.0D),
-                candidate -> candidate.isAlive() && candidate != player)) {
+                candidate -> candidate.isAlive() && candidate != player
+                        && !com.efkrdnz.magical.entity.mind.FigmentEntity.isFigment(candidate))) {
             var clip = living.getBoundingBox().inflate(0.35D).clip(eye, end);
             if (clip.isEmpty()) {
                 continue;

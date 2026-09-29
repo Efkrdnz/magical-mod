@@ -278,6 +278,7 @@ public final class MagicalEntities {
                     .updateInterval(2)
                     .noSave()
                     .noSummon()
+                    .fireImmune()
                     .build(key("figment")));
 
     /** A piece of the deep an eldritch mage called up: a tentacle, an eye or a maw. */

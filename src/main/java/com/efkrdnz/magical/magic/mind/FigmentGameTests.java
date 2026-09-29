@@ -4,12 +4,19 @@ import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.entity.mind.FigmentEntity;
 import com.efkrdnz.magical.entity.mind.FigmentReactionGoal;
 import com.efkrdnz.magical.gametest.GameTestPlayers;
+import com.efkrdnz.magical.magic.cast.AimResolver;
+import com.efkrdnz.magical.magic.service.SkillTargets;
+import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.monster.Zoglin;
 import net.minecraft.world.entity.projectile.Arrow;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -155,6 +162,87 @@ public final class FigmentGameTests {
         helper.assertFalse(live.equals(element.box()), "the live box is still the birthplace");
         MindService.endAll(owner);
         helper.succeed();
+    }
+
+    /**
+     * In stage 1 nothing out of a reverie is real, so to everything outside the Mind code a figment is
+     * no body at all: a spell does not aim at it or count it, a block may be placed where it stands,
+     * and fire and potions leave nothing on it for a doubter to see.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "mind_figment_7")
+    public static void aFigmentIsNoBodyToAnythingButAMind(GameTestHelper helper) {
+        ServerPlayer caster = GameTestPlayers.survival(helper, new BlockPos(1, 2, 2), "mind-nobody-test");
+        UUID owner = UUID.randomUUID();
+        LiveScene scene = villagerAt(helper, owner, new BlockPos(3, 2, 2));
+        FigmentEntity figment = figment(helper, scene);
+        helper.assertTrue(figment != null, "the figment was never spawned");
+        ServerLevel level = helper.getLevel();
+        helper.assertFalse(SkillTargets.isHostile(caster, figment), "a spell counts a figment as a foe");
+        helper.assertFalse(SkillTargets.isAlly(caster, figment), "a spell counts a figment as a friend");
+        helper.assertTrue(SkillTargets.hostilesWithin(level, caster, figment.position(), 4.0).stream().noneMatch(e -> e == figment),
+                "hostilesWithin gathered a figment");
+        helper.assertTrue(SkillTargets.alliesWithin(level, caster, figment.position(), 4.0).stream().noneMatch(e -> e == figment),
+                "alliesWithin gathered a figment");
+        caster.lookAt(EntityAnchorArgument.Anchor.EYES, figment.getBoundingBox().getCenter());
+        AimResolver.Result aim = AimResolver.resolve(level, caster, 8.0, 1.0, false);
+        helper.assertTrue(aim.entity() != figment, "an aimed spell snapped onto a figment");
+        helper.assertFalse(figment.blocksBuilding, "a figment stops a block being placed where it stands");
+        helper.assertFalse(figment.canBeSeenAsEnemy(), "vanilla may take a figment for an enemy");
+        figment.igniteForSeconds(5.0F);
+        helper.assertFalse(figment.isOnFire() || figment.displayFireAnimation(), "a figment burns where every client can see it");
+        helper.assertFalse(figment.addEffect(new MobEffectInstance(MobEffects.POISON, 100)), "a figment took a potion effect");
+        MindService.endAll(owner);
+        helper.succeed();
+    }
+
+    /**
+     * A zoglin goes for every living thing near it, through vanilla's own targeting. A figment is not
+     * one, whatever the zoglin makes of it: only a mind that hunts a creature by instinct and believes
+     * it goes after a figment of it, and that path is the Mind's own.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 120, batch = "mind_figment_8")
+    public static void vanillaAggressionPassesAFigmentBy(GameTestHelper helper) {
+        UUID owner = UUID.randomUUID();
+        LiveScene scene = villagerAt(helper, owner, new BlockPos(3, 2, 3));
+        Zoglin zoglin = helper.spawn(EntityType.ZOGLIN, helper.relativeVec(onFloor(helper, new BlockPos(1, 2, 1))));
+        helper.onEachTick(() -> helper.assertFalse(zoglin.getTarget() instanceof FigmentEntity,
+                "a zoglin went for a figment"));
+        helper.runAtTickTime(100, () -> {
+            helper.assertTrue(figment(helper, scene) != null, "the figment was never spawned");
+            MindService.endAll(owner);
+            helper.succeed();
+        });
+    }
+
+    /**
+     * The other half of the same seam: a figment is no enemy to vanilla, and vanilla's avoid goal asks
+     * for one, so a creeper that believes a cat must still find it through the Mind's own flee goal.
+     * The search is asked directly: where a flight leads inside the walled template is up to chance.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "mind_figment_9")
+    public static void aCreeperStillFindsTheCatItBelievesToRunFrom(GameTestHelper helper) {
+        String cat = "minecraft:cat";
+        UUID owner = UUID.randomUUID();
+        Reverie reverie = new Reverie();
+        Lexicon lexicon = MindGameTests.knowing("creature:" + cat);
+        reverie.addFigment(new Offset(0, 0, 0), cat, lexicon);
+        LiveScene scene = MindService.unveilAt(helper.getLevel(), owner, reverie,
+                BlockPos.containing(onFloor(helper, new BlockPos(3, 2, 3))), 0, lexicon);
+        helper.assertTrue(scene != null, "the figment scene was refused");
+        Mob creeper = helper.spawn(EntityType.CREEPER, helper.relativeVec(onFloor(helper, new BlockPos(1, 2, 1))));
+        MindMobEvents.BelievedFleeGoal flee = creeper.goalSelector.getAvailableGoals().stream()
+                .map(wrapped -> wrapped.getGoal())
+                .filter(goal -> goal instanceof MindMobEvents.BelievedFleeGoal)
+                .map(goal -> (MindMobEvents.BelievedFleeGoal) goal)
+                .findFirst().orElse(null);
+        helper.assertTrue(flee != null, "a creeper was never taught to flee a figment");
+        helper.assertTrue(flee.nearestFeared() == null, "a creeper runs from a cat it does not believe");
+        scene.belief().set(creeper.getId(), 0, 0.6F);
+        helper.runAtTickTime(2, () -> {
+            helper.assertTrue(flee.nearestFeared() instanceof FigmentEntity, "a creeper cannot find the cat it believes");
+            MindService.endAll(owner);
+            helper.succeed();
+        });
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 60, batch = "mind_figment_6")

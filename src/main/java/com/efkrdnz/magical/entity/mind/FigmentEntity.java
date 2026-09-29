@@ -11,6 +11,8 @@ import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -24,15 +26,19 @@ import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.fluids.FluidType;
 
 import java.util.EnumSet;
 import java.util.UUID;
 import java.util.function.BiPredicate;
 
 /**
- * A creature out of a reverie. The server's AI treats it as real - that is the point, a husk has to
- * be able to hunt it - but it cannot be hurt, pushes nothing, and each client draws it only for a
- * mind that believes it.
+ * A creature out of a reverie. The minds that believe it treat it as real - that is the point, a husk
+ * has to be able to hunt it - but to everything else it is no body at all: it cannot be hurt, pushes
+ * nothing, blocks no building, is no enemy to vanilla's targeting, is never a spell's target (see
+ * {@link #isFigment}), burns, bathes and drinks nothing a doubter could see, and each client draws it
+ * only for a mind that believes it.
  */
 public class FigmentEntity extends PathfinderMob {
     private static final EntityDataAccessor<String> CREATURE = SynchedEntityData.defineId(FigmentEntity.class, EntityDataSerializers.STRING);
@@ -49,6 +55,16 @@ public class FigmentEntity extends PathfinderMob {
 
     public FigmentEntity(EntityType<? extends FigmentEntity> type, Level level) {
         super(type, level);
+        // LivingEntity sets this: a block may not be placed where a living body stands.
+        this.blocksBuilding = false;
+    }
+
+    /**
+     * Whether an entity is out of a reverie, and so no body to anything outside the Mind code. The one
+     * question the rest of the mod asks before it aims at, counts or gathers a living thing.
+     */
+    public static boolean isFigment(Entity entity) {
+        return entity instanceof FigmentEntity;
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -149,6 +165,53 @@ public class FigmentEntity extends PathfinderMob {
     @Override
     public boolean isIgnoringBlockTriggers() {
         return true;
+    }
+
+    /**
+     * Nothing takes a figment for an enemy: this is what vanilla's {@code TargetingConditions} asks, so
+     * the Wither, a zoglin or a warden passes it by. The minds that believe it hunt and flee it by the
+     * Mind's own goals, which do not ask ({@code MindMobEvents}).
+     */
+    @Override
+    public boolean canBeSeenAsEnemy() {
+        return false;
+    }
+
+    /** Fire takes nothing to burn, so no client draws flames on it (with {@code fireImmune} on its type). */
+    @Override
+    public boolean displayFireAnimation() {
+        return false;
+    }
+
+    /** No potion takes, so no swirl rises off it for everyone to see. */
+    @Override
+    @SuppressWarnings("deprecation")
+    public boolean canBeAffected(MobEffectInstance effect) {
+        return false;
+    }
+
+    /** It raises no splash walking into water. */
+    @Override
+    protected void doWaterSplashEffect() {
+    }
+
+    /** Nor does it drown, so no bubbles leave it under water. */
+    @Override
+    public boolean canDrownInFluidType(FluidType type) {
+        return false;
+    }
+
+    /**
+     * A fall lands on nothing: no dust, no fall sound, no vibration, no trampled farmland. Only the fall
+     * distance is kept, as vanilla keeps it, so the pathfinder still judges drops the same way.
+     */
+    @Override
+    protected void checkFallDamage(double y, boolean onGround, BlockState state, BlockPos pos) {
+        if (onGround) {
+            resetFallDistance();
+        } else if (y < 0.0) {
+            fallDistance -= (float) y;
+        }
     }
 
     @Override

@@ -113,6 +113,7 @@ public final class LevelCausalWorld implements CausalWorld {
     public static java.util.List<LivingEntity> nearby(ServerPlayer player, double radius) {
         return player.level().getEntitiesOfClass(LivingEntity.class,
                 new AABB(player.blockPosition()).inflate(radius),
-                living -> living.isAlive() && living != player);
+                living -> living.isAlive() && living != player
+                        && !com.efkrdnz.magical.entity.mind.FigmentEntity.isFigment(living));
     }
 }

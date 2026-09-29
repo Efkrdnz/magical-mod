@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.magic.service;
 
+import com.efkrdnz.magical.entity.mind.FigmentEntity;
 import com.efkrdnz.magical.magic.MagicDamageService;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.visual.SpellFx;
@@ -20,9 +21,13 @@ import net.minecraft.world.phys.Vec3;
 public final class SkillTargets {
     private SkillTargets() {}
 
-    /** Alive, not the caster, not allied by team, not the caster's tamed animal, not a decoration. */
+    /**
+     * Alive, not the caster, not allied by team, not the caster's tamed animal, not a decoration, and
+     * not a figment: nothing out of a reverie is a body a spell can count.
+     */
     public static boolean isHostile(Entity caster, Entity target) {
-        if (!(target instanceof LivingEntity living) || !living.isAlive() || target == caster) {
+        if (!(target instanceof LivingEntity living) || !living.isAlive() || target == caster
+                || FigmentEntity.isFigment(target)) {
             return false;
         }
         if (target instanceof ArmorStand) {
@@ -43,7 +48,7 @@ public final class SkillTargets {
     }
 
     public static boolean isAlly(Entity caster, Entity target) {
-        if (!(target instanceof LivingEntity living) || !living.isAlive()) {
+        if (!(target instanceof LivingEntity living) || !living.isAlive() || FigmentEntity.isFigment(target)) {
             return false;
         }
         if (target == caster) {
