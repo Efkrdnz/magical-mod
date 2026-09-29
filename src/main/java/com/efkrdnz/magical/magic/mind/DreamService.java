@@ -14,6 +14,7 @@ import com.efkrdnz.magical.network.MagicalNetwork;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import com.efkrdnz.magical.registry.MagicalChunkTickets;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -26,6 +27,10 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectCategory;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -197,6 +202,7 @@ public final class DreamService {
             DreamPlots.of(dream).changed();
         }
         releaseBody(dreamer.server, session);
+        calm(dreamer);
         ServerLevel home;
         if (dreamer.hasData(MagicalAttachments.DREAM_RETURN)) {
             DreamReturn back = dreamer.getData(MagicalAttachments.DREAM_RETURN);
@@ -215,6 +221,29 @@ public final class DreamService {
             PENDING_HURTS.put(dreamer.getUUID(),
                     new PendingHurt(session.hurt, session.hurtAmount, dreamer.server.getTickCount() + HURT_WAIT_TICKS));
         }
+    }
+
+    /**
+     * What a dream did to a body stops when the dreamer wakes. The dream let them down to one heart
+     * and no further, so anything still running on them - fire, frost, a harmful effect, Levitation,
+     * a status of the mod's (none of which says whether it harms, so all of them), a fall in progress -
+     * would otherwise finish in the waking world what the dream was not allowed to.
+     */
+    static void calm(ServerPlayer dreamer) {
+        dreamer.clearFire();
+        dreamer.setTicksFrozen(0);
+        for (MobEffectInstance effect : List.copyOf(dreamer.getActiveEffects())) {
+            Holder<MobEffect> kind = effect.getEffect();
+            if (kind.value().getCategory() == MobEffectCategory.HARMFUL || kind.value() == MobEffects.LEVITATION.value()) {
+                dreamer.removeEffect(kind);
+            }
+        }
+        for (MagicStatus status : MagicStatus.values()) {
+            if (MagicStatusService.has(dreamer, status)) {
+                MagicStatusService.clear(dreamer, status);
+            }
+        }
+        dreamer.fallDistance = 0.0F;
     }
 
     /** A player the server has no session for but who is still owed a way home: sent back to where they lay. */

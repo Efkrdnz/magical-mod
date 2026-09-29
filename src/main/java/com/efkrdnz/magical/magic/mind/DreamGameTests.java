@@ -3,6 +3,9 @@ package com.efkrdnz.magical.magic.mind;
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.entity.mind.SleeperEntity;
 import com.efkrdnz.magical.gametest.GameTestPlayers;
+import com.efkrdnz.magical.magic.MagicContent;
+import com.efkrdnz.magical.magic.status.MagicStatus;
+import com.efkrdnz.magical.magic.status.MagicStatusService;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -10,6 +13,8 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.ForcedChunksSavedData;
 import net.minecraft.world.level.Level;
@@ -272,6 +277,50 @@ public final class DreamGameTests {
         helper.assertTrue(DreamRules.plotAt(player.getX(), player.getZ()) < 0, "a dreamer with no return point was left in the dream");
         helper.assertTrue(helper.getLevel().getEntity(bodyId) == null, "the body outlived the dream");
         helper.succeed();
+    }
+
+    /**
+     * A dream that brought its dreamer to one heart must not finish the job outside: what was burning,
+     * withering, lifting or freezing them in the dream stops when they wake. A fake player is never
+     * ticked by a connection, so the test ticks it, and starves it of natural healing so nothing but
+     * the dream's leftovers could decide whether it lives.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 100, batch = "dream_14")
+    public static void aDreamerWokenBurningAndWitheredLivesOn(GameTestHelper helper) {
+        ServerPlayer player = sleeper(helper, "dream-calm-test");
+        player.getFoodData().setFoodLevel(10);
+        player.getFoodData().setSaturation(0.0F);
+        DreamService.enter(player, UUID.randomUUID(), false);
+        ServerLevel level = helper.getLevel();
+        player.igniteForSeconds(30.0F);
+        player.setTicksFrozen(300);
+        player.addEffect(new MobEffectInstance(MobEffects.WITHER, 600, 1));
+        player.addEffect(new MobEffectInstance(MobEffects.POISON, 600, 1));
+        player.addEffect(new MobEffectInstance(MobEffects.LEVITATION, 600, 0));
+        MagicStatusService.apply(player, MagicStatus.ROOTED, 600, MagicContent.LULL.id(), null);
+        player.fallDistance = 30.0F;
+        player.hurtServer(level, level.damageSources().generic(), 100.0F);
+        java.util.concurrent.atomic.AtomicBoolean woke = new java.util.concurrent.atomic.AtomicBoolean();
+        helper.onEachTick(() -> {
+            if (woke.get()) {
+                player.doTick();
+            }
+        });
+        helper.runAfterDelay(62, () -> {
+            helper.assertTrue(player.isAlive(), "the dream killed its dreamer after they woke");
+            helper.succeed();
+        });
+        helper.runAfterDelay(2, () -> {
+            helper.assertFalse(DreamService.dreaming(player.getUUID()), "brought to one heart and still dreaming");
+            helper.assertFalse(player.isOnFire(), "the dreamer woke still burning");
+            helper.assertTrue(player.getTicksFrozen() == 0, "the dreamer woke still freezing");
+            helper.assertFalse(player.hasEffect(MobEffects.WITHER) || player.hasEffect(MobEffects.POISON),
+                    "the dreamer woke still withering");
+            helper.assertFalse(player.hasEffect(MobEffects.LEVITATION), "the dreamer woke still lifting");
+            helper.assertFalse(MagicStatusService.has(player, MagicStatus.ROOTED), "the dreamer woke still rooted");
+            helper.assertTrue(player.fallDistance == 0.0F, "the dreamer woke still falling");
+            woke.set(true);
+        });
     }
 
     private static boolean forced(ServerLevel level, ChunkPos chunk) {
