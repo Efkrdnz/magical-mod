@@ -10,6 +10,15 @@ public record PlaybillLayout(int guiWidth, int guiHeight) {
     public static final int TOP = 14;
     public static final int MAX_TAB = 72;
     public static final int BUTTON = 44;
+    /** Gap between the Stance and Reaction columns, which share the middle column. */
+    public static final int INNER_GAP = 4;
+    /**
+     * The widest Stance and Reaction words in font pixels, six per character less the spacing
+     * after the last: "Wander"/"Follow" and "Approach". Deliberately a little over the real
+     * glyphs, so a cell that holds these holds the words.
+     */
+    public static final int WIDEST_STANCE_LABEL = 6 * 6 - 1;
+    public static final int WIDEST_REACTION_LABEL = 8 * 6 - 1;
 
     public int columnWidth() {
         return (guiWidth - 2 * MARGIN - 2 * GAP) / 3;
@@ -45,16 +54,21 @@ public record PlaybillLayout(int guiWidth, int guiHeight) {
         return new Rect("sense" + i, column(1), contentTop() + (i + 1) * LINE, columnWidth(), LINE);
     }
 
-    private int halfWidth() {
-        return (columnWidth() - GAP) / 2;
+    /** Reaction has the longer words, so it is given its share first and Stance takes what is left. */
+    private int reactionWidth() {
+        return Math.max(WIDEST_REACTION_LABEL, (columnWidth() - INNER_GAP) / 2);
+    }
+
+    public int stanceWidth() {
+        return columnWidth() - INNER_GAP - reactionWidth();
     }
 
     public Rect stance(int i) {
-        return new Rect("stance" + i, column(1), contentTop() + (i + 6) * LINE, halfWidth(), LINE);
+        return new Rect("stance" + i, column(1), contentTop() + (i + 6) * LINE, stanceWidth(), LINE);
     }
 
     public Rect reaction(int i) {
-        return new Rect("reaction" + i, column(1) + halfWidth() + GAP, contentTop() + (i + 6) * LINE, halfWidth(), LINE);
+        return new Rect("reaction" + i, column(1) + stanceWidth() + INNER_GAP, contentTop() + (i + 6) * LINE, reactionWidth(), LINE);
     }
 
     public int forecastX() {

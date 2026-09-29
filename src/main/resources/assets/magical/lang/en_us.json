@@ -2387,6 +2387,7 @@
   "screen.magical.playbill.empty": "Nothing written. Daydream to draw a scene.",
   "screen.magical.playbill.stance": "Stance",
   "screen.magical.playbill.reaction": "Reaction",
+  "screen.magical.playbill.look_at_ground": "Look at the ground to forecast",
   "screen.magical.playbill.cluster": "%s x%s",
   "mind.magical.daydream.hint": "Scroll: impression   Right: place   Left: erase   Alt+scroll: brush   %s: Playbill",
   "mind.magical.term.unsupported": "hanging in the air",

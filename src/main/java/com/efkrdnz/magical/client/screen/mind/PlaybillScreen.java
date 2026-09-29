@@ -11,6 +11,7 @@ import com.efkrdnz.magical.magic.mind.ImaginedBlock;
 import com.efkrdnz.magical.magic.mind.LevelMindWorld;
 import com.efkrdnz.magical.magic.mind.Lexicon;
 import com.efkrdnz.magical.magic.mind.MindGazeService;
+import com.efkrdnz.magical.magic.mind.MindService;
 import com.efkrdnz.magical.magic.mind.MindState;
 import com.efkrdnz.magical.magic.mind.Offset;
 import com.efkrdnz.magical.magic.mind.Plausibility;
@@ -28,9 +29,13 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -116,6 +121,9 @@ public final class PlaybillScreen extends Screen implements HudDebug.Captured, H
 
     @Override
     public boolean mouseClicked(double x, double y, int button) {
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            return super.mouseClicked(x, y, button);
+        }
         PlaybillLayout layout = layout();
         int tab = layout.tabAt(x, y);
         if (tab >= 0 && tab < MindState.SLOTS) {
@@ -264,8 +272,20 @@ public final class PlaybillScreen extends Screen implements HudDebug.Captured, H
         if (minecraft.level == null || minecraft.player == null) {
             return;
         }
-        BlockPos anchor = minecraft.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK
-                ? hit.getBlockPos().relative(hit.getDirection()) : minecraft.player.blockPosition();
+        int x = layout.forecastX();
+        int y = layout.contentTop();
+        int width = layout.forecastWidth();
+        BlockHitResult aim = unveilAim(minecraft);
+        if (aim == null) {
+            // Unveil refuses with nothing to stand on, so there is no spot to forecast.
+            for (FormattedCharSequence wrapped : font.split(Component.translatable("screen.magical.playbill.look_at_ground"), width)) {
+                g.drawString(font, wrapped, x, y, MUTED, true);
+                y += PlaybillLayout.LINE;
+            }
+            line(g, Component.translatable("screen.magical.playbill.cost"), UnveilCost.of(working) + "", x, y + 4, width, LILAC);
+            return;
+        }
+        BlockPos anchor = aim.getBlockPos().relative(aim.getDirection());
         int turns = minecraft.player.getDirection().get2DDataValue() - working.facing();
         Lexicon lexicon = ClientMagicState.get().mind().lexicon();
         LevelMindWorld world = new LevelMindWorld(minecraft.level);
@@ -283,9 +303,6 @@ public final class PlaybillScreen extends Screen implements HudDebug.Captured, H
             reading = Plausibility.figment(world, new Plausibility.Placed(at.getX(), at.getY(), at.getZ(), figment.creatureId()),
                     figment.script(), lexicon, working.size());
         }
-        int x = layout.forecastX();
-        int y = layout.contentTop();
-        int width = layout.forecastWidth();
         y = line(g, Component.translatable("screen.magical.playbill.plausibility"), String.format(Locale.ROOT, "%.2f", reading.p()), x, y, width, BRIGHT);
         for (Plausibility.Term term : reading.terms()) {
             y = line(g, Component.translatable("mind.magical.term." + term.key()),
@@ -305,6 +322,17 @@ public final class PlaybillScreen extends Screen implements HudDebug.Captured, H
         }
         y += 4;
         line(g, Component.translatable("screen.magical.playbill.cost"), UnveilCost.of(working) + "", x, y, width, LILAC);
+    }
+
+    /**
+     * Where Unveil would land: the block its own aim reaches, along the same ray and the same
+     * distance ({@link MindService#UNVEIL_REACH}), or null when that ray meets no block.
+     */
+    private static BlockHitResult unveilAim(Minecraft minecraft) {
+        Vec3 from = minecraft.player.getEyePosition();
+        Vec3 to = from.add(minecraft.player.getLookAngle().normalize().scale(MindService.UNVEIL_REACH));
+        BlockHitResult hit = minecraft.level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, minecraft.player));
+        return hit.getType() == HitResult.Type.BLOCK ? hit : null;
     }
 
     private static BlockPos at(BlockPos anchor, Offset offset, int turns) {

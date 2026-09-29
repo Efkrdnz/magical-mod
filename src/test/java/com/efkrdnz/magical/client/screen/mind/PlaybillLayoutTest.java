@@ -60,6 +60,40 @@ class PlaybillLayoutTest {
         assertEquals(-1, layout.rowAt(layout.row(0).right() + PlaybillLayout.GAP / 2.0, cy(layout.row(0))));
     }
 
+    @Test
+    void everyStanceAndReactionWordFitsItsCell() {
+        for (int[] screen : SCREENS) {
+            PlaybillLayout layout = new PlaybillLayout(screen[0], screen[1]);
+            for (int i = 0; i < 4; i++) {
+                assertTrue(layout.stance(i).w() >= PlaybillLayout.WIDEST_STANCE_LABEL,
+                        "a stance cell is " + layout.stance(i).w() + " wide at " + screen[0] + "x" + screen[1]);
+            }
+            for (int i = 0; i < 5; i++) {
+                assertTrue(layout.reaction(i).w() >= PlaybillLayout.WIDEST_REACTION_LABEL,
+                        "a reaction cell is " + layout.reaction(i).w() + " wide at " + screen[0] + "x" + screen[1]);
+            }
+        }
+    }
+
+    @Test
+    void theWidestLabelConstantsCoverTheWordsInTheLanguageFile() throws Exception {
+        String lang;
+        try (var in = PlaybillLayoutTest.class.getResourceAsStream("/assets/magical/lang/en_us.json")) {
+            assertNotNull(in);
+            lang = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        for (String[] group : new String[][] {{"stance", "" + PlaybillLayout.WIDEST_STANCE_LABEL}, {"reaction", "" + PlaybillLayout.WIDEST_REACTION_LABEL}}) {
+            var matcher = java.util.regex.Pattern.compile("\"mind\\.magical\\." + group[0] + "\\.[a-z_]+\": \"([^\"]*)\"").matcher(lang);
+            int found = 0;
+            while (matcher.find()) {
+                found++;
+                assertTrue(matcher.group(1).length() * 6 - 1 <= Integer.parseInt(group[1]),
+                        "'" + matcher.group(1) + "' is wider than the " + group[0] + " constant");
+            }
+            assertTrue(found > 0, "no " + group[0] + " words found");
+        }
+    }
+
     private static double cx(Rect rect) {
         return rect.x() + rect.w() / 2.0;
     }
