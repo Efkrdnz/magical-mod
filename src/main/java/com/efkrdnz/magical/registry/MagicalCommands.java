@@ -783,7 +783,7 @@ public final class MagicalCommands {
                     .then(Commands.literal("class")
                             .then(Commands.literal("unlock")
                                     .then(Commands.argument("id", StringArgumentType.word())
-                                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(MagicalClasses.commandIds(stateOf(context.getSource())), builder))
+                                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(MagicalClasses.rootCommandIds(stateOf(context.getSource())), builder))
                                             .executes(context -> withPlayer(context.getSource(), player -> {
                                                 ResourceLocation classId = parseClassId(StringArgumentType.getString(context, "id"));
                                                 MagicalClassDefinition definition = MagicalClasses.get(classId);
@@ -791,20 +791,18 @@ public final class MagicalCommands {
                                                     player.displayClientMessage(Component.translatable("message.magical.unknown_class"), false);
                                                     return 0;
                                                 }
-                                                // Any class, not only a root: the rungs on the way to it come with it,
-                                                // free, and nothing else does - the narrow answer to unlockall.
+                                                // Roots only, on purpose: every rung above a root is earned with class
+                                                // XP through evolve. Say so rather than calling the class unknown.
+                                                if (!MagicalClasses.isRoot(classId)) {
+                                                    player.displayClientMessage(Component.translatable("message.magical.class_not_root",
+                                                            Component.translatable(definition.nameKey()), classId.getPath()), false);
+                                                    return 0;
+                                                }
                                                 PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
-                                                java.util.List<ResourceLocation> taken = data.grantClass(player, classId);
+                                                data.unlockClass(player, classId);
                                                 data.sync(player);
-                                                if (taken.isEmpty()) {
-                                                    player.displayClientMessage(Component.literal("Already a ")
-                                                            .append(Component.translatable(definition.nameKey())).append("."), false);
-                                                }
-                                                for (ResourceLocation id : taken) {
-                                                    player.displayClientMessage(Component.translatable("message.magical.class_unlocked",
-                                                            Component.translatable(MagicalClasses.get(id).nameKey())), false);
-                                                }
-                                                return taken.size();
+                                                player.displayClientMessage(Component.translatable("message.magical.class_unlocked", Component.translatable(definition.nameKey())), false);
+                                                return 1;
                                             }))))
                             .then(Commands.literal("evolve")
                                     .then(Commands.argument("id", StringArgumentType.word())
@@ -817,7 +815,18 @@ public final class MagicalCommands {
                                                     return 0;
                                                 }
                                                 PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
-                                                data.evolveClass(player, classId);
+                                                // evolveClass refuses without a word - no parent owned, or the tree's pool
+                                                // short of the cost - and this used to print "Class evolved" regardless.
+                                                if (!data.evolveClass(player, classId)) {
+                                                    int pool = data.classProgressFor(MagicalClasses.baseOf(classId)).xp();
+                                                    Component name = Component.translatable(definition.nameKey());
+                                                    player.displayClientMessage(data.hasClass(classId)
+                                                            ? Component.literal("Already a ").append(name).append(".")
+                                                            : definition.isBase() || definition.parents().stream().noneMatch(data::hasClass)
+                                                            ? Component.translatable("message.magical.class_evolve_no_parent", name)
+                                                            : Component.translatable("message.magical.class_evolve_no_xp", name, definition.xpCost(), pool), false);
+                                                    return 0;
+                                                }
                                                 data.sync(player);
                                                 player.displayClientMessage(Component.translatable("message.magical.class_evolved", Component.translatable(definition.nameKey())), false);
                                                 return 1;
