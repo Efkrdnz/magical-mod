@@ -1130,6 +1130,47 @@ public final class PlayerMagicState {
         return true;
     }
 
+    /**
+     * Take a class and whatever it takes to reach it, for {@code /magical class unlock}: the root if
+     * need be, then each rung down to the node, each paid for with exactly its own cost so the pool
+     * ends where it started. Branches converge, so an owned parent is always the way in and
+     * otherwise the first listed one is walked. Nothing off that path is touched, which is the whole
+     * difference from {@code unlockall}. Returns what was newly taken, root first.
+     */
+    public List<ResourceLocation> grantClass(ServerPlayer player, ResourceLocation classId) {
+        List<ResourceLocation> taken = new ArrayList<>();
+        grantClassInto(player, classId, taken);
+        return taken;
+    }
+
+    private boolean grantClassInto(ServerPlayer player, ResourceLocation classId, List<ResourceLocation> taken) {
+        MagicalClassDefinition definition = MagicalClasses.get(classId);
+        if (definition == null) {
+            return false;
+        }
+        if (hasClass(classId)) {
+            return true;
+        }
+        if (definition.isBase()) {
+            if (unlockClass(player, classId)) {
+                taken.add(classId);
+            }
+            return hasClass(classId);
+        }
+        // Parents sit a tier below their node, so this walk only ever goes down and ends at a root.
+        boolean reached = definition.parents().stream().anyMatch(this::hasClass)
+                || definition.parents().stream().anyMatch(parent -> grantClassInto(player, parent, taken));
+        if (!reached) {
+            return false;
+        }
+        addClassXp(classId, definition.xpCost());
+        if (evolveClass(player, classId)) {
+            taken.add(classId);
+            return true;
+        }
+        return false;
+    }
+
     /** True when the node can be taken right now: not owned, a parent owned, and the pool covers the cost. */
     public boolean canEvolveClass(ResourceLocation classId) {
         MagicalClassDefinition definition = MagicalClasses.get(classId);

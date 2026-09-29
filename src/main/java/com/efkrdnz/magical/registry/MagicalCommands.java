@@ -783,19 +783,28 @@ public final class MagicalCommands {
                     .then(Commands.literal("class")
                             .then(Commands.literal("unlock")
                                     .then(Commands.argument("id", StringArgumentType.word())
-                                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(MagicalClasses.rootCommandIds(stateOf(context.getSource())), builder))
+                                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(MagicalClasses.commandIds(stateOf(context.getSource())), builder))
                                             .executes(context -> withPlayer(context.getSource(), player -> {
                                                 ResourceLocation classId = parseClassId(StringArgumentType.getString(context, "id"));
                                                 MagicalClassDefinition definition = MagicalClasses.get(classId);
-                                                if (definition == null || !MagicalClasses.isRoot(classId)) {
+                                                if (definition == null) {
                                                     player.displayClientMessage(Component.translatable("message.magical.unknown_class"), false);
                                                     return 0;
                                                 }
+                                                // Any class, not only a root: the rungs on the way to it come with it,
+                                                // free, and nothing else does - the narrow answer to unlockall.
                                                 PlayerMagicState data = player.getData(MagicalAttachments.MAGIC_STATE);
-                                                data.unlockClass(player, classId);
+                                                java.util.List<ResourceLocation> taken = data.grantClass(player, classId);
                                                 data.sync(player);
-                                                player.displayClientMessage(Component.translatable("message.magical.class_unlocked", Component.translatable(definition.nameKey())), false);
-                                                return 1;
+                                                if (taken.isEmpty()) {
+                                                    player.displayClientMessage(Component.literal("Already a ")
+                                                            .append(Component.translatable(definition.nameKey())).append("."), false);
+                                                }
+                                                for (ResourceLocation id : taken) {
+                                                    player.displayClientMessage(Component.translatable("message.magical.class_unlocked",
+                                                            Component.translatable(MagicalClasses.get(id).nameKey())), false);
+                                                }
+                                                return taken.size();
                                             }))))
                             .then(Commands.literal("evolve")
                                     .then(Commands.argument("id", StringArgumentType.word())
