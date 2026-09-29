@@ -90,42 +90,66 @@ public final class ConjuredTerrainService {
         return true;
     }
 
-    /** Restore in reverse order (bottom-up placements come back top-down). */
+    /**
+     * Restore in reverse order (bottom-up placements come back top-down). A position in a chunk that
+     * is not loaded cannot be set, so it stays in the edit and the edit becomes an orphan:
+     * {@link #restoreLoadedOrphans} gives it back when the chunk is here. Only an edit with nothing
+     * left is closed.
+     */
     public static void restore(ServerLevel level, Edit edit) {
-        for (int i = edit.positions.size() - 1; i >= 0; i--) {
-            BlockPos pos = edit.positions.get(i);
-            if (level.isLoaded(pos)) {
-                level.setBlock(pos, edit.originals.get(i), Block.UPDATE_ALL);
-            }
-        }
-        edit.positions.clear();
-        edit.originals.clear();
-        Ledger ledger = ledger(level);
-        ledger.edits.remove(edit.id);
-        ledger.setDirty();
+        restore(level, edit, level::isLoaded);
+    }
+
+    static void restore(ServerLevel level, Edit edit, Predicate<BlockPos> loaded) {
+        giveBack(level, edit, loaded, null);
     }
 
     /**
-     * Restore every position still holding what was placed there ({@code stillOurs}) or nothing at
-     * all, and yield the rest: a player who built over a conjured block keeps what they built. The
-     * edit is closed either way.
+     * Restore every loaded position still holding what was placed there ({@code stillOurs}) or
+     * nothing at all, and yield the rest: a player who built over a conjured block keeps what they
+     * built. A position in a chunk that is not loaded stays in the edit, which becomes an orphan for
+     * {@link #restoreLoadedOrphans} to give back; only an edit with nothing left is closed.
      */
     public static void restoreUnlessBuiltOver(ServerLevel level, Edit edit, Predicate<BlockState> stillOurs) {
+        restoreUnlessBuiltOver(level, edit, level::isLoaded, stillOurs);
+    }
+
+    static void restoreUnlessBuiltOver(ServerLevel level, Edit edit, Predicate<BlockPos> loaded, Predicate<BlockState> stillOurs) {
+        giveBack(level, edit, loaded, stillOurs);
+    }
+
+    /** {@code stillOurs} null gives every loaded position back; otherwise a position built over is yielded. */
+    private static void giveBack(ServerLevel level, Edit edit, Predicate<BlockPos> loaded, Predicate<BlockState> stillOurs) {
+        Ledger ledger = ledger(level);
         for (int i = edit.positions.size() - 1; i >= 0; i--) {
             BlockPos pos = edit.positions.get(i);
-            if (!level.isLoaded(pos)) {
+            if (!loaded.test(pos)) {
                 continue;
             }
-            BlockState now = level.getBlockState(pos);
-            if (now.isAir() || stillOurs.test(now)) {
-                level.setBlock(pos, edit.originals.get(i), Block.UPDATE_ALL);
+            if (stillOurs != null) {
+                BlockState now = level.getBlockState(pos);
+                if (!now.isAir() && !stillOurs.test(now)) {
+                    edit.positions.remove(i);
+                    edit.originals.remove(i);
+                    continue;
+                }
             }
+            level.setBlock(pos, edit.originals.get(i), Block.UPDATE_ALL);
+            edit.positions.remove(i);
+            edit.originals.remove(i);
         }
-        edit.positions.clear();
-        edit.originals.clear();
-        Ledger ledger = ledger(level);
-        ledger.edits.remove(edit.id);
+        if (edit.positions.isEmpty()) {
+            ledger.edits.remove(edit.id);
+            ledger.orphans.remove(edit.id);
+        } else {
+            ledger.orphans.add(edit.id);
+        }
         ledger.setDirty();
+    }
+
+    /** Whether an edit is waiting for its chunks. */
+    static boolean isOrphan(ServerLevel level, UUID id) {
+        return ledger(level).orphans.contains(id);
     }
 
     /** Restore a subset (e.g. one layer) and keep the rest pending. */

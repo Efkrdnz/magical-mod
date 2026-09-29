@@ -17,7 +17,7 @@ public final class ManifestGuard {
 
     @SubscribeEvent
     public static void onDrops(BlockDropsEvent event) {
-        if (MindService.anyLive() && Manifestation.holds(event.getLevel(), event.getPos())) {
+        if (MindService.anyLive() && Manifestation.holds(event.getLevel(), event.getPos(), event.getState())) {
             event.setCanceled(true);
         }
     }
@@ -25,7 +25,7 @@ public final class ManifestGuard {
     @SubscribeEvent
     public static void onDetonate(ExplosionEvent.Detonate event) {
         if (MindService.anyLive() && event.getLevel() instanceof ServerLevel level) {
-            event.getAffectedBlocks().removeIf(pos -> Manifestation.holds(level, pos));
+            event.getAffectedBlocks().removeIf(pos -> Manifestation.holds(level, pos, level.getBlockState(pos)));
         }
     }
 }

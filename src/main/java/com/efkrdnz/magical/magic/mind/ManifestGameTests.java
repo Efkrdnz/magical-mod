@@ -7,6 +7,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -85,6 +86,29 @@ public final class ManifestGameTests {
         helper.runAtTickTime(14, () -> {
             helper.assertTrue(helper.getLevel().getEntitiesOfClass(ItemEntity.class, new AABB(head).inflate(3.0)).isEmpty(),
                     "breaking an agreed-on stone paid out a real one");
+            MindService.endAll(owner);
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 60, batch = "mind_manifest_4")
+    public static void aSandBlockIsNeverMadeRealAndNothingFalls(GameTestHelper helper) {
+        UUID owner = UUID.randomUUID();
+        BlockPos anchor = BlockPos.containing(onFloor(helper, new BlockPos(2, 2, 3))).above(2);
+        Reverie reverie = new Reverie();
+        Lexicon lexicon = MindGameTests.knowing("block:minecraft:sand");
+        reverie.addBlock(new Offset(0, 0, 0), "minecraft:sand", lexicon);
+        LiveScene scene = MindService.unveilAt(helper.getLevel(), owner, reverie, anchor, 0, lexicon);
+        helper.assertTrue(scene != null, "the scene was refused");
+        LivingEntity husk = helper.spawnWithNoFreeWill(EntityType.HUSK, helper.relativeVec(onFloor(helper, new BlockPos(2, 2, 1))));
+        scene.belief().set(husk.getId(), 0, 1.0F);
+        helper.runAtTickTime(20, () -> {
+            helper.assertTrue(scene.consensus(0) >= scene.weight(0), "the sand was never agreed on, so refusing it proves nothing");
+            helper.assertFalse(scene.manifested(0), "an imagined sand block was made real");
+            helper.assertTrue(helper.getLevel().getBlockState(anchor).isAir(), "sand stands where the lie was");
+            AABB around = new AABB(anchor).inflate(4.0);
+            helper.assertTrue(helper.getLevel().getEntitiesOfClass(FallingBlockEntity.class, around).isEmpty(), "a sand block fell");
+            helper.assertTrue(helper.getLevel().getEntitiesOfClass(ItemEntity.class, around).isEmpty(), "sand was dropped");
             MindService.endAll(owner);
             helper.succeed();
         });
