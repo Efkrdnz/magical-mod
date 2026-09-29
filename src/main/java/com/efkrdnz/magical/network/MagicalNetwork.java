@@ -51,6 +51,8 @@ public final class MagicalNetwork {
                         context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToClient(OpenCausalBoardPayload.TYPE, OpenCausalBoardPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> handleClientPayload(payload)))
+                .playToClient(OpenPlaybillPayload.TYPE, OpenPlaybillPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToClient(IllusionScenePayload.TYPE, IllusionScenePayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToClient(IllusionEndPayload.TYPE, IllusionEndPayload.STREAM_CODEC, (payload, context) ->
@@ -348,6 +350,11 @@ public final class MagicalNetwork {
     /** Opens the Grimoire screen on the client: a press on the Grimoire skill, or {@code /magical grimoire}. */
     public static void sendOpenCausalBoard(ServerPlayer player) {
         PacketDistributor.sendToPlayer(player, new OpenCausalBoardPayload());
+    }
+
+    /** Opens the Playbill on the client: {@code /magical mind playbill}. */
+    public static void sendOpenPlaybill(ServerPlayer player) {
+        PacketDistributor.sendToPlayer(player, new OpenPlaybillPayload());
     }
 
     /** The whole board to the server. Re-read and re-validated there before a byte of it lands. */

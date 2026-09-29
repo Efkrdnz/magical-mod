@@ -60,6 +60,10 @@ public final class MindCommands {
                         .then(Commands.argument("slot", IntegerArgumentType.integer(1, MindState.SLOTS))
                                 .executes(c -> run(c, player -> show(player, IntegerArgumentType.getInteger(c, "slot") - 1)))))
                 .then(Commands.literal("belief").executes(c -> run(c, MindCommands::belief)))
+                .then(Commands.literal("playbill").executes(c -> run(c, player -> {
+                    com.efkrdnz.magical.network.MagicalNetwork.sendOpenPlaybill(player);
+                    return 1;
+                })))
                 .then(Commands.literal("end").executes(c -> run(c, player -> {
                     MindService.endAll(player.getUUID());
                     return 1;

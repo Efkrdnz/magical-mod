@@ -59,6 +59,10 @@ public final class ClientPayloadHandlers {
         com.efkrdnz.magical.client.screen.causality.CausalBoardScreen.open();
     }
 
+    public static void handle(com.efkrdnz.magical.network.OpenPlaybillPayload payload) {
+        com.efkrdnz.magical.client.screen.mind.PlaybillScreen.open();
+    }
+
     public static void handle(CounterPromptPayload payload) {
         ClientCounterPrompt.receive(payload);
     }

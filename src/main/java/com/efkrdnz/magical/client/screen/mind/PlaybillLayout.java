@@ -1,0 +1,108 @@
+package com.efkrdnz.magical.client.screen.mind;
+
+import com.efkrdnz.magical.client.screen.CodexLayout.Rect;
+
+/** The Playbill's geometry: three tabs over three columns, all of it a function of the gui. */
+public record PlaybillLayout(int guiWidth, int guiHeight) {
+    public static final int MARGIN = 16;
+    public static final int GAP = 10;
+    public static final int LINE = 12;
+    public static final int TOP = 14;
+    public static final int MAX_TAB = 72;
+    public static final int BUTTON = 44;
+
+    public int columnWidth() {
+        return (guiWidth - 2 * MARGIN - 2 * GAP) / 3;
+    }
+
+    private int column(int i) {
+        return MARGIN + i * (columnWidth() + GAP);
+    }
+
+    public Rect tab(int i) {
+        int width = Math.min(MAX_TAB, columnWidth());
+        return new Rect("tab" + i, MARGIN + i * (width + GAP), TOP, width, LINE);
+    }
+
+    public int contentTop() {
+        return TOP + 2 * LINE;
+    }
+
+    private int floor() {
+        return guiHeight - MARGIN - LINE - 4;
+    }
+
+    public int rows() {
+        return (floor() - contentTop()) / LINE;
+    }
+
+    public Rect row(int i) {
+        return new Rect("row" + i, column(0), contentTop() + i * LINE, columnWidth(), LINE);
+    }
+
+    /** Senses start one line down: the line above is their heading. */
+    public Rect sense(int i) {
+        return new Rect("sense" + i, column(1), contentTop() + (i + 1) * LINE, columnWidth(), LINE);
+    }
+
+    private int halfWidth() {
+        return (columnWidth() - GAP) / 2;
+    }
+
+    public Rect stance(int i) {
+        return new Rect("stance" + i, column(1), contentTop() + (i + 6) * LINE, halfWidth(), LINE);
+    }
+
+    public Rect reaction(int i) {
+        return new Rect("reaction" + i, column(1) + halfWidth() + GAP, contentTop() + (i + 6) * LINE, halfWidth(), LINE);
+    }
+
+    public int forecastX() {
+        return column(2);
+    }
+
+    public int forecastWidth() {
+        return columnWidth();
+    }
+
+    public Rect done() {
+        return new Rect("done", guiWidth - MARGIN - BUTTON, guiHeight - MARGIN - LINE, BUTTON, LINE);
+    }
+
+    public Rect save() {
+        return new Rect("save", guiWidth - MARGIN - 2 * BUTTON - GAP, guiHeight - MARGIN - LINE, BUTTON, LINE);
+    }
+
+    public int tabAt(double x, double y) {
+        return hit(x, y, 3, this::tab);
+    }
+
+    public int rowAt(double x, double y) {
+        return hit(x, y, rows(), this::row);
+    }
+
+    public int senseAt(double x, double y) {
+        return hit(x, y, 3, this::sense);
+    }
+
+    public int stanceAt(double x, double y) {
+        return hit(x, y, 4, this::stance);
+    }
+
+    public int reactionAt(double x, double y) {
+        return hit(x, y, 5, this::reaction);
+    }
+
+    public static boolean inside(Rect rect, double x, double y) {
+        return x >= rect.x() && x < rect.right() && y >= rect.y() && y < rect.bottom();
+    }
+
+    private static int hit(double x, double y, int count, java.util.function.IntFunction<Rect> rect) {
+        for (int i = 0; i < count; i++) {
+            if (inside(rect.apply(i), x, y)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+}

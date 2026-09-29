@@ -270,6 +270,21 @@ public final class DaydreamMode {
     }
 
     /**
+     * While drawing, the inventory key opens the Playbill instead of the inventory. It has to run
+     * before vanilla's handleKeybinds, which is what would otherwise open the inventory.
+     */
+    @SubscribeEvent
+    public static void onClientTickPre(ClientTickEvent.Pre event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (active && minecraft.screen == null && minecraft.options.keyInventory.consumeClick()) {
+            while (minecraft.options.keyInventory.consumeClick()) {
+                // one press, one Playbill
+            }
+            com.efkrdnz.magical.client.screen.mind.PlaybillScreen.open();
+        }
+    }
+
+    /**
      * Drawing ends, saving what was drawn, the moment it stops being the wielder's doing: Daydream
      * left the loadout, they died or crossed into another level, or they are so far from the
      * anchor that the draft would be drawn round somewhere they are not. A screen opening is not
