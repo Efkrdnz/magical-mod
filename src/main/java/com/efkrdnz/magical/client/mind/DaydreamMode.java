@@ -2,7 +2,9 @@ package com.efkrdnz.magical.client.mind;
 
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.client.ClientMagicState;
+import com.efkrdnz.magical.client.BloodShapeInput;
 import com.efkrdnz.magical.client.MagicWheelOverlay;
+import com.efkrdnz.magical.client.SpaceManipulationOverlay;
 import com.efkrdnz.magical.magic.AuthorityContent;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.mind.Belt;
@@ -100,6 +102,7 @@ public final class DaydreamMode {
         corner = null;
         dirty = false;
         active = true;
+        BeltHotbarOverlay.selectionChanged();
     }
 
     public static void finish(boolean save) {
@@ -375,7 +378,8 @@ public final class DaydreamMode {
     @SubscribeEvent
     public static void onClientTickPre(ClientTickEvent.Pre event) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (active && minecraft.screen == null) {
+        // The Space selector and an armed Blood shape claim the number row in MagicalHotbarGuard.
+        if (BeltHotbarOverlay.showing(minecraft) && !SpaceManipulationOverlay.active() && !BloodShapeInput.armed()) {
             for (int i = 0; i < Belt.SIZE; i++) {
                 if (minecraft.options.keyHotbarSlots[i].consumeClick()) {
                     while (minecraft.options.keyHotbarSlots[i].consumeClick()) {
