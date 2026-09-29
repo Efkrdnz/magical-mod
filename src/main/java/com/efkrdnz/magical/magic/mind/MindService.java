@@ -32,6 +32,7 @@ import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -51,6 +52,8 @@ public final class MindService {
     public static final double HEARING_RANGE = 16.0;
     public static final double PLAYER_VIEW_CONE = 0.5;
     private static final int SCEPTICISM_PRUNE_TICKS = 1200;
+    /** How far from an element a projectile is watched for crossing it. */
+    private static final double PROJECTILE_WATCH = 4.0;
 
     private static final Map<UUID, List<LiveScene>> SCENES = new LinkedHashMap<>();
     private static final Scepticism SCEPTICISM = new Scepticism();
@@ -230,7 +233,8 @@ public final class MindService {
         LiveScene.Element element = scene.elements().get(figment.element());
         long now = level.getGameTime();
         expose(scene, attacker, element, Contradiction.TOUCH, now);
-        witnessed(level, scene, viewers(level, scene), attacker, element, now);
+        Sight sight = new Sight(level, scene);
+        witnessed(sight, sight.viewers(), attacker, element, now);
     }
 
     /** Whether this viewer has seen through this figment: the element is shattered for them. */
@@ -249,23 +253,12 @@ public final class MindService {
         return element.box();
     }
 
-    /** Everything a scene occupies now: its birthplace bounds and wherever its figments have walked to. */
-    private static AABB reach(ServerLevel level, LiveScene scene) {
-        AABB all = scene.bounds();
-        for (LiveScene.Element element : scene.elements()) {
-            if (element.kind() == LiveScene.Kind.FIGMENT) {
-                all = all.minmax(liveBox(level, scene, element));
-            }
-        }
-        return all;
-    }
-
     /** Everyone else in view of an actor's exposure sees through the element too. */
-    private static void witnessed(ServerLevel level, LiveScene scene, List<LivingEntity> viewers, LivingEntity actor,
+    private static void witnessed(Sight sight, List<LivingEntity> viewers, LivingEntity actor,
                                   LiveScene.Element element, long now) {
         for (LivingEntity witness : viewers) {
-            if (witness != actor && perceives(level, scene, witness, element, Susceptibility.blind(typeId(witness)))) {
-                contradict(scene, witness, element, Contradiction.WITNESS, now);
+            if (witness != actor && sight.sees(witness, element)) {
+                contradict(sight.scene, witness, element, Contradiction.WITNESS, now);
             }
         }
     }
@@ -337,13 +330,14 @@ public final class MindService {
         if ((now - scene.bornAt()) % LiveScene.REREAD_TICKS == 0) {
             scene.reread(new LevelMindWorld(level));
         }
-        List<LivingEntity> viewers = viewers(level, scene);
-        touches(level, scene, viewers, now);
-        projectiles(level, scene, viewers, now);
+        Sight sight = new Sight(level, scene);
+        List<LivingEntity> viewers = sight.viewers();
+        touches(sight, viewers, now);
+        projectiles(sight, viewers, now);
         Set<Integer> present = new HashSet<>();
         for (LivingEntity viewer : viewers) {
             present.add(viewer.getId());
-            perceiveAll(level, scene, viewer, now);
+            perceiveAll(sight, viewer, now);
             if (viewer instanceof Mob mob && mob.getTarget() instanceof com.efkrdnz.magical.entity.mind.FigmentEntity figment
                     && figment.sceneId() == scene.id() && !figment.isManifested()
                     && scene.belief().get(mob.getId(), figment.element()) < Belief.CONVINCED) {
@@ -368,24 +362,97 @@ public final class MindService {
         MindSync.tick(level, scene);
     }
 
-    static List<LivingEntity> viewers(ServerLevel level, LiveScene scene) {
-        return level.getEntitiesOfClass(LivingEntity.class, reach(level, scene).inflate(VIEW_RANGE),
-                entity -> entity.isAlive() && !entity.isSpectator() && !entity.getUUID().equals(scene.owner())
-                        && !(entity instanceof com.efkrdnz.magical.entity.mind.FigmentEntity)
-                        && (entity instanceof Mob || entity instanceof Player));
+    /**
+     * One tick of looking at one scene. A tick asks the same questions over and over - where each
+     * element stands now (a figment has to be found by id), what kind of eyes a viewer has (a registry
+     * lookup), and above all whether a viewer sees an element, which is a ray through the world - once
+     * while perceiving, and again for every witness of every touch and every viewer of every projectile.
+     * Nothing in the world moves inside a tick, so each is answered once and kept until the tick ends:
+     * the answer is the one asking again would have got. That is why this changes what a tick costs and
+     * never what anybody believes.
+     */
+    private static final class Sight {
+        private static final byte UNASKED = 0;
+        private static final byte UNSEEN = 1;
+        private static final byte SEEN = 2;
+
+        final ServerLevel level;
+        final LiveScene scene;
+        /** Each element's box where it stands this tick, by element index. */
+        private final AABB[] boxes;
+        /** Everything the scene occupies this tick: its birthplace bounds and wherever its figments walked. */
+        private final AABB reach;
+        private final Map<Integer, Eyes> eyes = new HashMap<>();
+
+        Sight(ServerLevel level, LiveScene scene) {
+            this.level = level;
+            this.scene = scene;
+            List<LiveScene.Element> elements = scene.elements();
+            this.boxes = new AABB[elements.size()];
+            AABB all = scene.bounds();
+            for (LiveScene.Element element : elements) {
+                AABB box = liveBox(level, scene, element);
+                boxes[element.index()] = box;
+                if (element.kind() == LiveScene.Kind.FIGMENT) {
+                    all = all.minmax(box);
+                }
+            }
+            this.reach = all;
+        }
+
+        AABB box(LiveScene.Element element) {
+            return boxes[element.index()];
+        }
+
+        List<LivingEntity> viewers() {
+            return level.getEntitiesOfClass(LivingEntity.class, reach.inflate(VIEW_RANGE),
+                    entity -> entity.isAlive() && !entity.isSpectator() && !entity.getUUID().equals(scene.owner())
+                            && !(entity instanceof com.efkrdnz.magical.entity.mind.FigmentEntity)
+                            && (entity instanceof Mob || entity instanceof Player));
+        }
+
+        /** Every projectile near enough to any element to cross it, in one query for the whole scene. */
+        List<Projectile> projectiles() {
+            return level.getEntitiesOfClass(Projectile.class, reach.inflate(PROJECTILE_WATCH));
+        }
+
+        Eyes eyes(LivingEntity viewer) {
+            return eyes.computeIfAbsent(viewer.getId(), id -> new Eyes(typeId(viewer), boxes.length));
+        }
+
+        boolean sees(LivingEntity viewer, LiveScene.Element element) {
+            Eyes of = eyes(viewer);
+            int index = element.index();
+            if (of.seen[index] == UNASKED) {
+                of.seen[index] = perceives(level, viewer, boxes[index], element.senses(), of.blind) ? SEEN : UNSEEN;
+            }
+            return of.seen[index] == SEEN;
+        }
     }
 
-    private static void perceiveAll(ServerLevel level, LiveScene scene, LivingEntity viewer, long now) {
-        String type = typeId(viewer);
-        float susceptibility = Susceptibility.of(type);
-        boolean blind = Susceptibility.blind(type);
+    /** What a viewer is, asked once a tick, and what it has been found to see this tick. */
+    private static final class Eyes {
+        final float susceptibility;
+        final boolean blind;
+        final byte[] seen;
+
+        Eyes(String type, int elements) {
+            this.susceptibility = Susceptibility.of(type);
+            this.blind = Susceptibility.blind(type);
+            this.seen = new byte[elements];
+        }
+    }
+
+    private static void perceiveAll(Sight sight, LivingEntity viewer, long now) {
+        LiveScene scene = sight.scene;
+        float susceptibility = sight.eyes(viewer).susceptibility;
         int id = viewer.getId();
         for (LiveScene.Element element : scene.elements()) {
             int index = element.index();
             if (scene.slain(index) || scene.belief().shattered(id, index) || scene.inside.contains(LiveScene.key(id, index))) {
                 continue;
             }
-            if (perceives(level, scene, viewer, element, blind)) {
+            if (sight.sees(viewer, element)) {
                 float novelty = SCEPTICISM.novelty(viewer.getStringUUID(), element.impressions(), now);
                 scene.belief().gain(id, index, scene.plausibility(index), Sense.multiplier(element.senses()),
                         susceptibility, novelty);
@@ -395,13 +462,13 @@ public final class MindService {
         }
     }
 
-    static boolean perceives(ServerLevel level, LiveScene scene, LivingEntity viewer, LiveScene.Element element, boolean blind) {
+    /** Whether a viewer perceives an element whose box is {@code box} this tick. */
+    static boolean perceives(ServerLevel level, LivingEntity viewer, AABB box, Set<Sense> senses, boolean blind) {
         Vec3 eye = viewer.getEyePosition();
-        AABB box = liveBox(level, scene, element);
         Vec3 centre = box.getCenter();
         double distance = eye.distanceTo(centre);
         if (blind) {
-            return element.senses().contains(Sense.SOUND) && distance <= HEARING_RANGE;
+            return senses.contains(Sense.SOUND) && distance <= HEARING_RANGE;
         }
         if (distance > VIEW_RANGE) {
             return false;
@@ -414,7 +481,8 @@ public final class MindService {
         return hit.getType() == HitResult.Type.MISS || box.inflate(0.5).contains(hit.getLocation());
     }
 
-    private static void touches(ServerLevel level, LiveScene scene, List<LivingEntity> viewers, long now) {
+    private static void touches(Sight sight, List<LivingEntity> viewers, long now) {
+        LiveScene scene = sight.scene;
         for (LivingEntity viewer : viewers) {
             AABB body = viewer.getBoundingBox();
             for (LiveScene.Element element : scene.elements()) {
@@ -435,18 +503,32 @@ public final class MindService {
                     continue;
                 }
                 expose(scene, viewer, element, Contradiction.TOUCH, now);
-                witnessed(level, scene, viewers, viewer, element, now);
+                witnessed(sight, viewers, viewer, element, now);
             }
         }
     }
 
-    private static void projectiles(ServerLevel level, LiveScene scene, List<LivingEntity> viewers, long now) {
+    /**
+     * A projectile that crosses an element is evidence to everyone who sees it cross. One query covers
+     * the whole scene; each element then takes only the projectiles whose box meets its own widened by
+     * {@link #PROJECTILE_WATCH}, which is exactly the set a query of that box would have returned.
+     */
+    private static void projectiles(Sight sight, List<LivingEntity> viewers, long now) {
+        List<Projectile> near = sight.projectiles();
+        if (near.isEmpty()) {
+            return;
+        }
+        LiveScene scene = sight.scene;
         for (LiveScene.Element element : scene.elements()) {
             if (scene.manifested(element.index()) || scene.slain(element.index())) {
                 continue;
             }
-            AABB box = liveBox(level, scene, element);
-            for (Projectile projectile : level.getEntitiesOfClass(Projectile.class, box.inflate(4.0))) {
+            AABB box = sight.box(element);
+            AABB watch = box.inflate(PROJECTILE_WATCH);
+            for (Projectile projectile : near) {
+                if (!projectile.getBoundingBox().intersects(watch)) {
+                    continue;
+                }
                 AABB path = new AABB(projectile.xo, projectile.yo, projectile.zo,
                         projectile.getX(), projectile.getY(), projectile.getZ()).inflate(0.1);
                 boolean crosses = element.kind() == LiveScene.Kind.FIGMENT ? path.intersects(box) : crosses(path, element);
@@ -454,7 +536,7 @@ public final class MindService {
                     continue;
                 }
                 for (LivingEntity viewer : viewers) {
-                    if (perceives(level, scene, viewer, element, Susceptibility.blind(typeId(viewer)))) {
+                    if (sight.sees(viewer, element)) {
                         contradict(scene, viewer, element, Contradiction.PROJECTILE, now);
                     }
                 }

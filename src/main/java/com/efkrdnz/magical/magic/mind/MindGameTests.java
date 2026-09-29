@@ -8,6 +8,8 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.Arrow;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -106,6 +108,40 @@ public final class MindGameTests {
         helper.runAtTickTime(3, () -> {
             helper.assertTrue(scene.belief().shattered(stander.getId(), 0),
                     "a body that stood inside a wall it never believed can still come to believe it");
+            MindService.endAll(owner);
+            helper.succeed();
+        });
+    }
+
+    /**
+     * One projectile query serves the whole scene, so each element has to take only the shots that
+     * cross it: an arrow through one wall is evidence against that wall and says nothing about the
+     * stone two blocks beside it, though both are in plain view of the same husk.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "mind_6")
+    public static void anArrowThroughOneLieSaysNothingOfTheNext(GameTestHelper helper) {
+        LivingEntity viewer = helper.spawnWithNoFreeWill(EntityType.HUSK, helper.relativeVec(onFloor(helper, new BlockPos(2, 2, 4))));
+        UUID owner = UUID.randomUUID();
+        BlockPos anchor = BlockPos.containing(onFloor(helper, new BlockPos(1, 2, 1)));
+        Reverie reverie = column();
+        reverie.addBlock(new Offset(2, 0, 0), STONE, knowing("block:" + STONE));
+        LiveScene scene = unveil(helper, owner, reverie, anchor);
+        int struck = scene.elementAt(anchor);
+        int spared = scene.elementAt(anchor.east(2));
+        helper.assertTrue(struck >= 0 && spared >= 0 && struck != spared, "the two stones are not two elements");
+        scene.belief().set(viewer.getId(), struck, 0.6F);
+        scene.belief().set(viewer.getId(), spared, 0.6F);
+        Arrow arrow = helper.spawn(EntityType.ARROW,
+                helper.relativeVec(new Vec3(anchor.getX() + 0.5, anchor.getY() + 0.5, anchor.getZ() - 0.8)));
+        arrow.setNoGravity(true);
+        arrow.setDeltaMovement(0.0, 0.0, 0.5);
+        // The arrow crosses the wall on its second or third tick. By the sixth the struck wall has lost
+        // 0.35 and won back at most four ticks of gain; the stone beside it has only gained or decayed.
+        helper.runAtTickTime(6, () -> {
+            float hit = scene.belief().get(viewer.getId(), struck);
+            float beside = scene.belief().get(viewer.getId(), spared);
+            helper.assertTrue(hit < 0.4F, "the husk watched an arrow pass through a wall and believes it " + hit);
+            helper.assertTrue(beside > 0.58F, "an arrow through one wall shook belief in the stone beside it: " + beside);
             MindService.endAll(owner);
             helper.succeed();
         });
