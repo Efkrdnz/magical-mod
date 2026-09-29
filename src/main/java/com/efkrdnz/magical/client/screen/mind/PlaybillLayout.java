@@ -13,12 +13,12 @@ public record PlaybillLayout(int guiWidth, int guiHeight) {
     /** Gap between the Stance and Reaction columns, which share the middle column. */
     public static final int INNER_GAP = 4;
     /**
-     * The widest Stance and Reaction words in font pixels, six per character less the spacing
-     * after the last: "Wander"/"Follow" and "Approach". Deliberately a little over the real
-     * glyphs, so a cell that holds these holds the words.
+     * The widest Stance and Reaction words in font pixels, six per character: "Wander"/"Follow"
+     * and "Approach". That is the width Font.plainSubstrByWidth counts, trailing advance included,
+     * so a cell narrower than this cuts the last letter off.
      */
-    public static final int WIDEST_STANCE_LABEL = 6 * 6 - 1;
-    public static final int WIDEST_REACTION_LABEL = 8 * 6 - 1;
+    public static final int WIDEST_STANCE_LABEL = 6 * 6;
+    public static final int WIDEST_REACTION_LABEL = 8 * 6;
 
     public int columnWidth() {
         return (guiWidth - 2 * MARGIN - 2 * GAP) / 3;

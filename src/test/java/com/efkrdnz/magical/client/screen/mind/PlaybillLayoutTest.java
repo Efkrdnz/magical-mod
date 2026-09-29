@@ -87,7 +87,7 @@ class PlaybillLayoutTest {
             int found = 0;
             while (matcher.find()) {
                 found++;
-                assertTrue(matcher.group(1).length() * 6 - 1 <= Integer.parseInt(group[1]),
+                assertTrue(matcher.group(1).length() * 6 <= Integer.parseInt(group[1]),
                         "'" + matcher.group(1) + "' is wider than the " + group[0] + " constant");
             }
             assertTrue(found > 0, "no " + group[0] + " words found");
