@@ -3,6 +3,7 @@ package com.efkrdnz.magical.magic.mind;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.registry.MagicalAttachments;
+import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -14,6 +15,7 @@ import net.minecraft.commands.arguments.ResourceLocationArgument;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MobCategory;
 
 import java.util.List;
@@ -67,7 +69,12 @@ public final class MindCommands {
                 .then(Commands.literal("end").executes(c -> run(c, player -> {
                     MindService.endAll(player.getUUID());
                     return 1;
-                })));
+                })))
+                .then(Commands.literal("consensus").executes(c -> run(c, MindCommands::consensus)))
+                .then(Commands.literal("convince")
+                        .then(Commands.argument("belief", FloatArgumentType.floatArg(0.0F, 1.0F))
+                                .executes(c -> run(c, player -> convince(player, FloatArgumentType.getFloat(c, "belief"))))))
+                .then(Commands.literal("insist").executes(c -> run(c, player -> Insist.tick(player, state(player)) ? 1 : 0)));
     }
 
     private static com.mojang.brigadier.builder.ArgumentBuilder<CommandSourceStack, ?> learn(String literal, Impression.Kind kind) {
@@ -150,5 +157,34 @@ public final class MindCommands {
             }
         }
         return scenes.size();
+    }
+
+    /** Every element of the caller's scenes: consensus against weight, and whether it is real. */
+    private static int consensus(ServerPlayer player) {
+        List<LiveScene> scenes = MindService.scenesOf(player.getUUID());
+        for (LiveScene scene : scenes) {
+            for (LiveScene.Element element : scene.elements()) {
+                int index = element.index();
+                String state = scene.slain(index) ? "slain" : scene.manifested(index) ? "REAL" : "illusion";
+                player.sendSystemMessage(Component.literal(String.format(java.util.Locale.ROOT,
+                        "scene %d element %d (%s): %.2f / %.2f %s", scene.id(), index, element.kind(),
+                        scene.consensus(index), scene.weight(index), state)));
+            }
+        }
+        return scenes.size();
+    }
+
+    /** Sets every current viewer's belief in every element of the caller's scenes; for captures. */
+    private static int convince(ServerPlayer player, float belief) {
+        int set = 0;
+        for (LiveScene scene : MindService.scenesOf(player.getUUID())) {
+            for (LivingEntity viewer : new MindService.Sight(player.serverLevel(), scene).viewers()) {
+                for (LiveScene.Element element : scene.elements()) {
+                    scene.belief().set(viewer.getId(), element.index(), belief);
+                    set++;
+                }
+            }
+        }
+        return set;
     }
 }
