@@ -7,13 +7,9 @@ import com.efkrdnz.magical.magic.MagicPassiveContent;
 import com.efkrdnz.magical.magic.MagicSkillDefinition;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.registry.MagicalEntities;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -28,6 +24,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
@@ -35,6 +32,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.neoforged.neoforge.common.damagesource.DamageContainer;
 
 /**
  * A target that never dies and reports exactly what you did to it.
@@ -50,8 +48,8 @@ import net.minecraft.world.level.Level;
 public final class TrainingDummyEntity extends Mob {
     /** Health is a formality; it exists only so vanilla damage maths has something to subtract from. */
     private static final float POOL = 1_000_000F;
-    /** How long a rolling window is, and how long a silence has to be before a new run starts. */
-    public static final int WINDOW_TICKS = 100, IDLE_RESET_TICKS = 100;
+    /** The defence a dummy can be given, so a reduction has something to reduce. Steps of two. */
+    public static final int MAX_ARMOR = 30, MAX_TOUGHNESS = 20, DEFENCE_STEP = 2;
     /** Nothing under this, or a one-tick delay would spawn a skill per tick and strangle the server. */
     public static final int MIN_DELAY = 5, MAX_DELAY = 200, DEFAULT_DELAY = 40;
     /**
@@ -76,25 +74,21 @@ public final class TrainingDummyEntity extends Mob {
     /**
      * The whole configuration, so the screen can draw it without a payload of its own.
      *
-     * <p>Format is {@code delay;parry;qte;skillPaths;passivePaths}, the two lists comma-separated
+     * <p>Format is {@code delay;parry;qte;skillPaths;passivePaths;armor;toughness}, the two lists comma-separated
      * and carrying paths rather than full ids - everything here is registered under this mod's
      * namespace, so the namespace would be the same forty-odd wasted bytes on every entry.
      */
     private static final EntityDataAccessor<String> CONFIG =
             SynchedEntityData.defineId(TrainingDummyEntity.class, EntityDataSerializers.STRING);
 
-    /** One landed hit: when, how much actually came off, and what to credit it to. */
-    private record Hit(int tick, float amount, String source) {}
-
-    private final Deque<Hit> window = new ArrayDeque<>();
-    private final Map<String, Float> bySource = new LinkedHashMap<>();
+    private final DummyMeter meter = new DummyMeter();
     private final List<ResourceLocation> skills = new ArrayList<>();
     private final Set<ResourceLocation> passives = new LinkedHashSet<>();
     private PlayerMagicState magic = new PlayerMagicState();
 
-    private float total, peak;
-    private int hits, firstHit = -1, lastHit = -1, nextSkill, castAt;
+    private int nextSkill, castAt;
     private int delayTicks = DEFAULT_DELAY;
+    private int armor, toughness;
     private boolean parryIncoming, alwaysQte;
     /** Client side only: the CONFIG string the mirrored fields were last built from. */
     private String parsedConfig = "";
@@ -110,12 +104,13 @@ public final class TrainingDummyEntity extends Mob {
     }
 
     public static AttributeSupplier.Builder createAttributes() {
-        // No armour on purpose: it would quietly eat a slice of every hit, and a meter that reports
-        // less than it was given is worse than no meter at all.
+        // No armour until it is asked for: the meter reports both what was dealt and what was taken,
+        // and the armour and toughness steppers in its screen are how the gap between them is made.
         return Mob.createMobAttributes()
                 .add(Attributes.MAX_HEALTH, POOL)
                 .add(Attributes.MOVEMENT_SPEED, 0)
                 .add(Attributes.ARMOR, 0)
+                .add(Attributes.ARMOR_TOUGHNESS, 0)
                 .add(Attributes.KNOCKBACK_RESISTANCE, 1.0D)
                 .add(Attributes.FOLLOW_RANGE, 64);
     }
@@ -143,43 +138,55 @@ public final class TrainingDummyEntity extends Mob {
      *
      * <p>Invulnerability frames are cleared on both sides of the call. They exist to stop a mob
      * being chain-killed, and a dummy cannot be killed - what they would actually do here is drop
-     * roughly half the hits of any fast attack and report a number that is simply wrong.
-     *
-     * <p>The amount recorded is the health that actually came off, not the amount offered, so
-     * absorption, resistance and any reduction along the way are already accounted for.
+     * roughly half the hits of any fast attack and report a number that is simply wrong. The hit
+     * itself is read in {@link #actuallyHurt}, where the damage container still holds it.
      */
     @Override public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
+        // /kill and the void are removal, not a hit: healed back to full, a dummy used to shrug
+        // both off, so one summoned by a command could never be got rid of by one either, and the
+        // meter printed a hit of 3.4e38.
+        if (source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+            discard();
+            return true;
+        }
         if (parryIncoming) {
             parry(level, source);
             return false;
         }
         invulnerableTime = 0;
-        float before = getHealth();
         boolean taken = super.hurtServer(level, source, amount);
-        float applied = Math.max(0, before - getHealth());
         setHealth(getMaxHealth());
         invulnerableTime = 0;
-        if (taken && applied > 0) record(applied, label(source));
         return taken;
     }
 
-    private void record(float applied, String source) {
-        int now = tickCount;
-        // A long silence ends the run. Resetting when the hits stop would wipe the number just as
-        // you look at it, so the reset happens when the next one lands instead.
-        if (lastHit >= 0 && now - lastHit > IDLE_RESET_TICKS) reset();
-        if (firstHit < 0) firstHit = now;
-        lastHit = now;
-        total += applied;
-        hits++;
-        peak = Math.max(peak, applied);
-        window.addLast(new Hit(now, applied, source));
-        bySource.merge(source, applied, Float::sum);
+    /**
+     * Reads the hit off NeoForge's damage container once vanilla is done with it: what was handed to
+     * {@code hurt} before anything took a share, what came off, and what armour, enchantments,
+     * effects and absorption each removed. A hit cut to nothing is still a hit and is recorded.
+     */
+    @Override protected void actuallyHurt(ServerLevel level, DamageSource source, float amount) {
+        super.actuallyHurt(level, source, amount);
+        if (damageContainers.isEmpty()) {
+            return;
+        }
+        DamageContainer container = damageContainers.peek();
+        meter.record(new DummyMeter.Hit(tickCount, container.getOriginalDamage(),
+                Math.max(0F, container.getNewDamage()),
+                container.getReduction(DamageContainer.Reduction.ARMOR),
+                container.getReduction(DamageContainer.Reduction.ENCHANTMENTS),
+                container.getReduction(DamageContainer.Reduction.MOB_EFFECTS),
+                container.getReduction(DamageContainer.Reduction.ABSORPTION),
+                label(source)));
     }
 
     public void reset() {
-        window.clear(); bySource.clear();
-        total = 0; peak = 0; hits = 0; firstHit = -1; lastHit = -1;
+        meter.reset();
+    }
+
+    /** The meter's lines, as the renderer prints them under the title. */
+    public java.util.List<String> meterLines() {
+        return meter.lines(tickCount);
     }
 
     /**
@@ -217,60 +224,8 @@ public final class TrainingDummyEntity extends Mob {
         return out.toString();
     }
 
-    /**
-     * The rolling figure: the last {@link #WINDOW_TICKS} of damage, per second.
-     *
-     * <p>Divided by elapsed time, not by the gap between the hits that happen to still be in the
-     * window. Dividing by the gap makes two quick hits at the start of a run read as an enormous
-     * rate, because the denominator is the distance between them rather than the time they took.
-     */
-    private float windowDps() {
-        while (!window.isEmpty() && tickCount - window.peekFirst().tick() > WINDOW_TICKS) window.removeFirst();
-        if (window.isEmpty() || firstHit < 0) return 0;
-        float sum = 0;
-        for (Hit hit : window) sum += hit.amount();
-        int span = Math.max(1, Math.min(WINDOW_TICKS, tickCount - firstHit + 1));
-        return sum * 20F / span;
-    }
-
-    /** Ticks from the first landed hit to the last; zero until a second hit lands. */
-    private int runSpan() {
-        return firstHit < 0 ? 0 : lastHit - firstHit;
-    }
-
-    /**
-     * The whole run: first hit to last, which is the number people actually compare.
-     *
-     * <p>Undefined until the run has length. One hit is a number, not a rate, and reporting it as
-     * {@code damage x 20} was the meter's worst lie - a single 500 hit read as "DPS 10000".
-     */
-    private float runDps() {
-        int span = runSpan();
-        return span <= 0 ? 0 : total * 20F / span;
-    }
-
     private void publish() {
-        if (hits == 0) {
-            entityData.set(READOUT, "");
-            return;
-        }
-        StringBuilder out = new StringBuilder();
-        int span = runSpan();
-        out.append(span <= 0 ? "DPS  -" : String.format("DPS %.1f", runDps()));
-        out.append('\n').append(String.format("last 5s  %.1f", windowDps()));
-        out.append('\n').append(String.format("total  %s  over %.1fs", number(total), span / 20F));
-        out.append('\n').append(String.format("hits %d   avg %s   peak %s",
-                hits, number(total / hits), number(peak)));
-        bySource.entrySet().stream()
-                .sorted(Map.Entry.<String, Float>comparingByValue().reversed())
-                .limit(4)
-                .forEach(e -> out.append('\n').append(String.format("  %s  %s (%.0f%%)",
-                        e.getKey(), number(e.getValue()), e.getValue() * 100F / Math.max(1e-4F, total))));
-        entityData.set(READOUT, out.toString());
-    }
-
-    private static String number(float value) {
-        return value >= 10_000 ? String.format("%.1fk", value / 1000F) : String.format("%.1f", value);
+        entityData.set(READOUT, String.join("\n", meter.lines(tickCount)));
     }
 
     // ------------------------------------------------------------------ the caster
@@ -370,6 +325,8 @@ public final class TrainingDummyEntity extends Mob {
     public int delayTicks() { return delayTicks; }
     public boolean parryIncoming() { return parryIncoming; }
     public boolean alwaysQte() { return alwaysQte; }
+    public int armor() { return armor; }
+    public int toughness() { return toughness; }
 
     public void toggleSkill(ResourceLocation id) {
         if (!skills.remove(id) && MagicContent.get(id) != null) skills.add(id);
@@ -386,6 +343,27 @@ public final class TrainingDummyEntity extends Mob {
     public void setParryIncoming(boolean value) { parryIncoming = value; publishConfig(); }
     public void setAlwaysQte(boolean value) { alwaysQte = value; publishConfig(); }
 
+    /** Armour points, 0 to {@link #MAX_ARMOR}: vanilla's own reduction, on its own attribute. */
+    public void setArmor(int value) {
+        armor = Math.clamp(value, 0, MAX_ARMOR);
+        applyDefence();
+        publishConfig();
+    }
+
+    /** Armour toughness, 0 to {@link #MAX_TOUGHNESS}: what keeps armour working against big hits. */
+    public void setToughness(int value) {
+        toughness = Math.clamp(value, 0, MAX_TOUGHNESS);
+        applyDefence();
+        publishConfig();
+    }
+
+    private void applyDefence() {
+        var armorAttribute = getAttribute(Attributes.ARMOR);
+        if (armorAttribute != null) armorAttribute.setBaseValue(armor);
+        var toughnessAttribute = getAttribute(Attributes.ARMOR_TOUGHNESS);
+        if (toughnessAttribute != null) toughnessAttribute.setBaseValue(toughness);
+    }
+
     // ------------------------------------------------------------------ configuration sync
 
     /** Server side: fold the configuration into the one synched string the screen reads. */
@@ -397,6 +375,7 @@ public final class TrainingDummyEntity extends Mob {
         join(out, skills);
         out.append(';');
         join(out, passives);
+        out.append(';').append(armor).append(';').append(toughness);
         entityData.set(CONFIG, out.toString());
     }
 
@@ -429,6 +408,8 @@ public final class TrainingDummyEntity extends Mob {
         alwaysQte = "1".equals(parts[2]);
         split(parts[3], skills::add);
         split(parts[4], passives::add);
+        armor = parts.length > 5 ? Math.clamp(parseInt(parts[5], 0), 0, MAX_ARMOR) : 0;
+        toughness = parts.length > 6 ? Math.clamp(parseInt(parts[6], 0), 0, MAX_TOUGHNESS) : 0;
     }
 
     private static void split(String csv, java.util.function.Consumer<ResourceLocation> out) {
@@ -475,6 +456,8 @@ public final class TrainingDummyEntity extends Mob {
         tag.putInt("DelayTicks", delayTicks);
         tag.putBoolean("ParryIncoming", parryIncoming);
         tag.putBoolean("AlwaysQte", alwaysQte);
+        tag.putInt("Armor", armor);
+        tag.putInt("Toughness", toughness);
     }
 
     @Override public void readAdditionalSaveData(CompoundTag tag) {
@@ -494,6 +477,9 @@ public final class TrainingDummyEntity extends Mob {
                 : DEFAULT_DELAY;
         parryIncoming = tag.getBoolean("ParryIncoming");
         alwaysQte = tag.getBoolean("AlwaysQte");
+        armor = Math.clamp(tag.getInt("Armor"), 0, MAX_ARMOR);
+        toughness = Math.clamp(tag.getInt("Toughness"), 0, MAX_TOUGHNESS);
+        applyDefence();
         refreshState();
     }
 }

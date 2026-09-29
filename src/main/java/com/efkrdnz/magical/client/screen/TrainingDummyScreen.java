@@ -39,15 +39,21 @@ public final class TrainingDummyScreen extends AbstractContainerScreen<TrainingD
      * content count times a row height; nothing in the type system stops it growing into the
      * controls below it.
      */
-    public static final int HEIGHT = 212;
+    public static final int HEIGHT = 226;
     public static final int TAB_TOP = 24;
     public static final int LIST_TOP = 44;
     public static final int SLIDER_TOP = 70;
     public static final int CLEAR_TOP = 86;
     public static final int PARRY_TOP = 118;
-    public static final int QTE_TOP = 134;
-    public static final int RESET_TOP = 166;
-    public static final int REMOVE_TOP = 184;
+    public static final int QTE_TOP = 132;
+    /** The two defence steppers, so a hit has something to be reduced by. */
+    public static final int ARMOR_TOP = 146;
+    public static final int TOUGHNESS_TOP = 160;
+    public static final int RESET_TOP = 190;
+    public static final int REMOVE_TOP = 206;
+    /** A section label sits this far above the first control of its section. */
+    public static final int SECTION_LABEL_RISE = 14;
+    private static final int STEP_SIZE = 12;
 
     private static final int TAB_IDLE = 0xFF243044;
     private static final int BUTTON_BASE = 0xFF2C3A50;
@@ -125,6 +131,10 @@ public final class TrainingDummyScreen extends AbstractContainerScreen<TrainingD
     private int clearY() { return topPos + CLEAR_TOP; }
     private int parryY() { return topPos + PARRY_TOP; }
     private int qteY() { return topPos + QTE_TOP; }
+    private int armorY() { return topPos + ARMOR_TOP; }
+    private int toughnessY() { return topPos + TOUGHNESS_TOP; }
+    private int minusX() { return columnX() + COLUMN_WIDTH - STEP_SIZE * 2 - 2; }
+    private int plusX() { return columnX() + COLUMN_WIDTH - STEP_SIZE; }
     private int resetY() { return topPos + RESET_TOP; }
     private int removeY() { return topPos + REMOVE_TOP; }
 
@@ -197,7 +207,7 @@ public final class TrainingDummyScreen extends AbstractContainerScreen<TrainingD
         MagicalGuiStyle.button(g, font, columnX(), clearY(), COLUMN_WIDTH, BUTTON_HEIGHT, BUTTON_BASE,
                 Component.translatable("screen.magical.training_dummy_clear"));
 
-        MagicalGuiStyle.sectionLabel(g, font, columnX(), topPos + PARRY_TOP - 14,
+        MagicalGuiStyle.sectionLabel(g, font, columnX(), topPos + PARRY_TOP - SECTION_LABEL_RISE,
                 Component.translatable("screen.magical.training_dummy_settings"), MagicalGuiStyle.ACCENT_VIOLET);
         boolean parry = dummy != null && dummy.parryIncoming();
         boolean qte = dummy != null && dummy.alwaysQte();
@@ -210,12 +220,35 @@ public final class TrainingDummyScreen extends AbstractContainerScreen<TrainingD
                 columnX() + 16, qteY() + 2,
                 qte ? MagicalGuiStyle.TEXT_PRIMARY : MagicalGuiStyle.TEXT_MUTED, false);
 
-        MagicalGuiStyle.sectionLabel(g, font, columnX(), topPos + RESET_TOP - 14,
+        stepper(g, armorY(), Component.translatable("screen.magical.training_dummy_armor",
+                dummy == null ? 0 : dummy.armor()));
+        stepper(g, toughnessY(), Component.translatable("screen.magical.training_dummy_toughness",
+                dummy == null ? 0 : dummy.toughness()));
+
+        MagicalGuiStyle.sectionLabel(g, font, columnX(), topPos + RESET_TOP - SECTION_LABEL_RISE,
                 Component.translatable("screen.magical.training_dummy_meter"), MagicalGuiStyle.ACCENT_NATURE);
         MagicalGuiStyle.button(g, font, columnX(), resetY(), COLUMN_WIDTH, BUTTON_HEIGHT, BUTTON_BASE,
                 Component.translatable("screen.magical.training_dummy_reset"));
         MagicalGuiStyle.button(g, font, columnX(), removeY(), COLUMN_WIDTH, BUTTON_HEIGHT, BUTTON_DANGER,
                 Component.translatable("screen.magical.training_dummy_remove"));
+    }
+
+    /** A value with a minus and a plus at the right of the column. */
+    private void stepper(GuiGraphics g, int y, Component label) {
+        g.drawString(font, label, columnX(), y + 2, MagicalGuiStyle.TEXT_MUTED, false);
+        MagicalGuiStyle.button(g, font, minusX(), y, STEP_SIZE, STEP_SIZE, BUTTON_BASE, Component.literal("-"));
+        MagicalGuiStyle.button(g, font, plusX(), y, STEP_SIZE, STEP_SIZE, BUTTON_BASE, Component.literal("+"));
+    }
+
+    /** A click on a stepper's minus or plus: the new value, or -1 when the click missed both. */
+    private int stepped(double mouseX, double mouseY, int y, int value, int max) {
+        if (within(mouseX, mouseY, minusX(), y, STEP_SIZE, STEP_SIZE)) {
+            return Math.max(0, value - TrainingDummyEntity.DEFENCE_STEP);
+        }
+        if (within(mouseX, mouseY, plusX(), y, STEP_SIZE, STEP_SIZE)) {
+            return Math.min(max, value + TrainingDummyEntity.DEFENCE_STEP);
+        }
+        return -1;
     }
 
     // ---- delay arithmetic ----
@@ -274,6 +307,19 @@ public final class TrainingDummyScreen extends AbstractContainerScreen<TrainingD
             if (within(mouseX, mouseY, columnX(), qteY(), COLUMN_WIDTH, 12)) {
                 press(TrainingDummyMenu.BUTTON_TOGGLE_QTE);
                 return true;
+            }
+            TrainingDummyEntity dummy = menu.dummy();
+            if (dummy != null) {
+                int armor = stepped(mouseX, mouseY, armorY(), dummy.armor(), TrainingDummyEntity.MAX_ARMOR);
+                if (armor >= 0) {
+                    press(TrainingDummyMenu.BUTTON_ARMOR_BASE + armor);
+                    return true;
+                }
+                int toughness = stepped(mouseX, mouseY, toughnessY(), dummy.toughness(), TrainingDummyEntity.MAX_TOUGHNESS);
+                if (toughness >= 0) {
+                    press(TrainingDummyMenu.BUTTON_TOUGHNESS_BASE + toughness);
+                    return true;
+                }
             }
             if (within(mouseX, mouseY, columnX(), resetY(), COLUMN_WIDTH, BUTTON_HEIGHT)) {
                 press(TrainingDummyMenu.BUTTON_RESET_METER);

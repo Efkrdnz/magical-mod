@@ -60,6 +60,19 @@ class TrainingDummyButtonRangeTest {
     }
 
     @Test
+    void everyDefenceValueHasItsOwnRangeBetweenTheDelayAndTheActions() {
+        assertTrue(TrainingDummyMenu.BUTTON_DELAY_BASE + TrainingDummyEntity.MAX_DELAY
+                        < TrainingDummyMenu.BUTTON_ARMOR_BASE,
+                "the longest delay encodes as an armour value");
+        assertTrue(TrainingDummyMenu.BUTTON_ARMOR_BASE + TrainingDummyEntity.MAX_ARMOR
+                        < TrainingDummyMenu.BUTTON_TOUGHNESS_BASE,
+                "the highest armour encodes as a toughness value");
+        assertTrue(TrainingDummyMenu.BUTTON_TOUGHNESS_BASE + TrainingDummyEntity.MAX_TOUGHNESS
+                        < TrainingDummyMenu.BUTTON_CLEAR_SKILLS,
+                "the highest toughness encodes as an action button");
+    }
+
+    @Test
     void theActionButtonsAreDistinct() {
         List<Integer> actions = List.of(
                 TrainingDummyMenu.BUTTON_CLEAR_SKILLS,
@@ -108,6 +121,9 @@ class TrainingDummyButtonRangeTest {
                 TrainingDummyScreen.CLEAR_TOP,
                 TrainingDummyScreen.PARRY_TOP,
                 TrainingDummyScreen.QTE_TOP,
+                TrainingDummyScreen.ARMOR_TOP,
+                TrainingDummyScreen.TOUGHNESS_TOP,
+                TrainingDummyScreen.RESET_TOP - TrainingDummyScreen.SECTION_LABEL_RISE,
                 TrainingDummyScreen.RESET_TOP,
                 TrainingDummyScreen.REMOVE_TOP};
         for (int i = 1; i < bands.length; i++) {

@@ -38,6 +38,10 @@ public final class TrainingDummyMenu extends AbstractContainerMenu {
      * this range inside its block no matter what a client sends.
      */
     public static final int BUTTON_DELAY_BASE = 4000;
+    /** Set the armour: base + points. Same one-int encoding as the delay, clamped by the dummy. */
+    public static final int BUTTON_ARMOR_BASE = 4300;
+    /** Set the armour toughness: base + points. */
+    public static final int BUTTON_TOUGHNESS_BASE = 4400;
     public static final int BUTTON_CLEAR_SKILLS = 6000;
     public static final int BUTTON_RESET_METER = 6001;
     public static final int BUTTON_TOGGLE_PARRY = 6002;
@@ -123,6 +127,14 @@ public final class TrainingDummyMenu extends AbstractContainerMenu {
                 case BUTTON_REMOVE -> dummy.discard();
                 default -> { }
             }
+            return true;
+        }
+        if (id >= BUTTON_TOUGHNESS_BASE) {
+            dummy.setToughness(id - BUTTON_TOUGHNESS_BASE);
+            return true;
+        }
+        if (id >= BUTTON_ARMOR_BASE) {
+            dummy.setArmor(id - BUTTON_ARMOR_BASE);
             return true;
         }
         if (id >= BUTTON_DELAY_BASE) {

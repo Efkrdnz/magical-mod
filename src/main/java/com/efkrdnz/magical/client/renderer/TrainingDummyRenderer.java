@@ -32,6 +32,9 @@ public final class TrainingDummyRenderer extends EntityRenderer<TrainingDummyEnt
     private static final int HEADER_INK = 0xFFF7D774;
     private static final int LINE_INK = 0xFFE6EEF8;
     private static final ResourceLocation SKIN = DefaultPlayerSkin.getDefaultTexture();
+    /** Where the readout's last row sits, in blocks over the feet: clear of a 1.8-tall body. */
+    private static final float READOUT_BASE = 2.1F;
+    private static final float ROW_HEIGHT = 10.0F;
 
     private final PlayerModel model;
 
@@ -45,6 +48,8 @@ public final class TrainingDummyRenderer extends EntityRenderer<TrainingDummyEnt
         public String readout = "";
         public boolean parry;
         public boolean qte;
+        public int armor;
+        public int toughness;
     }
 
     @Override
@@ -59,6 +64,8 @@ public final class TrainingDummyRenderer extends EntityRenderer<TrainingDummyEnt
         state.readout = entity.readout();
         state.parry = entity.parryIncoming();
         state.qte = entity.alwaysQte();
+        state.armor = entity.armor();
+        state.toughness = entity.toughness();
     }
 
     @Override
@@ -81,15 +88,20 @@ public final class TrainingDummyRenderer extends EntityRenderer<TrainingDummyEnt
         String[] rows = header(state, state.readout.isEmpty() ? new String[0] : state.readout.split("\n"));
         Font font = getFont();
         pose.pushPose();
-        pose.translate(0.0F, 2.4F, 0.0F);
+        pose.translate(0.0F, READOUT_BASE, 0.0F);
         pose.mulPose(entityRenderDispatcher.cameraOrientation());
-        pose.scale(-0.023F, -0.023F, 0.023F);
+        // x must be positive, as vanilla's name tag has it since the camera orientation turned: a
+        // negative x mirrors the text so it faces away from the camera and is culled, which is how
+        // this readout came to draw nothing at all.
+        pose.scale(0.023F, -0.023F, 0.023F);
         Matrix4f matrix = pose.last().pose();
         int background = (int) (Minecraft.getInstance().options.getBackgroundOpacity(0.3F) * 255.0F) << 24;
-        // Grows downward from a fixed top, so the block does not jump as lines come and go.
+        // Grows upward from a fixed bottom just over the head. It grew downward from 2.4 once, and a
+        // full meter is ten rows - two blocks of text hung straight over the body it was measuring.
         for (int i = 0; i < rows.length; i++) {
             String row = rows[i];
-            font.drawInBatch(row, -font.width(row) / 2.0F, i * 10.0F, i == 0 ? HEADER_INK : LINE_INK,
+            float y = (i - rows.length + 1) * ROW_HEIGHT;
+            font.drawInBatch(row, -font.width(row) / 2.0F, y, i == 0 ? HEADER_INK : LINE_INK,
                     false, matrix, buffer, Font.DisplayMode.SEE_THROUGH, background, packedLight);
         }
         pose.popPose();
@@ -108,6 +120,10 @@ public final class TrainingDummyRenderer extends EntityRenderer<TrainingDummyEnt
         }
         if (state.qte) {
             title.append("  [").append(Component.translatable("gui.magical.training_dummy.qte_tag").getString()).append(']');
+        }
+        if (state.armor > 0 || state.toughness > 0) {
+            title.append("  [").append(Component.translatable("gui.magical.training_dummy.defence_tag",
+                    state.armor, state.toughness).getString()).append(']');
         }
         String[] rows = new String[readout.length + 1];
         rows[0] = title.toString();
