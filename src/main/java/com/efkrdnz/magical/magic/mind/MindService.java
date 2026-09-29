@@ -190,6 +190,7 @@ public final class MindService {
         if (live.isEmpty()) {
             SCENES.remove(scene.owner());
         }
+        Manifestation.revertAll(scene);
         MindSync.ended(scene);
     }
 
@@ -283,7 +284,7 @@ public final class MindService {
         MinecraftServer server = event.getServer();
         for (LiveScene scene : allScenes()) {
             ServerLevel level = server.getLevel(scene.dimension());
-            if (level == null || scene.expired(level.getGameTime())) {
+            if (level == null || scene.over(level.getGameTime())) {
                 end(scene);
                 continue;
             }
@@ -301,6 +302,8 @@ public final class MindService {
 
     @SubscribeEvent
     public static void onServerStopping(ServerStoppingEvent event) {
+        // The ledger would give the blocks back at the next load anyway; this gives them back now.
+        allScenes().forEach(Manifestation::revertAll);
         SCENES.clear();
         // A memory's expiry is an absolute game time; carried into a world with a lower clock it would
         // never be pruned, and the host's own player would bring the old world's doubt with them.
@@ -339,6 +342,7 @@ public final class MindService {
             }
         }
         scene.knownViewers.addAll(present);
+        Manifestation.step(level, scene, now);
         MindSync.tick(level, scene);
     }
 
@@ -356,7 +360,7 @@ public final class MindService {
         int id = viewer.getId();
         for (LiveScene.Element element : scene.elements()) {
             int index = element.index();
-            if (scene.belief().shattered(id, index) || scene.inside.contains(LiveScene.key(id, index))) {
+            if (scene.slain(index) || scene.belief().shattered(id, index) || scene.inside.contains(LiveScene.key(id, index))) {
                 continue;
             }
             if (perceives(level, scene, viewer, element, blind)) {
@@ -396,6 +400,11 @@ public final class MindService {
                     continue;
                 }
                 long key = LiveScene.key(viewer.getId(), element.index());
+                if (scene.manifested(element.index())) {
+                    // A real block cannot be walked into; nothing about touching it is evidence.
+                    scene.inside.remove(key);
+                    continue;
+                }
                 if (!crosses(body, element)) {
                     scene.inside.remove(key);
                     continue;
@@ -411,6 +420,9 @@ public final class MindService {
 
     private static void projectiles(ServerLevel level, LiveScene scene, List<LivingEntity> viewers, long now) {
         for (LiveScene.Element element : scene.elements()) {
+            if (scene.manifested(element.index()) || scene.slain(element.index())) {
+                continue;
+            }
             AABB box = liveBox(level, scene, element);
             for (Projectile projectile : level.getEntitiesOfClass(Projectile.class, box.inflate(4.0))) {
                 AABB path = new AABB(projectile.xo, projectile.yo, projectile.zo,

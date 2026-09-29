@@ -2371,6 +2371,8 @@
   "message.magical.unveil_empty": "Your active reverie is empty. Daydream to write one.",
   "message.magical.unveil_too_many": "Two scenes already stand. Let one fade first.",
   "message.magical.unveil_nowhere": "There is nothing there to set a scene on.",
+  "message.magical.manifested": "Enough minds agree: it is real.",
+  "message.magical.unmanifested": "Doubt takes it back.",
   "message.magical.gaze_learned": "You can imagine %s now.",
   "message.magical.gaze_studied": "%s studied more closely: fidelity %s.",
   "message.magical.reverie_saved": "Reverie saved.",

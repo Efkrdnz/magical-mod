@@ -99,7 +99,8 @@ public final class MindPathGameTests {
         UUID owner = UUID.randomUUID();
         LiveScene scene = MindGameTests.unveil(helper, owner, lid, hole);
         Mob husk = helper.spawn(EntityType.HUSK, new BlockPos(2, 1, 2));
-        scene.belief().set(husk.getId(), 0, 0.6F);
+        // Below CONVINCED, so one husk cannot make the lid real; above PATHING, so it still trusts it.
+        scene.belief().set(husk.getId(), 0, 0.45F);
         helper.assertTrue(MindPathing.override(new net.minecraft.world.level.pathfinder.PathfindingContext(helper.getLevel(), husk),
                         husk, hole.getX(), hole.getY() + 1, hole.getZ()) == net.minecraft.world.level.pathfinder.PathType.WALKABLE,
                 "the cell over a believed lid is not walkable");

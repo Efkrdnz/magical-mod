@@ -17,11 +17,11 @@ public final class MindPathing {
         long below = BlockPos.asLong(x, y - 1, z);
         for (LiveScene scene : MindService.scenesIn(mob.level().dimension())) {
             int solid = scene.elementAt(here);
-            if (solid >= 0 && scene.belief().get(mob.getId(), solid) >= Belief.PATHING) {
+            if (solid >= 0 && !scene.manifested(solid) && scene.belief().get(mob.getId(), solid) >= Belief.PATHING) {
                 return PathType.BLOCKED;
             }
             int floor = scene.elementAt(below);
-            if (floor >= 0 && scene.belief().get(mob.getId(), floor) >= Belief.PATHING
+            if (floor >= 0 && !scene.manifested(floor) && scene.belief().get(mob.getId(), floor) >= Belief.PATHING
                     && context.getPathTypeFromState(x, y, z) == PathType.OPEN) {
                 return PathType.WALKABLE;
             }

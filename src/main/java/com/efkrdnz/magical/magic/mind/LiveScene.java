@@ -160,10 +160,6 @@ public final class LiveScene {
         return figmentEntities.getOrDefault(element, -1);
     }
 
-    public boolean expired(long now) {
-        return now - bornAt >= LIFE_TICKS;
-    }
-
     /** Whether a scene is finished: its clock has run out and nothing in it is real. */
     public static boolean over(long age, boolean anythingReal) {
         return age >= LIFE_TICKS && !anythingReal;
