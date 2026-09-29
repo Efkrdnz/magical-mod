@@ -362,6 +362,9 @@ public final class MagicalClientEvents {
                 renderHolyFieldsBeforeEntities(event, minecraft);
                 com.efkrdnz.magical.client.fx.TransientVisuals.renderThroughTerrain(event, minecraft);
                 com.efkrdnz.magical.client.renderer.causality.AnchorMarkRenderer.render(event, minecraft);
+                return;
+            }
+            if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
                 com.efkrdnz.magical.client.mind.IllusionRenderer.render(event, minecraft);
                 return;
             }

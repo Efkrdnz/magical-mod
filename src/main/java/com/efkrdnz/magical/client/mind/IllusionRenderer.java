@@ -9,6 +9,7 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.ShapeRenderer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -36,7 +37,7 @@ public final class IllusionRenderer {
                 drawBlock(minecraft, pose, buffers, cam, cell.state(), cell.pos(), alpha);
             }
         }
-        buffers.endBatch(RenderType.translucent());
+        buffers.endBatch(IllusionRenderTypes.block());
         VertexConsumer lines = buffers.getBuffer(RenderType.lines());
         for (ClientMind.View view : ClientMind.scenes()) {
             if (view.mine()) {
@@ -48,16 +49,17 @@ public final class IllusionRenderer {
         buffers.endBatch(RenderType.lines());
     }
 
-    /** One block at {@code alpha}; the caller ends the translucent batch. Shared with the Daydream draft. */
+    /** One block at {@code alpha}; the caller ends the {@link IllusionRenderTypes#block()} batch. Shared with the Daydream draft. */
     public static void drawBlock(Minecraft minecraft, PoseStack pose, MultiBufferSource.BufferSource buffers, Vec3 cam,
                                  BlockState state, BlockPos pos, float alpha) {
-        if (alpha < MIN_ALPHA || minecraft.level == null) {
+        // Only baked-model blocks live on the block atlas; entity blocks would sample the wrong texture.
+        if (alpha < MIN_ALPHA || minecraft.level == null || state.getRenderShape() != RenderShape.MODEL) {
             return;
         }
         pose.pushPose();
         pose.translate(pos.getX() - cam.x, pos.getY() - cam.y, pos.getZ() - cam.z);
         int light = LevelRenderer.getLightColor(minecraft.level, pos);
-        MultiBufferSource faded = type -> new Faded(buffers.getBuffer(RenderType.translucent()), alpha);
+        MultiBufferSource faded = type -> new Faded(buffers.getBuffer(IllusionRenderTypes.block()), alpha);
         minecraft.getBlockRenderer().renderSingleBlock(state, pose, faded, light, OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
         pose.popPose();
     }
@@ -66,6 +68,12 @@ public final class IllusionRenderer {
     public static void drawEdge(PoseStack pose, VertexConsumer lines, Vec3 cam, AABB box, int rgb, float alpha) {
         ShapeRenderer.renderLineBox(pose, lines, box.move(-cam.x, -cam.y, -cam.z),
                 ((rgb >> 16) & 0xFF) / 255.0F, ((rgb >> 8) & 0xFF) / 255.0F, (rgb & 0xFF) / 255.0F, alpha);
+    }
+
+    /** A lilac line box in the caller's own pose (already at the entity); {@code box} is relative to that origin. */
+    public static void drawLocalEdge(PoseStack pose, MultiBufferSource buffers, AABB box) {
+        ShapeRenderer.renderLineBox(pose, buffers.getBuffer(RenderType.lines()), box,
+                ((LILAC >> 16) & 0xFF) / 255.0F, ((LILAC >> 8) & 0xFF) / 255.0F, (LILAC & 0xFF) / 255.0F, EDGE_ALPHA);
     }
 
     /** Passes every vertex through with its alpha scaled; the bulk paths default through setColor. */

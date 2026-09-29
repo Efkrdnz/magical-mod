@@ -39,6 +39,10 @@ public final class FigmentRenderer extends EntityRenderer<FigmentEntity, Figment
         if (figment == null || !ClientMind.sees(figment.sceneId(), figment.element())) {
             return;
         }
+        if (ClientMind.mine(figment.sceneId())) {
+            // The wielder is never fooled: their figments carry the same lilac edge as their blocks.
+            IllusionRenderer.drawLocalEdge(pose, buffers, figment.getBoundingBox().move(figment.position().reverse()));
+        }
         LivingEntity dummy = FigmentDummies.posed(figment);
         if (dummy != null) {
             Minecraft.getInstance().getEntityRenderDispatcher().render(dummy, 0.0, 0.0, 0.0, state.partial, pose, buffers, light);
