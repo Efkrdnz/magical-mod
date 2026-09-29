@@ -29,9 +29,13 @@ public final class ImpressionReelOverlay {
         int lineLimit = graphics.guiWidth() - 2 * ImpressionReelLayout.MARGIN;
         var lexicon = ClientMagicState.get().mind().lexicon();
         Component status = Component.translatable("mind.magical.brush." + DaydreamMode.brush().name().toLowerCase(Locale.ROOT))
-                .append("   " + DaydreamMode.draft().size() + " / " + lexicon.budget());
+                .append("   ").append(DaydreamMode.dreaming()
+                        ? Component.translatable("mind.magical.dream.status")
+                        : Component.literal(DaydreamMode.draft().size() + " / " + lexicon.budget()));
         String statusLine = minecraft.font.plainSubstrByWidth(status.getString(), lineLimit);
-        Component hint = Component.translatable("mind.magical.daydream.hint", minecraft.options.keyInventory.getTranslatedKeyMessage());
+        Component hint = DaydreamMode.dreaming()
+                ? Component.translatable("mind.magical.dream.hint")
+                : Component.translatable("mind.magical.daydream.hint", minecraft.options.keyInventory.getTranslatedKeyMessage());
         String hintLine = minecraft.font.plainSubstrByWidth(hint.getString(), lineLimit);
 
         scrim(graphics, layout, Math.max(minecraft.font.width(statusLine), minecraft.font.width(hintLine)));

@@ -13,12 +13,15 @@ import com.efkrdnz.magical.magic.mind.Lexicon;
 import com.efkrdnz.magical.magic.mind.Offset;
 import com.efkrdnz.magical.magic.mind.Reverie;
 import com.efkrdnz.magical.magic.mind.ReverieNbt;
+import com.efkrdnz.magical.network.DreamEditPayload;
 import com.efkrdnz.magical.network.MagicalNetwork;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -60,6 +63,11 @@ public final class DaydreamMode {
         return active;
     }
 
+    /** In your own dream Daydream writes real blocks through the server instead of a draft. */
+    public static boolean dreaming() {
+        return ClientDream.ownDream();
+    }
+
     public static void toggle(Minecraft minecraft) {
         if (active) {
             finish(true);
@@ -74,7 +82,7 @@ public final class DaydreamMode {
         }
         var mind = ClientMagicState.get().mind();
         slot = mind.activeSlot();
-        draft = mind.active().copy();
+        draft = dreaming() ? new Reverie() : mind.active().copy();
         int facing = minecraft.player.getDirection().get2DDataValue();
         if (draft.isEmpty()) {
             draft.setFacing(facing);
@@ -90,7 +98,7 @@ public final class DaydreamMode {
     }
 
     public static void finish(boolean save) {
-        if (active && save && dirty) {
+        if (active && save && dirty && !dreaming()) {
             MagicalNetwork.sendSaveReverie(slot, ReverieNbt.save(draft));
         }
         active = false;
@@ -172,6 +180,10 @@ public final class DaydreamMode {
     }
 
     private static void place(Minecraft minecraft) {
+        if (dreaming()) {
+            placeInDream(minecraft);
+            return;
+        }
         Impression chosen = Impression.parse(impression());
         DraftRay.Hit hit = cursor(minecraft);
         if (chosen == null || hit == null) {
@@ -207,6 +219,56 @@ public final class DaydreamMode {
         }
     }
 
+    private static void placeInDream(Minecraft minecraft) {
+        DraftRay.Hit hit = cursor(minecraft);
+        if (hit == null) {
+            return;
+        }
+        if (Screen.hasShiftDown()) {
+            markFlaw(minecraft, hit);
+            return;
+        }
+        String key = impression();
+        Impression chosen = Impression.parse(key);
+        if (chosen == null) {
+            return;
+        }
+        if (chosen.kind() == Impression.Kind.CREATURE) {
+            MagicalNetwork.sendDreamEdit(new DreamEditPayload(DreamEditPayload.PLACE, List.of(hit.place()), key, -1));
+            corner = null;
+            return;
+        }
+        if (brush != Brush.POINT && corner == null) {
+            corner = hit.place();
+            return;
+        }
+        BlockPos from = brush == Brush.POINT ? hit.place() : corner;
+        List<BlockPos> cells = brush.cells(offset(from), offset(hit.place())).stream().map(DaydreamMode::world).toList();
+        MagicalNetwork.sendDreamEdit(new DreamEditPayload(DreamEditPayload.PLACE, cells, key, -1));
+        corner = null;
+    }
+
+    private static void markFlaw(Minecraft minecraft, DraftRay.Hit hit) {
+        Entity target = minecraft.crosshairPickEntity;
+        if (target != null && !(target instanceof Player)) {
+            MagicalNetwork.sendDreamEdit(new DreamEditPayload(DreamEditPayload.FLAW, List.of(), "", target.getId()));
+        } else if (hit.solid() != null) {
+            MagicalNetwork.sendDreamEdit(new DreamEditPayload(DreamEditPayload.FLAW, List.of(hit.solid()), "", -1));
+        }
+    }
+
+    private static void eraseInDream(Minecraft minecraft) {
+        Entity target = minecraft.crosshairPickEntity;
+        if (target != null && !(target instanceof Player)) {
+            MagicalNetwork.sendDreamEdit(new DreamEditPayload(DreamEditPayload.ERASE, List.of(), "", target.getId()));
+            return;
+        }
+        DraftRay.Hit hit = cursor(minecraft);
+        if (hit != null && hit.solid() != null) {
+            MagicalNetwork.sendDreamEdit(new DreamEditPayload(DreamEditPayload.ERASE, List.of(hit.solid()), "", -1));
+        }
+    }
+
     private static Reverie.Refusal note(Reverie.Refusal worst, Reverie.Refusal next) {
         return next == Reverie.Refusal.NONE ? worst : next;
     }
@@ -237,6 +299,10 @@ public final class DaydreamMode {
 
     /** Erases whatever the crosshair reaches first, a drafted figment by its drawn box or a drafted block by its cell. */
     private static void erase(Minecraft minecraft) {
+        if (dreaming()) {
+            eraseInDream(minecraft);
+            return;
+        }
         DraftRay.Hit hit = cursor(minecraft);
         if (hit == null || minecraft.player == null) {
             return;
@@ -306,7 +372,7 @@ public final class DaydreamMode {
                 || !minecraft.player.isAlive()
                 || minecraft.player != drawnBy
                 || minecraft.level != drawnIn
-                || minecraft.player.distanceToSqr(Vec3.atCenterOf(anchor)) > STRAY_BLOCKS * STRAY_BLOCKS;
+                || (!dreaming() && minecraft.player.distanceToSqr(Vec3.atCenterOf(anchor)) > STRAY_BLOCKS * STRAY_BLOCKS);
         if (gone) {
             finish(true);
         }

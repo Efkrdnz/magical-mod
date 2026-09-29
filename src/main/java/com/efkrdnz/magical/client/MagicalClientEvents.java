@@ -169,7 +169,7 @@ public final class MagicalClientEvents {
         event.registerEntityRenderer(MagicalEntities.UNWAKING_GOD.get(), com.efkrdnz.magical.client.renderer.UnwakingGodRenderer::new);
         event.registerEntityRenderer(MagicalEntities.UNWAKING_COUNTER.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);
         event.registerEntityRenderer(MagicalEntities.FIGMENT.get(), com.efkrdnz.magical.client.mind.FigmentRenderer::new);
-        event.registerEntityRenderer(MagicalEntities.SLEEPER.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.SLEEPER.get(), com.efkrdnz.magical.client.mind.SleeperRenderer::new);
         event.registerEntityRenderer(MagicalEntities.MAGIC_OPPONENT.get(), MagicOpponentRenderer::new);
         event.registerEntityRenderer(MagicalEntities.TRAINING_DUMMY.get(), com.efkrdnz.magical.client.renderer.TrainingDummyRenderer::new);
         event.registerEntityRenderer(MagicalEntities.TRAINING_THREAT.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);
