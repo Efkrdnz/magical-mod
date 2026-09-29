@@ -41,4 +41,11 @@ class PhantomHarmDamageTypeTest {
             assertTrue(json.contains("\"replace\": false"), tag + " must add to vanilla's list, not replace it");
         }
     }
+
+    @Test
+    void neoForgeCountsItAsMagic() throws IOException {
+        String json = datapackFile("neoforge/tags/damage_type/is_magic.json");
+        assertTrue(json.contains(TYPE), "#neoforge:is_magic must list phantom harm");
+        assertTrue(json.contains("\"replace\": false"), "is_magic must add to NeoForge's list, not replace it");
+    }
 }

@@ -246,7 +246,8 @@ public final class MagicSinService {
     }
 
     private static boolean isMagicDamage(DamageSource source) {
-        return source.is(DamageTypes.MAGIC) || source.is(DamageTypes.INDIRECT_MAGIC);
+        return source.is(DamageTypes.MAGIC) || source.is(DamageTypes.INDIRECT_MAGIC)
+                || source.is(com.efkrdnz.magical.magic.mind.MindDamageTypes.PHANTOM_HARM);
     }
 
     private static boolean isOffensive(MagicSkillDefinition definition) {

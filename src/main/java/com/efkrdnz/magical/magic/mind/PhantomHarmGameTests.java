@@ -3,11 +3,13 @@ package com.efkrdnz.magical.magic.mind;
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.entity.mind.FigmentEntity;
 import com.efkrdnz.magical.gametest.GameTestPlayers;
+import com.efkrdnz.magical.magic.passive.PassiveHooks;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -56,6 +58,9 @@ public final class PhantomHarmGameTests {
             float now = scene.belief().get(player.getId(), 0);
             helper.assertTrue(now > 0.65F && now < 0.75F, "belief " + now + " did not rise by a tenth");
             helper.assertFalse(scene.manifested(0), "lava was placed for real");
+            // No wielder online and nothing that bit: plain magic, whose death message names no killer.
+            helper.assertTrue(player.getLastDamageSource() != null
+                    && player.getLastDamageSource().is(DamageTypes.MAGIC), "an unattributed burn was not plain magic");
             MindService.endAll(owner);
             helper.succeed();
         });
@@ -93,6 +98,9 @@ public final class PhantomHarmGameTests {
             net.minecraft.world.phys.Vec3 after = player.getDeltaMovement();
             double shove = after.subtract(before).horizontalDistance();
             helper.assertTrue(shove < 1.0E-6, "the burn shoved its victim by " + shove);
+            helper.assertTrue(player.getLastDamageSource() != null
+                    && player.getLastDamageSource().is(MindDamageTypes.PHANTOM_HARM), "a credited burn was not phantom harm");
+            helper.assertTrue(PassiveHooks.isSpellDamage(player.getLastDamageSource()), "phantom harm is not counted as magic");
             MindService.endAll(owner);
             helper.succeed();
         });
@@ -115,6 +123,8 @@ public final class PhantomHarmGameTests {
             // A zombie bites for 3; believed at 0.6 that is 1.8.
             float lost = player.getMaxHealth() - player.getHealth();
             helper.assertTrue(lost > 1.7F && lost < 1.9F, "an imagined zombie bit for " + lost);
+            helper.assertTrue(player.getLastDamageSource() != null
+                    && player.getLastDamageSource().is(MindDamageTypes.PHANTOM_HARM), "a figment's bite was not phantom harm");
             float now = scene.belief().get(player.getId(), 0);
             helper.assertTrue(now > 0.65F, "belief " + now + " did not rise after the bite");
             MindService.endAll(owner);

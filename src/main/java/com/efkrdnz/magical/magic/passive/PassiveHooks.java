@@ -20,7 +20,8 @@ public final class PassiveHooks {
     private PassiveHooks() {}
 
     public static boolean isSpellDamage(DamageSource source) {
-        return source != null && (source.is(DamageTypes.MAGIC) || source.is(DamageTypes.INDIRECT_MAGIC));
+        return source != null && (source.is(DamageTypes.MAGIC) || source.is(DamageTypes.INDIRECT_MAGIC)
+                || source.is(com.efkrdnz.magical.magic.mind.MindDamageTypes.PHANTOM_HARM));
     }
 
     /** A kill counts as a spell kill when the killing blow was magic rather than a swing. */

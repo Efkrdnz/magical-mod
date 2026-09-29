@@ -299,7 +299,8 @@ public final class MagicGameplayEvents {
         if (event.getSource().is(DamageTypes.MAGIC) && player.hasEffect(MobEffects.POISON)) {
             damage *= 1.0F - state.passiveReduction(MagicPassiveContent.POISON_RESISTANCE.id());
         }
-        if (event.getSource().is(DamageTypes.MAGIC) || event.getSource().is(DamageTypes.INDIRECT_MAGIC)) {
+        if (event.getSource().is(DamageTypes.MAGIC) || event.getSource().is(DamageTypes.INDIRECT_MAGIC)
+                || event.getSource().is(com.efkrdnz.magical.magic.mind.MindDamageTypes.PHANTOM_HARM)) {
             damage *= 1.0F - state.passiveReduction(MagicPassiveContent.MAGIC_RESISTANCE.id());
         }
         // A GUARD-forged weapon soaks part of anything that lands while its window is open.

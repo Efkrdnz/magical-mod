@@ -60,9 +60,11 @@ final class MindHarm {
         if (amount <= 0.0F) {
             return;
         }
-        // Credited to the wielder when they are online, pushed by nothing: see MindDamageTypes.
+        // Credited to the wielder when they are online, pushed by nothing: see MindDamageTypes. With
+        // nobody to credit and nothing that bit it is plain magic, whose death message names no killer.
         ServerPlayer owner = level.getServer().getPlayerList().getPlayer(scene.owner());
-        DamageSource source = MindDamageTypes.phantom(level, direct, owner);
+        DamageSource source = owner == null && direct == null ? level.damageSources().magic()
+                : MindDamageTypes.phantom(level, direct, owner);
         MagicDamageService.hurt(victim, source, amount, MagicContent.UNVEIL.id());
     }
 }
