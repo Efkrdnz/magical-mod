@@ -5,6 +5,7 @@ import com.efkrdnz.magical.client.ClientMagicState;
 import com.efkrdnz.magical.client.MagicWheelOverlay;
 import com.efkrdnz.magical.magic.AuthorityContent;
 import com.efkrdnz.magical.magic.MagicContent;
+import com.efkrdnz.magical.magic.mind.Belt;
 import com.efkrdnz.magical.magic.mind.Brush;
 import com.efkrdnz.magical.magic.mind.DraftRay;
 import com.efkrdnz.magical.magic.mind.Figment;
@@ -33,7 +34,6 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import org.lwjgl.glfw.GLFW;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -54,7 +54,8 @@ public final class DaydreamMode {
     private static BlockPos anchor;
     private static int turns;
     private static int slot;
-    private static int impression;
+    /** The belt slot in hand, 0-8: the client's alone, as vanilla's hotbar selection is. */
+    private static int selected;
     private static Brush brush = Brush.POINT;
     private static BlockPos corner;
     private static boolean dirty;
@@ -98,7 +99,6 @@ public final class DaydreamMode {
         drawnBy = minecraft.player;
         corner = null;
         dirty = false;
-        impression = Math.min(impression, Math.max(0, keys().size() - 1));
         active = true;
     }
 
@@ -127,13 +127,13 @@ public final class DaydreamMode {
         }
     }
 
-    public static List<String> keys() {
-        return new ArrayList<>(ClientMagicState.get().mind().lexicon().keys());
+    public static int selected() {
+        return selected;
     }
 
+    /** The lie in hand: the belt's key at {@link #selected}, or null for an empty slot, which places nothing. */
     public static String impression() {
-        List<String> keys = keys();
-        return keys.isEmpty() ? null : keys.get(Math.floorMod(impression, keys.size()));
+        return ClientMagicState.get().mind().belt().get(selected);
     }
 
     public static BlockPos world(Offset offset) {
@@ -164,7 +164,9 @@ public final class DaydreamMode {
             brush = brush.next();
             corner = null;
         } else {
-            impression += delta > 0 ? -1 : 1;
+            // As vanilla's hotbar turns: the wheel up is the slot to the left, wrapping.
+            selected = Math.floorMod(selected + (delta > 0 ? -1 : 1), Belt.SIZE);
+            BeltHotbarOverlay.selectionChanged();
         }
         return true;
     }
@@ -365,12 +367,24 @@ public final class DaydreamMode {
     }
 
     /**
-     * While drawing, the inventory key opens the Playbill instead of the inventory. It has to run
-     * before vanilla's handleKeybinds, which is what would otherwise open the inventory.
+     * While drawing, the number keys choose a belt slot rather than a hotbar slot, and the inventory
+     * key opens the Playbill instead of the inventory. Both have to run before vanilla's
+     * handleKeybinds, which is what would otherwise take them.
      */
     @SubscribeEvent
     public static void onClientTickPre(ClientTickEvent.Pre event) {
         Minecraft minecraft = Minecraft.getInstance();
+        if (active && minecraft.screen == null) {
+            for (int i = 0; i < Belt.SIZE; i++) {
+                if (minecraft.options.keyHotbarSlots[i].consumeClick()) {
+                    while (minecraft.options.keyHotbarSlots[i].consumeClick()) {
+                        // every queued press lands on the same slot
+                    }
+                    selected = i;
+                    BeltHotbarOverlay.selectionChanged();
+                }
+            }
+        }
         if (active && !inDream && minecraft.screen == null && minecraft.options.keyInventory.consumeClick()) {
             while (minecraft.options.keyInventory.consumeClick()) {
                 // one press, one Playbill

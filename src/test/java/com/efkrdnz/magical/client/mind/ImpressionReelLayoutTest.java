@@ -12,31 +12,12 @@ class ImpressionReelLayoutTest {
     private static final int[][] SCREENS = {{320, 240}, {427, 240}, {480, 270}, {640, 360}, {960, 540}, {1280, 720}};
 
     @Test
-    void theReelNeverOverlapsItselfOrLeavesTheScreen() {
+    void theTwoLinesStackAboveVanillasHud() {
         for (int[] screen : SCREENS) {
             ImpressionReelLayout layout = new ImpressionReelLayout(screen[0], screen[1]);
-            List<Rect> cells = new ArrayList<>();
-            for (int i = -ImpressionReelLayout.SIDE; i <= ImpressionReelLayout.SIDE; i++) {
-                cells.add(layout.cell(i));
-            }
-            for (int a = 0; a < cells.size(); a++) {
-                Rect cell = cells.get(a);
-                assertTrue(cell.x() >= ImpressionReelLayout.MARGIN && cell.right() <= screen[0] - ImpressionReelLayout.MARGIN,
-                        cell + " leaves a " + screen[0] + "-wide screen");
-                assertTrue(cell.w() >= ImpressionReelLayout.MIN_CELL, cell + " is too narrow to name anything");
-                for (int b = a + 1; b < cells.size(); b++) {
-                    assertFalse(cell.overlaps(cells.get(b)), cell + " overlaps " + cells.get(b));
-                }
-            }
-        }
-    }
-
-    @Test
-    void theThreeLinesStackAboveVanillasHud() {
-        for (int[] screen : SCREENS) {
-            ImpressionReelLayout layout = new ImpressionReelLayout(screen[0], screen[1]);
-            assertTrue(layout.statusY() + ImpressionReelLayout.LINE <= layout.reelY());
-            assertTrue(layout.reelY() + ImpressionReelLayout.LINE <= layout.hintY());
+            assertEquals(layout.hintY() - ImpressionReelLayout.LINE - 1, layout.statusY(),
+                    "the status sits one line above the hint, now the reel row is gone");
+            assertTrue(layout.statusY() + ImpressionReelLayout.LINE <= layout.hintY());
             assertTrue(layout.hintY() + ImpressionReelLayout.LINE <= screen[1] - ImpressionReelLayout.HUD_FLOOR,
                     "the hint runs into the hotbar at " + screen[0] + "x" + screen[1]);
         }
@@ -49,12 +30,16 @@ class ImpressionReelLayoutTest {
             Rect actionBar = new Rect("action bar", 0, screen[1] - ImpressionReelLayout.ACTION_BAR_TOP,
                     screen[0], ImpressionReelLayout.ACTION_BAR_TOP - ImpressionReelLayout.ACTION_BAR_BOTTOM);
             List<Rect> reel = new ArrayList<>();
-            for (int y : new int[]{layout.statusY(), layout.reelY(), layout.hintY()}) {
+            for (int y : new int[]{layout.statusY(), layout.hintY()}) {
                 reel.add(new Rect("line", 0, y, screen[0], ImpressionReelLayout.LINE));
             }
             reel.add(layout.scrim(screen[0] - 2 * ImpressionReelLayout.MARGIN));
+            // The belt's lie name is drawn where vanilla draws the held item's: h-59 at the lowest,
+            // one font line tall; creative drops it 14 further, which only moves it away.
+            Rect lieName = new Rect("lie name", 0, screen[1] - 59, screen[0], 9);
             for (Rect part : reel) {
                 assertFalse(part.overlaps(actionBar), part + " is drawn over the action bar at " + screen[0] + "x" + screen[1]);
+                assertFalse(part.overlaps(lieName), part + " is drawn over the lie's name at " + screen[0] + "x" + screen[1]);
             }
         }
     }

@@ -2,18 +2,14 @@ package com.efkrdnz.magical.client.mind;
 
 import com.efkrdnz.magical.client.ClientMagicState;
 import com.efkrdnz.magical.client.screen.CodexLayout.Rect;
-import com.efkrdnz.magical.magic.mind.MindGazeService;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
-import java.util.List;
 import java.util.Locale;
 
-/** The impression reel along the bottom while Daydreaming: shadowed text over a soft scrim, three lines. */
+/** Daydream's two lines along the bottom, the status and the hint: shadowed text over a soft scrim. The lie in hand is on the belt. */
 public final class ImpressionReelOverlay {
-    private static final int CHOSEN = 0xFFFFFFFF;
-    private static final int NEIGHBOUR = 0xFF9A93B0;
     private static final int STATUS = 0xFFBDA4FF;
     private static final int HINT = 0xFF8C86A0;
     /** The scrim fades out in columns this wide; six of them span a full feather. */
@@ -40,16 +36,6 @@ public final class ImpressionReelOverlay {
 
         scrim(graphics, layout, Math.max(minecraft.font.width(statusLine), minecraft.font.width(hintLine)));
 
-        List<String> keys = DaydreamMode.keys();
-        String chosen = DaydreamMode.impression();
-        int at = chosen == null ? 0 : keys.indexOf(chosen);
-        for (int i = -ImpressionReelLayout.SIDE; i <= ImpressionReelLayout.SIDE && !keys.isEmpty(); i++) {
-            String key = keys.get(Math.floorMod(at + i, keys.size()));
-            Rect cell = layout.cell(i);
-            String name = minecraft.font.plainSubstrByWidth(MindGazeService.displayName(key).getString(), cell.w());
-            int x = cell.x() + (cell.w() - minecraft.font.width(name)) / 2;
-            graphics.drawString(minecraft.font, name, x, cell.y(), i == 0 ? CHOSEN : NEIGHBOUR, true);
-        }
         graphics.drawString(minecraft.font, statusLine, (graphics.guiWidth() - minecraft.font.width(statusLine)) / 2, layout.statusY(), STATUS, true);
         graphics.drawString(minecraft.font, hintLine, (graphics.guiWidth() - minecraft.font.width(hintLine)) / 2, layout.hintY(), HINT, true);
     }
