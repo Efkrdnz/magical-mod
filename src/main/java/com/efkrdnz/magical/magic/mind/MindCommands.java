@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.magic.mind;
 
+import com.efkrdnz.magical.entity.mind.SleeperEntity;
 import com.efkrdnz.magical.magic.MagicContent;
 import com.efkrdnz.magical.magic.PlayerMagicState;
 import com.efkrdnz.magical.registry.MagicalAttachments;
@@ -14,6 +15,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.ResourceLocationArgument;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MobCategory;
@@ -74,7 +76,27 @@ public final class MindCommands {
                 .then(Commands.literal("convince")
                         .then(Commands.argument("belief", FloatArgumentType.floatArg(0.0F, 1.0F))
                                 .executes(c -> run(c, player -> convince(player, FloatArgumentType.getFloat(c, "belief"))))))
-                .then(Commands.literal("insist").executes(c -> run(c, player -> Insist.tick(player, state(player)) ? 1 : 0)));
+                .then(Commands.literal("insist").executes(c -> run(c, player -> Insist.tick(player, state(player)) ? 1 : 0)))
+                .then(Commands.literal("dream")
+                        .then(Commands.literal("enter").executes(c -> run(c, player -> DreamService.enterOwn(player) ? 1 : 0)))
+                        .then(Commands.literal("wake").executes(c -> run(c, player -> {
+                            DreamService.wake(player);
+                            return 1;
+                        })))
+                        .then(Commands.literal("lull").executes(c -> run(c, player -> {
+                            PlayerMagicState state = state(player);
+                            state.setSkillCooldown(MagicContent.LULL.id(), 0);
+                            return DreamService.lull(player, state) ? 1 : 0;
+                        })))
+                        .then(Commands.literal("body").executes(c -> run(c, MindCommands::body)))
+                        .then(Commands.literal("preset")
+                                .then(Commands.argument("name", StringArgumentType.word())
+                                        .suggests((c, b) -> {
+                                            DreamPresets.NAMES.forEach(b::suggest);
+                                            return b.buildFuture();
+                                        })
+                                        .executes(c -> run(c, player -> DreamPresets.build(player, StringArgumentType.getString(c, "name")) ? 1 : 0))))
+                        .then(Commands.literal("show").executes(c -> run(c, MindCommands::dreamShow))));
     }
 
     private static com.mojang.brigadier.builder.ArgumentBuilder<CommandSourceStack, ?> learn(String literal, Impression.Kind kind) {
@@ -84,6 +106,30 @@ public final class MindCommands {
                         .then(Commands.argument("gazes", IntegerArgumentType.integer(1, 100))
                                 .executes(c -> run(c, player -> learnOne(player, kind,
                                         ResourceLocationArgument.getId(c, "id").toString(), IntegerArgumentType.getInteger(c, "gazes"))))));
+    }
+
+    /** Your own body, lying three blocks ahead with nobody in it; for captures. A blow on it simply ends it. */
+    private static int body(ServerPlayer player) {
+        SleeperEntity body = SleeperEntity.of(player);
+        var ahead = player.position().add(player.getLookAngle().multiply(1, 0, 1).normalize().scale(3.0));
+        body.moveTo(ahead.x, player.getY(), ahead.z, player.getYRot() + 90.0F, 0.0F);
+        player.serverLevel().addFreshEntity(body);
+        return 1;
+    }
+
+    private static int dreamShow(ServerPlayer player) {
+        ServerLevel dream = DreamService.dreamLevel(player.server);
+        if (dream == null) {
+            player.sendSystemMessage(Component.literal("no dream level"));
+            return 0;
+        }
+        Dreamscape scape = DreamService.dreamscape(dream, player.getUUID());
+        Dreamscape.Flaw flaw = scape.flaw();
+        String flawText = flaw == null ? "none" : flaw.block() != null ? "block " + flaw.block() : "figment " + flaw.figment();
+        player.sendSystemMessage(Component.literal("plot " + scape.plot() + " at " + DreamService.at(scape.plot(), new Offset(0, 0, 0))
+                + ", arrival " + scape.arrival() + ", flaw " + flawText
+                + ", dreaming " + DreamService.dreaming(player.getUUID())));
+        return 1;
     }
 
     private static int run(CommandContext<CommandSourceStack> context, ToIntFunction<ServerPlayer> action) throws CommandSyntaxException {
