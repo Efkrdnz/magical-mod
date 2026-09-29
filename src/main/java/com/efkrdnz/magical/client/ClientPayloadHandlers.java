@@ -63,6 +63,10 @@ public final class ClientPayloadHandlers {
         com.efkrdnz.magical.client.screen.mind.PlaybillScreen.open();
     }
 
+    public static void handle(com.efkrdnz.magical.network.OpenLexiconPayload payload) {
+        com.efkrdnz.magical.client.screen.mind.LexiconInventoryScreen.open();
+    }
+
     public static void handle(CounterPromptPayload payload) {
         ClientCounterPrompt.receive(payload);
     }

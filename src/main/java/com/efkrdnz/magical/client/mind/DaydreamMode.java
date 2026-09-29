@@ -375,7 +375,7 @@ public final class DaydreamMode {
 
     /**
      * While drawing, the number keys choose a belt slot rather than a hotbar slot, and the inventory
-     * key opens the Playbill instead of the inventory. Both have to run before vanilla's
+     * key opens the Lexicon instead of the inventory. Both have to run before vanilla's
      * handleKeybinds, which is what would otherwise take them.
      */
     @SubscribeEvent
@@ -393,11 +393,13 @@ public final class DaydreamMode {
                 }
             }
         }
-        if (active && !inDream && minecraft.screen == null && minecraft.options.keyInventory.consumeClick()) {
+        if (active && minecraft.screen == null && minecraft.options.keyInventory.consumeClick()) {
             while (minecraft.options.keyInventory.consumeClick()) {
-                // one press, one Playbill
+                // one press, one Lexicon
             }
-            com.efkrdnz.magical.client.screen.mind.PlaybillScreen.open();
+            // Waking or in your own dream alike: the Lexicon is the Daydream's inventory, and the
+            // Playbill is a tab on it that stands down in a dream, where there is no draft to edit.
+            com.efkrdnz.magical.client.screen.mind.LexiconInventoryScreen.open();
         }
     }
 

@@ -34,6 +34,10 @@ public final class MindCommands {
         return Commands.literal("mind")
                 .then(Commands.literal("lexicon")
                         .then(Commands.literal("all").executes(c -> run(c, MindCommands::learnAll)))
+                        .then(Commands.literal("open").executes(c -> run(c, player -> {
+                            com.efkrdnz.magical.network.MagicalNetwork.sendOpenLexicon(player);
+                            return 1;
+                        })))
                         .then(learn("block", Impression.Kind.BLOCK))
                         .then(learn("creature", Impression.Kind.CREATURE)))
                 .then(Commands.literal("preset")

@@ -53,6 +53,8 @@ public final class MagicalNetwork {
                         context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToClient(OpenPlaybillPayload.TYPE, OpenPlaybillPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> handleClientPayload(payload)))
+                .playToClient(OpenLexiconPayload.TYPE, OpenLexiconPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToClient(IllusionScenePayload.TYPE, IllusionScenePayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToClient(IllusionEndPayload.TYPE, IllusionEndPayload.STREAM_CODEC, (payload, context) ->
@@ -369,6 +371,11 @@ public final class MagicalNetwork {
     /** Opens the Playbill on the client: {@code /magical mind playbill}. */
     public static void sendOpenPlaybill(ServerPlayer player) {
         PacketDistributor.sendToPlayer(player, new OpenPlaybillPayload());
+    }
+
+    /** Opens the Lexicon inventory on the client, which opens only while Daydreaming: {@code /magical mind lexicon open}. */
+    public static void sendOpenLexicon(ServerPlayer player) {
+        PacketDistributor.sendToPlayer(player, new OpenLexiconPayload());
     }
 
     /** The whole board to the server. Re-read and re-validated there before a byte of it lands. */
