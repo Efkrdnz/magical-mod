@@ -298,8 +298,47 @@ public final class DreamService {
         MagicalNetwork.sendDreamState(player, new DreamStatePayload(true, block, entity));
     }
 
+    /** How often the dream level is swept for creatures that have wandered out of their plots. */
+    static final int SWEEP_INTERVAL_TICKS = 20;
+
+    /**
+     * A dreamed creature belongs to its plot: one that has wandered out of the bounds is set back at the
+     * plot's arrival, and one that has left the grid altogether is unmade. Without this a Flaw could
+     * walk out of any dreamer's reach, and a figment outside the box would escape the cap.
+     */
+    static void sweepFigments(ServerLevel dream) {
+        for (Entity entity : List.copyOf(iterate(dream))) {
+            if (!(entity instanceof Mob mob) || mob.isRemoved() || !mob.getTags().contains(DREAM_TAG)) {
+                continue;
+            }
+            int plot = DreamRules.plotAt(mob.getX(), mob.getZ());
+            UUID owner = plot < 0 ? null : DreamPlots.of(dream).ownerOf(plot);
+            if (owner == null) {
+                mob.discard();
+                continue;
+            }
+            if (!DreamRules.inside(plot, mob.getX(), mob.getY(), mob.getZ())) {
+                Dreamscape scape = dreamscape(dream, owner);
+                BlockPos arrival = at(plot, scape.arrival());
+                mob.moveTo(arrival.getX() + 0.5, arrival.getY(), arrival.getZ() + 0.5, mob.getYRot(), 0.0F);
+                mob.setDeltaMovement(Vec3.ZERO);
+                mob.getNavigation().stop();
+            }
+        }
+    }
+
+    private static List<Entity> iterate(ServerLevel dream) {
+        List<Entity> all = new java.util.ArrayList<>();
+        dream.getAllEntities().forEach(all::add);
+        return all;
+    }
+
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
+        ServerLevel swept = dreamLevel(event.getServer());
+        if (swept != null && event.getServer().getTickCount() % SWEEP_INTERVAL_TICKS == 0) {
+            sweepFigments(swept);
+        }
         if (SESSIONS.isEmpty() && PENDING_HURTS.isEmpty()) {
             return;
         }

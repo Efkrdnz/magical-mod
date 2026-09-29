@@ -15,7 +15,6 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -62,7 +61,9 @@ public final class DreamBuilder {
         }
         boolean placed = false;
         for (BlockPos pos : edit.cells()) {
-            if (usable(player, scape, pos) && dream.getBlockState(pos).canBeReplaced()) {
+            // Whatever the Flaw was marked on stays what was marked: nothing is built over it.
+            boolean flawCell = scape.flaw() != null && DreamService.offsetIn(scape.plot(), pos).equals(scape.flaw().block());
+            if (!flawCell && usable(player, scape, pos) && dream.getBlockState(pos).canBeReplaced()) {
                 dream.setBlock(pos, block, Block.UPDATE_ALL);
                 placed = true;
             }
@@ -71,8 +72,7 @@ public final class DreamBuilder {
     }
 
     private static boolean spawn(ServerLevel dream, ServerPlayer player, Dreamscape scape, String creatureId, BlockPos pos) {
-        if (!usable(player, scape, pos)
-                || dream.getEntitiesOfClass(Mob.class, plotBox(scape), mob -> mob.getTags().contains(DreamService.DREAM_TAG)).size() >= DreamRules.MAX_FIGMENTS) {
+        if (!usable(player, scape, pos) || figments(dream, scape) >= DreamRules.MAX_FIGMENTS) {
             return false;
         }
         Entity entity = EntityType.byString(creatureId).map(type -> type.create(dream, EntitySpawnReason.COMMAND)).orElse(null);
@@ -80,6 +80,9 @@ public final class DreamBuilder {
             return false;
         }
         mob.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, player.getYRot() + 180.0F, 0.0F);
+        if (!dream.noCollision(mob)) {
+            return false;
+        }
         mob.setPersistenceRequired();
         mob.addTag(DreamService.DREAM_TAG);
         return dream.addFreshEntity(mob);
@@ -128,9 +131,15 @@ public final class DreamBuilder {
                 && player.getEyePosition().distanceTo(Vec3.atCenterOf(pos)) <= DreamRules.EDIT_REACH;
     }
 
-    private static AABB plotBox(Dreamscape scape) {
-        Offset o = DreamRules.origin(scape.plot());
-        return new AABB(o.dx() - DreamRules.PLOT_HALF, o.dy() - DreamRules.PLOT_BELOW, o.dz() - DreamRules.PLOT_HALF,
-                o.dx() + DreamRules.PLOT_HALF + 1, o.dy() + DreamRules.PLOT_ABOVE, o.dz() + DreamRules.PLOT_HALF + 1);
+    /** Every dreamed creature in this plot's cell of the grid, wherever it has wandered to. */
+    private static long figments(ServerLevel dream, Dreamscape scape) {
+        long count = 0;
+        for (Entity entity : dream.getAllEntities()) {
+            if (entity instanceof Mob mob && mob.getTags().contains(DreamService.DREAM_TAG)
+                    && DreamRules.plotAt(mob.getX(), mob.getZ()) == scape.plot()) {
+                count++;
+            }
+        }
+        return count;
     }
 }
