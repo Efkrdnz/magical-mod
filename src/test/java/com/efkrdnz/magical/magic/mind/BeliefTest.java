@@ -133,4 +133,49 @@ class BeliefTest {
         reverie.setFigmentSenses(0, EnumSet.of(Sense.SOUND, Sense.SHADOW));
         assertEquals(10 + 5 + 5 + 30, UnveilCost.of(reverie));
     }
+
+    @Test
+    void consensusSumsOnlyTheConvincedEachByItsWeight() {
+        Belief belief = new Belief();
+        belief.set(1, 0, 0.6F);
+        belief.set(2, 0, 0.49F);
+        belief.set(3, 0, 1.0F);
+        belief.set(1, 1, 0.8F);
+        belief.set(1, 5, 0.9F);
+        float[] sums = belief.consensus(2, viewer -> viewer == 3 ? 3.0 : 1.0);
+        assertEquals(2, sums.length);
+        assertEquals(0.6F + 3.0F, sums[0], EPSILON);
+        assertEquals(0.8F, sums[1], EPSILON);
+    }
+
+    @Test
+    void aNudgeMovesBeliefWithoutEverShatteringIt() {
+        Belief belief = new Belief();
+        belief.set(1, 0, 0.3F);
+        belief.nudge(1, 0, 0.01F);
+        assertEquals(0.31F, belief.get(1, 0), EPSILON);
+        belief.set(1, 0, 0.05F);
+        belief.nudge(1, 0, -0.01F);
+        assertEquals(0.04F, belief.get(1, 0), EPSILON);
+        assertFalse(belief.shattered(1, 0));
+        belief.nudge(1, 0, -0.5F);
+        assertEquals(0.0F, belief.get(1, 0), EPSILON);
+        assertFalse(belief.shattered(1, 0), "doubt pushed to nothing is not a contradiction");
+        belief.nudge(2, 0, -0.01F);
+        assertEquals(0.0F, belief.get(2, 0), EPSILON);
+        belief.nudge(2, 0, 0.10F);
+        assertEquals(0.10F, belief.get(2, 0), EPSILON);
+        belief.set(3, 0, 0.95F);
+        belief.nudge(3, 0, 0.10F);
+        assertEquals(1.0F, belief.get(3, 0), EPSILON);
+    }
+
+    @Test
+    void aShatteredRowIsDeafToANudge() {
+        Belief belief = new Belief();
+        assertTrue(belief.expose(4, 0, Contradiction.TOUCH));
+        belief.nudge(4, 0, 0.10F);
+        assertTrue(belief.shattered(4, 0));
+        assertEquals(0.0F, belief.get(4, 0), EPSILON);
+    }
 }

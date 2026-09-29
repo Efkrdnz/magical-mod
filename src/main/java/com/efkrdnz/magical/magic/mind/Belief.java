@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.IntToDoubleFunction;
 
 /**
  * Belief, viewer by element, for one live scene. It climbs slowly while a viewer perceives the
@@ -107,6 +108,52 @@ public final class Belief {
     public void forget(int viewer) {
         values.keySet().removeIf(key -> (int) (key >> 32) == viewer);
         shattered.removeIf(key -> (int) (key >> 32) == viewer);
+    }
+
+    /**
+     * Every element's consensus in one pass: the sum, over viewers convinced of it, of their belief
+     * times what their mind counts ({@code voter}, by entity id). Rows for elements past the end are
+     * ignored; shattered rows hold no belief and count for nothing.
+     */
+    public float[] consensus(int elements, IntToDoubleFunction voter) {
+        float[] sums = new float[elements];
+        for (Map.Entry<Long, Float> entry : values.entrySet()) {
+            float b = entry.getValue();
+            if (b < CONVINCED) {
+                continue;
+            }
+            long key = entry.getKey();
+            int element = (int) (key & 0xFFFFFFFFL);
+            if (element < 0 || element >= elements) {
+                continue;
+            }
+            sums[element] += (float) voter.applyAsDouble((int) (key >> 32)) * b;
+        }
+        return sums;
+    }
+
+    /**
+     * Moves a belief by a step, from outside the viewer's own senses (Insist, a lie that hurts). It is
+     * never evidence: it cannot shatter, a shattered row ignores it, and doubt alone never writes a row.
+     */
+    public void nudge(int viewer, int element, float delta) {
+        long key = key(viewer, element);
+        if (shattered.contains(key)) {
+            return;
+        }
+        Float b = values.get(key);
+        if (b == null) {
+            if (delta > 0.0F) {
+                values.put(key, Math.min(1.0F, delta));
+            }
+            return;
+        }
+        float next = Math.min(1.0F, b + delta);
+        if (next <= 0.0F) {
+            values.remove(key);
+        } else {
+            values.put(key, next);
+        }
     }
 
     public List<Row> rows() {
