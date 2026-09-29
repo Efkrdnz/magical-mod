@@ -147,15 +147,11 @@ public final class MindCommands {
     private static int learnAll(ServerPlayer player) {
         PlayerMagicState state = state(player);
         BuiltInRegistries.BLOCK.keySet().forEach(id -> {
-            String key = Impression.block(id.toString()).key();
-            state.mind().lexicon().learn(key, FULL_STUDY);
-            state.mind().belt().offer(key);
+            teach(state, Impression.block(id.toString()).key(), FULL_STUDY);
         });
         BuiltInRegistries.ENTITY_TYPE.entrySet().forEach(entry -> {
             if (entry.getValue().getCategory() != MobCategory.MISC) {
-                String key = Impression.creature(entry.getKey().location().toString()).key();
-                state.mind().lexicon().learn(key, FULL_STUDY);
-                state.mind().belt().offer(key);
+                teach(state, Impression.creature(entry.getKey().location().toString()).key(), FULL_STUDY);
             }
         });
         state.sync(player);
@@ -168,10 +164,18 @@ public final class MindCommands {
         if (Impression.parse(impression.key()) == null) {
             return 0;
         }
-        state.mind().lexicon().learn(impression.key(), gazes);
-        state.mind().belt().offer(impression.key());
+        teach(state, impression.key(), gazes);
         state.sync(player);
         return 1;
+    }
+
+    /** Learns a lie and, only the first time, offers it to the belt, as a gaze does. */
+    private static void teach(PlayerMagicState state, String key, int gazes) {
+        boolean fresh = !state.mind().lexicon().knows(key);
+        state.mind().lexicon().learn(key, gazes);
+        if (fresh) {
+            state.mind().belt().offer(key);
+        }
     }
 
     private static int preset(ServerPlayer player, int slot, String name) {
@@ -180,7 +184,7 @@ public final class MindCommands {
             return 0;
         }
         PlayerMagicState state = state(player);
-        MindPresets.impressions(preset).forEach(key -> state.mind().lexicon().learn(key, DEFAULT_STUDY));
+        MindPresets.impressions(preset).forEach(key -> teach(state, key, DEFAULT_STUDY));
         state.mind().reverie(slot).copyFrom(preset);
         state.mind().setActiveSlot(slot);
         state.sync(player);

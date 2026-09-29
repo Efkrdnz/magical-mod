@@ -134,6 +134,17 @@ public record LexiconInventoryLayout(int guiWidth, int guiHeight, boolean playbi
         return hit(panel(), mx, my);
     }
 
+    /**
+     * The panel and the whole band above it the tabs and the page arrows stand in, gaps included:
+     * a click here is a mis-aim at the frame, never a lie let go of.
+     */
+    public boolean onFrame(double mx, double my) {
+        Rect panel = panel();
+        int top = Math.min(tab(0).y(), pagePrev().y());
+        boolean band = mx >= pagePrev().x() && mx < pageNext().right() && my >= top && my < panel.y();
+        return band || onPanel(mx, my);
+    }
+
     public static boolean hit(Rect rect, double mx, double my) {
         return mx >= rect.x() && mx < rect.right() && my >= rect.y() && my < rect.bottom();
     }

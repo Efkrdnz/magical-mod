@@ -12,6 +12,7 @@ class MindStateTest {
         state.mind().reverie(1).setName("Wall");
         state.mind().reverie(1).addBlock(new Offset(0, 0, 0), "minecraft:stone", state.mind().lexicon());
         state.mind().setActiveSlot(1);
+        state.mind().belt().set(3, "block:minecraft:stone");
         return state;
     }
 
@@ -21,6 +22,7 @@ class MindStateTest {
         assertEquals(6, back.mind().lexicon().gazes("block:minecraft:stone"));
         assertEquals("Wall", back.mind().active().name());
         assertEquals(1, back.mind().active().size());
+        assertEquals("block:minecraft:stone", back.mind().belt().get(3));
     }
 
     @Test
@@ -29,6 +31,7 @@ class MindStateTest {
         PlayerMagicState copy = state.copy();
         state.mind().clear();
         assertEquals(1, copy.mind().reverie(1).size());
+        assertEquals("block:minecraft:stone", copy.mind().belt().get(3));
         assertEquals(0, state.mind().lexicon().size());
     }
 
@@ -39,6 +42,7 @@ class MindStateTest {
         assertEquals(0, state.mind().lexicon().size());
         assertTrue(state.mind().reverie(1).isEmpty());
         assertEquals(0, state.mind().activeSlot());
+        assertNull(state.mind().belt().get(3));
     }
 
     @Test

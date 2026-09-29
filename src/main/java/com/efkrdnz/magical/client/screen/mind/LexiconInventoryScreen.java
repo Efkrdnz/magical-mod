@@ -2,6 +2,7 @@ package com.efkrdnz.magical.client.screen.mind;
 
 import com.efkrdnz.magical.client.ClientMagicState;
 import com.efkrdnz.magical.client.hud.HudDebug;
+import com.efkrdnz.magical.client.hud.HudQuiet;
 import com.efkrdnz.magical.client.mind.BeltHotbarOverlay;
 import com.efkrdnz.magical.client.mind.DaydreamMode;
 import com.efkrdnz.magical.client.mind.LexiconShelves;
@@ -45,7 +46,7 @@ import java.util.Map;
  * are pictures from {@link LieIcons}, and the only thing that ever leaves is a key, through
  * {@link MagicalNetwork#sendSetBeltSlot}.
  */
-public final class LexiconInventoryScreen extends Screen implements HudDebug.Captured {
+public final class LexiconInventoryScreen extends Screen implements HudDebug.Captured, HudQuiet {
     private static final ResourceLocation PANEL = ResourceLocation.withDefaultNamespace("textures/gui/container/creative_inventory/tab_items.png");
     private static final ResourceLocation SEARCH_PANEL = ResourceLocation.withDefaultNamespace("textures/gui/container/creative_inventory/tab_item_search.png");
     private static final ResourceLocation SCROLLER = ResourceLocation.withDefaultNamespace("container/creative_inventory/scroller");
@@ -74,6 +75,8 @@ public final class LexiconInventoryScreen extends Screen implements HudDebug.Cap
     private List<String> shown = List.of();
     private int selectedTab;
     private float scroll;
+    /** How many lies the wielder knew when the tabs were shelved, so a new one reshelves them. */
+    private int builtFrom;
     private boolean scrolling;
     /** The lie on the cursor, by key; null when the cursor is empty. */
     private String carried;
@@ -140,6 +143,7 @@ public final class LexiconInventoryScreen extends Screen implements HudDebug.Cap
 
     private void buildTabs() {
         tabs.clear();
+        builtFrom = lexicon().size();
         LocalPlayer player = minecraft.player;
         if (player == null) {
             return;
@@ -220,7 +224,10 @@ public final class LexiconInventoryScreen extends Screen implements HudDebug.Cap
         } else {
             shown = tabs.get(selectedTab).keys();
         }
-        scroll = Math.min(scroll, 1.0F);
+        // A list that no longer overflows has nothing to scroll: a thumb left down there would jump it later.
+        if (hiddenRows() == 0) {
+            scroll = 0.0F;
+        }
     }
 
     // ---- scrolling -----------------------------------------------------------------------------
@@ -293,7 +300,7 @@ public final class LexiconInventoryScreen extends Screen implements HudDebug.Cap
             clickBelt(slot);
             return true;
         }
-        if (!layout.onPanel(mx, my)) {
+        if (!layout.onFrame(mx, my)) {
             // Let go of what is carried, as a stack dropped outside creative's panel is gone.
             carried = null;
             return true;
@@ -463,6 +470,15 @@ public final class LexiconInventoryScreen extends Screen implements HudDebug.Cap
         // The Daydream ended under it (it left the loadout, the wielder strayed or died): so does its inventory.
         if (!DaydreamMode.active()) {
             onClose();
+            return;
+        }
+        // A lie learned with the screen open joins its own tab as well as Search.
+        if (lexicon().size() != builtFrom && !tabs.isEmpty()) {
+            String keep = tabs.get(selectedTab).id();
+            buildTabs();
+            int index = indexOf(keep);
+            selectedTab = index >= 0 ? index : Math.min(selectedTab, tabs.size() - 1);
+            refilter();
         }
     }
 

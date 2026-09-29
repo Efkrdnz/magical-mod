@@ -78,4 +78,21 @@ public final class BeltGameTests {
                 "learning it again put it on the belt twice");
         helper.succeed();
     }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "belt_5")
+    public static void aCommandOffersOnlyWhatIsNewlyLearned(GameTestHelper helper) {
+        ServerPlayer player = wielder(helper, "belt-command-test", true);
+        PlayerMagicState state = player.getData(MagicalAttachments.MAGIC_STATE);
+        state.mind().lexicon().learn(STONE, 1);
+        run(player, "magical mind lexicon block minecraft:stone 5");
+        helper.assertTrue(state.mind().belt().indexOf(STONE) < 0, "a lie already known was offered again");
+        run(player, "magical mind preset 1 wall");
+        helper.assertTrue(state.mind().belt().get(0) != null, "a preset's new lies were not offered to the belt");
+        helper.succeed();
+    }
+
+    private static void run(ServerPlayer player, String command) {
+        player.server.getCommands().performPrefixedCommand(
+                player.createCommandSourceStack().withPermission(4).withSuppressedOutput(), command);
+    }
 }

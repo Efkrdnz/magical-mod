@@ -133,4 +133,22 @@ class LexiconInventoryLayoutTest {
     private static double cy(Rect rect) {
         return rect.y() + rect.h() / 2.0;
     }
+
+    @Test
+    void aClickAnywhereOnTheTabRowIsOnTheFrameAndOnlyFarOffIsOutside() {
+        for (int[] screen : SCREENS) {
+            for (boolean playbill : PLAYBILL) {
+                LexiconInventoryLayout layout = new LexiconInventoryLayout(screen[0], screen[1], playbill);
+                for (Rect rect : everything(layout)) {
+                    assertTrue(layout.onFrame(rect.x() + rect.w() / 2.0, rect.y() + rect.h() / 2.0), rect.name() + " is off the frame");
+                }
+                // The gap after the last tab of the page, where a mis-click on the row used to throw the lie away.
+                Rect last = layout.tab(layout.tabsPerPage() - 1);
+                assertTrue(layout.onFrame(last.right() + 1, last.y() + last.h() / 2.0), "the tab row's gap is off the frame");
+                Rect panel = layout.panel();
+                assertFalse(layout.onFrame(panel.x() - 30, panel.y() + panel.h() / 2.0), "left of the panel is on the frame");
+                assertFalse(layout.onFrame(panel.x() + panel.w() / 2.0, panel.bottom() + 10), "below the panel is on the frame");
+            }
+        }
+    }
 }
