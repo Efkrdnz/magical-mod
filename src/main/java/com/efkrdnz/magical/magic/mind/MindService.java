@@ -279,9 +279,13 @@ public final class MindService {
             }
             return;
         }
-        if (scene.belief().get(target.getId(), figment.element()) < Belief.CONVINCED) {
-            expose(scene, target, scene.elements().get(figment.element()), Contradiction.HOLLOW_STRIKE, level.getGameTime());
+        LiveScene.Element element = scene.elements().get(figment.element());
+        float belief = scene.belief().get(target.getId(), figment.element());
+        if (belief >= Belief.CONVINCED) {
+            MindHarm.struck(level, scene, figment, target, element, belief);
+            return;
         }
+        expose(scene, target, element, Contradiction.HOLLOW_STRIKE, level.getGameTime());
     }
 
     /** A real figment was killed: it is gone from its scene for good. */
@@ -332,6 +336,8 @@ public final class MindService {
         }
         Sight sight = new Sight(level, scene);
         List<LivingEntity> viewers = sight.viewers();
+        // Before touches, so a believer who only just stepped in is not burned twice on one tick.
+        MindHarm.smoulder(level, scene, viewers, now);
         touches(sight, viewers, now);
         projectiles(sight, viewers, now);
         Set<Integer> present = new HashSet<>();
@@ -500,6 +506,12 @@ public final class MindService {
                     continue;
                 }
                 if (!scene.inside.add(key)) {
+                    continue;
+                }
+                float belief = scene.belief().get(viewer.getId(), element.index());
+                if (belief >= Belief.CONVINCED && PhantomHarm.of(element.blockIds()) > 0.0F) {
+                    // A lie that hurts is believed more: the burn is not evidence against the lava.
+                    MindHarm.touched(sight.level, scene, viewer, element, belief);
                     continue;
                 }
                 expose(scene, viewer, element, Contradiction.TOUCH, now);
