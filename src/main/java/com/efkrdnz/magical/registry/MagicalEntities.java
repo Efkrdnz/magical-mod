@@ -269,7 +269,7 @@ public final class MagicalEntities {
                     .updateInterval(1)
                     .build(key("blood_harvest")));
 
-    /** A creature someone imagined: real to the server's AI, drawn only for the minds that believe it. */
+    /** A creature someone imagined: real only to the minds that believe it, and drawn only for them. */
     public static final DeferredHolder<EntityType<?>, EntityType<com.efkrdnz.magical.entity.mind.FigmentEntity>> FIGMENT = ENTITY_TYPES.register(
             "figment",
             () -> EntityType.Builder.<com.efkrdnz.magical.entity.mind.FigmentEntity>of(com.efkrdnz.magical.entity.mind.FigmentEntity::new, MobCategory.MISC)
