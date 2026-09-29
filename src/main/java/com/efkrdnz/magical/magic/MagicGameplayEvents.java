@@ -4,6 +4,7 @@ import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.entity.SovereignAegisEntity;
 import com.efkrdnz.magical.forge.BlacksmithForgeService;
 import com.efkrdnz.magical.forge.ForgedWeapons;
+import com.efkrdnz.magical.magic.mind.DreamService;
 import com.efkrdnz.magical.magic.passive.ClassPassiveEffects;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import com.efkrdnz.magical.tower.DungeonTowerService;
@@ -360,6 +361,10 @@ public final class MagicGameplayEvents {
         }
         ClassPassiveEffects.onPetDeath(event.getEntity());
         if (!(event.getSource().getEntity() instanceof ServerPlayer player) || !(event.getEntity() instanceof LivingEntity killed)) {
+            return;
+        }
+        if (DreamService.isDream(killed)) {
+            // A dream is free to fill, so nothing killed in one pays out.
             return;
         }
         MagicSinService.onMagicKill(player, killed);

@@ -2,11 +2,14 @@ package com.efkrdnz.magical.magic.mind;
 
 import com.efkrdnz.magical.MagicalMod;
 import com.efkrdnz.magical.gametest.GameTestPlayers;
+import com.efkrdnz.magical.classes.MagicalClasses;
+import com.efkrdnz.magical.registry.MagicalAttachments;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ExperienceOrb;
@@ -17,6 +20,9 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.core.Direction;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -111,6 +117,104 @@ public final class DreamGuardGameTests {
         player.getInventory().clearContent();
         player.drop(new ItemStack(Items.DIAMOND, 3), false, true);
         helper.assertTrue(player.getInventory().countItem(Items.DIAMOND) == 3, "a thrown diamond was lost to the dream");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "dream_guard_7")
+    public static void aKillInADreamEarnsNoClassExperience(GameTestHelper helper) {
+        BlockPos at = plotCell(helper, new Offset(0, 0, 2));
+        ServerLevel level = helper.getLevel();
+        ServerPlayer player = GameTestPlayers.survival(helper, new BlockPos(2, 2, 2), "dream-slayer-test");
+        player.getData(MagicalAttachments.MAGIC_STATE).unlockClass(player, MagicalClasses.WARRIOR);
+        int before = player.getData(MagicalAttachments.MAGIC_STATE).classXpPool(MagicalClasses.WARRIOR);
+        Zombie zombie = EntityType.ZOMBIE.create(level, EntitySpawnReason.COMMAND);
+        zombie.moveTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5, 0.0F, 0.0F);
+        zombie.addTag(DreamService.DREAM_TAG);
+        level.addFreshEntity(zombie);
+        zombie.hurtServer(level, level.damageSources().playerAttack(player), Float.MAX_VALUE);
+        helper.assertTrue(zombie.isDeadOrDying(), "the zombie survived");
+        helper.assertTrue(player.getData(MagicalAttachments.MAGIC_STATE).classXpPool(MagicalClasses.WARRIOR) == before,
+                "a kill in a dream earned class experience");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "dream_guard_8")
+    public static void aKillOutsideADreamStillEarnsClassExperience(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ServerPlayer player = GameTestPlayers.survival(helper, new BlockPos(2, 2, 2), "awake-slayer-test");
+        player.getData(MagicalAttachments.MAGIC_STATE).unlockClass(player, MagicalClasses.WARRIOR);
+        int before = player.getData(MagicalAttachments.MAGIC_STATE).classXpPool(MagicalClasses.WARRIOR);
+        Zombie zombie = EntityType.ZOMBIE.create(level, EntitySpawnReason.COMMAND);
+        BlockPos at = helper.absolutePos(new BlockPos(3, 2, 3));
+        zombie.moveTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5, 0.0F, 0.0F);
+        level.addFreshEntity(zombie);
+        zombie.hurtServer(level, level.damageSources().playerAttack(player), Float.MAX_VALUE);
+        helper.assertTrue(player.getData(MagicalAttachments.MAGIC_STATE).classXpPool(MagicalClasses.WARRIOR) > before,
+                "the gate also closed the waking world");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "dream_guard_9")
+    public static void experienceGivenInADreamIsRefused(GameTestHelper helper) {
+        BlockPos at = plotCell(helper, new Offset(0, 0, 0));
+        ServerPlayer player = GameTestPlayers.survival(helper, new BlockPos(2, 2, 2), "dream-xp-test");
+        player.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+        int before = player.totalExperience;
+        player.giveExperiencePoints(10);
+        helper.assertTrue(player.totalExperience == before, "a dream gave experience points");
+        player.giveExperienceLevels(2);
+        helper.assertTrue(player.experienceLevel == 0, "a dream gave experience levels");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "dream_guard_10")
+    public static void aPottedPlantCannotBePickedByHandInADream(GameTestHelper helper) {
+        BlockPos pot = plotCell(helper, new Offset(1, 0, 0));
+        ServerLevel level = helper.getLevel();
+        level.setBlock(pot, Blocks.POTTED_POPPY.defaultBlockState(), Block.UPDATE_ALL);
+        ServerPlayer player = GameTestPlayers.survival(helper, new BlockPos(2, 2, 2), "dream-potter-test");
+        player.teleportTo(pot.getX() + 0.5, pot.getY() + 1.0, pot.getZ() - 1.5);
+        player.getInventory().clearContent();
+        player.gameMode.useItemOn(player, level, ItemStack.EMPTY, InteractionHand.MAIN_HAND,
+                new BlockHitResult(Vec3.atCenterOf(pot), Direction.UP, pot, false));
+        helper.assertTrue(player.getInventory().isEmpty(), "a dream pot gave up its flower");
+        helper.assertTrue(level.getBlockState(pot).is(Blocks.POTTED_POPPY), "the dream pot lost its flower");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "dream_guard_11")
+    public static void aDoorStillAnswersAnEmptyHandInADream(GameTestHelper helper) {
+        BlockPos at = plotCell(helper, new Offset(1, 0, 0));
+        ServerLevel level = helper.getLevel();
+        level.setBlock(at, Blocks.LEVER.defaultBlockState(), Block.UPDATE_ALL);
+        boolean before = level.getBlockState(at).getValue(net.minecraft.world.level.block.LeverBlock.POWERED);
+        ServerPlayer player = GameTestPlayers.survival(helper, new BlockPos(2, 2, 2), "dream-lever-test");
+        player.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() - 1.5);
+        player.getInventory().clearContent();
+        player.gameMode.useItemOn(player, level, ItemStack.EMPTY, InteractionHand.MAIN_HAND,
+                new BlockHitResult(Vec3.atCenterOf(at), Direction.NORTH, at, false));
+        helper.assertTrue(level.getBlockState(at).getValue(net.minecraft.world.level.block.LeverBlock.POWERED) != before,
+                "the whitelist shut a lever too");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "dream_guard_12")
+    public static void whatAFullHandCannotTakeBackStaysInTheDream(GameTestHelper helper) {
+        BlockPos at = plotCell(helper, new Offset(0, 0, 0));
+        ServerLevel level = helper.getLevel();
+        ServerPlayer player = GameTestPlayers.survival(helper, new BlockPos(2, 2, 2), "dream-full-test");
+        player.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+        player.getInventory().clearContent();
+        for (int slot = 0; slot < player.getInventory().items.size(); slot++) {
+            player.getInventory().items.set(slot, new ItemStack(Items.DIRT, 64));
+        }
+        ItemEntity dropped = player.drop(new ItemStack(Items.DIAMOND, 3), false, true);
+        helper.assertTrue(player.getInventory().countItem(Items.DIAMOND) == 0, "the full inventory took a diamond");
+        helper.assertTrue(dropped != null && dropped.isAddedToLevel(), "the overflow was deleted instead of dropped");
+        helper.assertTrue(dropped.getItem().is(Items.DIAMOND) && dropped.getItem().getCount() == 3,
+                "the overflow lost part of its stack, kept " + dropped.getItem());
+        helper.assertTrue(DreamService.isDream(dropped), "the overflow is not in the dream");
+        dropped.discard();
         helper.succeed();
     }
 }
