@@ -7,6 +7,8 @@ public record Impression(Kind kind, String id) {
     private static final String BLOCK_PREFIX = "block:";
     private static final String CREATURE_PREFIX = "creature:";
     private static final String PLAYER = "minecraft:player";
+    /** A sleeping player's body; a player in all but the name. */
+    private static final String SLEEPER = "magical:sleeper";
 
     public static Impression block(String id) {
         return new Impression(Kind.BLOCK, id);
@@ -26,7 +28,7 @@ public record Impression(Kind kind, String id) {
         }
         if (key.startsWith(CREATURE_PREFIX) && key.length() > CREATURE_PREFIX.length()) {
             String id = key.substring(CREATURE_PREFIX.length());
-            return PLAYER.equals(id) ? null : creature(id);
+            return PLAYER.equals(id) || SLEEPER.equals(id) ? null : creature(id);
         }
         return null;
     }

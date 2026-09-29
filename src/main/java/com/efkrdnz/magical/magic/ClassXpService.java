@@ -43,7 +43,7 @@ public final class ClassXpService {
 
     /** Applying a magical status to somebody else feeds the Alchemist line. */
     public static void onStatusApplied(ServerPlayer player, LivingEntity victim) {
-        if (victim != player) {
+        if (victim != player && !com.efkrdnz.magical.magic.mind.DreamService.isDream(victim)) {
             award(player, MagicalClasses.ALCHEMIST, STATUS_XP);
         }
     }

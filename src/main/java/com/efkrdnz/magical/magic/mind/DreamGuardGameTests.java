@@ -7,6 +7,7 @@ import com.efkrdnz.magical.registry.MagicalAttachments;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -14,6 +15,8 @@ import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.animal.frog.Frog;
+import net.minecraft.world.entity.animal.frog.Tadpole;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -32,6 +35,62 @@ import java.util.UUID;
 @PrefixGameTestTemplate(false)
 public final class DreamGuardGameTests {
     private static final String TEMPLATE = "unwaking_empty";
+
+    /** A mob born in a plot by any route but Daydream is the dream's all the same: it wears the tag. */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "dream_guard_13")
+    public static void aMobBornInADreamIsDreamed(GameTestHelper helper) {
+        BlockPos at = plotCell(helper, new Offset(0, 0, 0));
+        ServerLevel level = helper.getLevel();
+        Zombie born = new Zombie(EntityType.ZOMBIE, level);
+        born.moveTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+        helper.assertTrue(level.addFreshEntity(born), "the mob was refused");
+        helper.assertTrue(born.getTags().contains(DreamService.DREAM_TAG), "a mob born in a dream is not the dream's");
+        born.discard();
+        BlockPos outside = helper.absolutePos(new BlockPos(2, 2, 2));
+        Zombie awake = new Zombie(EntityType.ZOMBIE, level);
+        awake.moveTo(outside.getX() + 0.5, outside.getY(), outside.getZ() + 0.5);
+        level.addFreshEntity(awake);
+        helper.assertFalse(awake.getTags().contains(DreamService.DREAM_TAG), "a mob born awake was taken for the dream's");
+        awake.discard();
+        helper.succeed();
+    }
+
+    /**
+     * A Flaw that grows into something else is still the Flaw: a tadpole marked as one becomes a frog
+     * marked as one. The plot's chunk is held first, or the frog is added to a chunk no lookup can see.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 60, batch = "dream_guard_14")
+    public static void aFlawThatTurnsIntoSomethingElseIsStillTheFlaw(GameTestHelper helper) {
+        UUID owner = UUID.randomUUID();
+        DreamService.testLevel = helper.getLevel();
+        ServerLevel level = helper.getLevel();
+        Dreamscape scape = DreamService.dreamscape(level, owner);
+        BlockPos at = DreamService.at(scape.plot(), new Offset(0, 0, 0));
+        net.minecraft.world.level.ChunkPos chunk = new net.minecraft.world.level.ChunkPos(at);
+        level.setChunkForced(chunk.x, chunk.z, true);
+        helper.runAfterDelay(5, () -> {
+            try {
+                Tadpole tadpole = new Tadpole(EntityType.TADPOLE, level);
+                tadpole.moveTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+                helper.assertTrue(level.addFreshEntity(tadpole), "the tadpole was refused");
+                helper.assertTrue(tadpole.getTags().contains(DreamService.DREAM_TAG), "the tadpole is not dreamed");
+                scape.markFigment(tadpole.getUUID());
+                CompoundTag grown = tadpole.saveWithoutId(new CompoundTag());
+                grown.putInt("Age", 10 * 24000);
+                tadpole.load(grown);
+                helper.assertTrue(tadpole.isRemoved(), "the tadpole did not grow up");
+                UUID flaw = scape.flaw() == null ? null : scape.flaw().figment();
+                helper.assertTrue(flaw != null && !flaw.equals(tadpole.getUUID()), "the Flaw did not follow what it became");
+                helper.assertTrue(level.getEntity(flaw) instanceof Frog, "the Flaw is not the frog: " + level.getEntity(flaw));
+                Frog frog = (Frog) level.getEntity(flaw);
+                helper.assertTrue(frog.getTags().contains(DreamService.DREAM_TAG), "the frog is not dreamed");
+                frog.discard();
+            } finally {
+                level.setChunkForced(chunk.x, chunk.z, false);
+            }
+            helper.succeed();
+        });
+    }
 
     private static BlockPos plotCell(GameTestHelper helper, Offset offset) {
         DreamService.testLevel = helper.getLevel();

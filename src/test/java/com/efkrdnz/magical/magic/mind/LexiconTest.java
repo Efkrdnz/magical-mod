@@ -14,6 +14,7 @@ class LexiconTest {
         assertEquals("minecraft:villager", back.id());
         assertNull(Impression.parse("nonsense"));
         assertNull(Impression.parse("creature:minecraft:player"), "a player is never an impression");
+        assertNull(Impression.parse("creature:magical:sleeper"), "a sleeping body is a player, and never an impression");
     }
 
     @Test

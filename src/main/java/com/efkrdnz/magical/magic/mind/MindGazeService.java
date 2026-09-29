@@ -106,6 +106,7 @@ public final class MindGazeService {
     public static String keyOf(Entity entity, BlockState block) {
         if (entity != null) {
             if (entity instanceof Player || entity instanceof ArmorStand
+                    || entity instanceof com.efkrdnz.magical.entity.mind.SleeperEntity
                     || entity instanceof com.efkrdnz.magical.entity.mind.FigmentEntity
                     || !(entity instanceof LivingEntity)) {
                 return null;

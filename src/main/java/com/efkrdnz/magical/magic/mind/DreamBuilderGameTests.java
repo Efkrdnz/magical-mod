@@ -291,6 +291,8 @@ public final class DreamBuilderGameTests {
                 stray = EntityType.COW.create(level, EntitySpawnReason.COMMAND);
                 stray.moveTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5, 0.0F, 0.0F);
                 level.addFreshEntity(stray);
+                // Anything born in a plot is tagged as it arrives; take the tag off to stand for a creature that is not the dream's.
+                stray.removeTag(DreamService.DREAM_TAG);
                 helper.assertTrue(level.getEntity(stray.getId()) != null, "the stray cow was never tracked, so the refusal proves nothing");
                 helper.assertFalse(DreamBuilder.apply(player, new DreamEditPayload(DreamEditPayload.ERASE, List.of(), "", stray.getId())),
                         "an untagged creature was unmade");

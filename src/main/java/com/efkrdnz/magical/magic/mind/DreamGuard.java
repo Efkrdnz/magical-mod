@@ -5,6 +5,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ExperienceOrb;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -75,7 +76,7 @@ public final class DreamGuard {
                 || state.is(BlockTags.BUTTONS) || state.getBlock() instanceof LeverBlock;
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onBreak(BlockEvent.BreakEvent event) {
         if (event.getLevel() instanceof Level level && DreamService.isDream(level, event.getPos())) {
             event.setCanceled(true);
@@ -166,6 +167,22 @@ public final class DreamGuard {
         if (event.getNewAboutToBeSetTarget() instanceof ServerPlayer player && DreamService.dreamingOwn(player.getUUID())) {
             event.setNewAboutToBeSetTarget(null);
         }
+    }
+
+    /**
+     * Whatever is born in a dream - a golem from a pattern, a reinforcement, a vex - is dreamed with
+     * the rest: counted against the cap and kept in its plot by the sweep. A figment of the Mind's
+     * stage one is not the dream's, and a Sleeper is not a mob.
+     */
+    @SubscribeEvent
+    public static void onMobBorn(EntityJoinLevelEvent event) {
+        if (event.getLevel().isClientSide() || !(event.getEntity() instanceof Mob mob)
+                || mob instanceof com.efkrdnz.magical.entity.mind.FigmentEntity
+                || mob.getTags().contains(DreamService.DREAM_TAG)
+                || !DreamService.isDream(event.getLevel(), mob.getX(), mob.getZ())) {
+            return;
+        }
+        mob.addTag(DreamService.DREAM_TAG);
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)

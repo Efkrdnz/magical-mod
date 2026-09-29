@@ -189,6 +189,23 @@ public final class LullGameTests {
         helper.succeed();
     }
 
+    /** A boss is refused before anything is billed, however sure it is of the scene. */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "lull_11")
+    public static void aBossNeverSleepsAndItCostsNothing(GameTestHelper helper) {
+        ServerPlayer wielder = wielder(helper, "lull-boss-test");
+        PlayerMagicState state = wielder.getData(MagicalAttachments.MAGIC_STATE);
+        LivingEntity wither = helper.spawnWithNoFreeWill(EntityType.WITHER, helper.relativeVec(onFloor(helper, new BlockPos(2, 2, 3))));
+        believes(helper, wielder, wither, 0.95F);
+        wielder.lookAt(EntityAnchorArgument.Anchor.EYES, wither.getBoundingBox().getCenter());
+        int before = state.mana();
+        helper.assertFalse(DreamService.lull(wielder, state), "a wither was lulled");
+        helper.assertFalse(MagicStatusService.has(wither, MagicStatus.ASLEEP), "the wither sleeps");
+        helper.assertTrue(state.mana() == before && !state.isSkillOnCooldown(MagicContent.LULL.id()), "a refused boss was billed");
+        wither.discard();
+        MindService.endAll(wielder.getUUID());
+        helper.succeed();
+    }
+
     @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "lull_10")
     public static void aPlayerAlreadyDreamingIsRefusedForNothing(GameTestHelper helper) {
         ServerPlayer wielder = wielder(helper, "lull-busy-test");

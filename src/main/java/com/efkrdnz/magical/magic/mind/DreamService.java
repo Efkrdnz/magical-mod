@@ -45,7 +45,9 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.common.Tags;
 import net.neoforged.neoforge.event.entity.EntityTravelToDimensionEvent;
+import net.neoforged.neoforge.event.entity.living.LivingConversionEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -508,6 +510,47 @@ public final class DreamService {
         }
     }
 
+    /** A blow owed to a body is owed to that life: a death, and the respawn after it, write it off. */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onDied(LivingDeathEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            PENDING_HURTS.remove(player.getUUID());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onRespawn(PlayerEvent.PlayerRespawnEvent event) {
+        PENDING_HURTS.remove(event.getEntity().getUUID());
+    }
+
+    /**
+     * A dreamed creature that turns into another (a tadpole grown, a villager struck) is still the
+     * same thing in the dream: if it was the Flaw, the Flaw is what it became. Vanilla carries its
+     * tags across, so the new one is dreamed too.
+     */
+    @SubscribeEvent
+    public static void onConverted(LivingConversionEvent.Post event) {
+        LivingEntity before = event.getEntity();
+        if (!(before.level() instanceof ServerLevel level) || level != dreamLevel(level.getServer()) || !isDream(before)) {
+            return;
+        }
+        int plot = DreamRules.plotAt(before.getX(), before.getZ());
+        UUID owner = plot < 0 ? null : DreamPlots.of(level).ownerOf(plot);
+        if (owner == null) {
+            return;
+        }
+        Dreamscape scape = dreamscape(level, owner);
+        if (!scape.clearIfFlaw(before.getUUID())) {
+            return;
+        }
+        scape.markFigment(event.getOutcome().getUUID());
+        DreamPlots.of(level).changed();
+        ServerPlayer online = level.getServer().getPlayerList().getPlayer(owner);
+        if (online != null) {
+            sendState(online);
+        }
+    }
+
     @SubscribeEvent
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
@@ -632,6 +675,11 @@ public final class DreamService {
             return false;
         }
         if (target instanceof Mob mob) {
+            // A boss is too great a mind to be put to sleep by a lie; refused before anything is billed.
+            if (mob.getType().is(Tags.EntityTypes.BOSSES)) {
+                wielder.displayClientMessage(Component.translatable("message.magical.lull_boss"), true);
+                return false;
+            }
             // Refuse for nothing what ASLEEP would not take: a boss that resists control, a Null Field, a sleeper.
             if (UnwakingCapabilities.refuseControl(wielder, mob) || ArcanePassives.blocksStatus(mob)) {
                 return false;
@@ -673,6 +721,10 @@ public final class DreamService {
 
     /** Into your own dream, to build it: free, no clock, and no Flaw needed yet. */
     static boolean enterOwn(ServerPlayer wielder) {
+        if (isDream(wielder)) {
+            // Already in a dream: the return point would be taken inside it, and the way out lost.
+            return false;
+        }
         if (dreamLevel(wielder.server) == null) {
             wielder.displayClientMessage(Component.translatable("message.magical.lull_no_dream"), true);
             return false;

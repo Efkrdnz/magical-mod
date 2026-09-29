@@ -20,17 +20,36 @@ public final class DreamscapeNbt {
         return tag;
     }
 
+    /**
+     * A save is trusted only as far as its plot: an arrival outside it is put back on the plot's
+     * floor, and a Flaw block outside it is dropped, since nobody dreaming there could ever reach it.
+     */
     public static Dreamscape load(CompoundTag tag) {
         Dreamscape scape = new Dreamscape(tag.getInt("plot"));
         Offset arrival = offset(tag, "arrival");
-        scape.setArrival(arrival == null ? new Offset(0, 0, 0) : arrival, tag.getFloat("yaw"));
+        boolean arrivalInside = arrival != null && standsInside(scape.plot(), arrival);
+        scape.setArrival(arrivalInside ? arrival : new Offset(0, 0, 0), tag.getFloat("yaw"));
         Offset flawBlock = offset(tag, "flaw_block");
         if (flawBlock != null) {
-            scape.markBlock(flawBlock);
+            if (blockInside(scape.plot(), flawBlock)) {
+                scape.markBlock(flawBlock);
+            }
         } else if (tag.hasUUID("flaw_figment")) {
             scape.markFigment(tag.getUUID("flaw_figment"));
         }
         return scape;
+    }
+
+    /** Where a dreamer's feet would be: the middle of the cell across, its floor up. */
+    private static boolean standsInside(int plot, Offset at) {
+        Offset origin = DreamRules.origin(plot);
+        return DreamRules.inside(plot, origin.dx() + at.dx() + 0.5, origin.dy() + at.dy(), origin.dz() + at.dz() + 0.5);
+    }
+
+    /** A block by its middle, as the preset writes its cells. */
+    private static boolean blockInside(int plot, Offset at) {
+        Offset origin = DreamRules.origin(plot);
+        return DreamRules.inside(plot, origin.dx() + at.dx() + 0.5, origin.dy() + at.dy() + 0.5, origin.dz() + at.dz() + 0.5);
     }
 
     private static void putOffset(CompoundTag tag, String key, Offset offset) {

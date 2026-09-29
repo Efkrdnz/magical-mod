@@ -71,7 +71,8 @@ public final class PlaybillScreen extends Screen implements HudDebug.Captured, H
 
     public static void open() {
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player != null) {
+        // In your own dream Daydream writes real blocks, and there is no draft for a Playbill to edit.
+        if (minecraft.player != null && !DaydreamMode.dreaming()) {
             minecraft.setScreen(new PlaybillScreen());
         }
     }

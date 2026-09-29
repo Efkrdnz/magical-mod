@@ -29,10 +29,10 @@ public final class DreamRules {
     /** How far from the eye a build edit in your own dream may reach. */
     public static final double EDIT_REACH = 8.0;
 
-    /** A way out of the dream, or a thing whose death is worth more than the dream. */
+    /** A way out of the dream, a thing whose death is worth more than the dream, or a sleeping player's body. */
     public static final Set<String> NEVER_DREAMED = Set.of(
             "minecraft:nether_portal", "minecraft:end_portal", "minecraft:end_gateway", "minecraft:end_portal_frame",
-            "minecraft:wither", "minecraft:ender_dragon");
+            "minecraft:wither", "minecraft:ender_dragon", "magical:sleeper");
 
     private DreamRules() {}
 

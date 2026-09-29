@@ -35,19 +35,21 @@ public final class DreamPresets {
         }
         set(dream, scape, a, -3, 0, -3, Blocks.LANTERN.defaultBlockState());
         set(dream, scape, a, 3, 0, 3, Blocks.LANTERN.defaultBlockState());
-        set(dream, scape, a, 4, 1, 0, Blocks.JACK_O_LANTERN.defaultBlockState());
-        scape.markBlock(new Offset(a.dx() + 4, a.dy() + 1, a.dz()));
+        if (set(dream, scape, a, 4, 1, 0, Blocks.JACK_O_LANTERN.defaultBlockState())) {
+            scape.markBlock(new Offset(a.dx() + 4, a.dy() + 1, a.dz()));
+        }
         DreamPlots.of(dream).changed();
         DreamService.sendState(player);
         return true;
     }
 
-    /** Writes one cell, skipping any that would fall outside the plot (an arrival near its edge). */
-    private static void set(ServerLevel dream, Dreamscape scape, Offset a, int x, int y, int z, BlockState state) {
+    /** Writes one cell, skipping any that would fall outside the plot (an arrival near its edge); true if it was written. */
+    private static boolean set(ServerLevel dream, Dreamscape scape, Offset a, int x, int y, int z, BlockState state) {
         BlockPos pos = DreamService.at(scape.plot(), new Offset(a.dx() + x, a.dy() + y, a.dz() + z));
         if (!DreamRules.inside(scape.plot(), pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5)) {
-            return;
+            return false;
         }
         dream.setBlock(pos, state, Block.UPDATE_ALL);
+        return dream.getBlockState(pos).is(state.getBlock());
     }
 }

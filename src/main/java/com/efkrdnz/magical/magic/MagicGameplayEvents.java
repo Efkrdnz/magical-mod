@@ -322,7 +322,9 @@ public final class MagicGameplayEvents {
             com.efkrdnz.magical.magic.causality.CausalityEvents.broke(player, event.getSource(), remaining);
         }
         // Last stop before a death: a passive may buy the player out of it.
-        if (remaining >= player.getHealth() && ClassPassiveEffects.cheatDeath(player, state, event.getSource(), remaining)) {
+        // Not in a dream, which already leaves one heart: a death-cheating passive would be spent on nothing.
+        if (remaining >= player.getHealth() && !com.efkrdnz.magical.magic.mind.DreamService.dreaming(player.getUUID())
+                && ClassPassiveEffects.cheatDeath(player, state, event.getSource(), remaining)) {
             event.getContainer().setNewDamage(0.0F);
             event.setCanceled(true);
             state.sync(player);

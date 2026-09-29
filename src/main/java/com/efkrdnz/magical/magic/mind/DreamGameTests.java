@@ -414,6 +414,30 @@ public final class DreamGameTests {
         helper.succeed();
     }
 
+    /** Nobody falls asleep inside a dream: the return point would be taken in it, and the way out lost. */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "dream_19")
+    public static void yourOwnDreamIsRefusedFromInsideADream(GameTestHelper helper) {
+        ServerPlayer player = sleeper(helper, "dream-nested-test");
+        Dreamscape scape = DreamService.dreamscape(helper.getLevel(), UUID.randomUUID());
+        BlockPos arrival = DreamService.at(scape.plot(), scape.arrival());
+        player.teleportTo(arrival.getX() + 0.5, arrival.getY(), arrival.getZ() + 0.5);
+        helper.assertFalse(DreamService.enterOwn(player), "a player already in a dream fell asleep into their own");
+        helper.assertFalse(DreamService.dreaming(player.getUUID()), "a player already in a dream is dreaming twice");
+        DreamService.rescueStranded(player.server);
+        helper.succeed();
+    }
+
+    /** A sleeping body is a player in all but the name: never gazed at, and never learned or dreamed by its id. */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40, batch = "dream_20")
+    public static void aSleepingBodyIsNeverAnImpression(GameTestHelper helper) {
+        ServerPlayer player = sleeper(helper, "dream-gaze-test");
+        SleeperEntity body = SleeperEntity.of(player);
+        helper.assertTrue(MindGazeService.keyOf(body, null) == null, "a sleeping body can be gazed at");
+        helper.assertTrue(Impression.parse("creature:magical:sleeper") == null, "a sleeping body can be learned by its id");
+        helper.assertTrue(DreamRules.refused("magical:sleeper"), "a sleeping body can be dreamed");
+        helper.succeed();
+    }
+
     private static void assertAtWorldSpawn(GameTestHelper helper, ServerPlayer player, String what) {
         ServerLevel overworld = player.server.overworld();
         BlockPos spawn = overworld.getSharedSpawnPos();

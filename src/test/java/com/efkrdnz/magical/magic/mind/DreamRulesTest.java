@@ -55,7 +55,7 @@ class DreamRulesTest {
     @Test
     void portalsAndBossesAreNeverDreamed() {
         for (String id : new String[] {"minecraft:nether_portal", "minecraft:end_portal", "minecraft:end_gateway",
-                "minecraft:end_portal_frame", "minecraft:wither", "minecraft:ender_dragon"}) {
+                "minecraft:end_portal_frame", "minecraft:wither", "minecraft:ender_dragon", "magical:sleeper"}) {
             assertTrue(DreamRules.refused(id), id);
         }
         assertFalse(DreamRules.refused("minecraft:stone"));

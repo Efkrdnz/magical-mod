@@ -81,6 +81,12 @@ public class SleeperEntity extends LivingEntity {
         return false;
     }
 
+    /** A body stays where its dreamer lay, or the dreamer would wake somewhere else. */
+    @Override
+    public boolean canUsePortal(boolean allowPassengers) {
+        return false;
+    }
+
     @Override
     public Iterable<ItemStack> getArmorSlots() {
         return List.of();
