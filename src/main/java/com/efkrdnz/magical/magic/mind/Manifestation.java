@@ -236,7 +236,14 @@ final class Manifestation {
             return;
         }
         // Everything still in the edit is imagined matter, whatever it has turned into; a block a
-        // player placed was forgotten from the edit as it went in.
+        // player placed was forgotten from the edit as it went in. Imagined matter never carries a
+        // block entity, so one standing in a cell came from outside the lie (a dispenser's shulker
+        // box) and is left where it is.
+        for (BlockPos pos : List.copyOf(edit.positions())) {
+            if (level.isLoaded(pos) && level.getBlockState(pos).hasBlockEntity()) {
+                ConjuredTerrainService.forget(level, edit, pos);
+            }
+        }
         ConjuredTerrainService.restore(level, edit);
     }
 

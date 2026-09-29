@@ -6,6 +6,14 @@
     "minecraft:turtle_egg",
     "minecraft:tnt",
     "minecraft:powder_snow",
-    "minecraft:scaffolding"
+    "minecraft:scaffolding",
+    "minecraft:carved_pumpkin",
+    "minecraft:jack_o_lantern",
+    "minecraft:iron_block",
+    "minecraft:snow_block",
+    "minecraft:soul_sand",
+    "minecraft:soul_soil",
+    "minecraft:obsidian",
+    "minecraft:crying_obsidian"
   ]
 }

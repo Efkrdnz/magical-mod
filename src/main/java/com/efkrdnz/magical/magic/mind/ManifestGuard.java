@@ -6,8 +6,10 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.piston.PistonStructureResolver;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.common.util.BlockSnapshot;
@@ -53,7 +55,8 @@ public final class ManifestGuard {
      * cell so the element never takes it back; merged into imagined matter still standing (a slab
      * doubled, a candle added) it is refused, or the placer would own the imagined half too.
      */
-    @SubscribeEvent
+    // Lowest, so a placement some other handler cancels never costs the edit the cell's original.
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onPlace(BlockEvent.EntityPlaceEvent event) {
         if (!MindService.anyLive() || !(event.getLevel() instanceof ServerLevel level)) {
             return;
@@ -71,9 +74,13 @@ public final class ManifestGuard {
         }
     }
 
-    /** Whether a held cell still has imagined matter in it rather than the air (or water) a break left. */
-    private static boolean standing(BlockState replaced) {
-        return !replaced.isAir() && replaced.getFluidState().isEmpty();
+    /**
+     * Whether a held cell still has imagined matter in it rather than the air (or bare fluid) a break
+     * left. A waterlogged slab or candle is still standing: asking the fluid state instead let a
+     * bucket turn one into a cell the next slab could be merged into and owned.
+     */
+    static boolean standing(BlockState replaced) {
+        return !replaced.isAir() && !(replaced.getBlock() instanceof LiquidBlock);
     }
 
     /** A real imagined block is inert: no door, trapdoor, button, cauldron, cake or bucket answers a hand. */
