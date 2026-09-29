@@ -10,10 +10,15 @@ public final class MindState {
 
     private final Lexicon lexicon = new Lexicon();
     private final Reverie[] reveries = {new Reverie(), new Reverie(), new Reverie()};
+    private final Belt belt = new Belt();
     private int activeSlot;
 
     public Lexicon lexicon() {
         return lexicon;
+    }
+
+    public Belt belt() {
+        return belt;
     }
 
     public Reverie reverie(int slot) {
@@ -44,6 +49,7 @@ public final class MindState {
             slots.add(ReverieNbt.save(reverie));
         }
         tag.put("reveries", slots);
+        tag.put("belt", belt.save());
         tag.putInt("active", activeSlot);
         return tag;
     }
@@ -54,6 +60,7 @@ public final class MindState {
         for (int i = 0; i < SLOTS; i++) {
             reveries[i].copyFrom(i < slots.size() ? ReverieNbt.load(slots.getCompound(i)) : new Reverie());
         }
+        belt.load(tag.getList("belt", Tag.TAG_STRING));
         setActiveSlot(tag.getInt("active"));
     }
 
@@ -62,6 +69,7 @@ public final class MindState {
         for (int i = 0; i < SLOTS; i++) {
             reveries[i].copyFrom(other.reveries[i]);
         }
+        belt.copyFrom(other.belt);
         activeSlot = other.activeSlot;
     }
 
@@ -70,6 +78,7 @@ public final class MindState {
         for (Reverie reverie : reveries) {
             reverie.clear();
         }
+        belt.clear();
         activeSlot = 0;
     }
 }

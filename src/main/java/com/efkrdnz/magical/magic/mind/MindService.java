@@ -146,6 +146,21 @@ public final class MindService {
         player.displayClientMessage(Component.translatable("message.magical.reverie_saved"), true);
     }
 
+    /** A lie put on the belt, or taken off it. Names only, and only names the wielder has learned. */
+    public static boolean setBeltSlot(ServerPlayer player, int slot, String key) {
+        PlayerMagicState state = player.getData(com.efkrdnz.magical.registry.MagicalAttachments.MAGIC_STATE);
+        if (!state.hasAuthority(com.efkrdnz.magical.magic.AuthorityContent.MIND) || slot < 0 || slot >= Belt.SIZE) {
+            return false;
+        }
+        String clean = key == null || key.isBlank() ? null : key;
+        if (clean != null && (Impression.parse(clean) == null || !state.mind().lexicon().knows(clean))) {
+            return false;
+        }
+        state.mind().belt().set(slot, clean);
+        state.sync(player);
+        return true;
+    }
+
     /** Bills a self-managed press by hand: the cast pipeline returns before it charges anything. */
     static boolean payFor(ServerPlayer player, PlayerMagicState state, MagicSkillDefinition skill, int baseMana) {
         if (state.isSkillOnCooldown(skill.id())) {

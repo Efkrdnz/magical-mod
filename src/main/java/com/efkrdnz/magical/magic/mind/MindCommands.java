@@ -142,10 +142,16 @@ public final class MindCommands {
 
     private static int learnAll(ServerPlayer player) {
         PlayerMagicState state = state(player);
-        BuiltInRegistries.BLOCK.keySet().forEach(id -> state.mind().lexicon().learn(Impression.block(id.toString()).key(), FULL_STUDY));
+        BuiltInRegistries.BLOCK.keySet().forEach(id -> {
+            String key = Impression.block(id.toString()).key();
+            state.mind().lexicon().learn(key, FULL_STUDY);
+            state.mind().belt().offer(key);
+        });
         BuiltInRegistries.ENTITY_TYPE.entrySet().forEach(entry -> {
             if (entry.getValue().getCategory() != MobCategory.MISC) {
-                state.mind().lexicon().learn(Impression.creature(entry.getKey().location().toString()).key(), FULL_STUDY);
+                String key = Impression.creature(entry.getKey().location().toString()).key();
+                state.mind().lexicon().learn(key, FULL_STUDY);
+                state.mind().belt().offer(key);
             }
         });
         state.sync(player);
@@ -159,6 +165,7 @@ public final class MindCommands {
             return 0;
         }
         state.mind().lexicon().learn(impression.key(), gazes);
+        state.mind().belt().offer(impression.key());
         state.sync(player);
         return 1;
     }

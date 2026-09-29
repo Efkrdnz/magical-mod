@@ -125,6 +125,7 @@ public final class MindGazeService {
         lexicon.gaze(key);
         int after = lexicon.fidelity(key);
         if (before == 0) {
+            state.mind().belt().offer(key);
             player.displayClientMessage(Component.translatable("message.magical.gaze_learned", displayName(key)), true);
         } else if (after > before) {
             player.displayClientMessage(Component.translatable("message.magical.gaze_studied", displayName(key), after), true);
