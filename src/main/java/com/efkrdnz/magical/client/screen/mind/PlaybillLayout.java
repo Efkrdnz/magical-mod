@@ -95,6 +95,33 @@ public record PlaybillLayout(int guiWidth, int guiHeight) {
         return hit(x, y, rows(), this::row);
     }
 
+    /** How far the element list can scroll: none while every element has a row of its own. */
+    public int maxScroll(int count) {
+        return Math.max(0, count - rows());
+    }
+
+    /** A scroll held inside the list, for a list that may have shrunk since. */
+    public int clampScroll(int scroll, int count) {
+        return Math.max(0, Math.min(scroll, maxScroll(count)));
+    }
+
+    /** One row per notch of the wheel: turned up (positive) toward the top of the list, down toward its end. */
+    public int scrolled(int scroll, double wheel, int count) {
+        return clampScroll(scroll - (int) Math.signum(wheel), count);
+    }
+
+    /** Whether the pointer is over the element rows, the one place the wheel scrolls them. */
+    public boolean overElements(double x, double y) {
+        Rect first = row(0);
+        return x >= first.x() && x < first.right() && y >= first.y() && y < first.y() + rows() * LINE;
+    }
+
+    /** The element a click on the rows chooses, with the list scrolled by {@code scroll}; -1 for none. */
+    public int elementAt(double x, double y, int scroll, int count) {
+        int row = rowAt(x, y);
+        return row < 0 || scroll + row >= count ? -1 : scroll + row;
+    }
+
     public int senseAt(double x, double y) {
         return hit(x, y, 3, this::sense);
     }

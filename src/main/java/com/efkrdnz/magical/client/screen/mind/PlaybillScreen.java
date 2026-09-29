@@ -57,6 +57,8 @@ public final class PlaybillScreen extends Screen implements HudDebug.Captured, H
     private int slot;
     private Reverie working;
     private int selected;
+    /** How many elements the list is scrolled past; see {@link PlaybillLayout#scrolled}. */
+    private int scroll;
     private boolean dirty;
 
     private PlaybillScreen() {
@@ -75,6 +77,8 @@ public final class PlaybillScreen extends Screen implements HudDebug.Captured, H
         if (working == null) {
             load(DaydreamMode.active() ? DaydreamMode.slot() : ClientMagicState.get().mind().activeSlot());
         }
+        // A resize changes how many rows there are, and so how far the list may scroll.
+        scroll = layout().clampScroll(scroll, elementCount());
     }
 
     private void load(int next) {
@@ -82,6 +86,7 @@ public final class PlaybillScreen extends Screen implements HudDebug.Captured, H
         working = DaydreamMode.active() && DaydreamMode.slot() == next
                 ? DaydreamMode.draft().copy() : ClientMagicState.get().mind().reverie(next).copy();
         selected = 0;
+        scroll = 0;
         dirty = false;
     }
 
@@ -96,6 +101,10 @@ public final class PlaybillScreen extends Screen implements HudDebug.Captured, H
 
     private int clusterCount() {
         return working.clusters().size();
+    }
+
+    private int elementCount() {
+        return clusterCount() + working.figments().size();
     }
 
     private boolean figmentSelected() {
@@ -135,9 +144,9 @@ public final class PlaybillScreen extends Screen implements HudDebug.Captured, H
             }
             return true;
         }
-        int row = layout.rowAt(x, y);
-        if (row >= 0 && row < clusterCount() + working.figments().size()) {
-            selected = row;
+        int element = layout.elementAt(x, y, scroll, elementCount());
+        if (element >= 0) {
+            selected = element;
             return true;
         }
         int sense = layout.senseAt(x, y);
@@ -182,6 +191,17 @@ public final class PlaybillScreen extends Screen implements HudDebug.Captured, H
         return super.mouseClicked(x, y, button);
     }
 
+    /** The wheel over the Elements column scrolls it, so every figment after the last row can be chosen. */
+    @Override
+    public boolean mouseScrolled(double x, double y, double scrollX, double scrollY) {
+        PlaybillLayout layout = layout();
+        if (scrollY != 0.0 && layout.overElements(x, y)) {
+            scroll = layout.scrolled(scroll, scrollY, elementCount());
+            return true;
+        }
+        return super.mouseScrolled(x, y, scrollX, scrollY);
+    }
+
     private void save() {
         MagicalNetwork.sendSaveReverie(slot, ReverieNbt.save(working));
         if (DaydreamMode.active() && DaydreamMode.slot() == slot) {
@@ -218,8 +238,8 @@ public final class PlaybillScreen extends Screen implements HudDebug.Captured, H
         if (names.isEmpty()) {
             text(g, Component.translatable("screen.magical.playbill.empty"), layout.row(0), MUTED);
         }
-        for (int i = 0; i < names.size() && i < layout.rows(); i++) {
-            text(g, names.get(i), layout.row(i), i == selected ? BRIGHT : MUTED);
+        for (int i = 0; scroll + i < names.size() && i < layout.rows(); i++) {
+            text(g, names.get(scroll + i), layout.row(i), scroll + i == selected ? BRIGHT : MUTED);
         }
         if (!names.isEmpty()) {
             renderScript(g, layout);

@@ -61,6 +61,43 @@ class PlaybillLayoutTest {
     }
 
     @Test
+    void theElementListScrollsSoTheLastElementCanBeChosen() {
+        for (int[] screen : SCREENS) {
+            PlaybillLayout layout = new PlaybillLayout(screen[0], screen[1]);
+            int rows = layout.rows();
+            int count = rows + 7;
+            int scroll = 0;
+            for (int i = 0; i < 2 * count; i++) {
+                scroll = layout.scrolled(scroll, -1.0, count);
+            }
+            assertEquals(count - rows, scroll, "the wheel runs past the end of the list at " + screen[0] + "x" + screen[1]);
+            Rect last = layout.row(rows - 1);
+            assertEquals(count - 1, layout.elementAt(cx(last), cy(last), scroll, count), "the last element is out of reach");
+            assertEquals(scroll, layout.elementAt(cx(layout.row(0)), cy(layout.row(0)), scroll, count),
+                    "a click on the top row does not map to the scrolled index");
+            for (int i = 0; i < 2 * count; i++) {
+                scroll = layout.scrolled(scroll, 1.0, count);
+            }
+            assertEquals(0, scroll, "the wheel runs past the top of the list");
+            assertTrue(layout.overElements(cx(layout.row(0)), cy(layout.row(0))));
+            assertTrue(layout.overElements(cx(last), cy(last)));
+            assertFalse(layout.overElements(cx(layout.sense(0)), cy(layout.sense(0))), "the senses scroll the elements");
+            assertFalse(layout.overElements(cx(layout.row(0)), cy(layout.tab(0))), "the tabs scroll the elements");
+        }
+    }
+
+    @Test
+    void aShortListDoesNotScrollAndItsEmptyRowsChooseNothing() {
+        PlaybillLayout layout = new PlaybillLayout(427, 240);
+        assertEquals(0, layout.scrolled(0, -1.0, 3));
+        assertEquals(2, layout.elementAt(cx(layout.row(2)), cy(layout.row(2)), 0, 3));
+        assertEquals(-1, layout.elementAt(cx(layout.row(5)), cy(layout.row(5)), 0, 3));
+        assertEquals(0, layout.clampScroll(9, 3), "a list that shrank keeps a scroll it no longer has");
+        assertEquals(2, layout.clampScroll(9, layout.rows() + 2));
+        assertEquals(0, layout.clampScroll(-4, layout.rows() + 2));
+    }
+
+    @Test
     void everyStanceAndReactionWordFitsItsCell() {
         for (int[] screen : SCREENS) {
             PlaybillLayout layout = new PlaybillLayout(screen[0], screen[1]);
