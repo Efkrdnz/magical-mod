@@ -1,6 +1,7 @@
 package com.efkrdnz.magical.registry;
 
 import com.efkrdnz.magical.MagicalMod;
+import com.efkrdnz.magical.particle.ForgeMatterOptions;
 import com.efkrdnz.magical.particle.SigilParticleOptions;
 import com.efkrdnz.magical.particle.TintedParticleOptions;
 import com.mojang.serialization.MapCodec;
@@ -57,6 +58,28 @@ public final class MagicalParticles {
 
                 @Override
                 public StreamCodec<? super RegistryFriendlyByteBuf, SigilParticleOptions> streamCodec() {
+                    return streamCodec;
+                }
+            });
+
+    /**
+     * What a forged blade throws: sparks, coals, flakes, drops, grit and the rest, each moving and
+     * cooling its own way. One type and one sprite list for all of them, because the kind is part of
+     * the options; see {@code forge/visual/MatterKind}.
+     */
+    public static final DeferredHolder<ParticleType<?>, ParticleType<ForgeMatterOptions>> FORGE_MATTER =
+            PARTICLES.register("forge_matter", () -> new ParticleType<ForgeMatterOptions>(false) {
+                private final MapCodec<ForgeMatterOptions> codec = ForgeMatterOptions.codec(this);
+                private final StreamCodec<RegistryFriendlyByteBuf, ForgeMatterOptions> streamCodec =
+                        ForgeMatterOptions.streamCodec(this);
+
+                @Override
+                public MapCodec<ForgeMatterOptions> codec() {
+                    return codec;
+                }
+
+                @Override
+                public StreamCodec<? super RegistryFriendlyByteBuf, ForgeMatterOptions> streamCodec() {
                     return streamCodec;
                 }
             });

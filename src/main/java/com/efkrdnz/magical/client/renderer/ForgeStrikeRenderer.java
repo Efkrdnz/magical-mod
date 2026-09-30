@@ -45,6 +45,7 @@ public final class ForgeStrikeRenderer extends EntityRenderer<ForgeStrikeEntity,
     public void extractRenderState(ForgeStrikeEntity entity, State state, float partialTick) {
         super.extractRenderState(entity, state, partialTick);
         state.family = entity.family();
+        state.element = entity.element();
         state.accent = ForgeElementAccent.of(entity.element());
         state.primary = entity.primaryColor();
         state.secondary = entity.secondaryColor();
@@ -134,6 +135,8 @@ public final class ForgeStrikeRenderer extends EntityRenderer<ForgeStrikeEntity,
     /** Everything the geometry classes are allowed to know about a strike. */
     public static final class State extends EntityRenderState {
         public FormFamily family = FormFamily.SLASH;
+        /** Which element the blade carries, for the matter it throws. */
+        public ForgeElementKind element = ForgeElementKind.FIRE;
         public ForgeElementAccent.Accent accent = ForgeElementAccent.of(ForgeElementKind.FIRE);
         public int primary = 0xD8E4FF, secondary = 0xD8E4FF, edge = 0xFFFFFF;
         public boolean heavy;

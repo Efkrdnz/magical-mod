@@ -57,7 +57,7 @@ public final class FlurryGeometry {
             poseStack.mulPose(Axis.ZP.rotationDegrees((i % 2 == 0 ? -ROLL : ROLL) + offset * ROLL_SPREAD));
             ForgeRibbon.arc(stroke, poseStack.last().pose(), sweep, palette, alpha);
             ForgeElementAccent.draw(stroke, poseStack.last().pose(), sweep, palette, alpha, state.accent);
-            ForgeAura.arc(stroke, poseStack.last().pose(), sweep, palette, state, alpha);
+            ForgeAura.arc(stroke, poseStack.last().pose(), sweep, palette, state, alpha, i, age / PULSE_FADE);
             poseStack.popPose();
         }
         poseStack.popPose();

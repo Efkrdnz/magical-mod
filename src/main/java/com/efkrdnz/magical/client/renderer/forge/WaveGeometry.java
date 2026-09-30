@@ -1,5 +1,6 @@
 package com.efkrdnz.magical.client.renderer.forge;
 
+import com.efkrdnz.magical.client.fx.ForgeMatterEmitter;
 import com.efkrdnz.magical.client.renderer.ForgeStrikeRenderer;
 import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon.Plane;
 import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon.Sweep;
@@ -123,8 +124,7 @@ public final class WaveGeometry {
         ForgeElementAccent.draw(stroke, pose, rim, palette, state.alpha, state.accent);
         // The shower rather than the whole of ForgeAura: the glow a swing gets from the sheath is
         // the halo here, and asking for both would light the rim twice.
-        ForgeSparks.strike(stroke, pose, rim, palette, state.alpha, state.seed, state.grade, state.progress,
-                eye[0], eye[1], eye[2]);
+        ForgeMatterEmitter.rim(state, pose, rim);
         poseStack.popPose();
     }
 }

@@ -123,6 +123,8 @@ public final class MagicalClientEvents {
                 sprites -> new com.efkrdnz.magical.client.particle.TintedSpriteParticle.Provider(sprites, com.efkrdnz.magical.client.particle.TintedSpriteParticle.Motion.MOTE));
         event.registerSpriteSet(com.efkrdnz.magical.registry.MagicalParticles.WISP.get(),
                 sprites -> new com.efkrdnz.magical.client.particle.TintedSpriteParticle.Provider(sprites, com.efkrdnz.magical.client.particle.TintedSpriteParticle.Motion.WISP));
+        event.registerSpriteSet(com.efkrdnz.magical.registry.MagicalParticles.FORGE_MATTER.get(),
+                com.efkrdnz.magical.client.particle.ForgeMatterParticle.Provider::new);
     }
 
     @SubscribeEvent

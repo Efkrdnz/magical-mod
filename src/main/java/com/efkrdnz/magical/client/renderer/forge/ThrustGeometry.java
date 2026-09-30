@@ -41,7 +41,7 @@ public final class ThrustGeometry {
         // The lance's own glow, drawn once at the head's position rather than per trail copy.
         poseStack.pushPose();
         poseStack.translate(0.0f, LIFT, 0.0f);
-        ForgeAura.lance(stroke, poseStack.last().pose(), length, state.halfWidth * WIDTH, palette, state.alpha);
+        ForgeAura.lance(stroke, poseStack.last().pose(), length, state.halfWidth * WIDTH, palette, state, state.alpha);
         poseStack.popPose();
         float radius = state.halfWidth * CROWN;
         Sweep crown = new Sweep(Plane.UPRIGHT, radius, radius * CROWN_THICKNESS, 0.0f, 360.0f);
