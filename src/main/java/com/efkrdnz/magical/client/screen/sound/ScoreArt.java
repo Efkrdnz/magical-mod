@@ -52,11 +52,15 @@ public final class ScoreArt {
 
     public static final Sprite FLOURISH = new Sprite("flourish", 0, 56, 128, 9);
 
+    public static final Sprite IMPORT = new Sprite("import", 0, 68, 12, 12);
+    public static final Sprite EXPORT = new Sprite("export", 12, 68, 12, 12);
+    public static final Sprite SHEET = new Sprite("sheet", 24, 68, 12, 12);
+
     public static final Sprite[] ALL = {
         BEAD_CIRCLE_12, BEAD_DIAMOND_12, BEAD_STAR_12, SOCKET_12, SOCKET_BEAT_12,
         BEAD_CIRCLE_8, BEAD_DIAMOND_8, BEAD_STAR_8, SOCKET_8, SOCKET_BEAT_8,
         DRUM, BASS_CLEF, TREBLE_CLEF, WAVES, KEYS, BELL, LYRE, QUARTER, BOLT_NOTE,
-        PLAY, STOP, SEAL, METRONOME, SHARP, PREV, NEXT, REST, FLOURISH
+        PLAY, STOP, SEAL, METRONOME, SHARP, PREV, NEXT, REST, FLOURISH, IMPORT, EXPORT, SHEET
     };
 
     private ScoreArt() {}

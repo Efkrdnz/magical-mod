@@ -12,6 +12,8 @@ import com.efkrdnz.magical.magic.sound.Instrument;
 import com.efkrdnz.magical.magic.sound.Riff;
 import com.efkrdnz.magical.magic.sound.RiffNote;
 import com.efkrdnz.magical.magic.sound.Score;
+import com.efkrdnz.magical.magic.sound.ScoreText;
+import com.efkrdnz.magical.magic.sound.SongPresets;
 import com.efkrdnz.magical.magic.sound.SoundState;
 import com.efkrdnz.magical.magic.sound.Tempo;
 import com.efkrdnz.magical.magic.sound.Track;
@@ -26,6 +28,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundSource;
+import org.lwjgl.glfw.GLFW;
 
 /**
  * The Score: where the Song and the Riff are written. Frameless, like every screen of the
@@ -34,6 +37,11 @@ import net.minecraft.sounds.SoundSource;
  * <p>Everything drawn comes from one tinted atlas ({@link ScoreArt}) and the Riff note sprites: a
  * written note is a bead in its track colour set in a socket, each track carries its clef, a button
  * is an icon and a word, and nothing sits on a panel.
+ *
+ * <p>A song is shared the way a mandachord loop is: Export (or Ctrl+C) copies the tab shown to the
+ * clipboard as {@link ScoreText} JSON, Import (or Ctrl+V) reads whatever the clipboard holds - a song or
+ * a riff, and the screen turns to its tab - and the preset button walks the three {@link SongPresets}.
+ * Each of those replaces what was written, so each can be taken back once with Ctrl+Z.
  *
  * <p>The Song tab is the mandachord - click a cell to write a note, click it again or right-click to
  * erase, drag to paint. A bar that already holds its track's cap refuses the note and says so. The
@@ -57,7 +65,7 @@ public final class ScoreScreen extends Screen implements HudDebug.Captured, HudQ
     private static final int BAR_LINE = 0x22FFFFFF;
     private static final int METER_HIGH = 0xFFA6F5DE;
     private static final int METER_LOW = 0xFF3C9C82;
-    private static final int MESSAGE_TICKS = 50;
+    private static final int MESSAGE_TICKS = 70;
     private static final String[] NOTE_NAMES = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
     private static final ResourceLocation[] NOTES = new ResourceLocation[6];
 
@@ -82,6 +90,9 @@ public final class ScoreScreen extends Screen implements HudDebug.Captured, HudQ
     private boolean warning;
     private long previewStart = -1L;
     private long previewLast;
+    /** What the last preset, import or undo replaced, so one Ctrl+Z can put it back. */
+    private Score undoSong;
+    private Riff undoRiff;
 
     private ScoreScreen() {
         super(Component.translatable("screen.magical.score"));
@@ -210,7 +221,9 @@ public final class ScoreScreen extends Screen implements HudDebug.Captured, HudQ
         button(graphics, layout.tempo(), ScoreArt.METRONOME, Component.translatable("score.magical.tempo", song.tempo().bpm()), ACCENT, mouseX, mouseY);
         button(graphics, layout.scale(), ScoreArt.SHARP,
                 Component.translatable("score.magical.scale." + song.scale().name().toLowerCase(Locale.ROOT)), ACCENT, mouseX, mouseY);
+        button(graphics, layout.preset(), ScoreArt.SHEET, presetLabel(), ACCENT, mouseX, mouseY);
         playAndSave(graphics, layout.play(), layout.save(), mouseX, mouseY);
+        share(graphics, ScoreLayout.Tab.SONG, mouseX, mouseY);
         Component readout = Component.translatable("score.magical.song_readout",
                 count(Track.PERCUSSION), count(Track.BASS), count(Track.MELODY));
         centered(graphics, layout.readout(ScoreLayout.Tab.SONG), readout, MUTED);
@@ -263,6 +276,7 @@ public final class ScoreScreen extends Screen implements HudDebug.Captured, HudQ
             }
         }
         playAndSave(graphics, layout.riffPlay(), layout.riffSave(), mouseX, mouseY);
+        share(graphics, ScoreLayout.Tab.RIFF, mouseX, mouseY);
         centered(graphics, layout.readout(ScoreLayout.Tab.RIFF), riffReadout(), MUTED);
         footer(graphics, ScoreLayout.Tab.RIFF, "score.magical.hint.riff");
     }
@@ -357,6 +371,26 @@ public final class ScoreScreen extends Screen implements HudDebug.Captured, HudQ
                 dirty ? GOLD : FAINT, mouseX, mouseY);
     }
 
+    private void share(GuiGraphics graphics, ScoreLayout.Tab shown, int mouseX, int mouseY) {
+        button(graphics, layout.importButton(shown), ScoreArt.IMPORT, Component.translatable("score.magical.import"), ACCENT, mouseX, mouseY);
+        button(graphics, layout.exportButton(shown), ScoreArt.EXPORT, Component.translatable("score.magical.export"), ACCENT, mouseX, mouseY);
+    }
+
+    /** The preset the song is, by name, or the word for the button when it is none of them. */
+    private Component presetLabel() {
+        int index = presetIndex();
+        return index < 0 ? Component.translatable("score.magical.presets") : Component.literal(SongPresets.ALL.get(index).name());
+    }
+
+    private int presetIndex() {
+        for (int i = 0; i < SongPresets.ALL.size(); i++) {
+            if (SongPresets.ALL.get(i).score().equals(song)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     private void footer(GuiGraphics graphics, ScoreLayout.Tab shown, String hintKey) {
         Rect hint = layout.hint(shown);
         Component line = messageTicks > 0 && message != null ? message : Component.translatable(hintKey);
@@ -415,6 +449,14 @@ public final class ScoreScreen extends Screen implements HudDebug.Captured, HudQ
                 return true;
             }
         }
+        if (inside(layout.importButton(tab), x, y)) {
+            importClipboard();
+            return true;
+        }
+        if (inside(layout.exportButton(tab), x, y)) {
+            exportClipboard();
+            return true;
+        }
         boolean handled = tab == ScoreLayout.Tab.SONG ? clickSong(x, y, button) : clickRiff(x, y, button);
         return handled || super.mouseClicked(x, y, button);
     }
@@ -447,6 +489,13 @@ public final class ScoreScreen extends Screen implements HudDebug.Captured, HudQ
             int shift = button == 1 ? song.scale().ordinal() - 1 : song.scale().ordinal() + 1;
             song = song.withScale(com.efkrdnz.magical.magic.sound.Scale.values()[Math.floorMod(shift, com.efkrdnz.magical.magic.sound.Scale.values().length)]);
             dirty = true;
+            return true;
+        }
+        if (inside(layout.preset(), x, y)) {
+            int current = presetIndex();
+            int next = current < 0 ? (button == 1 ? SongPresets.ALL.size() - 1 : 0) : SongPresets.next(current, button == 1 ? -1 : 1);
+            SongPresets.Preset preset = SongPresets.ALL.get(next);
+            replaceSong(preset.score(), Component.translatable("score.magical.loaded", preset.name()));
             return true;
         }
         if (inside(layout.play(), x, y)) {
@@ -573,6 +622,98 @@ public final class ScoreScreen extends Screen implements HudDebug.Captured, HudQ
             return true;
         }
         return super.mouseScrolled(x, y, scrollX, scrollY);
+    }
+
+    // ---------------------------------------------------------------- sharing and undo
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (hasControlDown() && !hasShiftDown() && !hasAltDown()) {
+            switch (keyCode) {
+                case GLFW.GLFW_KEY_Z -> {
+                    undo();
+                    return true;
+                }
+                case GLFW.GLFW_KEY_C -> {
+                    exportClipboard();
+                    return true;
+                }
+                case GLFW.GLFW_KEY_V -> {
+                    importClipboard();
+                    return true;
+                }
+                default -> {
+                }
+            }
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    private void exportClipboard() {
+        if (minecraft == null) {
+            return;
+        }
+        boolean songShown = tab == ScoreLayout.Tab.SONG;
+        int preset = presetIndex();
+        String text = songShown ? ScoreText.writeSong(song, preset < 0 ? "" : SongPresets.ALL.get(preset).name()) : ScoreText.writeRiff(riff);
+        minecraft.keyboardHandler.setClipboard(text);
+        say(Component.translatable(songShown ? "score.magical.exported.song" : "score.magical.exported.riff"), false);
+    }
+
+    private void importClipboard() {
+        if (minecraft == null) {
+            return;
+        }
+        ScoreText.Read read = ScoreText.read(minecraft.keyboardHandler.getClipboard());
+        if (!read.ok()) {
+            say(Component.translatable("score.magical.import." + read.problem().name().toLowerCase(Locale.ROOT), read.detail()), true);
+            return;
+        }
+        Component name = read.name().isEmpty()
+                ? Component.translatable(read.isSong() ? "score.magical.a_song" : "score.magical.a_riff")
+                : Component.literal(read.name());
+        Component said = read.dropped() > 0
+                ? Component.translatable("score.magical.imported_trimmed", name, read.dropped())
+                : Component.translatable("score.magical.imported", name);
+        if (read.isSong()) {
+            tab = ScoreLayout.Tab.SONG;
+            replaceSong(read.song(), said);
+        } else {
+            tab = ScoreLayout.Tab.RIFF;
+            replaceRiff(read.riff(), said);
+        }
+    }
+
+    private void replaceSong(Score next, Component said) {
+        undoSong = song;
+        undoRiff = null;
+        song = next;
+        page = 0;
+        dirty = true;
+        restartPreview();
+        say(said, false);
+    }
+
+    private void replaceRiff(Riff next, Component said) {
+        undoRiff = riff;
+        undoSong = null;
+        stopPreview();
+        riff = next;
+        dirty = true;
+        say(said, false);
+    }
+
+    /** Puts back what the last preset, import or undo replaced; an undo is itself undone the same way. */
+    private void undo() {
+        if (undoSong != null) {
+            tab = ScoreLayout.Tab.SONG;
+            replaceSong(undoSong, Component.translatable("score.magical.undone"));
+        } else if (undoRiff != null) {
+            tab = ScoreLayout.Tab.RIFF;
+            replaceRiff(undoRiff, Component.translatable("score.magical.undone"));
+        } else {
+            say(Component.translatable("score.magical.nothing_to_undo"), true);
+        }
     }
 
     // ---------------------------------------------------------------- preview and saving

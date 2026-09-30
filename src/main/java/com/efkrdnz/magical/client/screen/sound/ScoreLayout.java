@@ -51,8 +51,9 @@ public final class ScoreLayout {
     /** Two rows of controls, a readout line and a hint line under the grid. */
     public static final int BELOW = 4 * (LINE + 2) + 6;
     public static final int ARROW_W = 12;
-    public static final int PAGE_W = 64;
-    public static final int WORD_W = 80;
+    public static final int PAGE_W = 52;
+    /** A word control on the first row: tempo, scale, preset. Four of them and the pager fit in 304. */
+    public static final int WORD_W = 70;
     public static final int BUTTON_W = 56;
     public static final int GAP = 6;
     public static final int MAX_SLOT_W = 46;
@@ -221,6 +222,11 @@ public final class ScoreLayout {
         return new Rect("scale", songRowLeft() + pagerSpace() + WORD_W + GAP, controlsTop(), WORD_W, LINE);
     }
 
+    /** The preset button: a click loads the next of the three, a right-click the one before. */
+    public Rect preset() {
+        return new Rect("preset", songRowLeft() + pagerSpace() + 2 * (WORD_W + GAP), controlsTop(), WORD_W, LINE);
+    }
+
     private static int pagerWidth() {
         return 2 * ARROW_W + PAGE_W;
     }
@@ -231,15 +237,36 @@ public final class ScoreLayout {
     }
 
     private int songRowLeft() {
-        return (width - (pagerSpace() + 2 * WORD_W + GAP)) / 2;
+        return (width - (pagerSpace() + 3 * WORD_W + 2 * GAP)) / 2;
+    }
+
+    /** The second row of either tab: play, save, import, export, in that order and centred. */
+    public static final int ACTIONS = 4;
+
+    private Rect action(String name, int top, int index) {
+        int left = (width - (ACTIONS * BUTTON_W + (ACTIONS - 1) * GAP)) / 2;
+        return new Rect(name, left + index * (BUTTON_W + GAP), top, BUTTON_W, LINE);
+    }
+
+    private int actionsTop(Tab tab) {
+        return (tab == Tab.SONG ? controlsTop() : riffControlsTop()) + LINE + 4;
     }
 
     public Rect play() {
-        return new Rect("play", width / 2 - BUTTON_W - GAP / 2, controlsTop() + LINE + 4, BUTTON_W, LINE);
+        return action("play", actionsTop(Tab.SONG), 0);
     }
 
     public Rect save() {
-        return new Rect("save", width / 2 + GAP / 2, controlsTop() + LINE + 4, BUTTON_W, LINE);
+        return action("save", actionsTop(Tab.SONG), 1);
+    }
+
+    /** Import reads the clipboard; export writes the tab shown to it. */
+    public Rect importButton(Tab tab) {
+        return action("import", actionsTop(tab), 2);
+    }
+
+    public Rect exportButton(Tab tab) {
+        return action("export", actionsTop(tab), 3);
     }
 
     public Rect readout(Tab tab) {
@@ -256,7 +283,8 @@ public final class ScoreLayout {
         int top = GRID_TOP - NUMBERS;
         List<Rect> out = new ArrayList<>(List.of(tab(Tab.SONG), tab(Tab.RIFF), flourish(),
                 new Rect("grid", gridLeft() - LABEL_W, top, LABEL_W + visibleSteps() * cell(), gridBottom() - top),
-                tempo(), scale(), play(), save(), readout(Tab.SONG), hint(Tab.SONG)));
+                tempo(), scale(), preset(), play(), save(), importButton(Tab.SONG), exportButton(Tab.SONG),
+                readout(Tab.SONG), hint(Tab.SONG)));
         if (pages() > 1) {
             out.add(pagePrev());
             out.add(pageLabel());
@@ -364,17 +392,18 @@ public final class ScoreLayout {
     }
 
     public Rect riffPlay() {
-        return new Rect("play", width / 2 - BUTTON_W - GAP / 2, riffControlsTop() + LINE + 4, BUTTON_W, LINE);
+        return action("play", actionsTop(Tab.RIFF), 0);
     }
 
     public Rect riffSave() {
-        return new Rect("save", width / 2 + GAP / 2, riffControlsTop() + LINE + 4, BUTTON_W, LINE);
+        return action("save", actionsTop(Tab.RIFF), 1);
     }
 
     public List<Rect> riffControls() {
         List<Rect> out = new ArrayList<>(List.of(tab(Tab.SONG), tab(Tab.RIFF), flourish(),
                 new Rect("strings", riffLeft(), GRID_TOP, Riff.MAX_NOTES * slotWidth(), slotLabel(0, 1).bottom() - GRID_TOP),
-                lengthPrev(), lengthLabel(), lengthNext(), amplitudeLabel(), riffPlay(), riffSave(), readout(Tab.RIFF), hint(Tab.RIFF)));
+                lengthPrev(), lengthLabel(), lengthNext(), amplitudeLabel(), riffPlay(), riffSave(),
+                importButton(Tab.RIFF), exportButton(Tab.RIFF), readout(Tab.RIFF), hint(Tab.RIFF)));
         for (int amplitude = Riff.MIN_AMPLITUDE; amplitude <= Riff.MAX_AMPLITUDE; amplitude++) {
             out.add(pip(amplitude));
         }
