@@ -32,7 +32,7 @@ public final class ForgeRibbon {
      *
      * <p>Flat, and deliberately so. An arc is what a swing is - a thing done in a direction, with
      * the wielder standing at the middle of it - and a swing is over in three ticks. A thrown wave
-     * is not an arc at all and does not come through here: see {@link ForgeWaveFront}.
+     * is the same arc let go of: see {@link WaveGeometry}.
      */
     public record Sweep(Plane plane, float radius, float thickness, float fromDegrees, float toDegrees) {
 

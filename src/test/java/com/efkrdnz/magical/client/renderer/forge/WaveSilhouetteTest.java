@@ -3,24 +3,20 @@ package com.efkrdnz.magical.client.renderer.forge;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon.Sweep;
 import com.efkrdnz.magical.entity.forge.HitShape;
 import com.efkrdnz.magical.entity.forge.HitShapes;
 import com.efkrdnz.magical.forge.FormFamily;
 import org.junit.jupiter.api.Test;
 
 /**
- * The shape of a thrown wave, and the one thing it is allowed to lean toward.
+ * The shape of a thrown wave: a slash let go of, bending toward where it is going.
  *
- * <p>It has been wrong twice for the same reason. First it was a ring band hanging a radius off the
- * flight path, rolled forty degrees, so it read as a moon tipped up and to the right. Then it was a
- * crescent sitting on the flight path but with its belly pointing down - still a direction, still
- * arbitrary, still not the way the thing was travelling.
- *
- * <p>A wave curves toward where it is going and toward nothing else. That makes it a surface of
- * revolution about the aim: the middle leads, the rim trails, and it is the same shape whichever
- * way you roll it about the line of flight. There is no up on it to get wrong. These tests say so
- * in numbers, and they measure it against {@code HitShapes} so the picture cannot outgrow the
- * volume that actually catches people.
+ * <p>It has been wrong three times. A ring band hanging off the flight path, tipped up and to the
+ * right; a crescent bowed belly-down; and a dome about the flight line, which the thrower saw as a
+ * circle. What it is meant to be is the swing's own blade, thrown: its belly leads the flight, its
+ * horns trail, and it sits on the line it flies along. These tests say so in numbers, and measure it
+ * against {@code HitShapes} so the picture cannot outgrow the volume that actually catches people.
  */
 class WaveSilhouetteTest {
 
@@ -28,102 +24,111 @@ class WaveSilhouetteTest {
     private static final float[] HALF_WIDTHS = {1.0f, 1.4f, 1.82f, 2.4f};
     private static final float REACH = 12.0f;
     private static final float EPSILON = 1.0E-4f;
+    private static final int STEPS = 40;
 
     private static HitShape.Inflation volume(float halfWidth) {
         return HitShapes.forFamily(FormFamily.WAVE).broadInflation(halfWidth, REACH);
     }
 
     @Test
-    void theWaveIsTheSameShapeWhicheverWayYouRollItAboutItsFlight() {
-        // The complaint, as an assertion. A crescent has a belly and therefore a direction, and
-        // whichever direction that is - down, right, up-right - it is arbitrary and it is not the
-        // way the wave is going. A surface of revolution has no such direction to get wrong.
-        float radius = WaveGeometry.radius(1.4f);
-        float depth = WaveGeometry.depth(1.4f);
-        for (int step = 0; step <= 10; step++) {
-            float across = step / 10.0f;
-            float[] reference = ForgeWaveFront.point(radius, depth, 0.0f, across);
-            float referenceRadius = (float) Math.hypot(reference[0], reference[1]);
-            for (float angle = 0.0f; angle < 360.0f; angle += 17.0f) {
-                float[] point = ForgeWaveFront.point(radius, depth, angle, across);
-                assertEquals(referenceRadius, (float) Math.hypot(point[0], point[1]), EPSILON,
-                        "the wave is a different width at " + angle + " degrees round it");
-                assertEquals(reference[2], point[2], EPSILON,
-                        "the wave leans toward " + angle + " degrees instead of toward its flight");
+    void theBellyLeadsAndTheHornsTrail() {
+        // The complaint that started this: a thrown slash is a crescent flying belly-first, not a
+        // disc. The middle of the lip is the furthest-forward point on the blade and both horns are
+        // well behind it.
+        Sweep blade = WaveGeometry.blade(1.4f, 1.0f);
+        float[] belly = WaveGeometry.point(blade, 0.5f, 1.0f);
+        for (int i = 0; i <= STEPS; i++) {
+            for (int j = 0; j <= 4; j++) {
+                assertTrue(WaveGeometry.point(blade, i / (float) STEPS, j / 4.0f)[2] <= belly[2] + EPSILON,
+                        "the blade leads with something other than its belly");
             }
         }
+        float[] horn = WaveGeometry.point(blade, 0.0f, 1.0f);
+        assertTrue(belly[2] - horn[2] > WaveGeometry.radius(1.4f) * 0.4f, "the horns barely trail: it is a bar");
     }
 
     @Test
-    void theWaveCurvesTowardWhereItIsGoing() {
-        // Forward is the only axis it is allowed to bend along, and it has to actually bend: the
-        // middle stands ahead of the rim, and every step out from the middle falls behind the last.
-        float radius = WaveGeometry.radius(1.4f);
-        float depth = WaveGeometry.depth(1.4f);
-        float last = Float.MAX_VALUE;
-        for (int step = 0; step <= 20; step++) {
-            float across = step / 20.0f;
-            float forward = ForgeWaveFront.point(radius, depth, 37.0f, across)[2];
-            assertTrue(forward < last, "the wave stops falling back at " + across);
-            last = forward;
-        }
-        assertTrue(ForgeWaveFront.point(radius, depth, 0.0f, 0.0f)[2] > depth * 0.9f,
-                "the middle of the wave does not lead");
-        assertEquals(0.0f, ForgeWaveFront.point(radius, depth, 0.0f, 1.0f)[2], EPSILON,
-                "the rim of the wave does not trail");
+    void theCrescentLiesAlongItsFlightAndNeverStandsUp() {
+        // Swept down behind it, the horns stood the crescent up as an arch facing the sky. It lies
+        // in the plane of the swing that threw it: rolled about its flight, never pitched off it,
+        // so the belly and both horns sit on one plane that contains the flight line.
+        Sweep blade = WaveGeometry.blade(1.4f, 1.0f);
+        float[] belly = WaveGeometry.point(blade, 0.5f, 1.0f);
+        float[] left = WaveGeometry.point(blade, 0.0f, 1.0f);
+        float[] right = WaveGeometry.point(blade, 1.0f, 1.0f);
+        assertEquals(0.0f, belly[0], EPSILON, "the belly is off the flight line");
+        assertEquals(0.0f, belly[1], EPSILON, "the belly is off the flight line");
+        assertEquals(0.0f, left[1] + right[1], EPSILON, "the horns fall or rise together: it is pitched, not rolled");
+        assertEquals(left[2], right[2], EPSILON, "one horn trails further than the other");
     }
 
     @Test
-    void theWaveIsCentredOnTheThingThatHits() {
-        // An arc is measured from the centre of its own circle, so a crescent built at radius R put
-        // every one of its pixels R blocks from the strike and none of them on it. A front is
-        // measured from its own axis, which is the flight line, so this is true by construction -
-        // and it is worth a test because it is the bug that started all of this.
-        float radius = WaveGeometry.radius(1.4f);
-        float depth = WaveGeometry.depth(1.4f);
-        for (float angle = 0.0f; angle < 360.0f; angle += 29.0f) {
-            float[] near = ForgeWaveFront.point(radius, depth, angle, 1.0f);
-            float[] far = ForgeWaveFront.point(radius, depth, angle + 180.0f, 1.0f);
-            assertEquals(0.0f, near[0] + far[0], EPSILON, "the wave hangs to one side at " + angle);
-            assertEquals(0.0f, near[1] + far[1], EPSILON, "the wave hangs above or below at " + angle);
+    void theLipIsTheSameOnBothSides() {
+        // The blade itself is thickest a third of the way along, as a swung blade is; its edge is
+        // a true crescent, so neither horn flies further out, higher or further back.
+        Sweep blade = WaveGeometry.blade(1.4f, 1.0f);
+        for (int i = 0; i <= STEPS; i++) {
+            float t = i / (float) STEPS;
+            float[] left = WaveGeometry.point(blade, t, 1.0f);
+            float[] right = WaveGeometry.point(blade, 1.0f - t, 1.0f);
+            assertEquals(-left[0], right[0], EPSILON, "the wave is wider on one side at " + t);
+            assertEquals(-left[1], right[1], EPSILON, "the wave is rolled unevenly at " + t);
+            assertEquals(left[2], right[2], EPSILON, "one horn trails further than the other at " + t);
         }
     }
 
     @Test
-    void aWaveIsDrawnNoWiderThanTheCorridorItCatchesIn() {
+    void theWaveStraddlesTheLineItFliesAlong() {
+        // An arc is measured from the centre of its own circle, which put a crescent built at
+        // radius R a whole R off the strike. This one is framed onto the strike: as much of it
+        // above the flight line as below, as much ahead as behind.
+        for (float halfWidth : HALF_WIDTHS) {
+            float[] box = bounds(WaveGeometry.blade(halfWidth, 1.0f));
+            assertEquals(0.0f, box[2] + box[3], EPSILON, "half-width " + halfWidth + " hangs above or below");
+            assertEquals(0.0f, box[4] + box[5], EPSILON, "half-width " + halfWidth + " stands ahead or behind");
+            assertEquals(0.0f, box[0] + box[1], EPSILON, "half-width " + halfWidth + " hangs to one side");
+        }
+    }
+
+    @Test
+    void aWaveIsDrawnInsideTheVolumeItCatchesWith() {
         for (float halfWidth : HALF_WIDTHS) {
             HitShape.Inflation volume = volume(halfWidth);
-            float radius = WaveGeometry.radius(halfWidth);
-            assertTrue(radius <= volume.x(), "half-width " + halfWidth + ": the wave is drawn " + radius
-                    + " blocks off the flight path but only catches within " + volume.x());
-            assertTrue(radius <= volume.y(), "half-width " + halfWidth + ": the wave reaches " + radius
-                    + " blocks up and down and catches within " + volume.y());
-        }
-    }
-
-    @Test
-    void aWaveIsNoDeeperThanTheSweepItCatchesWith() {
-        for (float halfWidth : HALF_WIDTHS) {
-            HitShape.Inflation volume = volume(halfWidth);
-            assertTrue(WaveGeometry.depth(halfWidth) <= volume.z(),
-                    "half-width " + halfWidth + ": the wave bulges " + WaveGeometry.depth(halfWidth)
-                            + " blocks along the flight and catches within " + volume.z());
+            float[] box = bounds(WaveGeometry.blade(halfWidth, 1.0f));
+            assertTrue(box[1] <= volume.x() + EPSILON, "half-width " + halfWidth + ": drawn " + box[1]
+                    + " blocks off the flight path but catches within " + volume.x());
+            assertTrue(box[3] <= volume.y() + EPSILON, "half-width " + halfWidth + ": drawn " + box[3]
+                    + " blocks up and down but catches within " + volume.y());
+            assertTrue(box[5] <= volume.z() + EPSILON, "half-width " + halfWidth + ": drawn " + box[5]
+                    + " blocks along the flight but catches within " + volume.z());
         }
     }
 
     @Test
     void aWaveGrowsOutOfTheHandWithoutEverFlattening() {
-        // It leaves small and opens out, and the growth must not iron the curve out of it: a wave
-        // that is flat early is flat for the half of its flight the thrower is looking at.
         for (float progress = 0.0f; progress <= 1.0f; progress += 0.05f) {
             float scale = WaveGeometry.grown(progress);
             assertTrue(scale > 0.0f, "the wave has no size at progress " + progress);
             assertTrue(scale <= 1.0f, "the wave outgrows itself at progress " + progress);
-            float radius = WaveGeometry.radius(1.4f) * scale;
-            float depth = WaveGeometry.depth(1.4f) * scale;
-            assertTrue(ForgeWaveFront.point(radius, depth, 0.0f, 0.0f)[2]
-                            > ForgeWaveFront.point(radius, depth, 0.0f, 1.0f)[2],
+            Sweep blade = WaveGeometry.blade(1.4f, scale);
+            assertTrue(WaveGeometry.point(blade, 0.5f, 1.0f)[2] > WaveGeometry.point(blade, 0.0f, 1.0f)[2],
                     "the wave went flat at progress " + progress);
         }
+    }
+
+    /** {min x, max x, min y, max y, min z, max z} over the blade's drawn surface. */
+    private static float[] bounds(Sweep blade) {
+        float[] box = {Float.MAX_VALUE, -Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, Float.MAX_VALUE,
+                -Float.MAX_VALUE};
+        for (int i = 0; i <= STEPS; i++) {
+            for (int j = 0; j <= 4; j++) {
+                float[] p = WaveGeometry.point(blade, i / (float) STEPS, j / 4.0f);
+                for (int axis = 0; axis < 3; axis++) {
+                    box[axis * 2] = Math.min(box[axis * 2], p[axis]);
+                    box[axis * 2 + 1] = Math.max(box[axis * 2 + 1], p[axis]);
+                }
+            }
+        }
+        return box;
     }
 }
