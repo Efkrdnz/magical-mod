@@ -144,6 +144,38 @@ class MagicSkillTuningTest {
     }
 
     @Test
+    void positiveDamagePointsCompound() {
+        // A point used to be a flat +22%, so a whole budget of eleven made a spell 3.42x - a tier-two
+        // skill topped out near thirty a hit while a good weapon swings for 250. Each point now
+        // multiplies what the ones before it bought, so the eleventh is worth far more than the first.
+        assertEquals(1.0F, MagicSkillDefinition.damageScale(0), 1.0e-6F);
+        assertEquals((float) Math.pow(1.30, 11), MagicSkillDefinition.damageScale(11), 1.0e-3F);
+        for (int points = 0; points < MagicSkillTuning.ABSOLUTE_MAX; points++) {
+            float gain = MagicSkillDefinition.damageScale(points + 1) - MagicSkillDefinition.damageScale(points);
+            float previous = points == 0 ? 0.0F
+                    : MagicSkillDefinition.damageScale(points) - MagicSkillDefinition.damageScale(points - 1);
+            assertTrue(gain > previous, "point " + (points + 1) + " must be worth more than point " + points);
+            assertTrue(MagicSkillDefinition.damageScale(points + 1) > 1.0F + (points + 1) * 0.22F,
+                    "every positive allocation must beat the old flat rate");
+        }
+    }
+
+    @Test
+    void negativeDamagePointsWeakenExactlyAsBefore() {
+        for (int points = -1; points >= -MagicSkillTuning.ABSOLUTE_MAX; points--) {
+            assertEquals(1.0F + points * 0.22F, MagicSkillDefinition.damageScale(points), 1.0e-6F);
+        }
+    }
+
+    @Test
+    void aSpecialisedSpellHitsForItsCompoundedBase() {
+        MagicSkillDefinition crucible = MagicContent.CRUCIBLE;
+        float base = crucible.resolve(MagicSkillTuning.DEFAULT).damage();
+        assertEquals(base * (float) Math.pow(1.30, 11),
+                crucible.resolve(new MagicSkillTuning(11, 0, 0, 0, 0)).damage(), base * 1.0e-3F);
+    }
+
+    @Test
     void dumpingStatsCannotBuyAFreeSpell() {
         // The mana and cooldown multipliers are sums of signed terms, so before the floor they went
         // negative and the cost fell onto its absolute minimum: Crucible read 4 mana on an

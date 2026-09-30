@@ -67,8 +67,30 @@ public record MagicSkillDefinition(
      */
     private static final float SCALE_FLOOR = 0.25F;
 
+    /** What each damage point above zero multiplies the points before it by. */
+    public static final float DAMAGE_COMPOUND = 1.30F;
+
+    /** What each damage point below zero takes off, flat. */
+    public static final float DAMAGE_PER_WEAKENED_POINT = 0.22F;
+
+    /**
+     * The factor damage points put on a skill's damage.
+     *
+     * <p>Above zero the points compound: a flat +22% a point made a whole budget of eleven worth
+     * 3.42x, so a tier-two spell topped out near thirty a hit beside a weapon swinging for 250, and
+     * specialising in damage was never the strongest thing a point could buy. At 1.30 a point the
+     * eleventh is worth over four times the first and the whole budget is 17.9x. Below zero it stays
+     * the flat 22% it always was - weakening a skill should not get steeper for it.
+     */
+    public static float damageScale(int points) {
+        if (points <= 0) {
+            return 1.0F + points * DAMAGE_PER_WEAKENED_POINT;
+        }
+        return (float) Math.pow(DAMAGE_COMPOUND, points);
+    }
+
     public MagicSkillResolvedStats resolve(MagicSkillTuning tuning) {
-        float damageScale = 1.0F + tuning.damage() * 0.22F;
+        float damageScale = damageScale(tuning.damage());
         float speedScale = 1.0F + tuning.speed() * 0.17F;
         float sizeScale = 1.0F + tuning.size() * 0.18F;
         float durationScale = 1.0F + tuning.duration() * 0.18F;
