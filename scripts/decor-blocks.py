@@ -1,19 +1,21 @@
 """Draws the decorative blocks and writes everything a block needs to exist in game.
 
-Eight kinds in sixteen dye colours, the same list as DecorKind and MagicalDecor.COLOURS. Every
+Eight kinds in sixteen dye colours, the same list as DecorKind and DecorKind.COLOURS; and the
+masonry, five cuts in six greys and four conditions, the same lists as Masonry. Every
 sprite is 16x16 pixel art drawn from a shade ramp of its colour, so a kind reads as one material in
 every colour and the colours read as one family across kinds. Run from the repo root:
 
     python scripts/decor-blocks.py [--sheet out.png]
 
 and it rewrites, for every block:
-    assets/magical/textures/block/decor/<id>.png
+    assets/magical/textures/block/decor/<id>.png  (masonry under textures/block/masonry/)
     assets/magical/blockstates/<id>.json
     assets/magical/models/block/<id>.json
     assets/magical/items/<id>.json
     data/magical/loot_table/blocks/<id>.json
 plus the mining and wool tags under data/minecraft/tags/block/ and the names in en_us.json.
---sheet also writes a contact sheet of every sprite at four times size, for looking at.
+--sheet also writes a contact sheet of every sprite at four times size, for looking at, and the
+masonry's beside it with -masonry before the extension.
 """
 import json
 import math
@@ -101,7 +103,7 @@ def put(img, x, y, rgb, a=255):
 GLYPHS = [["#.#", ".#."], ["##.", ".##"], ["#.#", "###"], [".#.", "#.#"], ["###", "#.."], ["#..", "###"]]
 
 
-def bricks(c, rnd):
+def bricks(c, rnd, runes_on=True):
     img = canvas()
     runes = {(rnd.randrange(4), rnd.randrange(2)), (rnd.randrange(4), rnd.randrange(2))}
     for y in range(16):
@@ -120,6 +122,8 @@ def bricks(c, rnd):
             elif ly == 2 or lx == 6:
                 f = min(f, 0.9)
             put(img, x, y, shade(c, f))
+    if not runes_on:
+        return img
     # A rune cut into two of the bricks: a dark stroke with the lit edge under it.
     for index, (brick, row) in enumerate(sorted(runes)):
         glyph = GLYPHS[rnd.randrange(len(GLYPHS))]
@@ -309,6 +313,207 @@ DRAW = {
 }
 
 
+# ------------------------------------------------------------------------------------ the masonry
+
+# Masonry.Shade, darkest first. Near-neutral, each leaning a touch warm or cool so a run of them
+# reads as six stones rather than six settings of one grey.
+SHADES = [
+    ("onyx", (36, 35, 40)),
+    ("charcoal", (60, 60, 66)),
+    ("slate", (88, 93, 101)),
+    ("ash", (124, 121, 116)),
+    ("dove", (166, 167, 168)),
+    ("chalk", (214, 211, 203)),
+]
+# Masonry.Cut: (suffix, path pattern).
+CUTS = [
+    ("bricks", "%s_bricks"),
+    ("tiles", "%s_tiles"),
+    ("cobblestone", "%s_cobblestone"),
+    ("ashlar", "%s_ashlar"),
+    ("polished", "polished_%s"),
+]
+# Masonry.Condition: (name, path prefix).
+CONDITIONS = [("plain", ""), ("cracked", "cracked_"), ("mossy", "mossy_"), ("muddy", "muddy_")]
+
+MOSS = [(48, 72, 28), (66, 98, 36), (88, 124, 44), (114, 148, 56)]
+MUD = [(66, 47, 32), (88, 63, 41), (108, 79, 51), (130, 97, 63)]
+
+
+def luminance(rgb):
+    return 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]
+
+
+def cobble(c, rnd):
+    """Rounded stones: each pixel belongs to its nearest seed, measured round the tile so it repeats."""
+    img = canvas()
+    seeds = [(rnd.uniform(0, 16), rnd.uniform(0, 16)) for _ in range(8)]
+    tones = [rnd.choice((0.86, 0.93, 1.0, 1.0, 1.07)) for _ in seeds]
+
+    def owner(x, y):
+        best, index = 1e9, 0
+        for i, (sx, sy) in enumerate(seeds):
+            dx = min(abs(x + 0.5 - sx), 16 - abs(x + 0.5 - sx))
+            dy = min(abs(y + 0.5 - sy), 16 - abs(y + 0.5 - sy))
+            d = dx * dx + dy * dy * 1.2
+            if d < best:
+                best, index = d, i
+        return index
+
+    grid = [[owner(x, y) for x in range(16)] for y in range(16)]
+    for y in range(16):
+        for x in range(16):
+            here = grid[y][x]
+            if grid[y][(x + 1) % 16] != here or grid[(y + 1) % 16][x] != here:
+                f = 0.5
+            elif grid[y][(x - 1) % 16] != here or grid[(y - 1) % 16][x] != here:
+                f = 1.16
+            else:
+                f = tones[here] * rnd.choice((0.95, 1.0, 1.0, 1.04))
+            put(img, x, y, shade(c, f))
+    return img
+
+
+def ashlar(c, rnd):
+    """Two courses of big dressed blocks, the joints offset, a few chisel marks on each face."""
+    img = canvas()
+    seams = [(0, 10), (5, 13)]
+    tones = {}
+    for y in range(16):
+        course = y // 8
+        cuts = seams[course]
+        for x in range(16):
+            block = sum(1 for cut in cuts if x >= cut) % len(cuts)
+            tone = tones.setdefault((course, block), rnd.choice((0.9, 0.96, 1.0, 1.04)))
+            if y % 8 == 7 or (x + 1) % 16 in cuts:
+                f = 0.52
+            elif y % 8 == 0 or x in cuts:
+                f = 1.15
+            elif y % 8 == 6 or (x + 2) % 16 in cuts:
+                f = 0.86
+            else:
+                f = tone * rnd.choice((0.95, 1.0, 1.0, 1.0, 1.04))
+            put(img, x, y, shade(c, f))
+    for _ in range(4):
+        x, y = rnd.randrange(2, 13), rnd.choice((rnd.randrange(2, 5), rnd.randrange(10, 13)))
+        put(img, x, y, shade(c, 0.78))
+        put(img, x + 1, y + 1, shade(c, 0.84))
+    return img
+
+
+def polished(c, rnd):
+    """A single dressed face: a thin bevel, fine speckle, the faintest sweep of polish."""
+    img = canvas()
+    for y in range(16):
+        for x in range(16):
+            if x == 0 or y == 0:
+                f = 1.12
+            elif x == 15 or y == 15:
+                f = 0.7
+            else:
+                roll = rnd.random()
+                f = 0.92 if roll < 0.08 else 1.07 if roll < 0.13 else 1.0
+                f *= 1.0 + 0.05 * ((x + y) / 30.0 - 0.5)
+            put(img, x, y, shade(c, f))
+    return img
+
+
+def recesses(img, c):
+    """The joints and cuts: every pixel darker than the stone's own shadow step."""
+    floor = luminance(shade(c, 0.66))
+    return {(x, y) for y in range(16) for x in range(16) if luminance(img.getpixel((x, y))[:3]) <= floor}
+
+
+def crack(img, c, rnd):
+    """Two or three cracks wandering across the faces, each dark with a lit lip under it."""
+    for _ in range(rnd.choice((2, 3))):
+        x, y = rnd.randrange(16), rnd.randrange(16)
+        dx, dy = rnd.choice(((1, 1), (-1, 1), (1, 0), (1, -1)))
+        path = []
+        for _ in range(rnd.randrange(6, 11)):
+            path.append((x % 16, y % 16))
+            if rnd.random() < 0.3:
+                x, y = x + rnd.choice((0, dy)), y + rnd.choice((0, dx))
+            else:
+                x, y = x + dx, y + dy
+        cracked = set(path)
+        for px, py in path:
+            put(img, px, py, shade(c, 0.4))
+            below = (px, (py + 1) % 16)
+            if below not in cracked:
+                put(img, below[0], below[1], shade(c, 1.1))
+    return img
+
+
+def moss(img, c, rnd):
+    """Moss that settled where water sits: blooms on the upper faces, and down into the joints."""
+    joints = recesses(img, c)
+    blooms = [(rnd.uniform(0, 16), rnd.choice((rnd.uniform(0, 7), rnd.uniform(0, 16))), rnd.uniform(1.6, 3.2))
+              for _ in range(5)]
+    for y in range(16):
+        for x in range(16):
+            depth = 0.0
+            for bx, by, r in blooms:
+                dx = min(abs(x - bx), 16 - abs(x - bx))
+                d = math.hypot(dx, y - by) - r + rnd.uniform(-0.6, 0.6)
+                depth = max(depth, -d)
+            joint = (x, y) in joints and y < 10 and rnd.random() < 0.5
+            if depth > 0 or joint:
+                index = 0 if depth < 0.6 and not joint else rnd.choice((1, 2, 2, 3))
+                put(img, x, y, MOSS[index])
+    return img
+
+
+def mud(img, c, rnd):
+    """Caked mud: clots anywhere on the face, packed joints, a drip or two below each clot.
+
+    Never a band rising from the bottom edge: a block is a tile, and a band is a brown stripe on
+    every course of a wall stacked from it. Patches measured round the tile repeat seamlessly.
+    """
+    joints = recesses(img, c)
+    clots = [(rnd.uniform(0, 16), rnd.uniform(0, 16), rnd.uniform(1.2, 2.4)) for _ in range(5)]
+    caked = set()
+    for y in range(16):
+        for x in range(16):
+            for bx, by, r in clots:
+                dx = min(abs(x - bx), 16 - abs(x - bx))
+                dy = min(abs(y - by), 16 - abs(y - by))
+                if math.hypot(dx, dy * 1.3) < r + rnd.uniform(-0.5, 0.5):
+                    caked.add((x, y))
+                    break
+    for x, y in caked:
+        top = (x, (y - 1) % 16) not in caked
+        put(img, x, y, MUD[2] if top else rnd.choice((MUD[0], MUD[1], MUD[1], MUD[2])))
+    for x, y in joints:
+        if (x, y) not in caked and rnd.random() < 0.38:
+            put(img, x, y, MUD[1])
+    for bx, by, r in clots[:2]:
+        x = int(bx) % 16
+        for step in range(1, rnd.randrange(2, 5)):
+            put(img, x, int(by + r + step) % 16, MUD[0])
+    for _ in range(3):
+        put(img, rnd.randrange(16), rnd.randrange(16), MUD[3])
+    return img
+
+
+CUT_DRAW = {
+    "bricks": lambda c, rnd: bricks(c, rnd, runes_on=False),
+    "tiles": tiles,
+    "cobblestone": cobble,
+    "ashlar": ashlar,
+    "polished": polished,
+}
+CONDITION_DRAW = {"plain": lambda img, c, rnd: img, "cracked": crack, "mossy": moss, "muddy": mud}
+
+
+def masonry_blocks():
+    """Masonry.all(): cut by cut, condition by condition, each run dark to light."""
+    for cut, pattern in CUTS:
+        for condition, prefix in CONDITIONS:
+            for shade_name, base in SHADES:
+                yield cut, condition, shade_name, base, prefix + pattern % shade_name
+
+
 # ------------------------------------------------------------------------------------ the files
 
 def write_json(path, value):
@@ -320,6 +525,38 @@ def write_json(path, value):
 
 def title(snake):
     return " ".join(word.capitalize() for word in snake.split("_"))
+
+
+def write_block(block_id, folder, translucent):
+    """The blockstate, model, item definition and loot table every block here needs, all alike."""
+    full = "magical:" + block_id
+    write_json(os.path.join(ASSETS, "blockstates", block_id + ".json"),
+               {"variants": {"": {"model": "magical:block/" + block_id}}})
+    model = {"parent": "minecraft:block/cube_all", "textures": {"all": "magical:block/" + folder + "/" + block_id}}
+    if translucent:
+        model["render_type"] = "minecraft:translucent"
+    write_json(os.path.join(ASSETS, "models", "block", block_id + ".json"), model)
+    write_json(os.path.join(ASSETS, "items", block_id + ".json"),
+               {"model": {"type": "minecraft:model", "model": "magical:block/" + block_id}})
+    write_json(os.path.join(DATA, "magical", "loot_table", "blocks", block_id + ".json"), {
+        "type": "minecraft:block",
+        "pools": [{
+            "rolls": 1,
+            "bonus_rolls": 0,
+            "entries": [{"type": "minecraft:item", "name": full}],
+            "conditions": [{"condition": "minecraft:survives_explosion"}],
+        }],
+        "random_sequence": "magical:blocks/" + block_id,
+    })
+
+
+def contact_sheet(sprites, columns, path):
+    rows = (len(sprites) + columns - 1) // columns
+    sheet = Image.new("RGBA", (columns * 68 - 4, rows * 68 - 4), (30, 30, 34, 255))
+    for i, img in enumerate(sprites):
+        big = img.resize((64, 64), Image.NEAREST)
+        sheet.alpha_composite(big, ((i % columns) * 68, (i // columns) * 68))
+    sheet.save(path)
 
 
 def main():
@@ -336,25 +573,7 @@ def main():
             img = DRAW[suffix](base, rng_for(block_id))
             img.save(os.path.join(textures, block_id + ".png"))
             sprites.append(img)
-
-            write_json(os.path.join(ASSETS, "blockstates", block_id + ".json"),
-                       {"variants": {"": {"model": "magical:block/" + block_id}}})
-            model = {"parent": "minecraft:block/cube_all", "textures": {"all": "magical:block/decor/" + block_id}}
-            if suffix in TRANSLUCENT:
-                model["render_type"] = "minecraft:translucent"
-            write_json(os.path.join(ASSETS, "models", "block", block_id + ".json"), model)
-            write_json(os.path.join(ASSETS, "items", block_id + ".json"),
-                       {"model": {"type": "minecraft:model", "model": "magical:block/" + block_id}})
-            write_json(os.path.join(DATA, "magical", "loot_table", "blocks", block_id + ".json"), {
-                "type": "minecraft:block",
-                "pools": [{
-                    "rolls": 1,
-                    "bonus_rolls": 0,
-                    "entries": [{"type": "minecraft:item", "name": full}],
-                    "conditions": [{"condition": "minecraft:survives_explosion"}],
-                }],
-                "random_sequence": "magical:blocks/" + block_id,
-            })
+            write_block(block_id, "decor", suffix in TRANSLUCENT)
 
             if tool:
                 tags["mineable/" + tool].append(full)
@@ -366,20 +585,30 @@ def main():
                 tags["impermeable"].append(full)
             names["block.magical." + block_id] = title(colour) + " " + kind_name
 
+    masonry_textures = os.path.join(ASSETS, "textures", "block", "masonry")
+    os.makedirs(masonry_textures, exist_ok=True)
+    masonry = []
+    for cut, condition, shade_name, base, block_id in masonry_blocks():
+        rnd = rng_for(block_id)
+        img = CONDITION_DRAW[condition](CUT_DRAW[cut](base, rnd), base, rnd)
+        img.save(os.path.join(masonry_textures, block_id + ".png"))
+        masonry.append(img)
+        write_block(block_id, "masonry", False)
+        tags["mineable/pickaxe"].append("magical:" + block_id)
+        names["block.magical." + block_id] = title(block_id)
+
     for tag, values in tags.items():
         write_json(os.path.join(DATA, "minecraft", "tags", "block", tag + ".json"), {"replace": False, "values": values})
 
     names["itemGroup.magical.decor"] = "Magical Decor"
+    names["itemGroup.magical.masonry"] = "Magical Masonry"
     write_names(names)
 
     if sheet_path:
-        sheet = Image.new("RGBA", (16 * 16 * 4 + 15 * 4, len(KINDS) * 16 * 4 + (len(KINDS) - 1) * 4), (30, 30, 34, 255))
-        for i, img in enumerate(sprites):
-            col, row = i % 16, i // 16
-            big = img.resize((64, 64), Image.NEAREST)
-            sheet.alpha_composite(big, (col * 68, row * 68))
-        sheet.save(sheet_path)
-    print(f"{len(sprites)} decor blocks written")
+        contact_sheet(sprites, 16, sheet_path)
+        root, ext = os.path.splitext(sheet_path)
+        contact_sheet(masonry, len(SHADES) * 2, root + "-masonry" + ext)
+    print(f"{len(sprites)} decor and {len(masonry)} masonry blocks written")
 
 
 def write_names(names):

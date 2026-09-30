@@ -49,6 +49,18 @@ public final class MagicalCreativeTabs {
                             .forEach(item -> output.accept(item.get())))
                     .build());
 
+    /** The masonry: each cut and condition as a run of greys, darkest first. */
+    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> MASONRY = TABS.register("masonry",
+            () -> CreativeModeTab.builder()
+                    .title(Component.translatable("itemGroup.magical.masonry"))
+                    .icon(() -> new ItemStack(MagicalDecor.block(new com.efkrdnz.magical.block.decor.Masonry(
+                            com.efkrdnz.magical.block.decor.Masonry.Cut.BRICKS,
+                            com.efkrdnz.magical.block.decor.Masonry.Shade.SLATE,
+                            com.efkrdnz.magical.block.decor.Masonry.Condition.MOSSY)).get()))
+                    .displayItems((parameters, output) -> MagicalDecor.masonryItems()
+                            .forEach(item -> output.accept(item.get())))
+                    .build());
+
     private MagicalCreativeTabs() {}
 
     public static void register(IEventBus modEventBus) {

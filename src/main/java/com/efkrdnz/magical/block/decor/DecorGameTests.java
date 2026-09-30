@@ -49,6 +49,26 @@ public final class DecorGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "unwaking_empty", timeoutTicks = 40, batch = "decor")
+    public static void everyMasonryBlockBreaksLikeStoneAndDropsItself(GameTestHelper helper) {
+        BlockPos pos = new BlockPos(2, 2, 2);
+        BlockPos absolute = helper.absolutePos(pos);
+        ItemStack wooden = new ItemStack(Items.WOODEN_PICKAXE);
+        for (Masonry masonry : Masonry.all()) {
+            Block block = MagicalDecor.block(masonry).get();
+            helper.setBlock(pos, block);
+            BlockState state = helper.getBlockState(pos);
+            String id = masonry.path();
+            helper.assertTrue(state.getDestroySpeed(helper.getLevel(), absolute) == masonry.hardness(), id + " hardness");
+            helper.assertTrue(state.getExplosionResistance(helper.getLevel(), absolute, null) == masonry.resistance(), id + " blast resistance");
+            helper.assertTrue(state.getSoundType(helper.getLevel(), absolute, null) == masonry.sound(), id + " sound");
+            helper.assertTrue(state.requiresCorrectToolForDrops() && wooden.isCorrectToolForDrops(state), id + " is a pickaxe block");
+            List<ItemStack> drops = Block.getDrops(state, helper.getLevel(), absolute, null);
+            helper.assertTrue(drops.size() == 1 && drops.get(0).is(block.asItem()), id + " drops itself: " + drops);
+        }
+        helper.succeed();
+    }
+
     private static void checkTool(GameTestHelper helper, DecorKind kind, BlockState state, String id) {
         ItemStack wooden = new ItemStack(Items.WOODEN_PICKAXE);
         ItemStack stone = new ItemStack(Items.STONE_PICKAXE);
