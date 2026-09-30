@@ -112,6 +112,25 @@ class ForgeMatterTest {
     }
 
     @Test
+    void aHitThrowsWhatItsSwingThrowsOutOfTheWoundAndLessOfIt() {
+        for (ForgeElementKind kind : ForgeElementKind.values()) {
+            List<Emission> swing = ForgeMatter.swing(kind);
+            List<Emission> hit = ForgeMatter.hit(kind);
+            assertEquals(swing.size(), hit.size(), kind.name());
+            for (int i = 0; i < swing.size(); i++) {
+                assertEquals(swing.get(i).kind(), hit.get(i).kind(), kind + " hits with other matter than it swings");
+                assertTrue(hit.get(i).launch() == ForgeMatter.Launch.UP || hit.get(i).launch() == ForgeMatter.Launch.OUT,
+                        kind + " throws hit matter along a blade it no longer has");
+            }
+        }
+        for (ForgeGrade grade : ForgeGrade.values()) {
+            assertTrue(ForgeMatter.hitCount(grade.ordinal(), false, false)
+                    <= ForgeMatter.swingCount(grade.ordinal(), false, false));
+            assertTrue(ForgeMatter.hitCount(grade.ordinal(), true, false) <= ForgeMatter.HIT_CAP);
+        }
+    }
+
+    @Test
     void anUnthinnedShowerKeepsEverything() {
         int[] dealt = ForgeMatter.deal(ForgeMatter.swing(ForgeElementKind.FIRE), 18);
         for (boolean kept : ForgeMatter.keep(dealt, 3, 1)) {

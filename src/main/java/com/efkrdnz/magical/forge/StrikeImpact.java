@@ -1,7 +1,5 @@
 package com.efkrdnz.magical.forge;
 
-import com.efkrdnz.magical.entity.ForgeEffectEntity;
-import com.efkrdnz.magical.entity.forge.ForgeEffectStyle;
 import com.efkrdnz.magical.forge.strike.ForgeStrikeMath;
 import com.efkrdnz.magical.forge.strike.StrikeTally;
 import com.efkrdnz.magical.magic.ForgeComboService;
@@ -30,8 +28,6 @@ public final class StrikeImpact {
     private static final double RISING_LIFT = 0.55;
     private static final double RISING_LIFT_HEAVY = 0.85;
     private static final int MAX_IMPACT_EFFECTS = 6;
-    private static final int IMPACT_EFFECT_LIFE = 8;
-    private static final float MIN_EFFECT_SCALE = 0.6f;
     private static final double BASE_PUSH = 0.25;
     private static final double PUSH_PER_KNOCKBACK = 0.5;
 
@@ -54,7 +50,7 @@ public final class StrikeImpact {
             target.hurtMarked = true;
         }
         tally.noteImpact();
-        spawnImpactEffect(level, target, loadout, tally);
+        spawnImpactEffect(level, target, loadout, direction, tally);
         if (owner instanceof ServerPlayer player) {
             afterDamage(level, player, target, loadout, direction, dealt, now, tally, before);
         }
@@ -208,15 +204,11 @@ public final class StrikeImpact {
     }
 
     private static void spawnImpactEffect(ServerLevel level, LivingEntity target, StrikeLoadout loadout,
-            StrikeTally tally) {
+            Vec3 direction, StrikeTally tally) {
         if (tally.impacts() > MAX_IMPACT_EFFECTS) {
             return;
         }
-        Vec3 at = target.position().add(0.0, target.getBbHeight() * 0.5, 0.0);
-        ForgeEffectEntity.impact(level, at, styleFor(loadout.element().kind()), loadout.element().primaryColor(),
-                        loadout.element().secondaryColor(), Math.max(MIN_EFFECT_SCALE, target.getBbWidth()),
-                        IMPACT_EFFECT_LIFE)
-                .withHeavy(loadout.heavy());
+        ForgeImpacts.hit(level, target, loadout, direction);
     }
 
     /** The states SHATTER feeds on. TERRA's tremor is tracked as the slow it leaves behind. */
@@ -225,34 +217,5 @@ public final class StrikeImpact {
                 || target.getTicksFrozen() > 0
                 || target.hasEffect(MobEffects.WITHER)
                 || target.hasEffect(MobEffects.POISON);
-    }
-
-    public static ForgeEffectStyle styleFor(ForgeElementKind kind) {
-        return switch (kind) {
-            case FIRE -> ForgeEffectStyle.FIRE_BLOOM;
-            case FROST -> ForgeEffectStyle.FROST_SHARDS;
-            case STORM -> ForgeEffectStyle.STORM_FORK;
-            case VOID -> ForgeEffectStyle.VOID_IMPLOSION;
-            case RADIANT -> ForgeEffectStyle.RADIANT_CROSS;
-            case VENOM -> ForgeEffectStyle.VENOM_DRIP;
-            case TERRA -> ForgeEffectStyle.TERRA_SHARDS;
-            case GALE -> ForgeEffectStyle.GALE_SWIRL;
-            // Borrows the void implosion until dark earns a style of its own: a new
-            // ForgeEffectStyle is a synced ordinal plus a renderer branch, which this does not need.
-            case DARK -> ForgeEffectStyle.VOID_IMPLOSION;
-            // The drip is the right silhouette already; the call site tints it with blood's own
-            // palette, so it reads as red running rather than as green.
-            case BLOOD -> ForgeEffectStyle.VENOM_DRIP;
-            // Compounds borrow the impact of the parent they read as, tinted by their own palette.
-            case BLACK_FLAME -> ForgeEffectStyle.VOID_IMPLOSION;
-            case EXPLOSION -> ForgeEffectStyle.FIRE_BLOOM;
-            case RIME_GALE, HAILSTORM -> ForgeEffectStyle.FROST_SHARDS;
-            case PLASMA -> ForgeEffectStyle.STORM_FORK;
-            case MAGMA -> ForgeEffectStyle.TERRA_SHARDS;
-            case ECLIPSE -> ForgeEffectStyle.RADIANT_CROSS;
-            case BLIGHT, VERDIGRIS -> ForgeEffectStyle.VENOM_DRIP;
-            case CORRUPTION, CLOT -> ForgeEffectStyle.VENOM_DRIP;
-            case MARTYR -> ForgeEffectStyle.RADIANT_CROSS;
-        };
     }
 }

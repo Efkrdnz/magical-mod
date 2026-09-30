@@ -56,6 +56,13 @@ public final class ForgeMatter {
     public static final float ECHO = 0.5f;
     /** The most one swing may throw, whatever the weapon. */
     public static final int SWING_CAP = 30;
+    /** A hit throws this share of what the swing that landed it threw, and never more than its cap. */
+    public static final float HIT_SHARE = 0.7f;
+    public static final int HIT_CAP = 24;
+    /** Matter knocked out of a body leaves faster than matter shed off a blade. */
+    public static final float HIT_SPEED = 1.2f;
+    /** Soot: the last colour of a coal and the colour of dark smoke. */
+    public static final int SOOT = 0x2A2622;
 
     private static final Stops HOT = new Stops(Ink.WHITE, Ink.EDGE, Ink.PRIMARY);
     private static final Stops COAL = new Stops(Ink.EDGE, Ink.PRIMARY, Ink.SOOT);
@@ -65,10 +72,12 @@ public final class ForgeMatter {
     private static final Stops DARK = new Stops(Ink.SECONDARY, Ink.SECONDARY, Ink.SOOT);
 
     private static final Map<ForgeElementKind, List<Emission>> SWING = new EnumMap<>(ForgeElementKind.class);
+    private static final Map<ForgeElementKind, List<Emission>> HIT = new EnumMap<>(ForgeElementKind.class);
 
     static {
         for (ForgeElementKind kind : ForgeElementKind.values()) {
             SWING.put(kind, swingOf(kind));
+            HIT.put(kind, hitOf(SWING.get(kind)));
         }
     }
 
@@ -77,6 +86,32 @@ public final class ForgeMatter {
     /** What a swing of this element throws. Never empty. */
     public static List<Emission> swing(ForgeElementKind kind) {
         return SWING.get(kind);
+    }
+
+    /**
+     * What a hit of this element knocks out of what it struck: the swing's own matter, thrown out
+     * of the struck surface rather than off the blade and a little faster. Smoke and light still
+     * rise. Derived rather than written, so an element's hit can never disagree with its swing.
+     */
+    public static List<Emission> hit(ForgeElementKind kind) {
+        return HIT.get(kind);
+    }
+
+    /** How much one hit throws in all. */
+    public static int hitCount(int gradeOrdinal, boolean heavy, boolean echo) {
+        float count = shower(gradeOrdinal) * HIT_SHARE * (heavy ? HEAVY : 1.0f) * (echo ? ECHO : 1.0f);
+        return Math.min(HIT_CAP, Math.max(1, Math.round(count)));
+    }
+
+    /** The colour an ink stands for, out of a strike's three. */
+    public static int ink(Ink ink, int primary, int secondary, int edge) {
+        return switch (ink) {
+            case WHITE -> 0xFFFFFF;
+            case EDGE -> edge;
+            case PRIMARY -> primary;
+            case SECONDARY -> secondary;
+            case SOOT -> SOOT;
+        };
     }
 
     /**
@@ -244,6 +279,13 @@ public final class ForgeMatter {
                     e(MatterKind.DROP, 3, 0.2f, 0.4f, Launch.ALONG, BODY),
                     e(MatterKind.CHIP, 1, 0.22f, 0.5f, Launch.OUT, BODY));
         };
+    }
+
+    private static List<Emission> hitOf(List<Emission> swing) {
+        return swing.stream()
+                .map(e -> new Emission(e.kind(), e.weight(), e.speed() * HIT_SPEED, e.cone(),
+                        e.launch() == Launch.UP ? Launch.UP : Launch.OUT, e.stops()))
+                .toList();
     }
 
     private static Emission e(MatterKind kind, int weight, float speed, float cone, Launch launch, Stops stops) {

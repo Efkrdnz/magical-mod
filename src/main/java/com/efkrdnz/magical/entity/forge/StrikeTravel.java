@@ -22,14 +22,21 @@ public final class StrikeTravel {
 
     private StrikeTravel() {}
 
-    /** Where the strike ends up this tick, and whether a block is what stopped it there. */
-    public record Step(Vec3 to, boolean blocked) {}
+    /**
+     * Where the strike ends up this tick, and the block face that stopped it there, or null if
+     * nothing did.
+     */
+    public record Step(Vec3 to, @javax.annotation.Nullable BlockHitResult hit) {
+        public boolean blocked() {
+            return hit != null;
+        }
+    }
 
     public static Step advance(ServerLevel level, Entity self, Vec3 from, Vec3 direction, double speed) {
         Vec3 to = from.add(direction.scale(speed));
         BlockHitResult hit = level.clip(
                 new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, self));
-        return hit.getType() == HitResult.Type.MISS ? new Step(to, false) : new Step(hit.getLocation(), true);
+        return hit.getType() == HitResult.Type.MISS ? new Step(to, null) : new Step(hit.getLocation(), hit);
     }
 
     /** The solid surface within {@code search} blocks below {@code from}, or null if there is none. */

@@ -83,6 +83,10 @@ public final class ClientPayloadHandlers {
         com.efkrdnz.magical.client.fx.TransientVisuals.handle(payload);
     }
 
+    public static void handle(com.efkrdnz.magical.network.ForgeImpactPayload payload) {
+        com.efkrdnz.magical.client.fx.ForgeImpactParticles.spawn(payload);
+    }
+
     public static void handle(com.efkrdnz.magical.network.SwordImpactPayload payload) {
         com.efkrdnz.magical.client.fx.SwordImpactParticles.spawn(payload);
     }

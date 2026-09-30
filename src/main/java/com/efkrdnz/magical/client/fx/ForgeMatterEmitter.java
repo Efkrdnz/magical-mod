@@ -58,8 +58,6 @@ public final class ForgeMatterEmitter {
     private static final float LANCE_FROM = 0.5f;
     /** Nothing is thrown past this far from the camera. */
     private static final double MAX_DISTANCE_SQR = 1024.0D;
-    /** Soot: the last colour of a coal and the colour of dark smoke. */
-    private static final int SOOT = 0x2A2622;
     /** A strike unseen for this long is forgotten, and the map is swept only when it grows past this. */
     private static final long FORGET_TICKS = 100L;
     private static final int SWEEP_AT = 64;
@@ -204,13 +202,7 @@ public final class ForgeMatterEmitter {
     }
 
     private static int ink(ForgeStrikeRenderer.State state, Ink ink) {
-        return switch (ink) {
-            case WHITE -> 0xFFFFFF;
-            case EDGE -> state.edge;
-            case PRIMARY -> state.primary;
-            case SECONDARY -> state.secondary;
-            case SOOT -> SOOT;
-        };
+        return ForgeMatter.ink(ink, state.primary, state.secondary, state.edge);
     }
 
     /**

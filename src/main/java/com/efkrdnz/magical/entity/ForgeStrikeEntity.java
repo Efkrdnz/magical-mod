@@ -11,6 +11,7 @@ import com.efkrdnz.magical.entity.forge.HitShapes;
 import com.efkrdnz.magical.entity.forge.StrikeTravel;
 import com.efkrdnz.magical.forge.ElementDefinition;
 import com.efkrdnz.magical.forge.ForgeElementKind;
+import com.efkrdnz.magical.forge.ForgeImpacts;
 import com.efkrdnz.magical.forge.ForgeModifierKind;
 import com.efkrdnz.magical.forge.ForgedWeapon;
 import com.efkrdnz.magical.forge.FormDefinition;
@@ -294,6 +295,9 @@ public final class ForgeStrikeEntity extends Entity {
             waveHits += collect(step.to(), from, reach(), 1.0f, budget);
         }
         setPos(step.to().x, step.to().y, step.to().z);
+        if (step.blocked() && loadout != null) {
+            ForgeImpacts.block(server, step.hit(), loadout);
+        }
         if (step.blocked() || waveHits >= waveBudget()) {
             firePayload(TriggerKind.EXPIRY);
             discard();
