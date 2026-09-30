@@ -38,7 +38,9 @@ public final class FlurryGeometry {
 
     public static void render(PoseStack poseStack, VertexConsumer edge, ForgeStrikeRenderer.State state,
             ForgePalette palette, float partialTick) {
-        int[] pulses = ForgeStrikeMath.flurryPulseTicks(state.heavy);
+        // The echo's own pulse count, not a full flurry's: the server trims an echo's share, and a
+        // ribbon drawn for a pulse that never lands is a cut that did no damage.
+        int[] pulses = ForgeStrikeMath.flurryPulseTicks(state.heavy, state.echo);
         poseStack.pushPose();
         poseStack.translate(0.0f, HEIGHT, 0.0f);
         for (int i = 0; i < pulses.length; i++) {

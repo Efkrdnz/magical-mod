@@ -50,6 +50,11 @@ public final class ForgeEffectEntity extends Entity {
         effect.entityData.set(COLOR2, color2);
         effect.entityData.set(SCALE, Math.max(0.1F, scale));
         effect.entityData.set(LIFE, Math.max(1, life));
+        // An impact has no far end. Left at the synced default of the world origin, a STORM_FORK
+        // impact drew its bolt from the hit all the way to (0, 0, 0).
+        effect.entityData.set(END_X, (float) pos.x);
+        effect.entityData.set(END_Y, (float) pos.y);
+        effect.entityData.set(END_Z, (float) pos.z);
         level.addFreshEntity(effect);
         return effect;
     }

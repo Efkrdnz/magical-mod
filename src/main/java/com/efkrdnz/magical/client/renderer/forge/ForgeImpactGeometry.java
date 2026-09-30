@@ -22,6 +22,7 @@ public final class ForgeImpactGeometry {
     private static final int SPIRAL_STEPS = 14;
     private static final int BOLT_STEPS = 7;
     private static final int BRANCHES = 2;
+    private static final float NO_CHAIN_SQR = 0.01f;
     private static final float BOLT_WIDTH = 0.09f;
     private static final float BOLT_JITTER = 0.35f;
 
@@ -58,6 +59,10 @@ public final class ForgeImpactGeometry {
         RandomSource rng = RandomSource.create(state.seed);
         int alpha = ForgeRibbon.alpha(255.0f, state.alpha);
         float[] end = {state.endX, state.endY, state.endZ};
+        if (end[0] * end[0] + end[1] * end[1] + end[2] * end[2] < NO_CHAIN_SQR) {
+            // An impact with nowhere to jump: a short crack of lightning off the body, not a bolt.
+            end = new float[] {spread(rng) * state.scale, -0.6f * state.scale, spread(rng) * state.scale};
+        }
         bolt(edge, pose, new float[3], end, rng, palette.bloom(), alpha);
         for (int i = 0; i < BRANCHES; i++) {
             float t = 0.35f + 0.3f * i;

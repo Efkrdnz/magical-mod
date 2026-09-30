@@ -57,6 +57,8 @@ void main() {
     float glow = (core * 1.4 + rim * 1.1 + spokes) * disc;
     vec3 col = mix(vertexColor.rgb, vec3(1.0), clamp(core * 0.8, 0.0, 0.9));
 
+    // This type blends ONE, ONE, so alpha is discarded outright: fold the vertex alpha into the
+    // emitted colour, as rendertype_forge_edge does, or no impact, slam or zone ever fades.
     float alpha = clamp(glow, 0.0, 1.0) * vertexColor.a;
-    fragColor = vec4(col * glow, alpha) * ColorModulator;
+    fragColor = vec4(col * glow * vertexColor.a, alpha) * ColorModulator;
 }

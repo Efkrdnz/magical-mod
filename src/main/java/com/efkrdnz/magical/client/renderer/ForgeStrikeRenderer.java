@@ -48,6 +48,7 @@ public final class ForgeStrikeRenderer extends EntityRenderer<ForgeStrikeEntity,
         state.secondary = entity.secondaryColor();
         state.edge = entity.edgeColor();
         state.heavy = entity.heavy();
+        state.echo = entity.echo();
         state.grade = entity.grade();
         // The entity id, so one strike's shower is the same on every client and on every frame of
         // its three-tick life, and two strikes side by side do not throw the same sparks.
@@ -120,6 +121,8 @@ public final class ForgeStrikeRenderer extends EntityRenderer<ForgeStrikeEntity,
         public ForgeElementAccent.Accent accent = ForgeElementAccent.of(ForgeElementKind.FIRE);
         public int primary = 0xD8E4FF, secondary = 0xD8E4FF, edge = 0xFFFFFF;
         public boolean heavy;
+        /** An echo draws only the pulses the server let it land, for a flurry fewer than a full one. */
+        public boolean echo;
         /** The weapon's grade as an ordinal, and this strike's own seed for its spark shower. */
         public int grade = ForgeGrade.HIGH.ordinal();
         public int seed;
