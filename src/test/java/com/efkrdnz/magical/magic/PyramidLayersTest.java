@@ -31,7 +31,8 @@ class PyramidLayersTest {
             if (layer.isEmpty()) {
                 continue;
             }
-            Set<MagicSchool> schools = layer.stream().map(MagicSkillDefinition::school).collect(Collectors.toCollection(LinkedHashSet::new));
+            Set<MagicSchool> schools = layer.stream().filter(skill -> !MagicContent.isSinGift(skill.id()))
+                    .map(MagicSkillDefinition::school).collect(Collectors.toCollection(LinkedHashSet::new));
             boolean authority = layer.stream().allMatch(skill -> MagicContent.isAuthoritySkill(skill.id()));
             assertTrue(authority || schools.size() == 1,
                     "layer " + tier + " mixes " + schools + ", so the codex row can only show one of them");
@@ -46,6 +47,26 @@ class PyramidLayersTest {
                 MagicContent.HUNGERING_MAW.id(), MagicContent.TENDRIL_LASH.id(),
                 MagicContent.SKIN_OF_THE_DEEP.id(), MagicContent.CALL_OF_THE_DEEP.id()), onTheLayer,
                 "the eldritch layer must hold the six calls and nothing else");
+    }
+
+    @Test
+    void thePrimordialLayerIsTheSixCatastrophes() {
+        Set<ResourceLocation> onTheLayer = MagicContent.skillsForTier(-4).stream()
+                .map(MagicSkillDefinition::id).collect(Collectors.toCollection(LinkedHashSet::new));
+        assertEquals(Set.of(MagicContent.CYCLONE.id(), MagicContent.FAULT_LINE.id(), MagicContent.SKYFALL.id(),
+                MagicContent.CALDERA.id(), MagicContent.TSUNAMI.id(), MagicContent.UPHEAVAL.id()), onTheLayer,
+                "the primordial layer must hold the six catastrophes and nothing else");
+    }
+
+    @Test
+    void aSinGiftRidesTheLayerOfItsAttribute() {
+        for (ResourceLocation id : MagicContent.SIN_GIFTS) {
+            MagicSkillDefinition gift = MagicContent.get(id);
+            List<MagicSkillDefinition> layer = MagicContent.skillsForTier(gift.tier());
+            assertTrue(layer.stream().anyMatch(skill -> !MagicContent.isSinGift(skill.id())
+                            && MagicAttribute.fromSchool(skill.school()) == gift.attribute()),
+                    id + " sits on layer " + gift.tier() + ", which is not the layer of its attribute " + gift.attribute());
+        }
     }
 
     @Test

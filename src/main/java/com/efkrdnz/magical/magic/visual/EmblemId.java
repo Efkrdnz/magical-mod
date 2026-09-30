@@ -111,7 +111,14 @@ public enum EmblemId {
     KEEL,
     VOLLEY,
     UPTHRUST,
-    GREATSWORD;
+    GREATSWORD,
+    // the Primordial catastrophes
+    VORTEX,
+    FAULT,
+    SKYFALL,
+    CALDERA,
+    TSUNAMI,
+    HEAVE;
 
     /**
      * Where the emblems begin in the shared SDF atlas, immediately after the stamps.

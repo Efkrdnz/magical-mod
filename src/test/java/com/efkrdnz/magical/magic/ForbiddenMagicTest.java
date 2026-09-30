@@ -122,8 +122,9 @@ class ForbiddenMagicTest {
             assertEquals(MagicSchool.DARK, skill.school(), skill.id() + " is dark magic, not void");
             assertEquals(MagicAttribute.DARK, skill.attribute(), skill.id() + " attribute");
         }
-        // Greed's payout is not forbidden study, and stays where it was.
-        assertEquals(-4, MagicContent.VAULT_OF_AVARICE.tier());
+        // Greed's payout is not forbidden study: a sin's gift, still Void, riding the Dark row
+        // by its attribute so the Primordial layer can hold the Primordial school.
+        assertEquals(-2, MagicContent.VAULT_OF_AVARICE.tier());
         assertEquals(MagicSchool.VOID, MagicContent.VAULT_OF_AVARICE.school());
     }
 

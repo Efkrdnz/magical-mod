@@ -30,6 +30,7 @@ public final class MagicCastContent {
         MagicCastContentBlood.register();
         MagicCastContentDark.register();
         MagicCastContentEldritch.register();
+        MagicCastContentPrimordial.register();
         MagicCastContentSword.register();
         MagicalMod.LOGGER.info("Registered {} skill cast handlers", SkillCastRegistry.all().size());
     }

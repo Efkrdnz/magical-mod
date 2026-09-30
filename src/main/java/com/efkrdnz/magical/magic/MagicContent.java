@@ -75,6 +75,13 @@ public final class MagicContent {
     public static final MagicSkillDefinition TENDRIL_LASH = register("tendril_lash", MagicSchool.ELDRITCH, MagicSkillType.BURST, -5, 0, 9.0F, 1.4F, 1.0F, 14, 90, 40, 0.6F, 0, 0x3FD9B4);
     public static final MagicSkillDefinition SKIN_OF_THE_DEEP = register("skin_of_the_deep", MagicSchool.ELDRITCH, MagicSkillType.BURST, -5, 0, 5.0F, 1.0F, 1.0F, 30, 600, 400, 0.0F, 0, 0x06322A);
     public static final MagicSkillDefinition CALL_OF_THE_DEEP = register("call_of_the_deep", MagicSchool.ELDRITCH, MagicSkillType.BURST, -5, 0, 6.0F, 1.0F, 1.0F, 12, 500, 200, 0.0F, 0, 0x8FF5E0);
+    // PRIMORDIAL, layer -4: six catastrophes, each read off the land where it breaks (magic/primordial)
+    public static final MagicSkillDefinition CYCLONE = register("cyclone", MagicSchool.PRIMORDIAL, MagicSkillType.BURST, -4, 0, 5.0F, 1.0F, 1.0F, 45, 900, 260, 0.8F, 0, 0x9C8C6A);
+    public static final MagicSkillDefinition FAULT_LINE = register("fault_line", MagicSchool.PRIMORDIAL, MagicSkillType.BURST, -4, 0, 6.0F, 1.0F, 1.0F, 40, 700, 60, 0.4F, 0, 0x6B5A44);
+    public static final MagicSkillDefinition SKYFALL = register("skyfall", MagicSchool.PRIMORDIAL, MagicSkillType.BURST, -4, 0, 28.0F, 1.0F, 1.0F, 60, 1200, 50, 1.6F, 0, 0xFF6A2A);
+    public static final MagicSkillDefinition CALDERA = register("caldera", MagicSchool.PRIMORDIAL, MagicSkillType.BURST, -4, 0, 7.0F, 1.0F, 1.0F, 55, 1100, 300, 0.5F, 0, 0xE0461A);
+    public static final MagicSkillDefinition TSUNAMI = register("tsunami", MagicSchool.PRIMORDIAL, MagicSkillType.BURST, -4, 0, 10.0F, 1.0F, 1.0F, 50, 900, 50, 1.2F, 0, 0x3E8FC4);
+    public static final MagicSkillDefinition UPHEAVAL = register("upheaval", MagicSchool.PRIMORDIAL, MagicSkillType.BURST, -4, 0, 16.0F, 1.0F, 1.0F, 45, 800, 35, 1.4F, 0, 0x8A7458);
 
     // SWORD, layer -3, and that layer was empty until now. Six verbs, and not one of them is a
     // new mechanism: every one is a move of the formation's frame or a pure projection of the
@@ -111,7 +118,7 @@ public final class MagicContent {
     public static final MagicSkillDefinition LONG_DEBT = register("long_debt", MagicSchool.DARK, MagicSkillType.BURST, -2, 0, 0.0F, 0.0F, 1.2F, 0, 900, 300, 0.0F, 0, 0x7A52A3, MagicAttribute.DARK);
     public static final MagicSkillDefinition SEVER_THE_THREAD = register("sever_the_thread", MagicSchool.DARK, MagicSkillType.PROJECTILE, -2, 0, 2.0F, 1.9F, 0.7F, 0, 200, 60, 0.0F, 0, 0x9B6FD4, MagicAttribute.DARK);
 
-    public static final MagicSkillDefinition VAULT_OF_AVARICE = register("vault_of_avarice", MagicSchool.VOID, MagicSkillType.BURST, -4, 0, 0.0F, 0.0F, 1.0F, 0, 0, 20, 0.0F, 0, 0xD7F75B, MagicAttribute.DARK);
+    public static final MagicSkillDefinition VAULT_OF_AVARICE = register("vault_of_avarice", MagicSchool.VOID, MagicSkillType.BURST, -2, 0, 0.0F, 0.0F, 1.0F, 0, 0, 20, 0.0F, 0, 0xD7F75B, MagicAttribute.DARK);
     public static final MagicSkillDefinition CREATE_SUBSPACE = register("create_subspace", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 22, 40, 20, 0.0F, 0, 0x88DFFF, MagicAttribute.ARCANE);
     public static final MagicSkillDefinition MANIPULATE_SPACE = register("manipulate_space", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 8, 8, 20, 0.0F, 0, 0xA9ECFF, MagicAttribute.ARCANE);
     public static final MagicSkillDefinition POCKET_DIMENSION = register("pocket_dimension", MagicSchool.SPATIAL, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 36, 180, 20, 0.0F, 0, 0x5DA8FF, MagicAttribute.SPATIAL);
@@ -303,6 +310,8 @@ public final class MagicContent {
             LOOSE.id(),
             BELOW.id(),
             ONE_BLADE.id());
+    public static final Set<ResourceLocation> SIN_GIFTS = Set.of(VAULT_OF_AVARICE.id());
+
     public static final Set<ResourceLocation> SUB_SKILLS = Set.of(
             AEGIS_ULTIMATE_PROTECTION.id(),
             AEGIS_SANCTUARY.id(),
@@ -439,6 +448,14 @@ public final class MagicContent {
 
     public static boolean isClassRewardSkill(ResourceLocation skillId) {
         return CLASS_REWARD_SKILLS.contains(skillId);
+    }
+
+    /**
+     * A sin's gift rather than a school's skill: it rides the layer of its attribute, not of its
+     * school, so Greed's vault sits with the Dark row instead of taking a layer a school needs.
+     */
+    public static boolean isSinGift(ResourceLocation skillId) {
+        return SIN_GIFTS.contains(skillId);
     }
 
     public static boolean isSubSkill(ResourceLocation skillId) {
