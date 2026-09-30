@@ -61,6 +61,7 @@ public final class PlayerMagicState {
     private final com.efkrdnz.magical.magic.causality.Ledger ledger = new com.efkrdnz.magical.magic.causality.Ledger();
     private final com.efkrdnz.magical.magic.causality.Paradox paradox = new com.efkrdnz.magical.magic.causality.Paradox();
     private final com.efkrdnz.magical.magic.causality.Anchor anchor = new com.efkrdnz.magical.magic.causality.Anchor();
+    private final com.efkrdnz.magical.magic.sound.SoundState sound = new com.efkrdnz.magical.magic.sound.SoundState();
     private String anchorSigilDimension = "";
     private int anchorSigilX;
     private int anchorSigilY;
@@ -546,6 +547,11 @@ public final class PlayerMagicState {
 
     public com.efkrdnz.magical.magic.mind.MindState mind() {
         return mind;
+    }
+
+    /** The Song and the Riff a wielder of the Authority of Sound has written. */
+    public com.efkrdnz.magical.magic.sound.SoundState sound() {
+        return sound;
     }
 
     public com.efkrdnz.magical.magic.causality.Ledger ledger() {
@@ -1217,6 +1223,7 @@ public final class PlayerMagicState {
         ledger.clear();
         paradox.clear();
         anchor.clear();
+        sound.clear();
         swordArray.clear();
         clearSoulBond();
     }
@@ -2144,6 +2151,7 @@ public final class PlayerMagicState {
         copy.grimoire.copyFrom(grimoire);
         copy.weave.copyFrom(weave);
         copy.mind.copyFrom(mind);
+        copy.sound.copyFrom(sound);
         copy.ledger.copyFrom(ledger);
         copy.paradox.copyFrom(paradox);
         copy.anchor.copyFrom(anchor);
@@ -2271,6 +2279,7 @@ public final class PlayerMagicState {
         tag.put("grimoire", grimoire.save());
         tag.put("weave", weave.save());
         tag.put("mind", mind.save());
+        tag.put("sound", sound.save());
         tag.putFloat("ledger", ledger.held());
         tag.putFloat("paradox", paradox.value());
         tag.putLong("paradoxFired", paradox.lastFired());
@@ -2447,6 +2456,7 @@ public final class PlayerMagicState {
         state.grimoire.load(tag.getCompound("grimoire"));
         state.weave.load(tag.getCompound("weave"));
         state.mind.load(tag.getCompound("mind"));
+        state.sound.load(tag.getCompound("sound"));
         state.ledger.set(tag.getFloat("ledger"));
         state.paradox.restore(tag.getFloat("paradox"),
                 tag.contains("paradoxFired") ? tag.getLong("paradoxFired") : Long.MIN_VALUE,

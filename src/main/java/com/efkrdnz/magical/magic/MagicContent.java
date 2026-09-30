@@ -153,6 +153,14 @@ public final class MagicContent {
     public static final MagicSkillDefinition DECREE = register("decree", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 4, 20, 20, 0.0F, 0, 0xE8C05A, MagicAttribute.ARCANE);
     public static final MagicSkillDefinition RECOMPENSE = register("recompense", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 20, 300, 20, 0.0F, 0, 0xE8615C, MagicAttribute.ARCANE);
     public static final MagicSkillDefinition SUSPEND = register("suspend", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 0, 40, 20, 0.0F, 0, 0x7FC8E8, MagicAttribute.ARCANE);
+
+    // The Authority of Sound. A score and two ways of playing it: the Song is a loop that answers a
+    // crouch or a swing made in time with it, the Riff a figure played for as long as the key is held.
+    // The numbers here are the gates and nothing more - the Score is free, the Song pays to start and
+    // then by the bar, and every note of the Riff is billed as it sounds.
+    public static final MagicSkillDefinition SCORE = register("score", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 0, 0, 20, 0.0F, 0, 0x6FE0C0, MagicAttribute.ARCANE);
+    public static final MagicSkillDefinition SONG = register("song", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 12, 40, 20, 0.0F, 0, 0x4FC8FF, MagicAttribute.ARCANE);
+    public static final MagicSkillDefinition RIFF = register("riff", MagicSchool.ARCANE, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 0, 0, 20, 0.0F, 0, 0xFFD23F, MagicAttribute.ARCANE);
     public static final MagicSkillDefinition SOUL_VOW = register("soul_vow", MagicSchool.SOUL, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 18, 80, 20, 0.0F, 0, 0xD8F0FF, MagicAttribute.SOUL);
     public static final MagicSkillDefinition SOUL_VALLEY = register("soul_valley", MagicSchool.SOUL, MagicSkillType.BURST, -6, 0, 0.0F, 0.0F, 1.0F, 74, 1600, 20, 0.0F, 0, 0xD8F0FF, MagicAttribute.SOUL);
 
@@ -262,7 +270,8 @@ public final class MagicContent {
             INCANTATION_1.id(), INCANTATION_2.id(), INCANTATION_3.id(), INCANTATION_4.id(), GRIMOIRE.id(),
             BURDEN.id(), FRACTURE.id(), LAST_GRAIN.id(), CRITICALITY.id(),
             CAUSAL_BOARD.id(), CAUSAL_ANCHOR.id(), DECREE.id(), RECOMPENSE.id(), SUSPEND.id(),
-            DAYDREAM.id(), UNVEIL.id(), INSIST.id(), LULL.id());
+            DAYDREAM.id(), UNVEIL.id(), INSIST.id(), LULL.id(),
+            SCORE.id(), SONG.id(), RIFF.id());
     public static final Set<ResourceLocation> CLASS_REWARD_SKILLS = Set.of(
             HEATED_IRON.id(),
             DAWNHAMMER.id(),

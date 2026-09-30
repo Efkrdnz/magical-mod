@@ -300,6 +300,15 @@ public final class MagicalEntities {
                     .updateInterval(1)
                     .build(key("eldritch_construct")));
 
+    /** A flying note of the Riff: the Authority of Sound's only entity. */
+    public static final DeferredHolder<EntityType<?>, EntityType<com.efkrdnz.magical.entity.sound.SoundNoteEntity>> SOUND_NOTE = ENTITY_TYPES.register(
+            "sound_note",
+            () -> EntityType.Builder.<com.efkrdnz.magical.entity.sound.SoundNoteEntity>of(com.efkrdnz.magical.entity.sound.SoundNoteEntity::new, MobCategory.MISC)
+                    .sized(0.4F, 0.4F)
+                    .clientTrackingRange(SpellEntityVisibility.TRACKING_RANGE_CHUNKS)
+                    .updateInterval(1)
+                    .build(key("sound_note")));
+
     /** One body of a recited incantation: the Authority of Mana's only entity. */
     public static final DeferredHolder<EntityType<?>, EntityType<com.efkrdnz.magical.entity.verse.VerseBodyEntity>> VERSE_BODY = ENTITY_TYPES.register(
             "verse_body",

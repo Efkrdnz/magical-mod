@@ -45,7 +45,67 @@ public final class MagicalSounds {
             SOUNDS.register("music.supreme_deity", () -> SoundEvent.createVariableRangeEvent(
                     ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "music.supreme_deity")));
 
+    /**
+     * The Riff's sixteen voices, synthesized by {@code scripts/synth-instruments.py} and named as the
+     * note block names its instruments. Each is one note at its centre pitch, shifted by the game.
+     */
+    public static final DeferredHolder<SoundEvent, SoundEvent> NOTE_HARP = note("harp");
+    public static final DeferredHolder<SoundEvent, SoundEvent> NOTE_BASEDRUM = note("basedrum");
+    public static final DeferredHolder<SoundEvent, SoundEvent> NOTE_SNARE = note("snare");
+    public static final DeferredHolder<SoundEvent, SoundEvent> NOTE_HAT = note("hat");
+    public static final DeferredHolder<SoundEvent, SoundEvent> NOTE_BASS = note("bass");
+    public static final DeferredHolder<SoundEvent, SoundEvent> NOTE_FLUTE = note("flute");
+    public static final DeferredHolder<SoundEvent, SoundEvent> NOTE_BELL = note("bell");
+    public static final DeferredHolder<SoundEvent, SoundEvent> NOTE_GUITAR = note("guitar");
+    public static final DeferredHolder<SoundEvent, SoundEvent> NOTE_CHIME = note("chime");
+    public static final DeferredHolder<SoundEvent, SoundEvent> NOTE_XYLOPHONE = note("xylophone");
+    public static final DeferredHolder<SoundEvent, SoundEvent> NOTE_IRON_XYLOPHONE = note("iron_xylophone");
+    public static final DeferredHolder<SoundEvent, SoundEvent> NOTE_COW_BELL = note("cow_bell");
+    public static final DeferredHolder<SoundEvent, SoundEvent> NOTE_DIDGERIDOO = note("didgeridoo");
+    public static final DeferredHolder<SoundEvent, SoundEvent> NOTE_BIT = note("bit");
+    public static final DeferredHolder<SoundEvent, SoundEvent> NOTE_BANJO = note("banjo");
+    public static final DeferredHolder<SoundEvent, SoundEvent> NOTE_PLING = note("pling");
+
+    /** The Song's kit: three drums, a bass and a lead, on the record channel like a jukebox. */
+    public static final DeferredHolder<SoundEvent, SoundEvent> SONG_KICK = song("kick");
+    public static final DeferredHolder<SoundEvent, SoundEvent> SONG_SNARE = song("snare");
+    public static final DeferredHolder<SoundEvent, SoundEvent> SONG_HAT = song("hat");
+    public static final DeferredHolder<SoundEvent, SoundEvent> SONG_BASS = song("bass");
+    public static final DeferredHolder<SoundEvent, SoundEvent> SONG_LEAD = song("lead");
+
     private MagicalSounds() {}
+
+    private static DeferredHolder<SoundEvent, SoundEvent> note(String name) {
+        return SOUNDS.register("note." + name, () -> SoundEvent.createVariableRangeEvent(
+                ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "note." + name)));
+    }
+
+    private static DeferredHolder<SoundEvent, SoundEvent> song(String name) {
+        return SOUNDS.register("song." + name, () -> SoundEvent.createVariableRangeEvent(
+                ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "song." + name)));
+    }
+
+    /** The voice of one Riff instrument. */
+    public static DeferredHolder<SoundEvent, SoundEvent> note(com.efkrdnz.magical.magic.sound.Instrument instrument) {
+        return switch (instrument) {
+            case HARP -> NOTE_HARP;
+            case BASEDRUM -> NOTE_BASEDRUM;
+            case SNARE -> NOTE_SNARE;
+            case HAT -> NOTE_HAT;
+            case BASS -> NOTE_BASS;
+            case FLUTE -> NOTE_FLUTE;
+            case BELL -> NOTE_BELL;
+            case GUITAR -> NOTE_GUITAR;
+            case CHIME -> NOTE_CHIME;
+            case XYLOPHONE -> NOTE_XYLOPHONE;
+            case IRON_XYLOPHONE -> NOTE_IRON_XYLOPHONE;
+            case COW_BELL -> NOTE_COW_BELL;
+            case DIDGERIDOO -> NOTE_DIDGERIDOO;
+            case BIT -> NOTE_BIT;
+            case BANJO -> NOTE_BANJO;
+            case PLING -> NOTE_PLING;
+        };
+    }
 
     /** A cue under {@code rule.}; variable range like the music, since it plays on the UI channel. */
     private static DeferredHolder<SoundEvent, SoundEvent> rule(String name) {

@@ -40,6 +40,9 @@ public final class MagicalParticles {
     /** A soft puff of coloured smoke that rises, spreads and thins: mist, miasma, a void's breath. */
     public static final DeferredHolder<ParticleType<?>, ParticleType<TintedParticleOptions>> WISP = tinted("wisp");
 
+    /** A music note - a quarter, an eighth, a beamed pair, a sixteenth, a half or a sharp - that bobs up and fades, full bright: the Authority of Sound. */
+    public static final DeferredHolder<ParticleType<?>, ParticleType<TintedParticleOptions>> NOTE = tinted("note");
+
     /**
      * A symbol from the sigil library in a two-tone ink, full bright: one of 43 drawings, a core
      * colour for its strokes and a glow colour for the halo round them. Spawned through

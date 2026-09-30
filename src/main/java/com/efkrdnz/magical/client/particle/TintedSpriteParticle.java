@@ -35,7 +35,9 @@ public final class TintedSpriteParticle extends TextureSheetParticle {
         /** Drifts, twinkles through its frames, shrinks out; full bright. */
         MOTE(0.88F, 0.0F, false, true, false, 12, 8),
         /** Rises, spreads and thins through its frames; lit by the world, so it is smoke, not light. */
-        WISP(0.93F, -0.15F, false, false, false, 26, 16);
+        WISP(0.93F, -0.15F, false, false, false, 26, 16),
+        /** Bobs up, sways, fades; full bright. Picks one note and keeps it. */
+        NOTE(0.90F, -0.06F, false, true, true, 24, 10);
 
         private final float friction;
         private final float gravity;
@@ -77,7 +79,7 @@ public final class TintedSpriteParticle extends TextureSheetParticle {
         this.setColor(((rgb >> 16) & 0xFF) / 255.0F, ((rgb >> 8) & 0xFF) / 255.0F, (rgb & 0xFF) / 255.0F);
         this.baseSize = 0.1F * options.scale() * (0.8F + random.nextFloat() * 0.4F);
         this.quadSize = baseSize;
-        this.spin = motion == Motion.SHARD ? (random.nextFloat() - 0.5F) * 0.5F : 0.0F;
+        this.spin = motion == Motion.SHARD || motion == Motion.NOTE ? (random.nextFloat() - 0.5F) * 0.5F : 0.0F;
         this.roll = random.nextFloat() * Mth.TWO_PI * (motion == Motion.SHARD ? 1.0F : 0.0F);
         this.oRoll = roll;
         if (motion.pickOne) {
@@ -119,6 +121,12 @@ public final class TintedSpriteParticle extends TextureSheetParticle {
                 quadSize = baseSize * (1.0F + 1.2F * t);
                 alpha = AccentPlan.WISP_OPACITY * (1.0F - t);
             }
+            case NOTE -> {
+                // pops in, sways like a note on a staff that is being sung, fades off the top
+                quadSize = baseSize * (t < 0.15F ? 0.55F + 3.0F * t : 1.0F);
+                alpha = t < 0.65F ? 1.0F : 1.0F - (t - 0.65F) / 0.35F;
+                roll = 0.35F * (float) Math.sin((age + spin * 40.0F) * 0.45F);
+            }
         }
     }
 
@@ -147,7 +155,7 @@ public final class TintedSpriteParticle extends TextureSheetParticle {
     private static int tint(TintedParticleOptions options, Motion motion) {
         int rgb = (Math.round(options.red() * 255.0F) << 16) | (Math.round(options.green() * 255.0F) << 8) | Math.round(options.blue() * 255.0F);
         return switch (motion) {
-            case RUNE, MOTE -> AccentPlan.lift(rgb, AccentPlan.LIGHT_SPRITE_FLOOR);
+            case RUNE, MOTE, NOTE -> AccentPlan.lift(rgb, AccentPlan.LIGHT_SPRITE_FLOOR);
             case SHARD -> AccentPlan.lift(rgb, AccentPlan.SHARD_FLOOR);
             case WISP -> AccentPlan.lift(rgb, AccentPlan.WISP_FLOOR);
         };

@@ -27,6 +27,23 @@ public final class MagicalNetwork {
 
     public static void registerPayloads(RegisterPayloadHandlersEvent event) {
         event.registrar("11")
+                .playToClient(OpenScorePayload.TYPE, OpenScorePayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> handleClientPayload(payload)))
+                .playToClient(SongPlayPayload.TYPE, SongPlayPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> handleClientPayload(payload)))
+                .playToServer(SetSoundPayload.TYPE, SetSoundPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> {
+                            if (context.player() instanceof ServerPlayer player) {
+                                com.efkrdnz.magical.magic.sound.SongService.write(player, payload.data());
+                            }
+                        }))
+                .playToServer(SongBeatPayload.TYPE, SongBeatPayload.STREAM_CODEC, (payload, context) ->
+                        context.enqueueWork(() -> {
+                            if (context.player() instanceof ServerPlayer player) {
+                                com.efkrdnz.magical.magic.sound.SongService.claim(player,
+                                        com.efkrdnz.magical.magic.sound.SongAction.byOrdinal(payload.action()), payload.index());
+                            }
+                        }))
                 .playToClient(UnwakingSnapshotPayload.TYPE, UnwakingSnapshotPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> handleClientPayload(payload)))
                 .playToServer(UnwakingGuardPayload.TYPE, UnwakingGuardPayload.STREAM_CODEC, (payload, context) ->
@@ -409,6 +426,26 @@ public final class MagicalNetwork {
     /** The body the anchor hold was released on. Nothing about it is trusted on the far side. */
     public static void sendAnchorTarget(int entityId) {
         PacketDistributor.sendToServer(new AnchorTargetPayload(entityId));
+    }
+
+    public static void sendOpenScore(ServerPlayer player) {
+        PacketDistributor.sendToPlayer(player, new OpenScorePayload());
+    }
+
+    public static void sendSongPlay(ServerPlayer listener, int owner, long start, net.minecraft.nbt.CompoundTag song) {
+        PacketDistributor.sendToPlayer(listener, new SongPlayPayload(owner, start, song));
+    }
+
+    public static void sendSongStop(ServerPlayer listener, int owner) {
+        PacketDistributor.sendToPlayer(listener, new SongPlayPayload(owner, 0L, new net.minecraft.nbt.CompoundTag()));
+    }
+
+    public static void sendSound(net.minecraft.nbt.CompoundTag data) {
+        PacketDistributor.sendToServer(new SetSoundPayload(data));
+    }
+
+    public static void sendSongBeat(int action, long index) {
+        PacketDistributor.sendToServer(new SongBeatPayload(action, index));
     }
 
     public static void sendOpenGrimoire(ServerPlayer player) {

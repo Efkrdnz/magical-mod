@@ -15,6 +15,7 @@ public final class AuthorityContent {
     public static final ResourceLocation CHAOS = ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "authority_of_chaos");
     public static final ResourceLocation CAUSALITY = ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "authority_of_causality");
     public static final ResourceLocation MIND = ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "authority_of_mind");
+    public static final ResourceLocation SOUND = ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "authority_of_sound");
 
     public static final AuthorityDefinition AUTHORITY_OF_SPACE = register(
             SPACE,
@@ -49,6 +50,11 @@ public final class AuthorityContent {
             MIND,
             0xBDA4FF,
             List.of(MagicContent.DAYDREAM.id(), MagicContent.UNVEIL.id(), MagicContent.INSIST.id(), MagicContent.LULL.id()));
+
+    public static final AuthorityDefinition AUTHORITY_OF_SOUND = register(
+            SOUND,
+            0x6FE0C0,
+            List.of(MagicContent.SCORE.id(), MagicContent.SONG.id(), MagicContent.RIFF.id()));
 
     private AuthorityContent() {}
 

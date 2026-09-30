@@ -57,5 +57,110 @@
     "category": "player",
     "subtitle": "subtitles.magical.rule_flash",
     "sounds": [ { "name": "magical:rule/restore" } ]
+  },
+  "note.harp": {
+    "category": "player",
+    "subtitle": "subtitles.magical.note",
+    "sounds": [ { "name": "magical:note/harp" } ]
+  },
+  "note.basedrum": {
+    "category": "player",
+    "subtitle": "subtitles.magical.note",
+    "sounds": [ { "name": "magical:note/basedrum" } ]
+  },
+  "note.snare": {
+    "category": "player",
+    "subtitle": "subtitles.magical.note",
+    "sounds": [ { "name": "magical:note/snare" } ]
+  },
+  "note.hat": {
+    "category": "player",
+    "subtitle": "subtitles.magical.note",
+    "sounds": [ { "name": "magical:note/hat" } ]
+  },
+  "note.bass": {
+    "category": "player",
+    "subtitle": "subtitles.magical.note",
+    "sounds": [ { "name": "magical:note/bass" } ]
+  },
+  "note.flute": {
+    "category": "player",
+    "subtitle": "subtitles.magical.note",
+    "sounds": [ { "name": "magical:note/flute" } ]
+  },
+  "note.bell": {
+    "category": "player",
+    "subtitle": "subtitles.magical.note",
+    "sounds": [ { "name": "magical:note/bell" } ]
+  },
+  "note.guitar": {
+    "category": "player",
+    "subtitle": "subtitles.magical.note",
+    "sounds": [ { "name": "magical:note/guitar" } ]
+  },
+  "note.chime": {
+    "category": "player",
+    "subtitle": "subtitles.magical.note",
+    "sounds": [ { "name": "magical:note/chime" } ]
+  },
+  "note.xylophone": {
+    "category": "player",
+    "subtitle": "subtitles.magical.note",
+    "sounds": [ { "name": "magical:note/xylophone" } ]
+  },
+  "note.iron_xylophone": {
+    "category": "player",
+    "subtitle": "subtitles.magical.note",
+    "sounds": [ { "name": "magical:note/iron_xylophone" } ]
+  },
+  "note.cow_bell": {
+    "category": "player",
+    "subtitle": "subtitles.magical.note",
+    "sounds": [ { "name": "magical:note/cow_bell" } ]
+  },
+  "note.didgeridoo": {
+    "category": "player",
+    "subtitle": "subtitles.magical.note",
+    "sounds": [ { "name": "magical:note/didgeridoo" } ]
+  },
+  "note.bit": {
+    "category": "player",
+    "subtitle": "subtitles.magical.note",
+    "sounds": [ { "name": "magical:note/bit" } ]
+  },
+  "note.banjo": {
+    "category": "player",
+    "subtitle": "subtitles.magical.note",
+    "sounds": [ { "name": "magical:note/banjo" } ]
+  },
+  "note.pling": {
+    "category": "player",
+    "subtitle": "subtitles.magical.note",
+    "sounds": [ { "name": "magical:note/pling" } ]
+  },
+  "song.kick": {
+    "category": "record",
+    "subtitle": "subtitles.magical.song",
+    "sounds": [ { "name": "magical:song/kick" } ]
+  },
+  "song.snare": {
+    "category": "record",
+    "subtitle": "subtitles.magical.song",
+    "sounds": [ { "name": "magical:song/snare" } ]
+  },
+  "song.hat": {
+    "category": "record",
+    "subtitle": "subtitles.magical.song",
+    "sounds": [ { "name": "magical:song/hat" } ]
+  },
+  "song.bass": {
+    "category": "record",
+    "subtitle": "subtitles.magical.song",
+    "sounds": [ { "name": "magical:song/bass" } ]
+  },
+  "song.lead": {
+    "category": "record",
+    "subtitle": "subtitles.magical.song",
+    "sounds": [ { "name": "magical:song/lead" } ]
   }
 }

@@ -51,6 +51,14 @@ public final class ClientPayloadHandlers {
         SpellCreatorScreen.open(payload.tab(), payload.first().orElse(null), payload.second().orElse(null));
     }
 
+    public static void handle(com.efkrdnz.magical.network.OpenScorePayload payload) {
+        com.efkrdnz.magical.client.screen.sound.ScoreScreen.open();
+    }
+
+    public static void handle(com.efkrdnz.magical.network.SongPlayPayload payload) {
+        com.efkrdnz.magical.client.sound.ClientSongs.receive(payload);
+    }
+
     public static void handle(com.efkrdnz.magical.network.OpenGrimoirePayload payload) {
         com.efkrdnz.magical.client.screen.grimoire.GrimoireScreen.open();
     }

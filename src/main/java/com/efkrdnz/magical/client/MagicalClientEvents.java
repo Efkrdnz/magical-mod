@@ -123,6 +123,8 @@ public final class MagicalClientEvents {
                 sprites -> new com.efkrdnz.magical.client.particle.TintedSpriteParticle.Provider(sprites, com.efkrdnz.magical.client.particle.TintedSpriteParticle.Motion.MOTE));
         event.registerSpriteSet(com.efkrdnz.magical.registry.MagicalParticles.WISP.get(),
                 sprites -> new com.efkrdnz.magical.client.particle.TintedSpriteParticle.Provider(sprites, com.efkrdnz.magical.client.particle.TintedSpriteParticle.Motion.WISP));
+        event.registerSpriteSet(com.efkrdnz.magical.registry.MagicalParticles.NOTE.get(),
+                sprites -> new com.efkrdnz.magical.client.particle.TintedSpriteParticle.Provider(sprites, com.efkrdnz.magical.client.particle.TintedSpriteParticle.Motion.NOTE));
         event.registerSpriteSet(com.efkrdnz.magical.registry.MagicalParticles.FORGE_MATTER.get(),
                 com.efkrdnz.magical.client.particle.ForgeMatterParticle.Provider::new);
     }
@@ -208,6 +210,7 @@ public final class MagicalClientEvents {
         event.registerEntityRenderer(MagicalEntities.BLOOD_HARVEST.get(), com.efkrdnz.magical.client.renderer.BloodHarvestRenderer::new);
         event.registerEntityRenderer(MagicalEntities.ELDRITCH_CONSTRUCT.get(), com.efkrdnz.magical.client.renderer.eldritch.EldritchConstructRenderer::new);
         event.registerEntityRenderer(MagicalEntities.VERSE_BODY.get(), com.efkrdnz.magical.client.renderer.verse.VerseBodyRenderer::new);
+        event.registerEntityRenderer(MagicalEntities.SOUND_NOTE.get(), com.efkrdnz.magical.client.renderer.sound.SoundNoteRenderer::new);
         event.registerEntityRenderer(MagicalEntities.SWORD_ARRAY.get(), com.efkrdnz.magical.client.renderer.sword.SwordArrayRenderer::new);
         event.registerEntityRenderer(MagicalEntities.SWORD_BLADE.get(), com.efkrdnz.magical.client.renderer.sword.SwordBladeRenderer::new);
         event.registerEntityRenderer(MagicalEntities.SOLID_CONSTRUCT.get(), com.efkrdnz.magical.client.renderer.fx.ProfileRendererShell::new);

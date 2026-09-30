@@ -104,6 +104,33 @@ class MagicalSoundsAssetsTest {
     }
 
     @Test
+    void everyInstrumentAndTheSongKitIsWiredAndOnDisk() throws IOException {
+        JsonObject sounds = JsonParser.parseString(read(SOUNDS_JSON)).getAsJsonObject();
+        String lang = read("/assets/magical/lang/en_us.json");
+        List<DeferredHolder<SoundEvent, SoundEvent>> voices = new ArrayList<>();
+        for (com.efkrdnz.magical.magic.sound.Instrument instrument : com.efkrdnz.magical.magic.sound.Instrument.values()) {
+            DeferredHolder<SoundEvent, SoundEvent> voice = MagicalSounds.note(instrument);
+            assertEquals("note." + instrument.id(), voice.getId().getPath(), instrument + " plays the wrong voice");
+            voices.add(voice);
+        }
+        voices.addAll(List.of(MagicalSounds.SONG_KICK, MagicalSounds.SONG_SNARE, MagicalSounds.SONG_HAT,
+                MagicalSounds.SONG_BASS, MagicalSounds.SONG_LEAD));
+        for (DeferredHolder<SoundEvent, SoundEvent> voice : voices) {
+            String path = voice.getId().getPath();
+            JsonObject entry = sounds.getAsJsonObject(path);
+            assertNotNull(entry, "sounds.json has no entry for " + path);
+            String subtitle = entry.get("subtitle").getAsString();
+            assertTrue(lang.contains('"' + subtitle + '"'), subtitle + " is not translated");
+            String name = entry.getAsJsonArray("sounds").get(0).getAsJsonObject().get("name").getAsString();
+            assertEquals("magical:" + path.replace('.', '/'), name, path + " points at the wrong file");
+            try (InputStream in = MagicalSoundsAssetsTest.class.getResourceAsStream("/assets/magical/sounds/" + path.replace('.', '/') + ".ogg")) {
+                assertNotNull(in, path + " has no .ogg");
+                assertTrue(in.readAllBytes().length > 1000, path + " is too small to be a note");
+            }
+        }
+    }
+
+    @Test
     void theCueSubtitleIsTranslated() throws IOException {
         assertTrue(read("/assets/magical/lang/en_us.json").contains('"' + SUBTITLE + '"'), "language file is missing " + SUBTITLE);
     }

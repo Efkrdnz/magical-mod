@@ -106,6 +106,11 @@ public final class MagicCastContentKept {
         // press itself has nothing to do - and nothing to bill.
         SkillCastRegistry.register(MagicContent.INSIST, SkillCastRegistry.selfManaged(ctx -> {}));
         // Lull bills itself: a sneak into your own dream is free, a refusal costs nothing.
+        // The Authority of Sound: the Score opens free, the Song bills itself, and the Riff is
+        // a hold the server plays note by note (RiffService), so its press does nothing.
+        SkillCastRegistry.register(MagicContent.SCORE, SkillCastRegistry.selfManaged(ctx -> com.efkrdnz.magical.magic.sound.SongService.openScore(ctx.player(), ctx.state())));
+        SkillCastRegistry.register(MagicContent.SONG, SkillCastRegistry.selfManaged(ctx -> com.efkrdnz.magical.magic.sound.SongService.toggle(ctx.player(), ctx.state())));
+        SkillCastRegistry.register(MagicContent.RIFF, SkillCastRegistry.selfManaged(ctx -> { }));
         SkillCastRegistry.register(MagicContent.LULL, SkillCastRegistry.selfManaged(ctx ->
                 com.efkrdnz.magical.magic.mind.DreamService.lull(ctx.player(), ctx.state(), ctx.sneak())));
         // Circle Arsenal is hold/release like Gabriel and Black Flames: the press only hints.
