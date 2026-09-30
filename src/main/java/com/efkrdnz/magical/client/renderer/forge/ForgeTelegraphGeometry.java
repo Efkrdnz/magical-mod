@@ -56,8 +56,10 @@ public final class ForgeTelegraphGeometry {
         poseStack.translate(0.0f, GLYPH_Y, 0.0f);
         poseStack.mulPose(Axis.YP.rotationDegrees(state.ageInTicks * GLYPH_SPIN));
         poseStack.mulPose(Axis.XP.rotationDegrees(-90.0f));
-        ForgeRibbon.lance(buffer.getBuffer(MagicalRenderTypes.forgeEdge()), poseStack.last().pose(),
-                GLYPH_LENGTH, GLYPH_WIDTH, GLYPH_FLARE, palette, state.alpha);
+        ForgeStroke glyph = new ForgeStroke(buffer.getBuffer(MagicalRenderTypes.forgeSmear()),
+                buffer.getBuffer(MagicalRenderTypes.forgeGlint()), ForgeSmear.Row.STEEL, 0.0f, 1.0f);
+        ForgeRibbon.lance(glyph, poseStack.last().pose(), GLYPH_LENGTH, GLYPH_WIDTH, GLYPH_FLARE, palette,
+                state.alpha);
         poseStack.popPose();
     }
 

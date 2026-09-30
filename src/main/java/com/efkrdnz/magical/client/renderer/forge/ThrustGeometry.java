@@ -4,7 +4,6 @@ import com.efkrdnz.magical.client.renderer.ForgeStrikeRenderer;
 import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon.Plane;
 import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon.Sweep;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import net.minecraft.util.Mth;
 
@@ -27,7 +26,7 @@ public final class ThrustGeometry {
 
     private ThrustGeometry() {}
 
-    public static void render(PoseStack poseStack, VertexConsumer edge, ForgeStrikeRenderer.State state,
+    public static void render(PoseStack poseStack, ForgeStroke stroke, ForgeStrikeRenderer.State state,
             ForgePalette palette, float partialTick) {
         // The lance is driven out rather than being there from the first frame, and it never
         // reaches past the reach the hit shape was built with.
@@ -35,20 +34,20 @@ public final class ThrustGeometry {
         ForgeRibbon.trail(state.heavy, state.accent.invertTrail(), state.alpha, (lag, alpha) -> {
             poseStack.pushPose();
             poseStack.translate(0.0f, LIFT, -lag * TRAIL_GAP);
-            ForgeRibbon.lance(edge, poseStack.last().pose(), length, state.halfWidth * WIDTH,
+            ForgeRibbon.lance(stroke.at(lag), poseStack.last().pose(), length, state.halfWidth * WIDTH,
                     state.halfWidth * FLARE, palette, alpha);
             poseStack.popPose();
         });
         // The lance's own glow, drawn once at the head's position rather than per trail copy.
         poseStack.pushPose();
         poseStack.translate(0.0f, LIFT, 0.0f);
-        ForgeAura.lance(edge, poseStack.last().pose(), length, state.halfWidth * WIDTH, palette, state.alpha);
+        ForgeAura.lance(stroke, poseStack.last().pose(), length, state.halfWidth * WIDTH, palette, state.alpha);
         poseStack.popPose();
         float radius = state.halfWidth * CROWN;
         Sweep crown = new Sweep(Plane.UPRIGHT, radius, radius * CROWN_THICKNESS, 0.0f, 360.0f);
         poseStack.pushPose();
         poseStack.translate(0.0f, LIFT, length);
-        ForgeElementAccent.draw(edge, poseStack.last().pose(), crown, palette, state.alpha, state.accent);
+        ForgeElementAccent.draw(stroke, poseStack.last().pose(), crown, palette, state.alpha, state.accent);
         poseStack.popPose();
     }
 }

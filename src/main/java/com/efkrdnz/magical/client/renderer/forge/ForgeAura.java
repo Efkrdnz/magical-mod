@@ -2,7 +2,6 @@ package com.efkrdnz.magical.client.renderer.forge;
 
 import com.efkrdnz.magical.client.renderer.ForgeStrikeRenderer;
 import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon.Sweep;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import org.joml.Matrix4f;
 
@@ -24,14 +23,14 @@ public final class ForgeAura {
     private ForgeAura() {}
 
     /** The glow and the shower for an arc of blade, in the frame {@code pose} is drawing into. */
-    public static void arc(VertexConsumer edge, Matrix4f pose, Sweep sweep, ForgePalette palette,
+    public static void arc(ForgeStroke stroke, Matrix4f pose, Sweep sweep, ForgePalette palette,
             ForgeStrikeRenderer.State state, float alpha) {
         if (alpha <= 0.0f) {
             return;
         }
         float[] eye = ForgeView.eye(pose);
-        ForgeRibbon.sheath(edge, pose, sweep, palette, alpha, eye[0], eye[1], eye[2]);
-        ForgeSparks.strike(edge, pose, sweep, palette, alpha, state.seed, state.grade, state.progress,
+        ForgeRibbon.sheath(stroke, pose, sweep, palette, alpha, eye[0], eye[1], eye[2]);
+        ForgeSparks.strike(stroke, pose, sweep, palette, alpha, state.seed, state.grade, state.progress,
                 eye[0], eye[1], eye[2]);
     }
 
@@ -39,12 +38,12 @@ public final class ForgeAura {
      * The glow for a straight lance. A thrust throws no shower: it goes in rather than through, and
      * debris off a lunge would be telling the player about a cut that did not happen.
      */
-    public static void lance(VertexConsumer edge, Matrix4f pose, float length, float halfWidth,
+    public static void lance(ForgeStroke stroke, Matrix4f pose, float length, float halfWidth,
             ForgePalette palette, float alpha) {
         if (alpha <= 0.0f) {
             return;
         }
         float[] eye = ForgeView.eye(pose);
-        ForgeRibbon.lanceSheath(edge, pose, length, halfWidth, palette, alpha, eye[0], eye[1], eye[2]);
+        ForgeRibbon.lanceSheath(stroke, pose, length, halfWidth, palette, alpha, eye[0], eye[1], eye[2]);
     }
 }

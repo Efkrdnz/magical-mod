@@ -6,7 +6,6 @@ import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon.Sweep;
 import com.efkrdnz.magical.forge.strike.ForgeStrikeMath;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 
 /**
  * FLURRY: the string of jabs. One short ribbon per pulse, fanned across the cone and staggered in
@@ -36,7 +35,7 @@ public final class FlurryGeometry {
 
     private FlurryGeometry() {}
 
-    public static void render(PoseStack poseStack, VertexConsumer edge, ForgeStrikeRenderer.State state,
+    public static void render(PoseStack poseStack, ForgeStroke stroke, ForgeStrikeRenderer.State state,
             ForgePalette palette, float partialTick) {
         // The echo's own pulse count, not a full flurry's: the server trims an echo's share, and a
         // ribbon drawn for a pulse that never lands is a cut that did no damage.
@@ -56,9 +55,9 @@ public final class FlurryGeometry {
             poseStack.pushPose();
             poseStack.translate(0.0f, offset * STAGGER, 0.0f);
             poseStack.mulPose(Axis.ZP.rotationDegrees((i % 2 == 0 ? -ROLL : ROLL) + offset * ROLL_SPREAD));
-            ForgeRibbon.arc(edge, poseStack.last().pose(), sweep, palette, alpha);
-            ForgeElementAccent.draw(edge, poseStack.last().pose(), sweep, palette, alpha, state.accent);
-            ForgeAura.arc(edge, poseStack.last().pose(), sweep, palette, state, alpha);
+            ForgeRibbon.arc(stroke, poseStack.last().pose(), sweep, palette, alpha);
+            ForgeElementAccent.draw(stroke, poseStack.last().pose(), sweep, palette, alpha, state.accent);
+            ForgeAura.arc(stroke, poseStack.last().pose(), sweep, palette, state, alpha);
             poseStack.popPose();
         }
         poseStack.popPose();

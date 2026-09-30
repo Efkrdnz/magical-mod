@@ -4,7 +4,6 @@ import com.efkrdnz.magical.client.renderer.ForgeStrikeRenderer;
 import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon.Plane;
 import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon.Sweep;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import org.joml.Matrix4f;
 
@@ -101,7 +100,7 @@ public final class WaveGeometry {
         return new Sweep(Plane.UPRIGHT, radius(halfWidth) * scale, halfWidth * THICKNESS * scale, 0.0f, 360.0f);
     }
 
-    public static void render(PoseStack poseStack, VertexConsumer edge, ForgeStrikeRenderer.State state,
+    public static void render(PoseStack poseStack, ForgeStroke stroke, ForgeStrikeRenderer.State state,
             ForgePalette palette, float partialTick) {
         float scale = grown(state.progress);
         float radius = radius(state.halfWidth) * scale;
@@ -114,17 +113,17 @@ public final class WaveGeometry {
             poseStack.pushPose();
             poseStack.translate(0.0f, 0.0f, -lag * TRAIL_GAP);
             float shrink = 1.0f - lag * TRAIL_SHRINK;
-            ForgeWaveFront.draw(edge, poseStack.last().pose(), radius * shrink, depth * shrink, palette, alpha);
+            ForgeWaveFront.draw(stroke.at(lag), poseStack.last().pose(), radius * shrink, depth * shrink, palette, alpha);
             poseStack.popPose();
         });
         Matrix4f pose = poseStack.last().pose();
         float[] eye = ForgeView.eye(pose);
-        ForgeWaveFront.halo(edge, pose, radius, depth, palette, state.alpha, eye[0], eye[1], eye[2]);
+        ForgeWaveFront.halo(stroke, pose, radius, depth, palette, state.alpha, eye[0], eye[1], eye[2]);
         Sweep rim = rim(state.halfWidth, scale);
-        ForgeElementAccent.draw(edge, pose, rim, palette, state.alpha, state.accent);
+        ForgeElementAccent.draw(stroke, pose, rim, palette, state.alpha, state.accent);
         // The shower rather than the whole of ForgeAura: the glow a swing gets from the sheath is
         // the halo here, and asking for both would light the rim twice.
-        ForgeSparks.strike(edge, pose, rim, palette, state.alpha, state.seed, state.grade, state.progress,
+        ForgeSparks.strike(stroke, pose, rim, palette, state.alpha, state.seed, state.grade, state.progress,
                 eye[0], eye[1], eye[2]);
         poseStack.popPose();
     }

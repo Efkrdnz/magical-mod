@@ -1,6 +1,5 @@
 package com.efkrdnz.magical.client.renderer.forge;
 
-import com.efkrdnz.magical.client.renderer.FusionGeometry;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import net.minecraft.util.Mth;
@@ -16,11 +15,12 @@ import org.joml.Matrix4f;
  * <p>It was a single flat sheet until the blade got its cross-section, and a sheet has no
  * silhouette: seen along its own plane it has zero projected area and disappears, which is why a
  * swing could not be seen unless the camera happened to face it. The solid also costs less overdraw
- * than the sheet did, because the two bands it used to draw overlapped between {@code EDGE_INSET}
+ * than the sheet did, because the two bands it used to draw overlapped between the inset
  * and the lip and the four faces of the solid do not overlap at all.
  *
- * <p>Everything emitted here goes to {@code MagicalRenderTypes.forgeEdge()}; the caller supplies
- * that consumer so a form is free to draw its other pieces on another render type.</p>
+ * <p>Everything here is painted from the smear atlas through a {@link ForgeStroke}: the blade on
+ * the translucent smear pass, and the hot lip of an element that gives off light a second time on
+ * the additive glint pass. The texture is the blade's look; nothing here shades it.</p>
  */
 public final class ForgeRibbon {
 
@@ -71,14 +71,20 @@ public final class ForgeRibbon {
     }
 
     public static final int SEGMENTS = 26;
-    private static final int LIGHT_TRAIL = 4;
-    private static final int HEAVY_TRAIL = 6;
-    private static final float EDGE_INSET = 0.62f;
-    // Scales what a face contributes: the render type blends SRC_ALPHA, ONE, so this is a direct
-    // multiplier on emitted light, not a coverage. Kept below full because several faces and
-    // several trail copies land on the same pixel and additive blending sums all of them.
-    private static final float BODY_ALPHA = 175.0f;
-    private static final float EDGE_ALPHA = 200.0f;
+    /**
+     * Copies of the blade behind its head. One for a light blow and two for a heavy one: the
+     * texture is the smear now, and the opened arc is already the whole path the blade swept, so
+     * the four and six copies the shader needed only stacked into a solid block of colour.
+     */
+    private static final int LIGHT_TRAIL = 1;
+    private static final int HEAVY_TRAIL = 2;
+    // Coverage, not light: the smear blends translucently, so these are how much of what is behind
+    // a blade shows through it. Under full because the solid shows a near and a far face and both
+    // land on the same pixel.
+    private static final float BODY_ALPHA = 150.0f;
+    private static final float EDGE_ALPHA = 215.0f;
+    /** What the hot lip adds on the glint pass, before the weapon's grade scales it. */
+    private static final float GLINT_ALPHA = 150.0f;
     private static final float PEAK = 0.35f;
     /**
      * Where the body gives way to the cutting edge, as a fraction across the blade.
@@ -101,7 +107,7 @@ public final class ForgeRibbon {
      */
     private static final float SHEATH = 0.80f;
     /** What the glow may contribute at its centreline. Well under the steel: it is light, not edge. */
-    private static final float SHEATH_ALPHA = 105.0f;
+    private static final float SHEATH_ALPHA = 80.0f;
     /**
      * Segments round the sheath. Half the steel's, because a soft band shows its faceting far less
      * than a hard lip does, and it costs four quads a segment where the solid costs four.
@@ -133,20 +139,25 @@ public final class ForgeRibbon {
      * pixel where they overlapped. The four faces meet at the lips and at the spine and overlap
      * nowhere, so this is both solid and cheaper per pixel than the sheet was.
      */
-    public static void arc(VertexConsumer edge, Matrix4f pose, Sweep sweep, ForgePalette palette, float alpha) {
-        int bodyAlpha = alpha(BODY_ALPHA, alpha);
-        int edgeAlpha = alpha(EDGE_ALPHA, alpha);
-        if (bodyAlpha <= 0 && edgeAlpha <= 0) {
+    public static void arc(ForgeStroke stroke, Matrix4f pose, Sweep sweep, ForgePalette palette, float alpha) {
+        if (alpha(EDGE_ALPHA, alpha) <= 0) {
             return;
         }
+        float glint = GLINT_ALPHA * stroke.glintStrength();
         for (int i = 0; i < SEGMENTS; i++) {
             float t0 = i / (float) SEGMENTS;
             float t1 = (i + 1) / (float) SEGMENTS;
             for (float side = -1.0f; side <= 1.0f; side += 2.0f) {
-                // Inner half in the body colour, outer half in the edge colour: the cutting lip
-                // stays the bright one, as it was, without a second pass over the same pixels.
-                face(edge, pose, sweep, t0, t1, 0.0f, SPINE, palette.primary(), bodyAlpha, side);
-                face(edge, pose, sweep, t0, t1, SPINE, 1.0f, palette.edge(), edgeAlpha, side);
+                // Inner half in the body colour, outer half in the edge colour, both sampled from
+                // the one row: the texture decides where the blade is broken, speckled or wet.
+                face(stroke.smear(), stroke.row(), stroke, pose, sweep, t0, t1, 0.0f, SPINE, palette.primary(),
+                        BODY_ALPHA * alpha, side);
+                face(stroke.smear(), stroke.row(), stroke, pose, sweep, t0, t1, SPINE, 1.0f, palette.edge(),
+                        EDGE_ALPHA * alpha, side);
+                if (stroke.glint() != null) {
+                    face(stroke.glint(), ForgeSmear.Row.LIP, stroke, pose, sweep, t0, t1, SPINE, 1.0f,
+                            palette.bloom(), glint * alpha, side);
+                }
             }
         }
     }
@@ -160,22 +171,25 @@ public final class ForgeRibbon {
      * paddle. The v it hands the shader is the true position across the blade, so the shader's
      * spine and cutting edge land where the geometry actually puts them.
      */
-    private static void face(VertexConsumer edge, Matrix4f pose, Sweep sweep, float t0, float t1, float inner,
-            float outer, int color, int alpha, float side) {
-        float in0 = side * halfThickness(sweep, t0, inner);
-        float out0 = side * halfThickness(sweep, t0, outer);
-        float in1 = side * halfThickness(sweep, t1, inner);
-        float out1 = side * halfThickness(sweep, t1, outer);
-        float[] a = sweep.at(t0, inner, in0);
-        float[] b = sweep.at(t0, outer, out0);
-        float[] c = sweep.at(t1, outer, out1);
-        float[] d = sweep.at(t1, inner, in1);
-        FusionGeometry.quad(edge, pose,
-                a[0], a[1], a[2], t0, inner,
-                b[0], b[1], b[2], t0, outer,
-                c[0], c[1], c[2], t1, outer,
-                d[0], d[1], d[2], t1, inner,
-                FusionGeometry.red(color), FusionGeometry.green(color), FusionGeometry.blue(color), alpha);
+    private static void face(VertexConsumer consumer, ForgeSmear.Row row, ForgeStroke stroke, Matrix4f pose,
+            Sweep sweep, float t0, float t1, float inner, float outer, int color, float alpha, float side) {
+        int a0 = Math.round(alpha * stroke.ramp(sweep, t0));
+        int a1 = Math.round(alpha * stroke.ramp(sweep, t1));
+        if (a0 <= 0 && a1 <= 0) {
+            return;
+        }
+        float u0 = stroke.u(sweep, t0);
+        float u1 = stroke.u(sweep, t1);
+        float vIn = ForgeSmear.v(row, inner);
+        float vOut = ForgeSmear.v(row, outer);
+        ForgeQuads.vertex(consumer, pose, sweep.at(t0, inner, side * halfThickness(sweep, t0, inner)), u0, vIn,
+                color, a0);
+        ForgeQuads.vertex(consumer, pose, sweep.at(t0, outer, side * halfThickness(sweep, t0, outer)), u0, vOut,
+                color, a0);
+        ForgeQuads.vertex(consumer, pose, sweep.at(t1, outer, side * halfThickness(sweep, t1, outer)), u1, vOut,
+                color, a1);
+        ForgeQuads.vertex(consumer, pose, sweep.at(t1, inner, side * halfThickness(sweep, t1, inner)), u1, vIn,
+                color, a1);
     }
 
     /**
@@ -193,12 +207,13 @@ public final class ForgeRibbon {
      * edge, this keeps the bloom. Drawn once for the whole strike rather than once per trail copy -
      * it is the light the swing is giving off, not another copy of the swing.
      */
-    public static void sheath(VertexConsumer edge, Matrix4f pose, Sweep sweep, ForgePalette palette, float alpha,
+    public static void sheath(ForgeStroke stroke, Matrix4f pose, Sweep sweep, ForgePalette palette, float alpha,
             float camX, float camY, float camZ) {
         int glow = alpha(SHEATH_ALPHA, alpha);
         if (glow <= 0) {
             return;
         }
+        VertexConsumer edge = stroke.light();
         int color = palette.primary();
         for (int i = 0; i < SHEATH_SEGMENTS; i++) {
             float t0 = i / (float) SHEATH_SEGMENTS;
@@ -209,19 +224,25 @@ public final class ForgeRibbon {
             float[] across1 = facing(sweep, t1, camX, camY, camZ);
             float half0 = sheathHalfWidth(sweep, t0);
             float half1 = sheathHalfWidth(sweep, t1);
+            float u0 = stroke.u(sweep, t0);
+            float u1 = stroke.u(sweep, t1);
+            int g0 = Math.round(glow * stroke.ramp(sweep, t0));
+            int g1 = Math.round(glow * stroke.ramp(sweep, t1));
             for (float side = -1.0f; side <= 1.0f; side += 2.0f) {
-                wing(edge, pose, spine0, across0, half0 * side, t0, spine1, across1, half1 * side, t1, color, glow);
+                wing(edge, pose, spine0, across0, half0 * side, u0, g0, spine1, across1, half1 * side, u1, g1,
+                        color);
             }
         }
     }
 
     /** The same glow around a straight lance, whose axis is local +Z rather than an arc. */
-    public static void lanceSheath(VertexConsumer edge, Matrix4f pose, float length, float halfWidth,
+    public static void lanceSheath(ForgeStroke stroke, Matrix4f pose, float length, float halfWidth,
             ForgePalette palette, float alpha, float camX, float camY, float camZ) {
         int glow = alpha(SHEATH_ALPHA, alpha);
         if (glow <= 0) {
             return;
         }
+        VertexConsumer edge = stroke.light();
         int color = palette.primary();
         for (int i = 0; i < SHEATH_SEGMENTS; i++) {
             float t0 = i / (float) SHEATH_SEGMENTS;
@@ -232,8 +253,13 @@ public final class ForgeRibbon {
             float[] across1 = square(0.0f, 0.0f, 1.0f, camX - spine1[0], camY - spine1[1], camZ - spine1[2]);
             float half0 = halfWidth * SHEATH * bladeProfile(t0);
             float half1 = halfWidth * SHEATH * bladeProfile(t1);
+            float u0 = lanceU(t0, length, stroke);
+            float u1 = lanceU(t1, length, stroke);
+            int g0 = Math.round(glow * ForgeSmear.lanceRamp(t0));
+            int g1 = Math.round(glow * ForgeSmear.lanceRamp(t1));
             for (float side = -1.0f; side <= 1.0f; side += 2.0f) {
-                wing(edge, pose, spine0, across0, half0 * side, t0, spine1, across1, half1 * side, t1, color, glow);
+                wing(edge, pose, spine0, across0, half0 * side, u0, g0, spine1, across1, half1 * side, u1, g1,
+                        color);
             }
         }
     }
@@ -260,17 +286,21 @@ public final class ForgeRibbon {
         return sweep.thickness() * SHEATH * bladeProfile(t);
     }
 
-    /** One half of one segment of a sheath: spine at v 0.5, rim at v 0, so the band has no lip. */
+    /**
+     * One half of one segment of a sheath, on the atlas's soft SHEATH row: the spine samples the
+     * middle of the row and the rim its clear top line, so the band has no lip and fades to nothing
+     * at its edge the same way on both sides.
+     */
     private static void wing(VertexConsumer edge, Matrix4f pose, float[] spine0, float[] across0, float half0,
-            float t0, float[] spine1, float[] across1, float half1, float t1, int color, int alpha) {
-        FusionGeometry.quad(edge, pose,
-                spine0[0], spine0[1], spine0[2], t0, 0.5f,
-                spine0[0] + across0[0] * half0, spine0[1] + across0[1] * half0, spine0[2] + across0[2] * half0,
-                t0, 0.0f,
-                spine1[0] + across1[0] * half1, spine1[1] + across1[1] * half1, spine1[2] + across1[2] * half1,
-                t1, 0.0f,
-                spine1[0], spine1[1], spine1[2], t1, 0.5f,
-                FusionGeometry.red(color), FusionGeometry.green(color), FusionGeometry.blue(color), alpha);
+            float u0, int alpha0, float[] spine1, float[] across1, float half1, float u1, int alpha1, int color) {
+        float vSpine = ForgeSmear.v(ForgeSmear.Row.SHEATH, 0.5f);
+        float vRim = ForgeSmear.v(ForgeSmear.Row.SHEATH, 0.0f);
+        ForgeQuads.vertex(edge, pose, spine0, u0, vSpine, color, alpha0);
+        ForgeQuads.vertex(edge, pose, spine0[0] + across0[0] * half0, spine0[1] + across0[1] * half0,
+                spine0[2] + across0[2] * half0, u0, vRim, color, alpha0);
+        ForgeQuads.vertex(edge, pose, spine1[0] + across1[0] * half1, spine1[1] + across1[1] * half1,
+                spine1[2] + across1[2] * half1, u1, vRim, color, alpha1);
+        ForgeQuads.vertex(edge, pose, spine1, u1, vSpine, color, alpha1);
     }
 
     /**
@@ -310,45 +340,47 @@ public final class ForgeRibbon {
     }
 
     /**
-     * One quad spanning {@code t0..t1} along the arc and {@code inner..outer} across it. The UVs
-     * hand the shader its own contract: u runs along the arc, v runs across the ribbon.
-     */
-    public static void band(VertexConsumer edge, Matrix4f pose, Sweep sweep, float t0, float t1, float inner,
-            float outer, int color, int alpha) {
-        float[] a = sweep.at(t0, inner);
-        float[] b = sweep.at(t0, outer);
-        float[] c = sweep.at(t1, outer);
-        float[] d = sweep.at(t1, inner);
-        FusionGeometry.quad(edge, pose,
-                a[0], a[1], a[2], t0, 0.0f,
-                b[0], b[1], b[2], t0, 1.0f,
-                c[0], c[1], c[2], t1, 1.0f,
-                d[0], d[1], d[2], t1, 0.0f,
-                FusionGeometry.red(color), FusionGeometry.green(color), FusionGeometry.blue(color), alpha);
-    }
-
-    /**
      * A straight tapered blade along local +Z from the origin to {@code length}, widening across
      * local X. The base flare keeps a thrust from starting at nothing, while the tip still needles
      * out to a point.
      */
-    public static void lance(VertexConsumer edge, Matrix4f pose, float length, float halfWidth, float baseFlare,
+    public static void lance(ForgeStroke stroke, Matrix4f pose, float length, float halfWidth, float baseFlare,
             ForgePalette palette, float alpha) {
-        int bodyAlpha = alpha(BODY_ALPHA, alpha);
-        int edgeAlpha = alpha(EDGE_ALPHA, alpha);
-        if (bodyAlpha <= 0 && edgeAlpha <= 0) {
+        int body = alpha(EDGE_ALPHA, alpha);
+        if (body <= 0) {
             return;
         }
+        int glint = alpha(GLINT_ALPHA * stroke.glintStrength(), alpha);
         for (int i = 0; i < SEGMENTS; i++) {
             float t0 = i / (float) SEGMENTS;
             float t1 = (i + 1) / (float) SEGMENTS;
             float w0 = lanceWidth(t0, halfWidth, baseFlare);
             float w1 = lanceWidth(t1, halfWidth, baseFlare);
-            slab(edge, pose, t0, t1, length, w0, w1, palette.primary(), bodyAlpha, false);
-            slab(edge, pose, t0, t1, length, w0, w1, palette.primary(), bodyAlpha, true);
-            slab(edge, pose, t0, t1, length, w0 * EDGE_INSET, w1 * EDGE_INSET, palette.edge(), edgeAlpha, false);
-            slab(edge, pose, t0, t1, length, w0 * EDGE_INSET, w1 * EDGE_INSET, palette.edge(), edgeAlpha, true);
+            float u0 = lanceU(t0, length, stroke);
+            float u1 = lanceU(t1, length, stroke);
+            // Clear at the hilt and full toward the point: a thrust starts at the wielder's eye, and
+            // drawn whole its base filled the bottom of the view.
+            float r0 = ForgeSmear.lanceRamp(t0);
+            float r1 = ForgeSmear.lanceRamp(t1);
+            for (int half = 0; half < 4; half++) {
+                // Two slabs crossed, each split at its centreline, so both of a lance's edges carry
+                // the lip: the row runs from its body on the spine out to the lip at either side.
+                boolean vertical = half >= 2;
+                float side = half % 2 == 0 ? -1.0f : 1.0f;
+                slab(stroke.smear(), stroke.row(), pose, t0, t1, u0, u1, length, w0 * side, w1 * side, vertical,
+                        palette.primary(), palette.edge(), Math.round(body * r0), Math.round(body * r1));
+                if (stroke.glint() != null && glint > 0) {
+                    slab(stroke.glint(), ForgeSmear.Row.LIP, pose, t0, t1, u0, u1, length, w0 * side, w1 * side,
+                            vertical, palette.bloom(), palette.bloom(), Math.round(glint * r0),
+                            Math.round(glint * r1));
+                }
+            }
         }
+    }
+
+    /** The u along a lance: anchored to its point, as an arc's is to its head. */
+    private static float lanceU(float t, float length, ForgeStroke stroke) {
+        return ForgeSmear.head(t, length, stroke.offset());
     }
 
     /**
@@ -410,20 +442,21 @@ public final class ForgeRibbon {
         return halfWidth * bladeProfile(t) + baseFlare * taper * taper;
     }
 
-    /** One slice of a lance. The pair of orientations makes it read as a blade from any angle. */
-    private static void slab(VertexConsumer edge, Matrix4f pose, float t0, float t1, float length, float w0,
-            float w1, int color, int alpha, boolean vertical) {
+    /**
+     * Half of one slice of a lance, from its centreline out to one edge ({@code w} signed). The
+     * pair of orientations makes it read as a blade from any angle; the body colour on the spine
+     * runs into the edge colour at the lip, corner by corner.
+     */
+    private static void slab(VertexConsumer consumer, ForgeSmear.Row row, Matrix4f pose, float t0, float t1,
+            float u0, float u1, float length, float w0, float w1, boolean vertical, int spine, int lip, int alpha0,
+            int alpha1) {
         float z0 = t0 * length;
         float z1 = t1 * length;
-        float ax0 = vertical ? 0.0f : -w0;
-        float ay0 = vertical ? -w0 : 0.0f;
-        float ax1 = vertical ? 0.0f : -w1;
-        float ay1 = vertical ? -w1 : 0.0f;
-        FusionGeometry.quad(edge, pose,
-                ax0, ay0, z0, t0, 0.0f,
-                -ax0, -ay0, z0, t0, 1.0f,
-                -ax1, -ay1, z1, t1, 1.0f,
-                ax1, ay1, z1, t1, 0.0f,
-                FusionGeometry.red(color), FusionGeometry.green(color), FusionGeometry.blue(color), alpha);
+        float vSpine = ForgeSmear.v(row, 0.5f);
+        float vLip = ForgeSmear.v(row, 1.0f);
+        ForgeQuads.vertex(consumer, pose, 0.0f, 0.0f, z0, u0, vSpine, spine, alpha0);
+        ForgeQuads.vertex(consumer, pose, vertical ? 0.0f : w0, vertical ? w0 : 0.0f, z0, u0, vLip, lip, alpha0);
+        ForgeQuads.vertex(consumer, pose, vertical ? 0.0f : w1, vertical ? w1 : 0.0f, z1, u1, vLip, lip, alpha1);
+        ForgeQuads.vertex(consumer, pose, 0.0f, 0.0f, z1, u1, vSpine, spine, alpha1);
     }
 }

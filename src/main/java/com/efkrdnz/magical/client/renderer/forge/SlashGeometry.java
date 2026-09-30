@@ -4,7 +4,6 @@ import com.efkrdnz.magical.client.renderer.ForgeStrikeRenderer;
 import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon.Plane;
 import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon.Sweep;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 
 import org.joml.Matrix4f;
@@ -25,7 +24,7 @@ public final class SlashGeometry {
 
     private SlashGeometry() {}
 
-    public static void render(PoseStack poseStack, VertexConsumer edge, ForgeStrikeRenderer.State state,
+    public static void render(PoseStack poseStack, ForgeStroke stroke, ForgeStrikeRenderer.State state,
             ForgePalette palette, float partialTick) {
         poseStack.pushPose();
         poseStack.translate(0.0f, HEIGHT, 0.0f);
@@ -36,9 +35,9 @@ public final class SlashGeometry {
         // The cut opens from where the blade started rather than appearing whole: a swing travels.
         Sweep head = ForgeMotion.opening(full, state.progress / OPEN_BY);
         ForgeRibbon.trail(state.heavy, state.accent.invertTrail(), state.alpha,
-                (lag, alpha) -> ForgeRibbon.arc(edge, pose, head.shifted(-lag * TRAIL_SWEEP), palette, alpha));
-        ForgeElementAccent.draw(edge, pose, head, palette, state.alpha, state.accent);
-        ForgeAura.arc(edge, pose, head, palette, state, state.alpha);
+                (lag, alpha) -> ForgeRibbon.arc(stroke.at(lag), pose, head.shifted(-lag * TRAIL_SWEEP), palette, alpha));
+        ForgeElementAccent.draw(stroke, pose, head, palette, state.alpha, state.accent);
+        ForgeAura.arc(stroke, pose, head, palette, state, state.alpha);
         poseStack.popPose();
     }
 }

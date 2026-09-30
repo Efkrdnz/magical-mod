@@ -4,6 +4,7 @@ import com.efkrdnz.magical.client.renderer.forge.ForgeElementAccent;
 import com.efkrdnz.magical.client.renderer.forge.ForgeForms;
 import com.efkrdnz.magical.client.renderer.forge.ForgePalette;
 import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon;
+import com.efkrdnz.magical.client.renderer.forge.ForgeSmear;
 import com.efkrdnz.magical.client.renderer.forge.ForgeWeaponLook;
 import com.efkrdnz.magical.entity.ForgeStrikeEntity;
 import com.efkrdnz.magical.forge.ForgeElementKind;
@@ -12,6 +13,7 @@ import com.efkrdnz.magical.forge.FormFamily;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
@@ -65,10 +67,24 @@ public final class ForgeStrikeRenderer extends EntityRenderer<ForgeStrikeEntity,
         state.dirY = (float) dir.y;
         state.dirZ = (float) dir.z;
         state.progress = Mth.clamp(state.ageInTicks / state.life, 0.0f, 1.0f);
+        // Grade no longer brightens the blade - a translucent smear has nowhere past opaque to go -
+        // it burns the glint on the lip instead, which is light and can.
         state.alpha = (1.0f - ForgeRibbon.smoothstep(FADE_START, 1.0f, state.progress))
-                * (entity.echo() ? ECHO_ALPHA : 1.0f) * state.accent.bodyAlpha()
-                * ForgeWeaponLook.emission(entity.grade());
+                * (entity.echo() ? ECHO_ALPHA : 1.0f) * state.accent.bodyAlpha() * ownView(entity);
+        state.glint = ForgeWeaponLook.emission(entity.grade());
         anchor(entity, state, partialTick);
+    }
+
+    /**
+     * The wielder's own first-person view sees their strike thinner. Everything a swing draws starts
+     * at their eye, and a cut drawn at full strength there covers the thing it is cutting. Asked
+     * every frame, so a camera switched mid-swing is answered at once.
+     */
+    private static float ownView(ForgeStrikeEntity entity) {
+        Minecraft minecraft = Minecraft.getInstance();
+        boolean own = minecraft.player != null && entity.ownerId() == minecraft.player.getId()
+                && minecraft.options.getCameraType().isFirstPerson();
+        return own ? ForgeSmear.OWN_VIEW_OPACITY : 1.0f;
     }
 
     /** An anchored family rides the wielder, drawn at the offset to their interpolated position. */
@@ -130,6 +146,8 @@ public final class ForgeStrikeRenderer extends EntityRenderer<ForgeStrikeEntity,
         // partialTick is inherited from EntityRenderState and already set by
         // EntityRenderer.extractRenderState; redeclaring it here would shadow the real one.
         public float progress, alpha;
+        /** How hot the lip burns on the glint pass: the weapon's grade, 0.62 to 1.28. */
+        public float glint = 1.0f;
         public float dirX, dirY, dirZ = 1.0f;
         /** Offset from this entity's render position to the wielder's, zero for a free form. */
         public float anchorX, anchorY, anchorZ;

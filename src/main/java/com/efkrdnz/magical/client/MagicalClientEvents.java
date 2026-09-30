@@ -128,6 +128,7 @@ public final class MagicalClientEvents {
     @SubscribeEvent
     public static void registerRenderBuffers(net.neoforged.neoforge.client.event.RegisterRenderBuffersEvent event) {
         com.efkrdnz.magical.client.renderer.fx.MagicalFxRenderTypes.registerRenderBuffers(event);
+        com.efkrdnz.magical.client.renderer.MagicalRenderTypes.registerRenderBuffers(event);
     }
 
     @SubscribeEvent

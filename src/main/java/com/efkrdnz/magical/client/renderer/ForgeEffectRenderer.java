@@ -96,7 +96,7 @@ public final class ForgeEffectRenderer extends EntityRenderer<ForgeEffectEntity,
         frame(state.style, poseStack);
         switch (state.style) {
             case CHARGE_TELEGRAPH -> ForgeTelegraphGeometry.chargeTelegraph(poseStack, buffer, state, palette);
-            case STORM_FORK -> ForgeImpactGeometry.stormFork(buffer.getBuffer(MagicalRenderTypes.forgeEdge()),
+            case STORM_FORK -> ForgeImpactGeometry.stormFork(buffer.getBuffer(MagicalRenderTypes.forgeGlint()),
                     poseStack.last().pose(), state, palette);
             default -> onDisc(state, poseStack.last().pose(),
                     buffer.getBuffer(MagicalRenderTypes.forgeImpact()), palette);

@@ -4,7 +4,6 @@ import com.efkrdnz.magical.client.renderer.ForgeStrikeRenderer;
 import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon.Plane;
 import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon.Sweep;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 
 /**
  * CLEAVE: the overhead chop. A tall, narrow ribbon standing in front of the wielder, running from
@@ -32,7 +31,7 @@ public final class CleaveGeometry {
 
     private CleaveGeometry() {}
 
-    public static void render(PoseStack poseStack, VertexConsumer edge, ForgeStrikeRenderer.State state,
+    public static void render(PoseStack poseStack, ForgeStroke stroke, ForgeStrikeRenderer.State state,
             ForgePalette palette, float partialTick) {
         float radius = Math.max(MIN_RADIUS, state.reach * RADIUS_SCALE);
         // From the top down: the arc opens from where the blade was raised, so the chop falls
@@ -44,13 +43,13 @@ public final class CleaveGeometry {
         ForgeRibbon.trail(state.heavy, state.accent.invertTrail(), state.alpha, (lag, alpha) -> {
             poseStack.pushPose();
             poseStack.translate(0.0f, lift + lag * TRAIL_RISE, 0.0f);
-            ForgeRibbon.arc(edge, poseStack.last().pose(), sweep, palette, alpha);
+            ForgeRibbon.arc(stroke.at(lag), poseStack.last().pose(), sweep, palette, alpha);
             poseStack.popPose();
         });
         poseStack.pushPose();
         poseStack.translate(0.0f, lift, 0.0f);
-        ForgeElementAccent.draw(edge, poseStack.last().pose(), sweep, palette, state.alpha, state.accent);
-        ForgeAura.arc(edge, poseStack.last().pose(), sweep, palette, state, state.alpha);
+        ForgeElementAccent.draw(stroke, poseStack.last().pose(), sweep, palette, state.alpha, state.accent);
+        ForgeAura.arc(stroke, poseStack.last().pose(), sweep, palette, state, state.alpha);
         poseStack.popPose();
     }
 }

@@ -1,6 +1,5 @@
 package com.efkrdnz.magical.client.renderer.forge;
 
-import com.efkrdnz.magical.client.renderer.FusionGeometry;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import net.minecraft.util.Mth;
@@ -48,7 +47,9 @@ public final class ForgeWaveFront {
 
     /** What the sheet and its glow may each contribute. One layer of an additive stack. */
     private static final float FRONT_ALPHA = 205.0f;
-    private static final float HALO_ALPHA = 95.0f;
+    private static final float HALO_ALPHA = 80.0f;
+    /** What the hot rim adds on the glint pass, before the weapon's grade scales it. */
+    private static final float RIM_GLINT_ALPHA = 150.0f;
 
     /**
      * How far the glow stands off the rim, as a fraction of the rim's own radius. Enough to frame
@@ -84,31 +85,44 @@ public final class ForgeWaveFront {
      * thing ends. Between them the element's own colour carries the body, so the sheet reads as a
      * lit dome with a hard edge rather than as a bright disc.
      */
-    public static void draw(VertexConsumer edge, Matrix4f pose, float radius, float depth, ForgePalette palette,
+    public static void draw(ForgeStroke stroke, Matrix4f pose, float radius, float depth, ForgePalette palette,
             float alpha) {
         int value = ForgeRibbon.alpha(FRONT_ALPHA, alpha);
         if (radius <= 0.0f || value <= 0) {
             return;
         }
+        int glint = ForgeRibbon.alpha(RIM_GLINT_ALPHA * stroke.glintStrength(), alpha);
+        float circumference = Mth.TWO_PI * radius;
         for (int ring = 0; ring < RINGS; ring++) {
             float in = outward(ring);
             float out = outward(ring + 1);
-            int color = palette.mix(palette.primary(), palette.edge(), (in + out) * 0.5f);
+            int inner = palette.mix(palette.primary(), palette.edge(), in);
+            int outer = palette.mix(palette.primary(), palette.edge(), out);
             for (int step = 0; step < SEGMENTS; step++) {
                 float from = step * 360.0f / SEGMENTS;
                 float to = (step + 1) * 360.0f / SEGMENTS;
-                float[] a = point(radius, depth, from, in);
-                float[] b = point(radius, depth, from, out);
-                float[] c = point(radius, depth, to, out);
-                float[] d = point(radius, depth, to, in);
-                FusionGeometry.quad(edge, pose,
-                        a[0], a[1], a[2], along(from), coreward(in),
-                        b[0], b[1], b[2], along(from), coreward(out),
-                        c[0], c[1], c[2], along(to), coreward(out),
-                        d[0], d[1], d[2], along(to), coreward(in),
-                        FusionGeometry.red(color), FusionGeometry.green(color), FusionGeometry.blue(color), value);
+                float u0 = ForgeSmear.ring(from / 360.0f, circumference);
+                float u1 = ForgeSmear.ring(to / 360.0f, circumference);
+                quad(stroke.smear(), stroke.row(), pose, radius, depth, from, to, in, out, u0, u1, inner, outer,
+                        value);
+                if (ring == RINGS - 1 && stroke.glint() != null && glint > 0) {
+                    quad(stroke.glint(), ForgeSmear.Row.LIP, pose, radius, depth, from, to, in, out, u0, u1,
+                            palette.bloom(), palette.bloom(), glint);
+                }
             }
         }
+    }
+
+    /** One quad of the sheet, painted from {@code row} with the hot core at the axis and the lip at the rim. */
+    private static void quad(VertexConsumer consumer, ForgeSmear.Row row, Matrix4f pose, float radius,
+            float depth, float from, float to, float in, float out, float u0, float u1, int inner, int outer,
+            int alpha) {
+        float vIn = ForgeSmear.v(row, coreward(in));
+        float vOut = ForgeSmear.v(row, coreward(out));
+        ForgeQuads.vertex(consumer, pose, point(radius, depth, from, in), u0, vIn, inner, alpha);
+        ForgeQuads.vertex(consumer, pose, point(radius, depth, from, out), u0, vOut, outer, alpha);
+        ForgeQuads.vertex(consumer, pose, point(radius, depth, to, out), u1, vOut, outer, alpha);
+        ForgeQuads.vertex(consumer, pose, point(radius, depth, to, in), u1, vIn, inner, alpha);
     }
 
     /**
@@ -122,12 +136,14 @@ public final class ForgeWaveFront {
      * both ends of its arc, and a ring has no ends: asking one for a closed circle would pinch the
      * glow shut at whichever angle the seam landed on, which is an in-plane direction again.
      */
-    public static void halo(VertexConsumer edge, Matrix4f pose, float radius, float depth, ForgePalette palette,
+    public static void halo(ForgeStroke stroke, Matrix4f pose, float radius, float depth, ForgePalette palette,
             float alpha, float camX, float camY, float camZ) {
         int glow = ForgeRibbon.alpha(HALO_ALPHA, alpha);
         if (radius <= 0.0f || glow <= 0) {
             return;
         }
+        VertexConsumer edge = stroke.light();
+        float circumference = Mth.TWO_PI * radius;
         int color = palette.primary();
         float half = radius * HALO;
         for (int step = 0; step < SEGMENTS; step++) {
@@ -139,23 +155,25 @@ public final class ForgeWaveFront {
                     camX - spine0[0], camY - spine0[1], camZ - spine0[2]);
             float[] across1 = ForgeRibbon.square(tangentX(to), tangentY(to), 0.0f,
                     camX - spine1[0], camY - spine1[1], camZ - spine1[2]);
+            float u0 = ForgeSmear.ring(from / 360.0f, circumference);
+            float u1 = ForgeSmear.ring(to / 360.0f, circumference);
             for (float side = -1.0f; side <= 1.0f; side += 2.0f) {
-                wing(edge, pose, spine0, across0, from, spine1, across1, to, half * side, color, glow);
+                wing(edge, pose, spine0, across0, u0, spine1, across1, u1, half * side, color, glow);
             }
         }
     }
 
-    /** One half of one segment of the halo: spine at v 0.5, rim at v 0, so the band has no lip. */
-    private static void wing(VertexConsumer edge, Matrix4f pose, float[] spine0, float[] across0, float from,
-            float[] spine1, float[] across1, float to, float half, int color, int alpha) {
-        FusionGeometry.quad(edge, pose,
-                spine0[0], spine0[1], spine0[2], along(from), 0.5f,
-                spine0[0] + across0[0] * half, spine0[1] + across0[1] * half, spine0[2] + across0[2] * half,
-                along(from), 0.0f,
-                spine1[0] + across1[0] * half, spine1[1] + across1[1] * half, spine1[2] + across1[2] * half,
-                along(to), 0.0f,
-                spine1[0], spine1[1], spine1[2], along(to), 0.5f,
-                FusionGeometry.red(color), FusionGeometry.green(color), FusionGeometry.blue(color), alpha);
+    /** One half of one segment of the halo, on the soft SHEATH row: spine in its middle, rim at its clear edge. */
+    private static void wing(VertexConsumer edge, Matrix4f pose, float[] spine0, float[] across0, float u0,
+            float[] spine1, float[] across1, float u1, float half, int color, int alpha) {
+        float vSpine = ForgeSmear.v(ForgeSmear.Row.SHEATH, 0.5f);
+        float vRim = ForgeSmear.v(ForgeSmear.Row.SHEATH, 0.0f);
+        ForgeQuads.vertex(edge, pose, spine0, u0, vSpine, color, alpha);
+        ForgeQuads.vertex(edge, pose, spine0[0] + across0[0] * half, spine0[1] + across0[1] * half,
+                spine0[2] + across0[2] * half, u0, vRim, color, alpha);
+        ForgeQuads.vertex(edge, pose, spine1[0] + across1[0] * half, spine1[1] + across1[1] * half,
+                spine1[2] + across1[2] * half, u1, vRim, color, alpha);
+        ForgeQuads.vertex(edge, pose, spine1, u1, vSpine, color, alpha);
     }
 
     /** How far out ring {@code i} of {@link #RINGS} sits: 0 at the apex, 1 at the rim, bunched there. */
@@ -169,17 +187,6 @@ public final class ForgeWaveFront {
      */
     private static float coreward(float across) {
         return 0.5f + 0.5f * Mth.clamp(across, 0.0f, 1.0f);
-    }
-
-    /**
-     * Where along the shader's ribbon a point at this angle sits.
-     *
-     * <p>A ribbon is faded out at both ends of u so it never stops on a hard cap in mid-air. This
-     * sheet closes on itself and has no ends, so its u has to stay clear of that fade, and it has
-     * to come back round to where it started or the seam would show as a line. A sine does both.
-     */
-    private static float along(float angle) {
-        return 0.5f + 0.42f * (float) Math.sin(Math.toRadians(angle));
     }
 
     /** The way round the rim at this angle: what the halo spreads square to. */

@@ -6,8 +6,8 @@ import net.minecraft.client.renderer.RenderType;
 /**
  * The one rule the forge renderers have to obey about vertex buffers.
  *
- * <p>Neither {@code MagicalRenderTypes.forgeEdge()} nor {@code forgeImpact()} is one of the render
- * types {@code RenderBuffers} hands a fixed buffer, so both are built on the immediate source's
+ * <p>{@code MagicalRenderTypes.forgeImpact()} is not one of the render
+ * types {@code RenderBuffers} hands a fixed buffer, so it is built on the immediate source's
  * single {@code sharedBuffer}. {@code MultiBufferSource.BufferSource.getBuffer} therefore ends the
  * previous shared batch before it returns the next consumer, and ending a batch calls
  * {@code build()} on the old {@code BufferBuilder}, clearing its {@code building} flag. A consumer

@@ -4,7 +4,6 @@ import com.efkrdnz.magical.client.renderer.ForgeStrikeRenderer;
 import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon.Plane;
 import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon.Sweep;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import org.joml.Matrix4f;
 
@@ -25,7 +24,7 @@ public final class SpinGeometry {
 
     private SpinGeometry() {}
 
-    public static void render(PoseStack poseStack, VertexConsumer edge, ForgeStrikeRenderer.State state,
+    public static void render(PoseStack poseStack, ForgeStroke stroke, ForgeStrikeRenderer.State state,
             ForgePalette palette, float partialTick) {
         float spin = state.ageInTicks * SPIN_PER_TICK;
         Sweep halo = new Sweep(Plane.GROUND, state.reach, state.halfWidth * THICKNESS, spin, spin + 360.0f);
@@ -33,9 +32,9 @@ public final class SpinGeometry {
         poseStack.translate(0.0f, HALO_Y, 0.0f);
         Matrix4f pose = poseStack.last().pose();
         ForgeRibbon.trail(state.heavy, state.accent.invertTrail(), state.alpha,
-                (lag, alpha) -> ForgeRibbon.arc(edge, pose, halo.shifted(-lag * TRAIL_SWEEP), palette, alpha));
-        ForgeElementAccent.draw(edge, pose, halo, palette, state.alpha, state.accent);
-        ForgeAura.arc(edge, pose, halo, palette, state, state.alpha);
+                (lag, alpha) -> ForgeRibbon.arc(stroke.at(lag), pose, halo.shifted(-lag * TRAIL_SWEEP), palette, alpha));
+        ForgeElementAccent.draw(stroke, pose, halo, palette, state.alpha, state.accent);
+        ForgeAura.arc(stroke, pose, halo, palette, state, state.alpha);
         // The two faint copies above and below the halo are gone: they were there to fake depth on
         // a flat ring, and the ring has real thickness now. They cost a third of the form's quads
         // and wrote every one of their pixels over the halo, which is most of why a spin came out

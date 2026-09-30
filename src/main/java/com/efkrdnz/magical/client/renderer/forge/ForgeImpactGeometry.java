@@ -12,7 +12,7 @@ import org.joml.Matrix4f;
 /**
  * The eight element impacts. Everything but the storm fork is a wedge of the unit disc drawn on
  * {@code forgeImpact()}, so the shader's own core, rim and spokes do most of the work and these
- * methods only say where the pieces go; the fork is a bolt of blade on {@code forgeEdge()}.
+ * methods only say where the pieces go; the fork is a bolt of light on {@code forgeGlint()}.
  *
  * <p>The caller has already put the pose in the right frame — camera-facing, flat on the ground or
  * world-aligned — so every method here draws in the local XY plane unless it says otherwise.</p>
@@ -23,6 +23,9 @@ public final class ForgeImpactGeometry {
     private static final int BOLT_STEPS = 7;
     private static final int BRANCHES = 2;
     private static final float NO_CHAIN_SQR = 0.01f;
+    /** Across a bolt: both sides on the clear rim of the atlas's soft band, its middle on the peak. */
+    private static final float BOLT_EDGE = ForgeSmear.v(ForgeSmear.Row.SHEATH, 0.0f);
+    private static final float BOLT_OTHER_EDGE = ForgeSmear.v(ForgeSmear.Row.SHEATH, 1.0f);
     private static final float BOLT_WIDTH = 0.09f;
     private static final float BOLT_JITTER = 0.35f;
 
@@ -154,10 +157,10 @@ public final class ForgeImpactGeometry {
             float ox = axis == 0 ? 0.0f : BOLT_WIDTH;
             float oy = axis == 0 ? BOLT_WIDTH : 0.0f;
             FusionGeometry.quad(edge, pose,
-                    a[0] - ox, a[1] - oy, a[2], 0.0f, 0.0f,
-                    a[0] + ox, a[1] + oy, a[2], 0.0f, 1.0f,
-                    b[0] + ox, b[1] + oy, b[2], 1.0f, 1.0f,
-                    b[0] - ox, b[1] - oy, b[2], 1.0f, 0.0f,
+                    a[0] - ox, a[1] - oy, a[2], 0.0f, BOLT_EDGE,
+                    a[0] + ox, a[1] + oy, a[2], 0.0f, BOLT_OTHER_EDGE,
+                    b[0] + ox, b[1] + oy, b[2], 1.0f, BOLT_OTHER_EDGE,
+                    b[0] - ox, b[1] - oy, b[2], 1.0f, BOLT_EDGE,
                     r, g, blue, alpha);
         }
     }

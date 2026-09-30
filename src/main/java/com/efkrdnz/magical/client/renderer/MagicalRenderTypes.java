@@ -8,6 +8,8 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.ShaderDefines;
 import net.minecraft.client.renderer.ShaderProgram;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.TriState;
+import net.neoforged.neoforge.client.event.RegisterRenderBuffersEvent;
 import net.neoforged.neoforge.client.event.RegisterShadersEvent;
 
 public final class MagicalRenderTypes {
@@ -71,10 +73,6 @@ public final class MagicalRenderTypes {
             ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "core/rendertype_fusion_beam"),
             DefaultVertexFormat.POSITION_TEX_COLOR,
             ShaderDefines.EMPTY);
-    private static final ShaderProgram FORGE_EDGE_PROGRAM = new ShaderProgram(
-            ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "core/rendertype_forge_edge"),
-            DefaultVertexFormat.POSITION_TEX_COLOR,
-            ShaderDefines.EMPTY);
     private static final ShaderProgram FORGE_IMPACT_PROGRAM = new ShaderProgram(
             ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "core/rendertype_forge_impact"),
             DefaultVertexFormat.POSITION_TEX_COLOR,
@@ -99,7 +97,11 @@ public final class MagicalRenderTypes {
     private static RenderType chronoClock;
     private static RenderType fusionOrb;
     private static RenderType fusionBeam;
-    private static RenderType forgeEdge;
+    /** The generated smear atlas every forged blade is painted from: scripts/forge-sprites.py. */
+    private static final ResourceLocation FORGE_SMEAR =
+            ResourceLocation.fromNamespaceAndPath(MagicalMod.MODID, "textures/effect/forge_smear.png");
+    private static RenderType forgeSmear;
+    private static RenderType forgeGlint;
     private static RenderType forgeImpact;
     private static RenderType magicalTooltip;
 
@@ -121,7 +123,6 @@ public final class MagicalRenderTypes {
         event.registerShader(CHRONO_CLOCK_PROGRAM);
         event.registerShader(FUSION_ORB_PROGRAM);
         event.registerShader(FUSION_BEAM_PROGRAM);
-        event.registerShader(FORGE_EDGE_PROGRAM);
         event.registerShader(FORGE_IMPACT_PROGRAM);
         event.registerShader(MAGICAL_TOOLTIP_PROGRAM);
     }
@@ -400,27 +401,51 @@ public final class MagicalRenderTypes {
         return fusionBeam;
     }
 
-    /** Additive blade ribbon: the cutting edge of every forged strike. */
-    public static RenderType forgeEdge() {
-        if (forgeEdge == null) {
-            RenderType.CompositeState state = RenderType.CompositeState.builder()
-                    .setShaderState(new RenderStateShard.ShaderStateShard(FORGE_EDGE_PROGRAM))
-                    .setTransparencyState(RenderStateShard.ADDITIVE_TRANSPARENCY)
-                    .setCullState(RenderStateShard.NO_CULL)
-                    .setLightmapState(RenderStateShard.NO_LIGHTMAP)
-                    .setOverlayState(RenderStateShard.NO_OVERLAY)
-                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
-                    .createCompositeState(false);
-            forgeEdge = RenderType.create(
-                    "magical_forge_edge",
-                    DefaultVertexFormat.POSITION_TEX_COLOR,
-                    VertexFormat.Mode.QUADS,
-                    16384,
-                    false,
-                    true,
-                    state);
+    /**
+     * A forged blade as matter: the smear atlas on vanilla's own textured shader, blended
+     * translucently, so a blade keeps its hue over daylight and a dark element reads as dark
+     * rather than vanishing the way anything additive does.
+     */
+    public static RenderType forgeSmear() {
+        if (forgeSmear == null) {
+            forgeSmear = forgeAtlas("magical_forge_smear", RenderStateShard.TRANSLUCENT_TRANSPARENCY, true);
         }
-        return forgeEdge;
+        return forgeSmear;
+    }
+
+    /**
+     * The light a lit blade gives off: the same atlas, blended additively, carrying only the hot lip
+     * of the element that glows. Flushed after the smear, so it lands on top of it.
+     */
+    public static RenderType forgeGlint() {
+        if (forgeGlint == null) {
+            forgeGlint = forgeAtlas("magical_forge_glint", RenderStateShard.LIGHTNING_TRANSPARENCY, false);
+        }
+        return forgeGlint;
+    }
+
+    private static RenderType forgeAtlas(String name, RenderStateShard.TransparencyStateShard transparency,
+            boolean sort) {
+        RenderType.CompositeState state = RenderType.CompositeState.builder()
+                .setShaderState(RenderStateShard.POSITION_TEXTURE_COLOR_SHADER)
+                .setTextureState(new RenderStateShard.TextureStateShard(FORGE_SMEAR, TriState.FALSE, false))
+                .setTransparencyState(transparency)
+                .setCullState(RenderStateShard.NO_CULL)
+                .setLightmapState(RenderStateShard.NO_LIGHTMAP)
+                .setOverlayState(RenderStateShard.NO_OVERLAY)
+                .setWriteMaskState(RenderStateShard.COLOR_WRITE)
+                .createCompositeState(false);
+        return RenderType.create(name, DefaultVertexFormat.POSITION_TEX_COLOR, VertexFormat.Mode.QUADS, 16384,
+                false, sort, state);
+    }
+
+    /**
+     * The two forge atlas types each get a buffer of their own, so a form can hold the smear and
+     * the glint consumer at once. On the shared buffer, asking for the second would end the first.
+     */
+    public static void registerRenderBuffers(RegisterRenderBuffersEvent event) {
+        event.registerRenderBuffer(forgeSmear());
+        event.registerRenderBuffer(forgeGlint());
     }
 
     /** Additive impact disc: cracked rim, hot core and turning spokes on a unit-disc quad. */

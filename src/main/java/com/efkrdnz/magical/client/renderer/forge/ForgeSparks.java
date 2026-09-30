@@ -108,8 +108,9 @@ public final class ForgeSparks {
      * <p>Each spark is a short camera-facing streak running back along the way it came, so it reads
      * as a thing in motion from any angle rather than as a dot that happens to be lit.
      */
-    public static void strike(VertexConsumer edge, Matrix4f pose, Sweep sweep, ForgePalette palette, float alpha,
+    public static void strike(ForgeStroke stroke, Matrix4f pose, Sweep sweep, ForgePalette palette, float alpha,
             int seed, int gradeOrdinal, float progress, float camX, float camY, float camZ) {
+        VertexConsumer edge = stroke.light();
         int shower = count(gradeOrdinal);
         float radius = Math.max(sweep.radius(), 1.0E-3f);
         for (int index = 0; index < shower; index++) {
@@ -181,11 +182,12 @@ public final class ForgeSparks {
         // The two head corners coincide, so the quad is a triangle: a spark comes to a point at the
         // front and is widest where it was a moment ago. The v stays on the spine the whole way, so
         // the shader draws it as light rather than hanging a cutting lip off a piece of grit.
+        float lip = ForgeSmear.v(ForgeSmear.Row.LIP, ForgeSmear.LIP);
         FusionGeometry.quad(edge, pose,
-                tail[0] + across[0] * half, tail[1] + across[1] * half, tail[2] + across[2] * half, 0.04f, 0.5f,
-                tail[0] - across[0] * half, tail[1] - across[1] * half, tail[2] - across[2] * half, 0.04f, 0.5f,
-                head[0], head[1], head[2], 0.96f, 0.5f,
-                head[0], head[1], head[2], 0.96f, 0.5f,
+                tail[0] + across[0] * half, tail[1] + across[1] * half, tail[2] + across[2] * half, 0.04f, lip,
+                tail[0] - across[0] * half, tail[1] - across[1] * half, tail[2] - across[2] * half, 0.04f, lip,
+                head[0], head[1], head[2], 0.10f, lip,
+                head[0], head[1], head[2], 0.10f, lip,
                 FusionGeometry.red(color), FusionGeometry.green(color), FusionGeometry.blue(color), alpha);
     }
 

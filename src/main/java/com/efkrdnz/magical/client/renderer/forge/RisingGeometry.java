@@ -4,7 +4,6 @@ import com.efkrdnz.magical.client.renderer.ForgeStrikeRenderer;
 import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon.Plane;
 import com.efkrdnz.magical.client.renderer.forge.ForgeRibbon.Sweep;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 
 /**
  * RISING: the upward cut. A crescent standing across the aim that climbs the whole time it is
@@ -30,7 +29,7 @@ public final class RisingGeometry {
 
     private RisingGeometry() {}
 
-    public static void render(PoseStack poseStack, VertexConsumer edge, ForgeStrikeRenderer.State state,
+    public static void render(PoseStack poseStack, ForgeStroke stroke, ForgeStrikeRenderer.State state,
             ForgePalette palette, float partialTick) {
         float lift = BASE_Y + state.ageInTicks * RISE_PER_TICK;
         float half = Math.min(state.arc, MAX_ARC) * 0.5f;
@@ -41,13 +40,13 @@ public final class RisingGeometry {
         ForgeRibbon.trail(state.heavy, state.accent.invertTrail(), state.alpha, (lag, alpha) -> {
             poseStack.pushPose();
             poseStack.translate(0.0f, lift - lag * TRAIL_DROP, 0.0f);
-            ForgeRibbon.arc(edge, poseStack.last().pose(), sweep, palette, alpha);
+            ForgeRibbon.arc(stroke.at(lag), poseStack.last().pose(), sweep, palette, alpha);
             poseStack.popPose();
         });
         poseStack.pushPose();
         poseStack.translate(0.0f, lift, 0.0f);
-        ForgeElementAccent.draw(edge, poseStack.last().pose(), sweep, palette, state.alpha, state.accent);
-        ForgeAura.arc(edge, poseStack.last().pose(), sweep, palette, state, state.alpha);
+        ForgeElementAccent.draw(stroke, poseStack.last().pose(), sweep, palette, state.alpha, state.accent);
+        ForgeAura.arc(stroke, poseStack.last().pose(), sweep, palette, state, state.alpha);
         poseStack.popPose();
         poseStack.popPose();
     }
