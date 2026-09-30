@@ -16,6 +16,9 @@ import com.efkrdnz.magical.forge.chain.ForgeGrade;
 public final class ForgeStrikeMath {
 
     public static final float MAX_REACH = 5.5f;
+    /** How much half-width a block of REACH buys: a third on a swing, most of it on a thrown wave. */
+    public static final float WIDTH_PER_REACH = 0.3f;
+    public static final float WAVE_WIDTH_PER_REACH = 0.8f;
     public static final float SPIN_RADIUS_CAP = 3.5f;
     public static final float HEAVY_SIZE_SCALE = 1.3f;
     public static final int HEAVY_RECOVERY = 8;
@@ -234,9 +237,12 @@ public final class ForgeStrikeMath {
     }
 
     public static float halfWidth(FormStats form, TemperStats temper, boolean heavy, ModifierStack mods) {
-        // Width rides the same ladder as reach, at a third of the size.
+        // Width rides the same ladder as reach, at a third of the size - except on a thrown wave,
+        // whose reach is how far it flies: there REACH buys a larger slash, and it hits as wide as
+        // it is drawn, or the picture would claim a cut the wave does not make.
+        float share = form.family() == FormFamily.WAVE ? WAVE_WIDTH_PER_REACH : WIDTH_PER_REACH;
         return form.halfWidth() * temper.widthScale() * (heavy ? HEAVY_SIZE_SCALE : 1f)
-                + reachBonus(mods) * 0.3f;
+                + reachBonus(mods) * share;
     }
 
     public static float arcDegrees(FormStats form, boolean heavy) {

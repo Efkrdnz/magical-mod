@@ -41,6 +41,7 @@ public final class ForgeAura {
         }
         float[] eye = ForgeView.eye(pose);
         ForgeRibbon.sheath(stroke, pose, sweep, palette, alpha, eye[0], eye[1], eye[2]);
+        ForgeModifierLook.adorn(stroke, pose, sweep, palette, alpha, state.mods, eye);
         ForgeMatterEmitter.arc(state, pose, sweep, part, progress);
     }
 
@@ -55,6 +56,7 @@ public final class ForgeAura {
         }
         float[] eye = ForgeView.eye(pose);
         ForgeRibbon.lanceSheath(stroke, pose, length, halfWidth, palette, alpha, eye[0], eye[1], eye[2]);
+        ForgeModifierLook.adornLance(stroke, pose, length, halfWidth, palette, alpha, state.mods, eye);
         ForgeMatterEmitter.lance(state, pose, length, halfWidth);
     }
 }

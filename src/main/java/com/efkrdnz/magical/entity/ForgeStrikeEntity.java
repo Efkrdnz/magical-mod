@@ -14,6 +14,7 @@ import com.efkrdnz.magical.forge.ForgeElementKind;
 import com.efkrdnz.magical.forge.ForgeImpacts;
 import com.efkrdnz.magical.forge.ForgeModifierKind;
 import com.efkrdnz.magical.forge.ForgedWeapon;
+import com.efkrdnz.magical.forge.ModifierStack;
 import com.efkrdnz.magical.forge.FormDefinition;
 import com.efkrdnz.magical.forge.FormFamily;
 import com.efkrdnz.magical.forge.StrikeImpact;
@@ -74,6 +75,9 @@ public final class ForgeStrikeEntity extends Entity {
     private static final EntityDataAccessor<Boolean> HEAVY = defineBool();
     private static final EntityDataAccessor<Boolean> ECHO = defineBool();
     private static final EntityDataAccessor<Float> HALF_WIDTH = defineFloat();
+    /** The modifier runes the strike carries, packed as {@link ModifierStack} packs them, so a client can draw them. */
+    private static final EntityDataAccessor<Long> MODS =
+            SynchedEntityData.defineId(ForgeStrikeEntity.class, EntityDataSerializers.LONG);
     private static final EntityDataAccessor<Float> ARC = defineFloat();
     private static final EntityDataAccessor<Float> REACH = defineFloat();
     private static final EntityDataAccessor<Float> DIR_X = defineFloat();
@@ -152,6 +156,7 @@ public final class ForgeStrikeEntity extends Entity {
         strike.entityData.set(GRADE, weapon.grade().ordinal());
         strike.entityData.set(QUALITY, weapon.quality());
         strike.entityData.set(HALF_WIDTH, spec.halfWidth());
+        strike.entityData.set(MODS, spec.mods().packed());
         strike.entityData.set(ARC, spec.arcDegrees());
         strike.entityData.set(REACH, spec.reach());
         strike.setDirection(dir);
@@ -187,6 +192,7 @@ public final class ForgeStrikeEntity extends Entity {
         builder.define(HEAVY, false);
         builder.define(ECHO, false);
         builder.define(HALF_WIDTH, 1.6F);
+        builder.define(MODS, 0L);
         builder.define(ARC, 150.0F);
         builder.define(REACH, 3.5F);
         builder.define(DIR_X, 0.0F);
@@ -458,6 +464,11 @@ public final class ForgeStrikeEntity extends Entity {
 
     public boolean echo() {
         return entityData.get(ECHO);
+    }
+
+    /** The modifier runes this strike carries. */
+    public ModifierStack mods() {
+        return new ModifierStack(entityData.get(MODS));
     }
 
     public float halfWidth() {

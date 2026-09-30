@@ -1,7 +1,10 @@
 package com.efkrdnz.magical.forge.visual;
 
 import com.efkrdnz.magical.forge.ForgeElementKind;
+import com.efkrdnz.magical.forge.ForgeModifierKind;
+import com.efkrdnz.magical.forge.ModifierStack;
 import com.efkrdnz.magical.forge.chain.ForgeGrade;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -34,7 +37,7 @@ public final class ForgeMatter {
     }
 
     /** A colour a stop resolves to, out of the strike's palette or a fixed one. */
-    public enum Ink { WHITE, EDGE, PRIMARY, SECONDARY, SOOT }
+    public enum Ink { WHITE, EDGE, PRIMARY, SECONDARY, SOOT, BLOOD }
 
     /** The three colours a particle runs through: its hot one, its body, its last. */
     public record Stops(Ink hot, Ink body, Ink cool) {}
@@ -63,6 +66,18 @@ public final class ForgeMatter {
     public static final float HIT_SPEED = 1.2f;
     /** Soot: the last colour of a coal and the colour of dark smoke. */
     public static final int SOOT = 0x2A2622;
+    /** Blood: what a LEECH draws and a TITHE pays, whatever the element. */
+    public static final int BLOOD = 0x8A1016;
+    /** What a rune sheds off one swing, per copy of it on the blade. */
+    public static final int PER_RUNE = 2;
+    /** How much more of its own element a swing throws per copy of BINDING. */
+    public static final float BINDING_SHARE = 0.25f;
+
+    /**
+     * A whole swing's shower: every emission it throws from, and which of them each particle is.
+     * The element's own matter first, then what its runes shed.
+     */
+    public record Shower(List<Emission> emissions, int[] dealt) {}
 
     private static final Stops HOT = new Stops(Ink.WHITE, Ink.EDGE, Ink.PRIMARY);
     private static final Stops COAL = new Stops(Ink.EDGE, Ink.PRIMARY, Ink.SOOT);
@@ -70,15 +85,65 @@ public final class ForgeMatter {
     private static final Stops EARTH = new Stops(Ink.PRIMARY, Ink.PRIMARY, Ink.SECONDARY);
     private static final Stops PALE = new Stops(Ink.WHITE, Ink.EDGE, Ink.EDGE);
     private static final Stops DARK = new Stops(Ink.SECONDARY, Ink.SECONDARY, Ink.SOOT);
+    private static final Stops BLED = new Stops(Ink.BLOOD, Ink.BLOOD, Ink.BLOOD);
+    private static final Stops BLED_DARK = new Stops(Ink.BLOOD, Ink.BLOOD, Ink.SOOT);
 
     private static final Map<ForgeElementKind, List<Emission>> SWING = new EnumMap<>(ForgeElementKind.class);
     private static final Map<ForgeElementKind, List<Emission>> HIT = new EnumMap<>(ForgeElementKind.class);
+
+    /**
+     * What each rune sheds, so a weapon reads off its swing: PIERCE throws needles straight on,
+     * LEECH drips blood, TITHE bleeds a dark smoke, SHATTER throws chips, BRAND coals, HASTE long
+     * streaks of air, SEEKING glints that hang out beside the cut, CARRY light that rises off it.
+     * REACH, CHORUS and GUARD change the blade itself, BINDING throws more of the element, and an
+     * ECHO is a second strike of its own; none of those has matter here.
+     */
+    private static final Map<ForgeModifierKind, Emission> RUNES = new EnumMap<>(ForgeModifierKind.class);
 
     static {
         for (ForgeElementKind kind : ForgeElementKind.values()) {
             SWING.put(kind, swingOf(kind));
             HIT.put(kind, hitOf(SWING.get(kind)));
         }
+        RUNES.put(ForgeModifierKind.PIERCE, e(MatterKind.SPARK, 1, 0.55f, 0.05f, Launch.ALONG, HOT));
+        RUNES.put(ForgeModifierKind.LEECH, e(MatterKind.DROP, 1, 0.1f, 0.3f, Launch.ALONG, BLED));
+        RUNES.put(ForgeModifierKind.TITHE, e(MatterKind.SMOKE, 1, 0.03f, 0.5f, Launch.UP, BLED_DARK));
+        RUNES.put(ForgeModifierKind.SHATTER, e(MatterKind.CHIP, 1, 0.3f, 0.5f, Launch.OUT, PALE));
+        RUNES.put(ForgeModifierKind.BRAND, e(MatterKind.EMBER, 1, 0.18f, 0.5f, Launch.ALONG, COAL));
+        RUNES.put(ForgeModifierKind.HASTE, e(MatterKind.GUST, 1, 0.45f, 0.1f, Launch.ALONG, PALE));
+        RUNES.put(ForgeModifierKind.SEEKING, e(MatterKind.GLINT, 1, 0.08f, 0.4f, Launch.OUT, BODY));
+        RUNES.put(ForgeModifierKind.CARRY, e(MatterKind.GLINT, 1, 0.06f, 0.6f, Launch.UP, PALE));
+    }
+
+    /** What one copy of {@code rune} sheds off a swing, or null for a rune that sheds nothing. */
+    public static Emission rune(ForgeModifierKind rune) {
+        return RUNES.get(rune);
+    }
+
+    /**
+     * A swing's whole shower: its element's matter, thickened by BINDING, then {@link #PER_RUNE}
+     * pieces per copy of each rune that sheds any (halved on an echo, never to nothing).
+     */
+    public static Shower swing(ForgeElementKind kind, int gradeOrdinal, boolean heavy, boolean echo,
+            ModifierStack mods) {
+        List<Emission> element = swing(kind);
+        int base = Math.min(SWING_CAP, Math.round(swingCount(gradeOrdinal, heavy, echo)
+                * (1.0f + BINDING_SHARE * mods.stacks(ForgeModifierKind.BINDING))));
+        List<Emission> emissions = new ArrayList<>(element);
+        List<Integer> counts = new ArrayList<>();
+        for (int count : split(element, base)) {
+            counts.add(count);
+        }
+        for (ForgeModifierKind rune : ForgeModifierKind.values()) {
+            Emission shed = RUNES.get(rune);
+            int stacks = mods.stacks(rune);
+            if (shed != null && stacks > 0) {
+                emissions.add(shed);
+                counts.add(Math.max(1, Math.round(stacks * PER_RUNE * (echo ? ECHO : 1.0f))));
+            }
+        }
+        int[] shares = counts.stream().mapToInt(Integer::intValue).toArray();
+        return new Shower(List.copyOf(emissions), interleave(shares));
     }
 
     private ForgeMatter() {}
@@ -111,6 +176,7 @@ public final class ForgeMatter {
             case PRIMARY -> primary;
             case SECONDARY -> secondary;
             case SOOT -> SOOT;
+            case BLOOD -> BLOOD;
         };
     }
 
@@ -139,8 +205,16 @@ public final class ForgeMatter {
         if (emissions.isEmpty() || total <= 0) {
             return new int[0];
         }
-        int[] counts = split(emissions, total);
-        int[] dealt = new int[Math.max(0, total)];
+        return interleave(split(emissions, total));
+    }
+
+    /** Each share's particles laid out interleaved, a round of every share at a time. */
+    public static int[] interleave(int[] counts) {
+        int total = 0;
+        for (int count : counts) {
+            total += Math.max(0, count);
+        }
+        int[] dealt = new int[total];
         int at = 0;
         for (int round = 0; at < dealt.length; round++) {
             for (int i = 0; i < counts.length && at < dealt.length; i++) {

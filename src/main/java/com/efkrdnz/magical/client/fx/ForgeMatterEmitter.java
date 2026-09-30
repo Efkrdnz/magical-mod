@@ -140,8 +140,9 @@ public final class ForgeMatterEmitter {
             return;
         }
         int stride = status == ParticleStatus.DECREASED ? 2 : 1;
-        List<Emission> emissions = ForgeMatter.swing(state.element);
-        int[] dealt = ForgeMatter.deal(emissions, ForgeMatter.swingCount(state.grade, state.heavy, state.echo));
+        ForgeMatter.Shower shower = ForgeMatter.swing(state.element, state.grade, state.heavy, state.echo, state.mods);
+        List<Emission> emissions = shower.emissions();
+        int[] dealt = shower.dealt();
         boolean[] kept = ForgeMatter.keep(dealt, emissions.size(), stride);
         Vec3 camera = minecraft.gameRenderer.getMainCamera().getPosition();
         for (int index = 0; index < dealt.length; index++) {

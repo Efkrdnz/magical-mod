@@ -34,15 +34,12 @@ public final class WaveGeometry {
      * Half the crescent's span horn to horn, as a fraction of the strike's half-width.
      *
      * <p>Under {@code WaveShape.LATERAL_FRACTION} (0.48), which is what the wave actually catches
-     * either side of its flight line.
+     * either side of its flight line. There is no ceiling on it: the dome this replaced was as tall
+     * as it was wide and had to stop at {@code WaveShape}'s flat 0.9 of vertical reach, but a
+     * crescent lying in its swing rises only by its roll, so REACH, which widens a wave, is free to
+     * make it a larger slash.
      */
     private static final float RADIUS = 0.46f;
-
-    /**
-     * The widest the crescent may ever be drawn, whatever the weapon: {@code WaveShape}'s vertical
-     * reach is a flat 0.9 blocks and does not grow with the half-width.
-     */
-    private static final float CEILING = 0.9f;
 
     /** How far round its own circle the crescent runs, horn to horn. */
     private static final float SPAN = 150.0f;
@@ -68,7 +65,7 @@ public final class WaveGeometry {
 
     /** Half the crescent's span, horn to horn, at full size. */
     public static float radius(float halfWidth) {
-        return Math.min(halfWidth * RADIUS, CEILING);
+        return halfWidth * RADIUS;
     }
 
     /** How much of its full size the crescent has opened out to at this point in its flight. */
@@ -123,6 +120,7 @@ public final class WaveGeometry {
         Matrix4f pose = poseStack.last().pose();
         float[] eye = ForgeView.eye(pose);
         ForgeRibbon.sheath(thrown, pose, blade, palette, state.alpha, eye[0], eye[1], eye[2]);
+        ForgeModifierLook.adorn(thrown, pose, blade, palette, state.alpha, state.mods, eye);
         ForgeElementAccent.draw(thrown, pose, blade, palette, state.alpha, state.accent);
         // shed along the whole blade and left behind it, rather than off a head a swing would have
         ForgeMatterEmitter.rim(state, pose, blade);

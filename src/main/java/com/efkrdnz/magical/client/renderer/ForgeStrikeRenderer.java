@@ -8,6 +8,7 @@ import com.efkrdnz.magical.client.renderer.forge.ForgeSmear;
 import com.efkrdnz.magical.client.renderer.forge.ForgeWeaponLook;
 import com.efkrdnz.magical.entity.ForgeStrikeEntity;
 import com.efkrdnz.magical.forge.ForgeElementKind;
+import com.efkrdnz.magical.forge.ModifierStack;
 import com.efkrdnz.magical.forge.chain.ForgeGrade;
 import com.efkrdnz.magical.forge.FormFamily;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -46,6 +47,7 @@ public final class ForgeStrikeRenderer extends EntityRenderer<ForgeStrikeEntity,
         super.extractRenderState(entity, state, partialTick);
         state.family = entity.family();
         state.element = entity.element();
+        state.mods = entity.mods();
         state.accent = ForgeElementAccent.of(entity.element());
         state.primary = entity.primaryColor();
         state.secondary = entity.secondaryColor();
@@ -137,6 +139,8 @@ public final class ForgeStrikeRenderer extends EntityRenderer<ForgeStrikeEntity,
         public FormFamily family = FormFamily.SLASH;
         /** Which element the blade carries, for the matter it throws. */
         public ForgeElementKind element = ForgeElementKind.FIRE;
+        /** The modifier runes it carries, each of which shows on the blade or in what it sheds. */
+        public ModifierStack mods = ModifierStack.EMPTY;
         public ForgeElementAccent.Accent accent = ForgeElementAccent.of(ForgeElementKind.FIRE);
         public int primary = 0xD8E4FF, secondary = 0xD8E4FF, edge = 0xFFFFFF;
         public boolean heavy;

@@ -944,8 +944,12 @@ public final class MagicalCommands {
                                                     .then(Commands.argument("grade", StringArgumentType.word())
                                                             .suggests((context, builder) -> SharedSuggestionProvider.suggest(java.util.Arrays.stream(com.efkrdnz.magical.forge.chain.ForgeGrade.values()).map(value -> value.name().toLowerCase(java.util.Locale.ROOT)).toList(), builder))
                                                             .executes(context -> debugForgeBench(context.getSource(), context, weaponClassArg(context), gradeArg(context), false))
+                                                            .then(Commands.argument("runes", StringArgumentType.greedyString())
+                                                                    .executes(context -> debugForgeBench(context.getSource(), context, weaponClassArg(context), gradeArg(context), false)))
                                                             .then(Commands.literal("heavy")
-                                                                    .executes(context -> debugForgeBench(context.getSource(), context, weaponClassArg(context), gradeArg(context), true)))))))
+                                                                    .executes(context -> debugForgeBench(context.getSource(), context, weaponClassArg(context), gradeArg(context), true))
+                                                                    .then(Commands.argument("runes", StringArgumentType.greedyString())
+                                                                            .executes(context -> debugForgeBench(context.getSource(), context, weaponClassArg(context), gradeArg(context), true))))))))
                             .then(Commands.literal("strike")
                                     .then(Commands.argument("form", net.minecraft.commands.arguments.ResourceLocationArgument.id())
                                             .suggests((context, builder) -> SharedSuggestionProvider.suggestResource(com.efkrdnz.magical.forge.ForgeForms.all().stream().map(com.efkrdnz.magical.forge.FormDefinition::id).toList(), builder))
@@ -957,8 +961,12 @@ public final class MagicalCommands {
                                                             .then(Commands.argument("grade", StringArgumentType.word())
                                                                     .suggests((context, builder) -> SharedSuggestionProvider.suggest(java.util.Arrays.stream(com.efkrdnz.magical.forge.chain.ForgeGrade.values()).map(value -> value.name().toLowerCase(java.util.Locale.ROOT)).toList(), builder))
                                                                     .executes(context -> debugForgeStrike(context.getSource(), context, weaponClassArg(context), gradeArg(context), false))
+                                                                    .then(Commands.argument("runes", StringArgumentType.greedyString())
+                                                                            .executes(context -> debugForgeStrike(context.getSource(), context, weaponClassArg(context), gradeArg(context), false)))
                                                                     .then(Commands.literal("heavy")
-                                                                            .executes(context -> debugForgeStrike(context.getSource(), context, weaponClassArg(context), gradeArg(context), true)))))))))
+                                                                            .executes(context -> debugForgeStrike(context.getSource(), context, weaponClassArg(context), gradeArg(context), true))
+                                                                            .then(Commands.argument("runes", StringArgumentType.greedyString())
+                                                                                    .executes(context -> debugForgeStrike(context.getSource(), context, weaponClassArg(context), gradeArg(context), true))))))))))
                     .then(Commands.literal("skill")
                             .then(Commands.argument("id", net.minecraft.commands.arguments.ResourceLocationArgument.id())
                                     .suggests((context, builder) -> SharedSuggestionProvider.suggestResource(MagicContent.orderedSkillIds(), builder))
@@ -1040,14 +1048,29 @@ public final class MagicalCommands {
             return com.efkrdnz.magical.forge.chain.ForgeGrade.MYTHIC;
         }
 
+        /** The runes named after the grade, or none when the command stops before them. */
+        private static java.util.Optional<com.efkrdnz.magical.forge.ModifierStack> benchRunes(
+                com.mojang.brigadier.context.CommandContext<CommandSourceStack> context) {
+            try {
+                return com.efkrdnz.magical.forge.ForgeStrikeBench.runes(StringArgumentType.getString(context, "runes"));
+            } catch (IllegalArgumentException absent) {
+                return java.util.Optional.of(com.efkrdnz.magical.forge.ModifierStack.EMPTY);
+            }
+        }
+
         /** Every form of one element in a row, so the whole set can be judged in a single frame. */
         private static int debugForgeBench(CommandSourceStack source,
                 com.mojang.brigadier.context.CommandContext<CommandSourceStack> context,
                 com.efkrdnz.magical.forge.WeaponClass archetype, com.efkrdnz.magical.forge.chain.ForgeGrade grade, boolean heavy)
                 throws com.mojang.brigadier.exceptions.CommandSyntaxException {
             ResourceLocation element = net.minecraft.commands.arguments.ResourceLocationArgument.getId(context, "element");
+            java.util.Optional<com.efkrdnz.magical.forge.ModifierStack> mods = benchRunes(context);
+            if (mods.isEmpty()) {
+                source.sendFailure(Component.literal("Forge bench: runes are " + java.util.Arrays.toString(com.efkrdnz.magical.forge.ForgeModifierKind.values()).toLowerCase(java.util.Locale.ROOT)));
+                return 0;
+            }
             return withPlayer(source, player -> {
-                int spawned = com.efkrdnz.magical.forge.ForgeStrikeBench.bench(player, element, archetype, grade, heavy);
+                int spawned = com.efkrdnz.magical.forge.ForgeStrikeBench.bench(player, element, archetype, grade, heavy, mods.get());
                 player.displayClientMessage(Component.literal(spawned == 0
                         ? "Forge bench: no such element " + element
                         : "Forge bench: " + spawned + " forms in " + element.getPath()), false);
@@ -1061,8 +1084,13 @@ public final class MagicalCommands {
                 throws com.mojang.brigadier.exceptions.CommandSyntaxException {
             ResourceLocation form = net.minecraft.commands.arguments.ResourceLocationArgument.getId(context, "form");
             ResourceLocation element = net.minecraft.commands.arguments.ResourceLocationArgument.getId(context, "element");
+            java.util.Optional<com.efkrdnz.magical.forge.ModifierStack> mods = benchRunes(context);
+            if (mods.isEmpty()) {
+                source.sendFailure(Component.literal("Forge strike: runes are " + java.util.Arrays.toString(com.efkrdnz.magical.forge.ForgeModifierKind.values()).toLowerCase(java.util.Locale.ROOT)));
+                return 0;
+            }
             return withPlayer(source, player -> {
-                boolean spawned = com.efkrdnz.magical.forge.ForgeStrikeBench.one(player, form, element, archetype, grade, heavy);
+                boolean spawned = com.efkrdnz.magical.forge.ForgeStrikeBench.one(player, form, element, archetype, grade, heavy, mods.get());
                 if (!spawned) {
                     player.displayClientMessage(Component.literal("Forge strike: no such form or element."), false);
                 }

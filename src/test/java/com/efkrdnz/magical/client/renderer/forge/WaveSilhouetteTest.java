@@ -20,8 +20,11 @@ import org.junit.jupiter.api.Test;
  */
 class WaveSilhouetteTest {
 
-    /** Light, heavy, and a couple of tempered weapons either side of them. */
-    private static final float[] HALF_WIDTHS = {1.0f, 1.4f, 1.82f, 2.4f};
+    /**
+     * Light, heavy, a couple of tempered weapons either side of them, and the widest a heavy wave
+     * with three copies of REACH makes: REACH widens a wave, and there is no ceiling on it.
+     */
+    private static final float[] HALF_WIDTHS = {1.0f, 1.4f, 1.82f, 2.4f, 3.4f, 4.4f};
     private static final float REACH = 12.0f;
     private static final float EPSILON = 1.0E-4f;
     private static final int STEPS = 40;
@@ -84,9 +87,11 @@ class WaveSilhouetteTest {
         // above the flight line as below, as much ahead as behind.
         for (float halfWidth : HALF_WIDTHS) {
             float[] box = bounds(WaveGeometry.blade(halfWidth, 1.0f));
-            assertEquals(0.0f, box[2] + box[3], EPSILON, "half-width " + halfWidth + " hangs above or below");
-            assertEquals(0.0f, box[4] + box[5], EPSILON, "half-width " + halfWidth + " stands ahead or behind");
-            assertEquals(0.0f, box[0] + box[1], EPSILON, "half-width " + halfWidth + " hangs to one side");
+            // float error grows with the blade, so the tolerance is a fraction of its size
+            float tolerance = EPSILON * halfWidth * 10.0f;
+            assertEquals(0.0f, box[2] + box[3], tolerance, "half-width " + halfWidth + " hangs above or below");
+            assertEquals(0.0f, box[4] + box[5], tolerance, "half-width " + halfWidth + " stands ahead or behind");
+            assertEquals(0.0f, box[0] + box[1], tolerance, "half-width " + halfWidth + " hangs to one side");
         }
     }
 
@@ -101,6 +106,16 @@ class WaveSilhouetteTest {
                     + " blocks up and down but catches within " + volume.y());
             assertTrue(box[5] <= volume.z() + EPSILON, "half-width " + halfWidth + ": drawn " + box[5]
                     + " blocks along the flight but catches within " + volume.z());
+        }
+    }
+
+    @Test
+    void aWiderWaveIsALargerSlash() {
+        float last = 0.0f;
+        for (float halfWidth : HALF_WIDTHS) {
+            float[] box = bounds(WaveGeometry.blade(halfWidth, 1.0f));
+            assertTrue(box[1] > last, "half-width " + halfWidth + " draws no larger a slash than the one before");
+            last = box[1];
         }
     }
 

@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.efkrdnz.magical.forge.ForgeElementKind;
+import com.efkrdnz.magical.forge.ForgeModifierKind;
+import com.efkrdnz.magical.forge.ModifierStack;
 import com.efkrdnz.magical.forge.chain.ForgeGrade;
 import com.efkrdnz.magical.forge.visual.ForgeMatter.Emission;
 import java.util.HashSet;
@@ -128,6 +130,55 @@ class ForgeMatterTest {
                     <= ForgeMatter.swingCount(grade.ordinal(), false, false));
             assertTrue(ForgeMatter.hitCount(grade.ordinal(), true, false) <= ForgeMatter.HIT_CAP);
         }
+    }
+
+    @Test
+    void everyRuneThatIsNotShapeOrCountShedsItsOwnMatter() {
+        Set<ForgeModifierKind> none = Set.of(ForgeModifierKind.ECHO, ForgeModifierKind.REACH,
+                ForgeModifierKind.GUARD, ForgeModifierKind.CHORUS, ForgeModifierKind.BINDING);
+        Set<Emission> seen = new HashSet<>();
+        for (ForgeModifierKind rune : ForgeModifierKind.values()) {
+            Emission shed = ForgeMatter.rune(rune);
+            if (none.contains(rune)) {
+                assertTrue(shed == null, rune + " sheds matter although it shows some other way");
+            } else {
+                assertTrue(shed != null, rune + " cannot be read off a swing");
+                assertTrue(seen.add(shed), rune + " sheds exactly what another rune does");
+            }
+        }
+    }
+
+    @Test
+    void aSwingShedsEveryRuneItCarriesEvenWhenThinned() {
+        ModifierStack mods = ModifierStack.EMPTY.plus(ForgeModifierKind.LEECH).plus(ForgeModifierKind.SHATTER)
+                .plus(ForgeModifierKind.SHATTER).plus(ForgeModifierKind.HASTE);
+        for (ForgeElementKind kind : ForgeElementKind.values()) {
+            ForgeMatter.Shower shower = ForgeMatter.swing(kind, 0, false, true, mods);
+            boolean[] kept = ForgeMatter.keep(shower.dealt(), shower.emissions().size(), 2);
+            for (ForgeModifierKind rune : List.of(ForgeModifierKind.LEECH, ForgeModifierKind.SHATTER,
+                    ForgeModifierKind.HASTE)) {
+                int index = shower.emissions().indexOf(ForgeMatter.rune(rune));
+                boolean shown = false;
+                for (int i = 0; i < shower.dealt().length; i++) {
+                    shown |= shower.dealt()[i] == index && kept[i];
+                }
+                assertTrue(shown, kind + " hides its " + rune + " on a thinned echo of a crude blade");
+            }
+        }
+    }
+
+    @Test
+    void moreCopiesOfARuneShedMoreAndBindingThickensTheElement() {
+        ModifierStack one = ModifierStack.EMPTY.plus(ForgeModifierKind.LEECH);
+        ModifierStack three = one.plus(ForgeModifierKind.LEECH).plus(ForgeModifierKind.LEECH);
+        assertTrue(ForgeMatter.swing(ForgeElementKind.FIRE, 3, false, false, three).dealt().length
+                > ForgeMatter.swing(ForgeElementKind.FIRE, 3, false, false, one).dealt().length);
+        ModifierStack binding = ModifierStack.EMPTY.plus(ForgeModifierKind.BINDING).plus(ForgeModifierKind.BINDING);
+        assertTrue(ForgeMatter.swing(ForgeElementKind.FIRE, 3, false, false, binding).dealt().length
+                > ForgeMatter.swing(ForgeElementKind.FIRE, 3, false, false, ModifierStack.EMPTY).dealt().length);
+        assertEquals(ForgeMatter.swingCount(3, false, false),
+                ForgeMatter.swing(ForgeElementKind.FIRE, 3, false, false, ModifierStack.EMPTY).dealt().length,
+                "a blade with no runes throws what it always did");
     }
 
     @Test

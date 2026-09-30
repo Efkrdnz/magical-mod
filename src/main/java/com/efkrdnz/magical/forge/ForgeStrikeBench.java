@@ -34,21 +34,21 @@ public final class ForgeStrikeBench {
     /** How far apart the eight families stand in a row, in blocks. */
     private static final double BENCH_SPACING = 5.0;
 
-    /** A bench weapon carries no temper, no modifiers and no program: the form and element only. */
+    /** A bench weapon carries no temper and no program: the form, the element and whatever runes are named. */
     private static final int BENCH_QUALITY = 100;
 
     private ForgeStrikeBench() {}
 
     /** One strike of {@code formId} in {@code elementId}, aimed where the player is looking. */
     public static boolean one(ServerPlayer player, ResourceLocation formId, ResourceLocation elementId,
-            WeaponClass archetype, ForgeGrade grade, boolean heavy) {
+            WeaponClass archetype, ForgeGrade grade, boolean heavy, ModifierStack mods) {
         Optional<FormDefinition> form = ForgeForms.get(formId);
         Optional<ElementDefinition> element = ForgeElements.get(elementId);
         if (form.isEmpty() || element.isEmpty()) {
             return false;
         }
         Vec3 look = look(player);
-        spawn(player, form.get(), element.get(), archetype, grade, heavy, look, Vec3.ZERO);
+        spawn(player, form.get(), element.get(), archetype, grade, heavy, mods, look, Vec3.ZERO);
         return true;
     }
 
@@ -61,7 +61,7 @@ public final class ForgeStrikeBench {
      * @return how many were spawned
      */
     public static int bench(ServerPlayer player, ResourceLocation elementId, WeaponClass archetype,
-            ForgeGrade grade, boolean heavy) {
+            ForgeGrade grade, boolean heavy, ModifierStack mods) {
         Optional<ElementDefinition> element = ForgeElements.get(elementId);
         if (element.isEmpty()) {
             return 0;
@@ -79,22 +79,43 @@ public final class ForgeStrikeBench {
         double start = -(forms.size() - 1) * BENCH_SPACING * 0.5;
         for (int i = 0; i < forms.size(); i++) {
             Vec3 offset = right.scale(start + i * BENCH_SPACING);
-            spawn(player, forms.get(i), element.get(), archetype, grade, heavy, look, offset);
+            spawn(player, forms.get(i), element.get(), archetype, grade, heavy, mods, look, offset);
         }
         return forms.size();
     }
 
     private static void spawn(ServerPlayer player, FormDefinition form, ElementDefinition element,
-            WeaponClass archetype, ForgeGrade grade, boolean heavy, Vec3 look, Vec3 offset) {
+            WeaponClass archetype, ForgeGrade grade, boolean heavy, ModifierStack mods, Vec3 look, Vec3 offset) {
         ServerLevel level = player.serverLevel();
         ForgedWeapon weapon = new ForgedWeapon(element.id(), grade, Optional.empty(), List.of(form.id()),
                 List.of(), List.of(), BENCH_QUALITY, level.getGameTime());
-        StrikeSpec spec = ForgeStrikeMath.resolve(form.stats(), TemperStats.NONE, archetype, ModifierStack.EMPTY,
+        StrikeSpec spec = ForgeStrikeMath.resolve(form.stats(), TemperStats.NONE, archetype, mods,
                 grade, BENCH_QUALITY, (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE), heavy, 0f,
                 false, 0, element.kind());
         Vec3 origin = ForgeComboService.originFor(player, spec.family(), look, spec.reach()).add(offset);
         ForgeStrikeEntity.spawn(level, player, spec, weapon, element, form, origin, look, false,
                 StrikeLoadout.NO_PRIMARY_TARGET, archetype);
+    }
+
+    /**
+     * Rune names split on commas or spaces, a name repeated once per copy ({@code reach,reach,guard}).
+     * A copy past a rune's cap is dropped as the forge drops it.
+     *
+     * @return the stack, or empty when a name is not a rune
+     */
+    public static Optional<ModifierStack> runes(String names) {
+        ModifierStack mods = ModifierStack.EMPTY;
+        for (String name : names.trim().split("[,\s]+")) {
+            if (name.isEmpty()) {
+                continue;
+            }
+            try {
+                mods = mods.plus(ForgeModifierKind.valueOf(name.toUpperCase(java.util.Locale.ROOT)));
+            } catch (IllegalArgumentException unknown) {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(mods);
     }
 
     private static Vec3 look(ServerPlayer player) {

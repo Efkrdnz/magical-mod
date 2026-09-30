@@ -127,6 +127,20 @@ class ForgeStrikeMathTest {
     }
 
     @Test
+    void reachMakesAThrownWaveALargerSlashThanItMakesASwing() {
+        // A wave's reach is how far it flies, so the rune has to buy it width to show at all; it
+        // hits as wide as it is drawn, so the width is real rather than a picture.
+        ModifierStack twice = ModifierStack.EMPTY.plus(ForgeModifierKind.REACH).plus(ForgeModifierKind.REACH);
+        float waveGain = ForgeStrikeMath.halfWidth(WAVE, KEEN, false, twice)
+                - ForgeStrikeMath.halfWidth(WAVE, KEEN, false, ModifierStack.EMPTY);
+        float slashGain = ForgeStrikeMath.halfWidth(SLASH, KEEN, false, twice)
+                - ForgeStrikeMath.halfWidth(SLASH, KEEN, false, ModifierStack.EMPTY);
+        assertEquals(1.6f * ForgeStrikeMath.WAVE_WIDTH_PER_REACH, waveGain, DELTA);
+        assertEquals(1.6f * ForgeStrikeMath.WIDTH_PER_REACH, slashGain, DELTA);
+        assertTrue(waveGain > slashGain);
+    }
+
+    @Test
     void arcDegreesScalesWithHeavyAndCapsAtThreeSixty() {
         assertEquals(360f, ForgeStrikeMath.arcDegrees(SLAM, true), DELTA);
         assertEquals(195f, ForgeStrikeMath.arcDegrees(SLASH, true), DELTA);
