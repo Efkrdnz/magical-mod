@@ -1,0 +1,21 @@
+{
+  "replace": false,
+  "values": [
+    "magical:white_painted_planks",
+    "magical:light_gray_painted_planks",
+    "magical:gray_painted_planks",
+    "magical:black_painted_planks",
+    "magical:brown_painted_planks",
+    "magical:red_painted_planks",
+    "magical:orange_painted_planks",
+    "magical:yellow_painted_planks",
+    "magical:lime_painted_planks",
+    "magical:green_painted_planks",
+    "magical:cyan_painted_planks",
+    "magical:light_blue_painted_planks",
+    "magical:blue_painted_planks",
+    "magical:purple_painted_planks",
+    "magical:magenta_painted_planks",
+    "magical:pink_painted_planks"
+  ]
+}

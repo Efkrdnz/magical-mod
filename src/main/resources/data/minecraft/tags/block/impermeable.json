@@ -1,0 +1,21 @@
+{
+  "replace": false,
+  "values": [
+    "magical:white_crystal",
+    "magical:light_gray_crystal",
+    "magical:gray_crystal",
+    "magical:black_crystal",
+    "magical:brown_crystal",
+    "magical:red_crystal",
+    "magical:orange_crystal",
+    "magical:yellow_crystal",
+    "magical:lime_crystal",
+    "magical:green_crystal",
+    "magical:cyan_crystal",
+    "magical:light_blue_crystal",
+    "magical:blue_crystal",
+    "magical:purple_crystal",
+    "magical:magenta_crystal",
+    "magical:pink_crystal"
+  ]
+}

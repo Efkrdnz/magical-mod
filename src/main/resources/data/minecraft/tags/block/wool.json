@@ -1,0 +1,21 @@
+{
+  "replace": false,
+  "values": [
+    "magical:white_woven_cloth",
+    "magical:light_gray_woven_cloth",
+    "magical:gray_woven_cloth",
+    "magical:black_woven_cloth",
+    "magical:brown_woven_cloth",
+    "magical:red_woven_cloth",
+    "magical:orange_woven_cloth",
+    "magical:yellow_woven_cloth",
+    "magical:lime_woven_cloth",
+    "magical:green_woven_cloth",
+    "magical:cyan_woven_cloth",
+    "magical:light_blue_woven_cloth",
+    "magical:blue_woven_cloth",
+    "magical:purple_woven_cloth",
+    "magical:magenta_woven_cloth",
+    "magical:pink_woven_cloth"
+  ]
+}

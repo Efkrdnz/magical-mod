@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "magical:block/decor/black_crystal"
+  },
+  "render_type": "minecraft:translucent"
+}

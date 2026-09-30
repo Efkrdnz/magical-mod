@@ -3,6 +3,7 @@ package com.efkrdnz.magical;
 import com.efkrdnz.magical.registry.MagicalAttachments;
 import com.efkrdnz.magical.registry.MagicalBlockEntities;
 import com.efkrdnz.magical.registry.MagicalBlocks;
+import com.efkrdnz.magical.registry.MagicalDecor;
 import com.efkrdnz.magical.registry.MagicalChunkTickets;
 import com.efkrdnz.magical.registry.MagicalCommands;
 import com.efkrdnz.magical.registry.MagicalCreativeTabs;
@@ -31,6 +32,7 @@ public final class MagicalMod {
         MagicalBlocks.register(modEventBus);
         MagicalBlockEntities.register(modEventBus);
         MagicalItems.register(modEventBus);
+        MagicalDecor.register(modEventBus);
         MagicalEntities.register(modEventBus);
         MagicalMenus.register(modEventBus);
         MagicalCreativeTabs.register(modEventBus);

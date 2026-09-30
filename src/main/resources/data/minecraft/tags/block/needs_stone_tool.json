@@ -1,0 +1,21 @@
+{
+  "replace": false,
+  "values": [
+    "magical:white_arcane_plating",
+    "magical:light_gray_arcane_plating",
+    "magical:gray_arcane_plating",
+    "magical:black_arcane_plating",
+    "magical:brown_arcane_plating",
+    "magical:red_arcane_plating",
+    "magical:orange_arcane_plating",
+    "magical:yellow_arcane_plating",
+    "magical:lime_arcane_plating",
+    "magical:green_arcane_plating",
+    "magical:cyan_arcane_plating",
+    "magical:light_blue_arcane_plating",
+    "magical:blue_arcane_plating",
+    "magical:purple_arcane_plating",
+    "magical:magenta_arcane_plating",
+    "magical:pink_arcane_plating"
+  ]
+}

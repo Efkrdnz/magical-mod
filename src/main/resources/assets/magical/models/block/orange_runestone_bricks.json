@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "magical:block/decor/orange_runestone_bricks"
+  }
+}

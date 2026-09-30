@@ -36,6 +36,19 @@ public final class MagicalCreativeTabs {
                             .forEach(weapon -> output.accept(weapon.get())))
                     .build());
 
+    /**
+     * The decorative blocks, kind by kind and each kind in vanilla's dye order: 128 of them would
+     * bury BUILDING_BLOCKS, where a player looks for stone and planks.
+     */
+    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> DECOR = TABS.register("decor",
+            () -> CreativeModeTab.builder()
+                    .title(Component.translatable("itemGroup.magical.decor"))
+                    .icon(() -> new ItemStack(MagicalDecor.block(com.efkrdnz.magical.block.decor.DecorKind.CRYSTAL,
+                            net.minecraft.world.item.DyeColor.PURPLE).get()))
+                    .displayItems((parameters, output) -> MagicalDecor.items()
+                            .forEach(item -> output.accept(item.get())))
+                    .build());
+
     private MagicalCreativeTabs() {}
 
     public static void register(IEventBus modEventBus) {
